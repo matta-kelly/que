@@ -4,19 +4,19 @@
  * whether the rep has connected them; saves and removes credentials.
  * Credential values are never returned.
  *
- * The caller is the user resolved by the auth hook (src/auth.ts). Also serves
+ * The caller is the user resolved by the auth hook (src/http/auth.ts). Also serves
  * the signed-in user's profile and the user list.
  */
 
 import { Hono, type Context } from "hono";
 import { OperationFailed } from "@que/core";
-import { packages } from "./mount.js";
+import { packages } from "../mount/packages.js";
 import {
   connectedPackages,
   removeCredential,
   setCredential,
-} from "./credentials.js";
-import { users } from "./users.js";
+} from "../mount/credentials.js";
+import { users } from "../users.js";
 
 export const app = new Hono();
 

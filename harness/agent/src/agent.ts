@@ -10,8 +10,12 @@
 
 import { createAgent, tool, type StructuredTool } from "langchain";
 import { OperationFailed } from "@que/core";
-import { packages, type MountedPackage } from "./mount.js";
-import { getConnection, getServiceIdentity, hasAccess } from "./credentials.js";
+import { packages, type MountedPackage } from "./mount/packages.js";
+import {
+  getConnection,
+  getServiceIdentity,
+  hasAccess,
+} from "./mount/credentials.js";
 import { operationsInReach } from "./legibility/middleware.js";
 import { systemPrompt } from "./legibility/system-prompt.js";
 import { baseTools, toolName } from "./legibility/tools.js";

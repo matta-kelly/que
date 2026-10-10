@@ -7,9 +7,9 @@
   },
   "env": ".env",
   "http": {
-    "app": "./src/api.ts:app"
+    "app": "./src/http/api.ts:app"
   },
   "auth": {
-    "path": "./src/auth.ts:auth"
+    "path": "./src/http/auth.ts:auth"
   }
 }
