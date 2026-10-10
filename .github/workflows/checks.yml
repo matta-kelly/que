@@ -8,28 +8,115 @@ on:
     branches: [main]
 
 jobs:
-  checks:
+  # Which app a change touches. A path outside both apps can affect either, so it counts for both.
+  changes:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
+    outputs:
+      harness: ${{ steps.paths.outputs.harness }}
+      ui: ${{ steps.paths.outputs.ui }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # A pull request is checked out as its merge commit: the first parent is main.
+          fetch-depth: 2
+      - id: paths
+        run: |
+          harness=false
+          ui=false
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            paths=$(git diff --name-only HEAD^1 HEAD)
+            while read -r path; do
+              case "$path" in
+                "") ;;
+                harness/*) harness=true ;;
+                ui/*) ui=true ;;
+                *) harness=true; ui=true ;;
+              esac
+            done <<< "$paths"
+          else
+            harness=true
+            ui=true
+          fi
+          echo "harness=$harness" >> "$GITHUB_OUTPUT"
+          echo "ui=$ui" >> "$GITHUB_OUTPUT"
+
+  harness:
+    needs: [changes]
+    if: needs.changes.outputs.harness == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: harness
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Without ui/ on disk, a pass proves the harness stands alone.
+          sparse-checkout: harness
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: harness/package-lock.json
       - run: npm ci
       - name: types (agent, platform, packages)
         run: npx tsc --noEmit
-        working-directory: agent
+        working-directory: harness/agent
       - name: types (evals)
         run: npx tsc --noEmit
-        working-directory: evals
-      - name: types (ui)
-        run: npx tsc --noEmit
-        working-directory: ui
+        working-directory: harness/evals
       - name: lint
         run: npx eslint
       - name: format
         run: npx prettier --check .
       - name: unit tests
         run: npx tsx --test "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"
+
+  ui:
+    needs: [changes]
+    if: needs.changes.outputs.ui == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Without harness/ on disk, a pass proves the UI stands alone.
+          sparse-checkout: ui
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+      - name: types
+        run: npx tsc --noEmit
+      - name: lint
+        run: npx eslint
+      - name: format
+        run: npx prettier --check .
+
+  # The one name the ruleset on main requires, whichever apps ran.
+  checks:
+    needs: [changes, harness, ui]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          HARNESS: ${{ needs.harness.result }}
+          UI: ${{ needs.ui.result }}
+        run: |
+          echo "changes=$CHANGES harness=$HARNESS ui=$UI"
+          # A failed `changes` skips both apps, which must not read as a pass.
+          [ "$CHANGES" = success ] || exit 1
+          for result in "$HARNESS" "$UI"; do
+            case "$result" in
+              success | skipped) ;;
+              *) exit 1 ;;
+            esac
+          done
