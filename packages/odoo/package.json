@@ -1,0 +1,13 @@
+{
+  "name": "@que/odoo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@que/core": "*",
+    "zod": "^4.6.5"
+  }
+}

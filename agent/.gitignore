@@ -1,0 +1,3 @@
+# `langgraphjs dev` recreates this file with this entry if missing; the root
+# .gitignore covers everything else.
+.langgraph_api

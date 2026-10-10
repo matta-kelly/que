@@ -1,0 +1,17 @@
+{
+  "name": "@que/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "eval": "tsx run.ts"
+  },
+  "dependencies": {
+    "@que/identity": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "dotenv": "^17.4.2",
+    "tsx": "^4.23.13"
+  }
+}

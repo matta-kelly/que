@@ -1,0 +1,41 @@
+// Node runs in this container, so node_modules never lands in the repo folder:
+// the folder sits in a notes vault whose indexer reads every file.
+// Opens the whole repo: npm workspaces (agent, platform/*, packages/*, evals, ui) share one root node_modules.
+{
+  "name": "que",
+  "build": { "dockerfile": "Dockerfile" },
+
+  // Mount the repo at its host path, so absolute paths baked into caches (.next,
+  // tsbuildinfo) and tool output mean the same thing inside the container and out.
+  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
+  "workspaceFolder": "${localWorkspaceFolder}",
+
+  // keep-id: map your host user onto the image's `node` user (uid 1000), so files
+  // written into the repo from inside stay owned by you.
+  // network=host: the browser reaches the UI (3000) and LangGraph server (2024) on
+  // localhost, without VS Code's port forwarding.
+  "runArgs": ["--userns=keep-id:uid=1000,gid=1000", "--network=host"],
+  "remoteUser": "node",
+  "updateRemoteUserUID": false,
+
+  "mounts": [
+    // Packages live in a podman volume, not the repo folder.
+    "source=que-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    // ui pins versions that npm can't hoist (e.g. TypeScript 7), so it gets its own.
+    "source=que-ui-node-modules,target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
+    // Playwright's Chromium survives rebuilds.
+    "source=que-browsers,target=/home/node/.cache,type=volume",
+    // Next.js build cache, thousands of files: keep it out of the repo folder too.
+    "source=que-ui-next,target=${containerWorkspaceFolder}/ui/.next,type=volume"
+  ],
+
+
+  // New volumes start root-owned: hand it to `node`, then install.
+  "postCreateCommand": "sudo chown node:node node_modules ui/node_modules ui/.next /home/node/.cache && npm ci && npx -w @que/ui playwright install chromium",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint"]
+    }
+  }
+}

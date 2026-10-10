@@ -1,0 +1,33 @@
+# The checks every pull request must pass, and that main is held to.
+# The same steps as `just check`, without the dev container.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: types (agent, platform, packages)
+        run: npx tsc --noEmit
+        working-directory: agent
+      - name: types (evals)
+        run: npx tsc --noEmit
+        working-directory: evals
+      - name: types (ui)
+        run: npx tsc --noEmit
+        working-directory: ui
+      - name: lint
+        run: npx eslint
+      - name: unit tests
+        run: npx tsx --test packages/odoo/test.ts
