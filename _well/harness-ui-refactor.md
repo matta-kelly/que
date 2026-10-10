@@ -1,7 +1,7 @@
 ---
 type: spec
 description: "Separate que's harness and UI into two peer apps in one repo, each with its own dependencies and checks, so a change to one does not install, lint or check the other. Reference for what the change must do and how it is checked."
-status: design
+status: factory
 ---
 ## Need
 
