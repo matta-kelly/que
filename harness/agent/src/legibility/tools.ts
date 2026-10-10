@@ -7,7 +7,7 @@
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
 import type { ServiceIdentity } from "@que/core";
-import type { MountedPackage } from "../mount.js";
+import type { MountedPackage } from "../mount/packages.js";
 
 /** The rep's accessible packages, each with who they're logged in as there (if it can say). */
 export type Catalog = { pkg: MountedPackage; identity?: ServiceIdentity }[];

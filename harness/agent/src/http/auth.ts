@@ -12,7 +12,7 @@
 
 import { Auth, HTTPException } from "@langchain/langgraph-sdk/auth";
 import { identify } from "@que/identity";
-import { users } from "./users.js";
+import { users } from "../users.js";
 
 export const auth = new Auth()
   .authenticate(async (request: Request) => {

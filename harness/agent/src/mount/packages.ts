@@ -9,7 +9,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { validatePackage, type PackageDefinition } from "@que/core";
 
-const PACKAGES_DIR = join(import.meta.dirname, "../../packages");
+const PACKAGES_DIR = join(import.meta.dirname, "../../../packages");
 
 export type Skill = {
   id: string;
