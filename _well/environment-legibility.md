@@ -1,7 +1,7 @@
 ---
 type: spec
 description: "Make the que harness solely environment legibility: the agent starts with a system prompt that explains packages and lists the ones the rep can use, and reaches an operation by opening a package and loading it. Reference for what the change must do and how it is checked."
-status: factory
+status: review
 ---
 ## Need
 

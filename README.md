@@ -9,7 +9,7 @@ que is a generic harness. It knows nothing about any one service: everything it 
 - **Packages**: one folder per service, written against one small contract (`harness/platform/core/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `harness/packages/package.md`.
 - **Validation**: the harness checks every package when it mounts it (names, schemas, a description on every field) and stops on the first one that is wrong.
 - **Per-rep access**: a rep connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per rep, from only the packages that rep has connected.
-- **Retrieval**: what the model sees about the mounted packages is one swappable unit (`harness/agent/src/retrieval/`). Today every operation is sent as a tool on every call.
+- **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a package is and lists the ones the rep can use; it opens a package to see what is inside and loads the operations it needs (`harness/agent/src/legibility/`). The harness knows the package contract, never a specific package.
 - **Shared domain types**: Company, Address and Buyer are each defined once (`harness/packages/odoo/ontology.ts`) and every operation returns them.
 - **Evals**: real rep requests run against the live agent, each several times, scored on the tool the agent picks and the arguments it sends.
 

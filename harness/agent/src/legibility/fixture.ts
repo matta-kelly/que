@@ -16,13 +16,16 @@ export const catalog: Catalog = [
             title: "Find orders",
             description:
               "Search orders by customer name. Returns at most 20, newest first.",
-            schema: z.object({ customer: z.string().describe("Customer name") }),
+            schema: z.object({
+              customer: z.string().describe("Customer name"),
+            }),
             run: async () => [],
           },
           {
             name: "getOrder",
             title: "Get order",
-            description: "One order with its lines. Use findOrders for a search.",
+            description:
+              "One order with its lines. Use findOrders for a search.",
             schema: z.object({ id: z.number().describe("Order id") }),
             run: async () => ({}),
           },

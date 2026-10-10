@@ -29,7 +29,10 @@ test("read_skill is left out when no package has a skill", () => {
 
 test("open_package lists each operation and skill with one line, and no arguments", async () => {
   const text = await call("open_package", { package: "shop" });
-  assert.match(text, /findOrders: Find orders\. Search orders by customer name\./);
+  assert.match(
+    text,
+    /findOrders: Find orders\. Search orders by customer name\./,
+  );
   assert.match(text, /getOrder: Get order\. One order with its lines\./);
   assert.match(text, /shop\/refunds: Refunds\. How to refund an order\./);
   assert.doesNotMatch(text, /Returns at most 20/);
@@ -61,5 +64,8 @@ test("load_operation names the operations that exist when asked for one that doe
 });
 
 test("read_skill returns the skill's text", async () => {
-  assert.equal(await call("read_skill", { id: "shop/refunds" }), "Refund steps.");
+  assert.equal(
+    await call("read_skill", { id: "shop/refunds" }),
+    "Refund steps.",
+  );
 });

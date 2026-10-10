@@ -9,11 +9,18 @@
 
 import { mkdirSync, appendFileSync } from "node:fs";
 import { config } from "dotenv";
+import {
+  LOAD_OPERATION,
+  OPEN_PACKAGE,
+  READ_SKILL,
+} from "../agent/src/legibility/tools.ts";
 import { CASES, type Case, type Sample } from "./cases.ts";
 config({
   path: new URL("../agent/.env", import.meta.url).pathname,
   quiet: true,
 });
+
+const NAVIGATION = [OPEN_PACKAGE, LOAD_OPERATION, READ_SKILL];
 
 // Imported after .env is loaded: the agent reads its config at import.
 const { buildAgent } = await import("../agent/src/agent.ts");
@@ -98,7 +105,8 @@ async function attempt(c: Case) {
     }
     pass =
       c.expect.tool === null
-        ? calls.length === 0
+        ? // Looking around is not acting: only an operation counts as a tool used.
+          calls.every((call) => NAVIGATION.includes(call.name))
         : calls.some(
             (call) =>
               call.name === c.expect.tool &&

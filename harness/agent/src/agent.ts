@@ -2,26 +2,24 @@
  * LangChain Agent Graph
  *
  * Chat factory: buildAgent(rep) assembles an agent for one rep from the
- * packages they have access to: their ops as tools, plus what capability
- * retrieval (src/retrieval) adds to the prompt and tools. Packages the rep
- * can't use are never loaded. The rep is fixed when the agent is built, so
- * every tool call runs as them.
+ * packages they have access to. The agent starts with the system prompt and
+ * base tools from src/legibility; an operation is sent to the model only once
+ * the chat has loaded it. Packages the rep can't use are never loaded. The rep
+ * is fixed when the agent is built, so every tool call runs as them.
  */
 
 import { createAgent, tool, type StructuredTool } from "langchain";
 import { OperationFailed } from "@que/core";
-import { SYSTEM_PROMPT } from "./prompts.js";
 import { packages, type MountedPackage } from "./mount.js";
 import { getConnection, getServiceIdentity, hasAccess } from "./credentials.js";
-import { eager } from "./retrieval/eager.js";
+import { operationsInReach } from "./legibility/middleware.js";
+import { systemPrompt } from "./legibility/system-prompt.js";
+import { baseTools, toolName } from "./legibility/tools.js";
 import { users } from "./users.js";
 
 const MODEL =
   process.env.MODEL ??
   "fireworks:accounts/fireworks/models/deepseek-v4p1-flash";
-
-// Model APIs only allow [a-zA-Z0-9_-] in tool names (validatePackage enforces it).
-const toolName = (pkg: string, op: string) => `${pkg}_${op}`;
 
 function opTools(
   { definition: pkg }: MountedPackage,
@@ -64,18 +62,16 @@ export async function buildAgent(rep: string) {
       })),
     ),
   ]);
-  const you = user
-    ? `## You\n\nYou're assisting ${user.name} (${user.email}).`
-    : "";
-  const retrieval = eager(catalog);
+  const base = baseTools(catalog);
 
   return createAgent({
     // "provider:model" format, set via MODEL in .env
     model: MODEL,
-    tools: [...available.flatMap((p) => opTools(p, rep)), ...retrieval.tools],
-    systemPrompt: [SYSTEM_PROMPT, you, retrieval.prompt]
-      .filter(Boolean)
-      .join("\n\n"),
+    // Every operation is registered so it can run; the middleware sends the
+    // model only the base tools and the operations the chat has loaded.
+    tools: [...base, ...available.flatMap((p) => opTools(p, rep))],
+    middleware: [operationsInReach(base.map((t) => t.name))],
+    systemPrompt: systemPrompt({ user, catalog }),
   });
 }
 

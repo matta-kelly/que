@@ -28,7 +28,10 @@ test("a failed load_operation loads nothing", () => {
 });
 
 test("a load_operation with no result yet loads nothing", () => {
-  assert.deepEqual([...loadedOperations([load("1", "shop", "findOrders")])], []);
+  assert.deepEqual(
+    [...loadedOperations([load("1", "shop", "findOrders")])],
+    [],
+  );
 });
 
 test("operations stay loaded for the rest of the chat", () => {
@@ -39,16 +42,19 @@ test("operations stay loaded for the rest of the chat", () => {
     load("2", "shop", "getOrder"),
     result("2", "Loaded."),
   ];
-  assert.deepEqual(
-    [...loadedOperations(messages)].sort(),
-    ["shop_findOrders", "shop_getOrder"],
-  );
+  assert.deepEqual([...loadedOperations(messages)].sort(), [
+    "shop_findOrders",
+    "shop_getOrder",
+  ]);
 });
 
 test("the tools sent are the base tools plus the loaded operations", () => {
-  const all = ["open_package", "load_operation", "shop_findOrders", "shop_getOrder"].map(
-    (name) => ({ name }),
-  );
+  const all = [
+    "open_package",
+    "load_operation",
+    "shop_findOrders",
+    "shop_getOrder",
+  ].map((name) => ({ name }));
   const sent = toolsInReach(
     all,
     ["open_package", "load_operation"],
