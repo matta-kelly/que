@@ -4,7 +4,6 @@
   "type": "module",
   "workspaces": [
     "agent",
-    "ui",
     "evals",
     "platform/*",
     "packages/*"
@@ -12,13 +11,11 @@
   "scripts": {
     "start": "npm start -w agent",
     "server": "npm run server -w agent",
-    "ui": "npm run dev -w @que/ui",
     "eval": "npm run eval -w @que/evals"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "10.10.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-sonarjs": "4.2.2",
     "globals": "^17.11.0",
     "jiti": "^2.7.0",

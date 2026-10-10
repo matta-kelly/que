@@ -22,8 +22,8 @@ up:
         podman start "$c" >/dev/null
     fi
     running() { podman exec "$c" pgrep -f "$1" >/dev/null; }
-    running "langgraphjs dev" || podman exec -d -u node -w "{{root}}" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
-    running "next dev" || podman exec -d -u node -w "{{root}}" "$c" bash -c 'npm run ui > /tmp/ui.log 2>&1' >/dev/null
+    running "langgraphjs dev" || podman exec -d -u node -w "{{root}}/harness" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+    running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
     echo "Starting…"
     for _ in $(seq 1 60); do
         curl -s -m 2 localhost:2024/ok >/dev/null && curl -s -m 30 -o /dev/null localhost:3000 && break
@@ -45,19 +45,22 @@ down:
 logs: _require-up
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log
 
-# Typecheck, lint, check the format, and run the unit tests (agent, platform, packages, evals, UI); needs only the dev container running
+# Typecheck, lint, check the format, and run the unit tests, for the harness then the UI; needs only the dev container running
 check: _require-container
-    podman exec -u node -w "{{root}}/agent" "$(just _container)" npx tsc --noEmit
-    podman exec -u node -w "{{root}}/evals" "$(just _container)" npx tsc --noEmit
+    podman exec -u node -w "{{root}}/harness/agent" "$(just _container)" npx tsc --noEmit
+    podman exec -u node -w "{{root}}/harness/evals" "$(just _container)" npx tsc --noEmit
+    podman exec -u node -w "{{root}}/harness" "$(just _container)" npx eslint
+    podman exec -u node -w "{{root}}/harness" "$(just _container)" npx prettier --check .
+    podman exec -u node -w "{{root}}/harness" "$(just _container)" npx tsx --test --test-reporter=dot "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx tsc --noEmit
-    podman exec -u node -w "{{root}}" "$(just _container)" npx eslint
-    podman exec -u node -w "{{root}}" "$(just _container)" npx prettier --check .
-    podman exec -u node -w "{{root}}" "$(just _container)" npx tsx --test --test-reporter=dot "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"
+    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx eslint
+    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx prettier --check .
     @echo "check passed"
 
-# Format every file with Prettier
+# Format every file in both apps with Prettier
 format: _require-container
-    podman exec -u node -w "{{root}}" "$(just _container)" npx prettier --write .
+    podman exec -u node -w "{{root}}/harness" "$(just _container)" npx prettier --write .
+    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx prettier --write .
 
 # Run the end to end tests in a browser (needs `just up`, and Odoo connected for some)
 test: _require-up
@@ -65,7 +68,7 @@ test: _require-up
 
 # Run the evals against the agent, each case `runs` times (needs `just up` and Odoo connected)
 eval runs="3": _require-up
-    podman exec -u node -w "{{root}}" "$(just _container)" npm run eval -- {{runs}}
+    podman exec -u node -w "{{root}}/harness" "$(just _container)" npm run eval -- {{runs}}
 
 # The dev container for this repo, found by its dev-container label
 _container:
