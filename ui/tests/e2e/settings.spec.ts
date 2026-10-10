@@ -9,7 +9,8 @@ test("settings: home tiles and search into sections", async ({ page }) => {
   const dialog = page.getByRole("dialog");
   const search = dialog.getByRole("searchbox", { name: "Search settings" });
   await expect(search).toBeFocused();
-  for (const id of ["account", "connections", "users"]) await expect(dialog.getByTestId(`settings-tile-${id}`)).toBeVisible();
+  for (const id of ["account", "connections", "users"])
+    await expect(dialog.getByTestId(`settings-tile-${id}`)).toBeVisible();
 
   await search.fill("odoo");
   await expect(dialog.getByTestId("settings-tile-account")).toHaveCount(0);
@@ -17,11 +18,15 @@ test("settings: home tiles and search into sections", async ({ page }) => {
   await expect(dialog.getByTestId("connection-odoo")).toBeVisible();
 
   await dialog.getByRole("button", { name: "Home", exact: true }).click();
-  await dialog.getByRole("searchbox", { name: "Search settings" }).fill("dev@que.local");
+  await dialog
+    .getByRole("searchbox", { name: "Search settings" })
+    .fill("dev@que.local");
   await dialog.getByRole("button", { name: /Users · dev@que.local/ }).click();
   await expect(dialog.getByTestId("user-dev@que.local")).toBeVisible();
 
   await dialog.getByRole("button", { name: "Home", exact: true }).click();
-  await dialog.getByRole("searchbox", { name: "Search settings" }).fill("zzz-nothing");
+  await dialog
+    .getByRole("searchbox", { name: "Search settings" })
+    .fill("zzz-nothing");
   await expect(dialog.getByText(/No settings match/)).toBeVisible();
 });

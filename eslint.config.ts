@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import sonarjs from "eslint-plugin-sonarjs";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 // One lint setup for the whole repo: agent, platform, packages, evals and ui.
@@ -21,6 +22,12 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
   tseslint.configs.recommended,
+  // Code that is not used is deleted, not commented out: git keeps the history.
+  {
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
+    plugins: { sonarjs },
+    rules: { "sonarjs/no-commented-code": "error" },
+  },
   // The UI runs in the browser and is React.
   {
     files: ["ui/**/*.{ts,tsx}"],

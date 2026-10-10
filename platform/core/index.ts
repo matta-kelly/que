@@ -25,9 +25,16 @@ export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = {
  * connection; self-contained packages leave both out.
  */
 /** Who a connection is logged in as, in that service (e.g. an Odoo user). */
-export type ServiceIdentity = { id: string | number; name: string; email?: string };
+export type ServiceIdentity = {
+  id: string | number;
+  name: string;
+  email?: string;
+};
 
-export type PackageDefinition<S extends z.ZodObject = z.ZodObject, Conn = unknown> = {
+export type PackageDefinition<
+  S extends z.ZodObject = z.ZodObject,
+  Conn = unknown,
+> = {
   name: string;
   title: string;
   description: string;
@@ -39,7 +46,9 @@ export type PackageDefinition<S extends z.ZodObject = z.ZodObject, Conn = unknow
   ops: Operation<Conn, any>[];
 };
 
-export function definePackage<S extends z.ZodObject, Conn>(definition: PackageDefinition<S, Conn>): PackageDefinition<S, Conn> {
+export function definePackage<S extends z.ZodObject, Conn>(
+  definition: PackageDefinition<S, Conn>,
+): PackageDefinition<S, Conn> {
   return definition;
 }
 
@@ -52,27 +61,37 @@ const NAME = /^[a-zA-Z0-9_-]{1,64}$/;
  * every problem. Types can't catch these: a package is loaded at runtime, and
  * names, titles and descriptions are what the model reads.
  */
-export function validatePackage(def: PackageDefinition | undefined): asserts def is PackageDefinition {
-  if (!def || typeof def !== "object") throw new Error("package: no definition (default export)");
+export function validatePackage(
+  def: PackageDefinition | undefined,
+): asserts def is PackageDefinition {
+  if (!def || typeof def !== "object")
+    throw new Error("package: no definition (default export)");
   const problems: string[] = [];
   const text = (value: unknown, what: string) => {
-    if (typeof value !== "string" || !value.trim()) problems.push(`${what} is missing`);
+    if (typeof value !== "string" || !value.trim())
+      problems.push(`${what} is missing`);
   };
   const pkg = def.name || "(unnamed)";
 
   text(def.name, "package name");
-  if (typeof def.name === "string" && !NAME.test(def.name)) problems.push(`package name "${def.name}" must match ${NAME}`);
+  if (typeof def.name === "string" && !NAME.test(def.name))
+    problems.push(`package name "${def.name}" must match ${NAME}`);
   text(def.title, `title of package ${pkg}`);
   text(def.description, `description of package ${pkg}`);
-  if (!Array.isArray(def.ops)) problems.push(`ops of package ${pkg} must be an array`);
+  if (!Array.isArray(def.ops))
+    problems.push(`ops of package ${pkg} must be an array`);
 
   const seen = new Set<string>();
   for (const op of Array.isArray(def.ops) ? def.ops : []) {
     const id = `${pkg}.${op.name}`;
     text(op.name, `name of an op in package ${pkg}`);
     if (typeof op.name === "string") {
-      if (!NAME.test(op.name)) problems.push(`op name "${id}" must match ${NAME}`);
-      if (`${def.name}_${op.name}`.length > 64) problems.push(`tool name "${def.name}_${op.name}" is over 64 characters`);
+      if (!NAME.test(op.name))
+        problems.push(`op name "${id}" must match ${NAME}`);
+      if (`${def.name}_${op.name}`.length > 64)
+        problems.push(
+          `tool name "${def.name}_${op.name}" is over 64 characters`,
+        );
       if (seen.has(op.name)) problems.push(`op name "${id}" is used twice`);
       seen.add(op.name);
     }
@@ -82,10 +101,16 @@ export function validatePackage(def: PackageDefinition | undefined): asserts def
       problems.push(`schema of op ${id} must be a zod object`);
       continue;
     }
-    for (const [field, schema] of Object.entries(op.schema.shape as Record<string, z.ZodType>)) {
-      if (!schema.description?.trim()) problems.push(`field ${id}.${field} has no description (add .describe())`);
+    for (const [field, schema] of Object.entries(
+      op.schema.shape as Record<string, z.ZodType>,
+    )) {
+      if (!schema.description?.trim())
+        problems.push(
+          `field ${id}.${field} has no description (add .describe())`,
+        );
     }
   }
 
-  if (problems.length) throw new Error(`package ${pkg} is invalid:\n- ${problems.join("\n- ")}`);
+  if (problems.length)
+    throw new Error(`package ${pkg} is invalid:\n- ${problems.join("\n- ")}`);
 }

@@ -19,9 +19,18 @@ export function ToolStep({
   status: { type: string };
 }) {
   return (
-    <ActivityStep icon={<Wrench />} label={toolLabel(toolName, args)} running={status.type === "running"} failed={!!isError}>
+    <ActivityStep
+      icon={<Wrench />}
+      label={toolLabel(toolName, args)}
+      running={status.type === "running"}
+      failed={!!isError}
+    >
       <pre className="font-mono whitespace-pre-wrap">{preview(args)}</pre>
-      {result !== undefined && <pre className="mt-2 font-mono whitespace-pre-wrap">{preview(result)}</pre>}
+      {result !== undefined && (
+        <pre className="mt-2 font-mono whitespace-pre-wrap">
+          {preview(result)}
+        </pre>
+      )}
     </ActivityStep>
   );
 }

@@ -14,5 +14,8 @@ export async function identify(headers: Headers): Promise<Identity | null> {
   void headers; // read once Cloudflare Access is wired in
   const email = process.env.DEV_USER_EMAIL?.trim();
   if (!email) return null;
-  return { email, name: process.env.DEV_USER_NAME?.trim() || email.split("@")[0] };
+  return {
+    email,
+    name: process.env.DEV_USER_NAME?.trim() || email.split("@")[0],
+  };
 }

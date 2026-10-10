@@ -18,11 +18,19 @@ const initials = (name: string) =>
     .map((part) => part[0]!.toUpperCase())
     .join("");
 
-export function UserAvatar({ user, className }: { user: Pick<User, "name" | "avatarUrl">; className?: string }) {
+export function UserAvatar({
+  user,
+  className,
+}: {
+  user: Pick<User, "name" | "avatarUrl">;
+  className?: string;
+}) {
   return (
     <Avatar className={cn("size-8 rounded-lg", className)}>
       {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={user.name} />}
-      <AvatarFallback className="rounded-lg text-xs">{initials(user.name)}</AvatarFallback>
+      <AvatarFallback className="rounded-lg text-xs">
+        {initials(user.name)}
+      </AvatarFallback>
     </Avatar>
   );
 }

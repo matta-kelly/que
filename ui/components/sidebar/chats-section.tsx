@@ -2,10 +2,25 @@
 
 import { useNewChat } from "@/hooks/use-new-chat";
 import { useEffect, useRef, useState } from "react";
-import { Archive, ChevronDown, MessageSquareText, Search, Trash2, X } from "lucide-react";
+import {
+  Archive,
+  ChevronDown,
+  MessageSquareText,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useAui } from "@assistant-ui/react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { SidebarGroup, SidebarGroupContent, SidebarGroupLabel } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+} from "@/components/ui/sidebar";
 import {
   ChatSelectionContext,
   ThreadListItems,
@@ -77,7 +92,13 @@ export function ChatsSection() {
   const bulk = (action: "archive" | "delete") => {
     const ids = [...(selected ?? [])];
     if (!ids.length) return;
-    if (action === "delete" && !window.confirm(`Delete ${ids.length} chat${ids.length === 1 ? "" : "s"}? This can't be undone.`)) return;
+    if (
+      action === "delete" &&
+      !window.confirm(
+        `Delete ${ids.length} chat${ids.length === 1 ? "" : "s"}? This can't be undone.`,
+      )
+    )
+      return;
     for (const id of ids) aui.threads.item({ id })[action]();
     stopSelecting();
   };
@@ -89,19 +110,45 @@ export function ChatsSection() {
   }, [selecting]);
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="group/chats group-data-[collapsible=icon]:hidden">
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="group/chats group-data-[collapsible=icon]:hidden"
+    >
       <SidebarGroup className="p-0">
         <div className="flex h-8 items-center">
           {selecting ? (
             <>
-              <span className="text-sidebar-foreground/70 flex-1 px-2 text-xs font-medium">{selection.selected.size} selected</span>
-              <button type="button" aria-label="Archive selected" title="Archive" disabled={!selection.selected.size} onClick={() => bulk("archive")} className={iconButton}>
+              <span className="text-sidebar-foreground/70 flex-1 px-2 text-xs font-medium">
+                {selection.selected.size} selected
+              </span>
+              <button
+                type="button"
+                aria-label="Archive selected"
+                title="Archive"
+                disabled={!selection.selected.size}
+                onClick={() => bulk("archive")}
+                className={iconButton}
+              >
                 <Archive className="size-4" />
               </button>
-              <button type="button" aria-label="Delete selected" title="Delete" disabled={!selection.selected.size} onClick={() => bulk("delete")} className={`${iconButton} hover:text-destructive`}>
+              <button
+                type="button"
+                aria-label="Delete selected"
+                title="Delete"
+                disabled={!selection.selected.size}
+                onClick={() => bulk("delete")}
+                className={`${iconButton} hover:text-destructive`}
+              >
                 <Trash2 className="size-4" />
               </button>
-              <button type="button" aria-label="Cancel selection" title="Cancel" onClick={stopSelecting} className={iconButton}>
+              <button
+                type="button"
+                aria-label="Cancel selection"
+                title="Cancel"
+                onClick={stopSelecting}
+                className={iconButton}
+              >
                 <X className="size-4" />
               </button>
             </>
@@ -118,7 +165,12 @@ export function ChatsSection() {
                 onKeyDown={(e) => e.key === "Escape" && closeSearch()}
                 className="placeholder:text-sidebar-foreground/50 h-7 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [&::-webkit-search-cancel-button]:hidden"
               />
-              <button type="button" aria-label="Close search" onClick={closeSearch} className={iconButton}>
+              <button
+                type="button"
+                aria-label="Close search"
+                onClick={closeSearch}
+                className={iconButton}
+              >
                 <X className="size-4" />
               </button>
             </>
@@ -126,11 +178,18 @@ export function ChatsSection() {
             <>
               {/* "Chats" opens a fresh chat; the chevron folds the list. */}
               <SidebarGroupLabel className="flex-1 gap-0 p-0">
-                <button type="button" onClick={newChat} className="hover:text-sidebar-foreground flex h-full items-center px-2">
+                <button
+                  type="button"
+                  onClick={newChat}
+                  className="hover:text-sidebar-foreground flex h-full items-center px-2"
+                >
                   <MessageSquareText className="me-2 !size-4" />
                   Chats
                 </button>
-                <CollapsibleTrigger aria-label="Toggle chats" className="hover:text-sidebar-foreground flex h-full items-center">
+                <CollapsibleTrigger
+                  aria-label="Toggle chats"
+                  className="hover:text-sidebar-foreground flex h-full items-center"
+                >
                   <ChevronDown className="transition-transform group-data-[state=closed]/chats:-rotate-90" />
                 </CollapsibleTrigger>
               </SidebarGroupLabel>

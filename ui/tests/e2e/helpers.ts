@@ -9,8 +9,11 @@ export async function openApp(page: Page, path = "/") {
 
 // The Chats section starts collapsed; expand it when a test needs the list.
 export async function openChats(page: Page) {
-  await expect(page.getByRole("button", { name: "Toggle chats" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Toggle chats" }),
+  ).toBeVisible();
   const list = page.locator('[data-slot="aui_thread-list-items"]');
-  if (!(await list.isVisible())) await page.getByRole("button", { name: "Toggle chats" }).click();
+  if (!(await list.isVisible()))
+    await page.getByRole("button", { name: "Toggle chats" }).click();
   await expect(list).toBeVisible();
 }

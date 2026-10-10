@@ -1,0 +1,10 @@
+# Vendored shadcn primitives, kept as shipped.
+ui/components/ui
+# Prose is written by hand.
+*.md
+package-lock.json
+# Build output and run state.
+.next
+.langgraph_api
+test-results
+playwright-report

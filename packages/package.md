@@ -13,7 +13,7 @@ packages/<name>/
   client.ts      ← only if it talks to a service
   ontology.ts    ← the domain types its ops return (zod schemas + row mappers), defined once
   ops/index.ts   ← exports ops[]
-  test.ts        ← node:test, no network: validatePackage + each op against a fake connection
+  index.test.ts  ← node:test, no network: validatePackage + each op against a fake connection
   skills/<skill>/SKILL.md
 ```
 

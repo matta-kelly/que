@@ -9,7 +9,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 
-
 export const metadata: Metadata = {
   title: "landl / que",
 };
@@ -23,7 +22,12 @@ export default function RootLayout({
     <RuntimeProvider>
       <html lang="en" suppressHydrationWarning>
         <body className={cn(bodyFont.className, "h-dvh")}>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
             <TooltipProvider>
               <Suspense>{children}</Suspense>
             </TooltipProvider>

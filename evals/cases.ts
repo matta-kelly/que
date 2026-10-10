@@ -14,13 +14,17 @@ export type Sample = {
 export type Case = {
   id: string;
   ask: (s: Sample) => string;
-  expect: { tool: string | null; args?: (args: Record<string, unknown>, s: Sample) => boolean };
+  expect: {
+    tool: string | null;
+    args?: (args: Record<string, unknown>, s: Sample) => boolean;
+  };
 };
 
 const lower = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : "");
 
 // "Me" resolved: by Odoo user id (preferred), or by the rep's exact name.
-const isMe = (a: Record<string, unknown>, s: Sample) => a.salespersonId === s.me.id || lower(a.salesperson) === lower(s.me.name);
+const isMe = (a: Record<string, unknown>, s: Sample) =>
+  a.salespersonId === s.me.id || lower(a.salesperson) === lower(s.me.name);
 
 export const CASES: Case[] = [
   {
@@ -31,22 +35,35 @@ export const CASES: Case[] = [
   {
     id: "company by name",
     ask: (s) => `Find the company called ${s.company.name}.`,
-    expect: { tool: "odoo_findPartners", args: (a, s) => !!a.name && lower(s.company.name).includes(lower(a.name)) },
+    expect: {
+      tool: "odoo_findPartners",
+      args: (a, s) => !!a.name && lower(s.company.name).includes(lower(a.name)),
+    },
   },
   {
     id: "companies by salesperson",
     ask: (s) => `Which companies does ${s.salesperson} handle?`,
-    expect: { tool: "odoo_findPartners", args: (a, s) => !!a.salesperson && lower(s.salesperson).includes(lower(a.salesperson)) },
+    expect: {
+      tool: "odoo_findPartners",
+      args: (a, s) =>
+        !!a.salesperson && lower(s.salesperson).includes(lower(a.salesperson)),
+    },
   },
   {
     id: "my companies",
     ask: () => "What companies in Odoo are mine?",
-    expect: { tool: "odoo_findPartners", args: (a, s) => isMe(a, s) && (a.kind ?? "company") === "company" },
+    expect: {
+      tool: "odoo_findPartners",
+      args: (a, s) => isMe(a, s) && (a.kind ?? "company") === "company",
+    },
   },
   {
     id: "my buyers",
     ask: () => "List the buyers at the companies I handle.",
-    expect: { tool: "odoo_findPartners", args: (a, s) => isMe(a, s) && a.kind === "buyer" },
+    expect: {
+      tool: "odoo_findPartners",
+      args: (a, s) => isMe(a, s) && a.kind === "buyer",
+    },
   },
   {
     id: "what can you do",

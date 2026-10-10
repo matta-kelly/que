@@ -11,11 +11,19 @@ import { validatePackage, type PackageDefinition } from "@que/core";
 
 const PACKAGES_DIR = join(import.meta.dirname, "../../packages");
 
-export type Skill = { id: string; title: string; description: string; body: string };
+export type Skill = {
+  id: string;
+  title: string;
+  description: string;
+  body: string;
+};
 export type MountedPackage = { definition: PackageDefinition; skills: Skill[] };
 
 // Minimal frontmatter: `key: value` lines between --- fences.
-function parseSkill(text: string): { meta: Record<string, string>; body: string } {
+function parseSkill(text: string): {
+  meta: Record<string, string>;
+  body: string;
+} {
   const match = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return { meta: {}, body: text };
   const meta = Object.fromEntries(
@@ -39,9 +47,13 @@ async function readSkills(dir: string, pkg: string): Promise<Skill[]> {
       .filter((e) => e.isDirectory())
       .map(async (e) => {
         const id = `${pkg}/${e.name}`;
-        const { meta, body } = parseSkill(await readFile(join(dir, "skills", e.name, "SKILL.md"), "utf8"));
+        const { meta, body } = parseSkill(
+          await readFile(join(dir, "skills", e.name, "SKILL.md"), "utf8"),
+        );
         if (!meta.title?.trim() || !meta.description?.trim()) {
-          throw new Error(`mount: skill ${id} needs a title and description in its frontmatter`);
+          throw new Error(
+            `mount: skill ${id} needs a title and description in its frontmatter`,
+          );
         }
         return { id, title: meta.title, description: meta.description, body };
       }),
@@ -49,19 +61,30 @@ async function readSkills(dir: string, pkg: string): Promise<Skill[]> {
 }
 
 async function mountPackages(): Promise<MountedPackage[]> {
-  const dirs = (await readdir(PACKAGES_DIR, { withFileTypes: true })).filter((d) => d.isDirectory());
+  const dirs = (await readdir(PACKAGES_DIR, { withFileTypes: true })).filter(
+    (d) => d.isDirectory(),
+  );
   const mounted: MountedPackage[] = [];
 
   for (const d of dirs) {
     const dir = join(PACKAGES_DIR, d.name);
-    const { name } = JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as { name: string };
-    const definition = ((await import(name)) as { default?: PackageDefinition }).default;
+    const { name } = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { name: string };
+    const definition = ((await import(name)) as { default?: PackageDefinition })
+      .default;
     try {
       validatePackage(definition);
     } catch (error) {
-      throw new Error(`mount: packages/${d.name} (${name}): ${(error as Error).message}`, { cause: error });
+      throw new Error(
+        `mount: packages/${d.name} (${name}): ${(error as Error).message}`,
+        { cause: error },
+      );
     }
-    mounted.push({ definition, skills: await readSkills(dir, definition.name) });
+    mounted.push({
+      definition,
+      skills: await readSkills(dir, definition.name),
+    });
   }
   return mounted;
 }

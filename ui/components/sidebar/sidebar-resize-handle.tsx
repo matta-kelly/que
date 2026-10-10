@@ -14,14 +14,19 @@ export function SidebarResizeHandle() {
   if (isMobile || state !== "expanded") return null;
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const wrapper = e.currentTarget.closest<HTMLElement>('[data-slot="sidebar-wrapper"]');
+    const wrapper = e.currentTarget.closest<HTMLElement>(
+      '[data-slot="sidebar-wrapper"]',
+    );
     if (!wrapper) return;
     e.preventDefault();
     let width = 0;
     wrapper.dataset.resizing = "true";
     document.body.style.cursor = "col-resize";
     const move = (ev: PointerEvent) => {
-      width = Math.min(SIDEBAR_WIDTH_MAX, Math.max(SIDEBAR_WIDTH_MIN, ev.clientX));
+      width = Math.min(
+        SIDEBAR_WIDTH_MAX,
+        Math.max(SIDEBAR_WIDTH_MIN, ev.clientX),
+      );
       wrapper.style.setProperty("--sidebar-width", `${width}px`);
     };
     const up = () => {

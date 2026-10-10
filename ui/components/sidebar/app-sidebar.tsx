@@ -23,9 +23,7 @@ import { SidebarResizeHandle } from "./sidebar-resize-handle";
 
 // App sidebar in the style of shadcn's sidebar-07: collapses to an icon rail
 // (collapsible="icon") instead of disappearing.
-export function AppSidebar({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const newChat = useNewChat();
   const pathname = usePathname();
   return (
@@ -34,11 +32,19 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             {/* The brand opens a fresh chat. */}
-            <SidebarMenuButton size="lg" onClick={newChat} aria-label="Lotus and Luna: new chat">
+            <SidebarMenuButton
+              size="lg"
+              onClick={newChat}
+              aria-label="Lotus and Luna: new chat"
+            >
               <div className="text-sidebar-foreground flex aspect-square size-8 shrink-0 items-center justify-center">
                 <Eclipse className="size-6" />
               </div>
-              <span className={`${brandFont.className} flex-1 truncate text-left text-base`}>Lotus and Luna</span>
+              <span
+                className={`${brandFont.className} flex-1 truncate text-left text-base`}
+              >
+                Lotus and Luna
+              </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -51,7 +57,11 @@ export function AppSidebar({
         <SidebarMenu className="mb-2">
           {NAV.map((item) => (
             <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton asChild tooltip={item.name} isActive={pathname === item.href}>
+              <SidebarMenuButton
+                asChild
+                tooltip={item.name}
+                isActive={pathname === item.href}
+              >
                 <Link href={item.href}>
                   <item.icon />
                   <span>{item.name}</span>

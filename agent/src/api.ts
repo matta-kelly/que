@@ -11,14 +11,20 @@
 import { Hono, type Context } from "hono";
 import { OperationFailed } from "@que/core";
 import { packages } from "./mount.js";
-import { connectedPackages, removeCredential, setCredential } from "./credentials.js";
+import {
+  connectedPackages,
+  removeCredential,
+  setCredential,
+} from "./credentials.js";
 import { users } from "./users.js";
 
 export const app = new Hono();
 
 // The signed-in user's id, set by the LangGraph auth hook.
-const repOf = (c: Context) => (c.get("auth" as never) as { user: { identity: string } }).user.identity;
-const find = (name: string) => packages.find((p) => p.definition.name === name)?.definition;
+const repOf = (c: Context) =>
+  (c.get("auth" as never) as { user: { identity: string } }).user.identity;
+const find = (name: string) =>
+  packages.find((p) => p.definition.name === name)?.definition;
 const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
@@ -30,7 +36,10 @@ app.get("/que/connections", async (c) => {
         name: pkg.name,
         title: pkg.title,
         description: pkg.description,
-        fields: Object.keys(pkg.credential!.shape).map((name) => ({ name, secret: isSecret(name) })),
+        fields: Object.keys(pkg.credential!.shape).map((name) => ({
+          name,
+          secret: isSecret(name),
+        })),
         connectedAt: connected.get(pkg.name) ?? null,
       })),
   );
@@ -42,7 +51,8 @@ app.put("/que/connections/:package", async (c) => {
   try {
     await setCredential(pkg, repOf(c), (await c.req.json()).values);
   } catch (error) {
-    if (error instanceof OperationFailed) return c.json({ error: error.message }, 400);
+    if (error instanceof OperationFailed)
+      return c.json({ error: error.message }, 400);
     throw error;
   }
   return c.json({ ok: true });
@@ -61,9 +71,16 @@ app.get("/que/me", async (c) => {
 });
 
 app.patch("/que/me", async (c) => {
-  const { name, avatarUrl } = (await c.req.json()) as { name?: string; avatarUrl?: string | null };
+  const { name, avatarUrl } = (await c.req.json()) as {
+    name?: string;
+    avatarUrl?: string | null;
+  };
   // Pictures are small data URLs made in the browser (or a plain https link).
-  if (avatarUrl && (!/^(data:image\/|https:\/\/)/.test(avatarUrl) || avatarUrl.length > 300_000)) {
+  if (
+    avatarUrl &&
+    (!/^(data:image\/|https:\/\/)/.test(avatarUrl) ||
+      avatarUrl.length > 300_000)
+  ) {
     return c.json({ error: "picture must be an image under ~300 KB" }, 400);
   }
   return c.json(await users.update(repOf(c), { name, avatarUrl }));

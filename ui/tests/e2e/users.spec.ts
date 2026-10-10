@@ -4,11 +4,15 @@ import { openApp } from "./helpers";
 // The signed-in user (the dev identity) shows at the bottom of the sidebar;
 // clicking it opens Settings; Account is where the name is editable. Settings →
 // Users lists everyone.
-test("users: sidebar shows me; editing my name updates it", async ({ page }) => {
+test("users: sidebar shows me; editing my name updates it", async ({
+  page,
+}) => {
   await openApp(page);
   const navUser = page.locator('[data-slot="nav-user"]');
   await expect(navUser).toContainText("dev@que.local");
-  const original = (await navUser.locator("span.font-medium").innerText()).trim();
+  const original = (
+    await navUser.locator("span.font-medium").innerText()
+  ).trim();
 
   await navUser.click();
   const dialog = page.getByRole("dialog");
@@ -46,10 +50,15 @@ test("users: upload and remove a profile picture", async ({ page }) => {
   await navUser.click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Account", exact: true }).click();
-  await dialog.locator('input[type="file"]').setInputFiles({ name: "me.png", mimeType: "image/png", buffer: png });
+  await dialog
+    .locator('input[type="file"]')
+    .setInputFiles({ name: "me.png", mimeType: "image/png", buffer: png });
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog.getByText("Saved")).toBeVisible();
-  await expect(navUser.locator("img")).toHaveAttribute("src", /^data:image\/webp/);
+  await expect(navUser.locator("img")).toHaveAttribute(
+    "src",
+    /^data:image\/webp/,
+  );
 
   await dialog.getByRole("button", { name: "Remove" }).click();
   await dialog.getByRole("button", { name: "Save" }).click();

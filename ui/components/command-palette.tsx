@@ -13,7 +13,16 @@ import useSWR from "swr";
 import { useAuiState } from "@assistant-ui/react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
-import { Cable, MessageSquare, Moon, Search, SquarePen, Sun, X, type LucideIcon } from "lucide-react";
+import {
+  Cable,
+  MessageSquare,
+  Moon,
+  Search,
+  SquarePen,
+  Sun,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -28,7 +37,13 @@ import { useNewChat } from "@/hooks/use-new-chat";
 import { useOpenChat } from "@/hooks/use-open-chat";
 import { fetcher, QUE_API, type Connection } from "@/lib/que-api";
 
-type Entry = { key: string; value: string; label: ReactNode; icon: LucideIcon; run: () => void };
+type Entry = {
+  key: string;
+  value: string;
+  label: ReactNode;
+  icon: LucideIcon;
+  run: () => void;
+};
 
 // "Reports" → ["reports", "report"]: what you can type before ":" for it.
 const prefixesOf = (name: string) => {
@@ -41,16 +56,32 @@ const prefixesOf = (name: string) => {
 // type before ":" to scope to it.
 const SCOPES = [
   { id: "actions", label: "Actions", prefixes: prefixesOf("Actions") },
-  ...NAV.map((n) => ({ id: n.href, label: n.name, prefixes: prefixesOf(n.name) })),
-  { id: "settings", label: "Settings", prefixes: [...prefixesOf("Settings"), ...SECTIONS.flatMap((s) => prefixesOf(s.name))] },
+  ...NAV.map((n) => ({
+    id: n.href,
+    label: n.name,
+    prefixes: prefixesOf(n.name),
+  })),
+  {
+    id: "settings",
+    label: "Settings",
+    prefixes: [
+      ...prefixesOf("Settings"),
+      ...SECTIONS.flatMap((s) => prefixesOf(s.name)),
+    ],
+  },
   { id: "chats", label: "Chats", prefixes: prefixesOf("Chats") },
 ];
 
-const scopeFromPrefix = (word: string) => SCOPES.find((s) => s.prefixes.includes(word.toLowerCase()));
+const scopeFromPrefix = (word: string) =>
+  SCOPES.find((s) => s.prefixes.includes(word.toLowerCase()));
 
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
-  return !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+  return (
+    !!el &&
+    (el.isContentEditable ||
+      ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))
+  );
 };
 
 export function CommandPalette() {
@@ -68,7 +99,13 @@ export function CommandPalette() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen((o) => !o);
-      } else if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(e.target)) {
+      } else if (
+        e.key === "/" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !isTyping(e.target)
+      ) {
         e.preventDefault();
         setOpen(true);
       }
@@ -89,7 +126,10 @@ export function CommandPalette() {
 
   // Loaded once the palette opens. If it fails, connectors just don't show up
   // in search; Settings → Connections shows the error.
-  const { data: connectors = [] } = useSWR<Connection[]>(open ? QUE_API.connections : null, fetcher);
+  const { data: connectors = [] } = useSWR<Connection[]>(
+    open ? QUE_API.connections : null,
+    fetcher,
+  );
 
   const run = (fn: () => void) => () => {
     setOpen(false);
@@ -111,26 +151,62 @@ export function CommandPalette() {
   const dark = resolvedTheme === "dark";
   const newChat = useNewChat();
   const openChat = useOpenChat();
-  const titleOf = new Map(threadItems.map((t) => [t.id, t.title || "New Chat"]));
+  const titleOf = new Map(
+    threadItems.map((t) => [t.id, t.title || "New Chat"]),
+  );
 
   const groups: Record<string, Entry[]> = {
     actions: [
-      { key: "new", value: "new chat", label: "New chat", icon: SquarePen, run: newChat },
-      { key: "theme", value: "theme dark light mode", label: `Switch to ${dark ? "light" : "dark"} theme`, icon: dark ? Sun : Moon, run: () => setTheme(dark ? "light" : "dark") },
+      {
+        key: "new",
+        value: "new chat",
+        label: "New chat",
+        icon: SquarePen,
+        run: newChat,
+      },
+      {
+        key: "theme",
+        value: "theme dark light mode",
+        label: `Switch to ${dark ? "light" : "dark"} theme`,
+        icon: dark ? Sun : Moon,
+        run: () => setTheme(dark ? "light" : "dark"),
+      },
     ],
     ...Object.fromEntries(
-      NAV.map((n) => [n.href, [{ key: n.name, value: `page ${n.name}`, label: n.name, icon: n.icon, run: () => router.push(n.href) }]]),
+      NAV.map((n) => [
+        n.href,
+        [
+          {
+            key: n.name,
+            value: `page ${n.name}`,
+            label: n.name,
+            icon: n.icon,
+            run: () => router.push(n.href),
+          },
+        ],
+      ]),
     ),
     settings: [
       ...SECTIONS.map((s) => ({
-        key: s.id, value: `settings ${s.name} ${s.keywords}`, label: s.name, icon: s.icon, run: () => openSettings(s.id),
+        key: s.id,
+        value: `settings ${s.name} ${s.keywords}`,
+        label: s.name,
+        icon: s.icon,
+        run: () => openSettings(s.id),
       })),
       ...connectors.map((c) => ({
-        key: c.name, value: `connection ${c.title} ${c.name}`, label: `${c.title} connection`, icon: Cable, run: () => openSettings("connections"),
+        key: c.name,
+        value: `connection ${c.title} ${c.name}`,
+        label: `${c.title} connection`,
+        icon: Cable,
+        run: () => openSettings("connections"),
       })),
     ],
     chats: threadIds.map((id) => ({
-      key: id, value: `chat ${titleOf.get(id)} ${id}`, label: titleOf.get(id) ?? "New Chat", icon: MessageSquare,
+      key: id,
+      value: `chat ${titleOf.get(id)} ${id}`,
+      label: titleOf.get(id) ?? "New Chat",
+      icon: MessageSquare,
       run: () => openChat(id),
     })),
   };
@@ -146,7 +222,11 @@ export function CommandPalette() {
       className="sm:max-w-3xl"
     >
       <CommandInput
-        placeholder={scopeLabel ? `Search ${scopeLabel.toLowerCase()}…` : "Search everything…"}
+        placeholder={
+          scopeLabel
+            ? `Search ${scopeLabel.toLowerCase()}…`
+            : "Search everything…"
+        }
         value={search}
         onValueChange={onSearchChange}
         onKeyDown={(e) => {
@@ -159,7 +239,12 @@ export function CommandPalette() {
               className="bg-muted text-foreground flex shrink-0 items-center gap-1 rounded-md py-0.5 ps-2 pe-1 text-xs font-medium"
             >
               {scopeLabel}
-              <button type="button" aria-label="Clear scope" onClick={() => setScope(null)} className="hover:bg-background rounded p-0.5">
+              <button
+                type="button"
+                aria-label="Clear scope"
+                onClick={() => setScope(null)}
+                className="hover:bg-background rounded p-0.5"
+              >
                 <X className="size-3" />
               </button>
             </span>

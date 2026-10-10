@@ -4,7 +4,9 @@ import { openApp } from "./helpers";
 // Reports / Workflows / Skills are pages. Until they're built each is an empty
 // state whose buttons toast "currently unavailable". Picking a chat from
 // another page goes back to the chat.
-test("areas: pages from the sidebar and palette; picking a chat returns to it", async ({ page }) => {
+test("areas: pages from the sidebar and palette; picking a chat returns to it", async ({
+  page,
+}) => {
   await openApp(page);
 
   await page.getByRole("link", { name: "Reports", exact: true }).click();
@@ -12,9 +14,13 @@ test("areas: pages from the sidebar and palette; picking a chat returns to it", 
   await expect(page.getByText("No reports yet")).toBeVisible();
   await expect(page.locator('[data-slot="page-title"]')).toHaveText("Reports");
   await page.getByRole("button", { name: "New report" }).click();
-  await expect(page.getByText("New report is currently unavailable")).toBeVisible();
+  await expect(
+    page.getByText("New report is currently unavailable"),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Create report" }).click();
-  await expect(page.getByText("Create report is currently unavailable")).toBeVisible();
+  await expect(
+    page.getByText("Create report is currently unavailable"),
+  ).toBeVisible();
 
   await page.locator('[data-slot="page-title"]').click();
   await page.keyboard.press("Control+k");
@@ -41,12 +47,16 @@ test("areas: direct load of a page stays on it", async ({ page }) => {
   await page.waitForTimeout(1500);
   await expect(page).toHaveURL(/\/skills$/);
   await page.getByRole("button", { name: "Create skill" }).click();
-  await expect(page.getByText("Create skill is currently unavailable")).toBeVisible();
+  await expect(
+    page.getByText("Create skill is currently unavailable"),
+  ).toBeVisible();
 });
 
 // Clicking a chat in the sidebar from another page goes to the chat, even
 // the chat that's already the current one.
-test("areas: clicking a sidebar chat from a page opens the chat", async ({ page }) => {
+test("areas: clicking a sidebar chat from a page opens the chat", async ({
+  page,
+}) => {
   await openApp(page, "/reports");
   await expect(page.getByText("No reports yet")).toBeVisible();
   const chats = page.getByRole("button", { name: "Toggle chats" });

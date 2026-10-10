@@ -243,12 +243,17 @@ const ThreadListItem: FC = () => {
           <span
             className={cn(
               "flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border",
-              selection.selected.has(id) ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50",
+              selection.selected.has(id)
+                ? "bg-primary border-primary text-primary-foreground"
+                : "border-muted-foreground/50",
             )}
           >
             {selection.selected.has(id) && <CheckIcon className="size-3" />}
           </span>
-          <span data-slot="aui_thread-list-item-title" className="min-w-0 flex-1 truncate">
+          <span
+            data-slot="aui_thread-list-item-title"
+            className="min-w-0 flex-1 truncate"
+          >
             <ThreadListItemPrimitive.Title fallback="New Chat" />
           </span>
         </button>
@@ -289,7 +294,10 @@ const ThreadListItem: FC = () => {
         </ThreadListItemPrimitive.Trigger>
       )}
       {!selection?.selecting && (
-        <ThreadListItemMore onRename={() => setIsRenaming(true)} onSelect={() => selection?.start(id)} />
+        <ThreadListItemMore
+          onRename={() => setIsRenaming(true)}
+          onSelect={() => selection?.start(id)}
+        />
       )}
     </ThreadListItemPrimitive.Root>
   );
@@ -324,7 +332,9 @@ const ThreadListItemRename: FC<{
     onDone(restoreFocus);
     Promise.resolve()
       .then(() => aui.threadListItem.rename(next))
-      .catch(() => toast("Couldn't rename the chat", { description: "Please try again." }));
+      .catch(() =>
+        toast("Couldn't rename the chat", { description: "Please try again." }),
+      );
   };
 
   const cancel = () => {
@@ -357,7 +367,10 @@ const ThreadListItemRename: FC<{
   );
 };
 
-const ThreadListItemMore: FC<{ onRename: () => void; onSelect: () => void }> = ({ onRename, onSelect }) => {
+const ThreadListItemMore: FC<{
+  onRename: () => void;
+  onSelect: () => void;
+}> = ({ onRename, onSelect }) => {
   return (
     <ThreadListItemMorePrimitive.Root sharedFocusGroup>
       <ThreadListItemMorePrimitive.Trigger asChild>

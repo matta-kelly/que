@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { AssistantRuntimeProvider, type RemoteThreadListAdapter } from "@assistant-ui/react";
+import {
+  AssistantRuntimeProvider,
+  type RemoteThreadListAdapter,
+} from "@assistant-ui/react";
 import {
   unstable_createLangGraphStream,
   useLangGraphRuntime,
@@ -18,15 +21,24 @@ const withReasoning = <T,>(message: T): T => {
   const kw = (message as Msg)?.additional_kwargs;
   const text = kw?.reasoning_content;
   if (typeof text !== "string" || !text || kw?.reasoning) return message;
-  return { ...message, additional_kwargs: { ...kw, reasoning: { type: "reasoning", reasoning: text } } };
+  return {
+    ...message,
+    additional_kwargs: {
+      ...kw,
+      reasoning: { type: "reasoning", reasoning: text },
+    },
+  };
 };
-const mapMessages = (data: unknown) => (Array.isArray(data) ? data.map(withReasoning) : data);
-
+const mapMessages = (data: unknown) =>
+  Array.isArray(data) ? data.map(withReasoning) : data;
 
 // All requests go through the Next.js proxy at /api.
 const createClient = () =>
   new Client({
-    apiUrl: typeof window !== "undefined" ? new URL("/api", window.location.href).href : "/api",
+    apiUrl:
+      typeof window !== "undefined"
+        ? new URL("/api", window.location.href).href
+        : "/api",
   });
 
 // Thread list backed by the LangGraph server, so chats, titles, and archive
@@ -34,7 +46,11 @@ const createClient = () =>
 // proxy scopes threads to the current rep.
 type ThreadMeta = { title?: string; archived?: boolean };
 const createThreadListAdapter = (client: Client): RemoteThreadListAdapter => {
-  const toMeta = (t: { thread_id: string; metadata: unknown; updated_at: string }) => {
+  const toMeta = (t: {
+    thread_id: string;
+    metadata: unknown;
+    updated_at: string;
+  }) => {
     const meta = (t.metadata ?? {}) as ThreadMeta;
     return {
       status: meta.archived ? ("archived" as const) : ("regular" as const),
@@ -46,7 +62,11 @@ const createThreadListAdapter = (client: Client): RemoteThreadListAdapter => {
   };
   return {
     async list() {
-      const threads = await client.threads.search({ limit: 100, sortBy: "updated_at", sortOrder: "desc" });
+      const threads = await client.threads.search({
+        limit: 100,
+        sortBy: "updated_at",
+        sortOrder: "desc",
+      });
       return { threads: threads.map(toMeta) };
     },
     async initialize() {
@@ -82,22 +102,32 @@ export function RuntimeProvider({
 }>) {
   const client = useMemo(() => createClient(), []);
   const stream = useMemo(() => {
-    const inner = unstable_createLangGraphStream({ client, assistantId: ASSISTANT_ID });
+    const inner = unstable_createLangGraphStream({
+      client,
+      assistantId: ASSISTANT_ID,
+    });
     return async function* (...args: Parameters<typeof inner>) {
       for await (const event of await inner(...args)) {
-        yield event.event.startsWith("messages") ? { ...event, data: mapMessages(event.data) } : event;
+        yield event.event.startsWith("messages")
+          ? { ...event, data: mapMessages(event.data) }
+          : event;
       }
     } as typeof inner;
   }, [client]);
 
-  const threadListAdapter = useMemo(() => createThreadListAdapter(client), [client]);
+  const threadListAdapter = useMemo(
+    () => createThreadListAdapter(client),
+    [client],
+  );
 
   const runtime = useLangGraphRuntime({
     unstable_allowCancellation: true,
     stream,
     unstable_threadListAdapter: threadListAdapter,
     load: async (externalId) => {
-      const state = await client.threads.getState<{ messages: LangChainMessage[] }>(externalId);
+      const state = await client.threads.getState<{
+        messages: LangChainMessage[];
+      }>(externalId);
       return {
         messages: (state.values?.messages ?? []).map(withReasoning),
         interrupts: state.tasks[0]?.interrupts,
@@ -105,5 +135,9 @@ export function RuntimeProvider({
     },
   });
 
-  return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      {children}
+    </AssistantRuntimeProvider>
+  );
 }
