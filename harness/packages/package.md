@@ -3,7 +3,7 @@ type: component
 description: the package contract for que. Framework-free folders + plain TS; the harness loads what they declare
 status: draft
 ---
-One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. `packages/` holds only capability packages; the contract (`@que/core`) and platform services (identity, users, credentials) live in `platform/`.
+One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. `packages/` holds only capability packages; the contract (`@que/core`, in `platform/core/package-spec.ts`) and platform services (identity, users, credentials) live in `platform/`.
 
 ## Anatomy
 ```
