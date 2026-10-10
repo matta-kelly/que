@@ -12,10 +12,15 @@ test("chat: a message gets a reply", async ({ page }) => {
   page.on("requestfinished", async (req) => {
     if (!req.url().includes("/api/")) return;
     const res = await req.response();
-    requests.push(`${req.method()} ${new URL(req.url()).pathname} → ${res?.status()}`);
+    requests.push(
+      `${req.method()} ${new URL(req.url()).pathname} → ${res?.status()}`,
+    );
   });
   page.on("requestfailed", (req) => {
-    if (req.url().includes("/api/")) requests.push(`${req.method()} ${new URL(req.url()).pathname} → FAILED ${req.failure()?.errorText}`);
+    if (req.url().includes("/api/"))
+      requests.push(
+        `${req.method()} ${new URL(req.url()).pathname} → FAILED ${req.failure()?.errorText}`,
+      );
   });
 
   // Tee every streaming response (runs/stream, stream/events) in the page so we can see which events
@@ -48,7 +53,11 @@ test("chat: a message gets a reply", async ({ page }) => {
           }
         }
       })();
-      return new Response(forPage, { status: res.status, statusText: res.statusText, headers: res.headers });
+      return new Response(forPage, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: res.headers,
+      });
     };
   });
 
@@ -63,17 +72,29 @@ test("chat: a message gets a reply", async ({ page }) => {
       .poll(() => page.getByText(/pineapple/i).count(), { timeout: 60_000 })
       .toBeGreaterThanOrEqual(2);
   } finally {
-    const events = await page.evaluate(() => (window as unknown as { __events: string[] }).__events);
-    const counts = events.reduce<Record<string, number>>((acc, e) => ({ ...acc, [e]: (acc[e] ?? 0) + 1 }), {});
-    const running = await page.getByRole("button", { name: "Send message" }).isDisabled().catch(() => null);
+    const events = await page.evaluate(
+      () => (window as unknown as { __events: string[] }).__events,
+    );
+    const counts = events.reduce<Record<string, number>>(
+      (acc, e) => ({ ...acc, [e]: (acc[e] ?? 0) + 1 }),
+      {},
+    );
+    const running = await page
+      .getByRole("button", { name: "Send message" })
+      .isDisabled()
+      .catch(() => null);
     console.log(
       [
         "===== diagnostic report =====",
-        "requests to /api:", ...requests.map((r) => "  " + r),
+        "requests to /api:",
+        ...requests.map((r) => "  " + r),
         `stream events received by browser (${events.length}):`,
         ...Object.entries(counts).map(([e, n]) => `  ${e} × ${n}`),
         `send button disabled (still running?): ${running}`,
-        "browser console:", ...(consoleLog.length ? consoleLog.map((l) => "  " + l.slice(0, 300)) : ["  (none)"]),
+        "browser console:",
+        ...(consoleLog.length
+          ? consoleLog.map((l) => "  " + l.slice(0, 300))
+          : ["  (none)"]),
       ].join("\n"),
     );
   }

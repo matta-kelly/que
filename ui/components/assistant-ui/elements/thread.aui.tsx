@@ -42,12 +42,7 @@ import {
   RefreshCwIcon,
   SquareIcon,
 } from "lucide-react";
-import {
-  createContext,
-  useContext,
-  type ComponentType,
-  type FC,
-} from "react";
+import { createContext, useContext, type ComponentType, type FC } from "react";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
@@ -71,10 +66,7 @@ const messageGroupBy = groupPartByType({
 });
 
 type ThreadGroupKey =
-  | "group-chainOfThought"
-  | "group-reasoning"
-  | "group-tool"
-  | "group-task";
+  "group-chainOfThought" | "group-reasoning" | "group-tool" | "group-task";
 
 const TASK_GROUP_PATH: readonly ThreadGroupKey[] = [
   "group-chainOfThought",
@@ -353,9 +345,7 @@ const MessageError: FC = () => {
 };
 
 const AssistantMessage: FC = () => {
-  const {
-    TaskGroup: TaskGroupComponent,
-  } = useContext(ThreadComponentsContext);
+  const { TaskGroup: TaskGroupComponent } = useContext(ThreadComponentsContext);
   const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
 
   const ACTION_BAR_PT = "pt-1.5";
@@ -378,7 +368,10 @@ const AssistantMessage: FC = () => {
               // Thinking and tool calls render as one chain of steps.
               case "group-chainOfThought":
                 return (
-                  <Activity steps={part.indices.length} running={part.status.type === "running"}>
+                  <Activity
+                    steps={part.indices.length}
+                    running={part.status.type === "running"}
+                  >
                     {children}
                   </Activity>
                 );
@@ -392,7 +385,12 @@ const AssistantMessage: FC = () => {
               case "text":
                 return <MarkdownText />;
               case "reasoning":
-                return <ThinkingStep text={part.text} running={part.status.type === "running"} />;
+                return (
+                  <ThinkingStep
+                    text={part.text}
+                    running={part.status.type === "running"}
+                  />
+                );
               case "tool-call":
                 return part.toolUI ?? <ToolStep {...part} />;
               case "data":

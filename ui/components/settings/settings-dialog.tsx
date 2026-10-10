@@ -9,11 +9,19 @@
 import * as React from "react";
 import { Cable, CircleUser, House, Users } from "lucide-react";
 import { titleFont } from "@/lib/fonts";
-import { CONNECTIONS_BLURB, ConnectionsList } from "@/components/settings/connections";
+import {
+  CONNECTIONS_BLURB,
+  ConnectionsList,
+} from "@/components/settings/connections";
 import { AccountSettings } from "@/components/settings/account";
 import { SettingsHome } from "@/components/settings/home";
 import { UsersList } from "@/components/settings/users";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Sidebar,
   SidebarContent,
@@ -47,14 +55,17 @@ export const SECTIONS = [
     name: "Users",
     icon: Users,
     keywords: "people",
-    description: "Everyone with access to que. People are added automatically the first time they sign in.",
+    description:
+      "Everyone with access to que. People are added automatically the first time they sign in.",
     content: <UsersList />,
   },
 ] as const;
 
 export type SectionId = "home" | (typeof SECTIONS)[number]["id"];
 
-const SettingsContext = React.createContext<{ openSettings: (section?: SectionId) => void } | null>(null);
+const SettingsContext = React.createContext<{
+  openSettings: (section?: SectionId) => void;
+} | null>(null);
 
 export function useSettings() {
   const ctx = React.useContext(SettingsContext);
@@ -85,22 +96,33 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="h-[85dvh] w-[92vw] max-w-none overflow-hidden rounded-2xl p-0 sm:max-w-[min(1100px,92vw)]">
           <DialogTitle className="sr-only">Settings</DialogTitle>
-          <DialogDescription className="sr-only">Manage your settings.</DialogDescription>
-          <SidebarProvider className="min-h-0 items-stretch" style={{ "--sidebar-width": "11rem" } as React.CSSProperties}>
+          <DialogDescription className="sr-only">
+            Manage your settings.
+          </DialogDescription>
+          <SidebarProvider
+            className="min-h-0 items-stretch"
+            style={{ "--sidebar-width": "11rem" } as React.CSSProperties}
+          >
             <Sidebar collapsible="none" className="hidden border-r md:flex">
               <SidebarContent>
                 <SidebarGroup>
                   <SidebarGroupContent>
                     <SidebarMenu>
                       <SidebarMenuItem>
-                        <SidebarMenuButton isActive={active === "home"} onClick={() => setActive("home")}>
+                        <SidebarMenuButton
+                          isActive={active === "home"}
+                          onClick={() => setActive("home")}
+                        >
                           <House />
                           <span>Home</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
                       {SECTIONS.map((s) => (
                         <SidebarMenuItem key={s.id}>
-                          <SidebarMenuButton isActive={s.id === active} onClick={() => setActive(s.id)}>
+                          <SidebarMenuButton
+                            isActive={s.id === active}
+                            onClick={() => setActive(s.id)}
+                          >
                             <s.icon />
                             <span>{s.name}</span>
                           </SidebarMenuButton>
@@ -113,10 +135,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             </Sidebar>
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <header className="shrink-0 px-8 pt-8 pb-4">
-                <h2 className={`${titleFont.className} text-xl`}>{section.name}</h2>
-                <p className="text-muted-foreground text-sm">{section.description}</p>
+                <h2 className={`${titleFont.className} text-xl`}>
+                  {section.name}
+                </h2>
+                <p className="text-muted-foreground text-sm">
+                  {section.description}
+                </p>
               </header>
-              <div className="flex-1 overflow-y-auto px-8 pb-8">{section.content}</div>
+              <div className="flex-1 overflow-y-auto px-8 pb-8">
+                {section.content}
+              </div>
             </main>
           </SidebarProvider>
         </DialogContent>

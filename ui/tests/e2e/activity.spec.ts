@@ -8,9 +8,13 @@ import { openApp } from "./helpers";
 test("activity: steps are collapsed under a summary row", async ({ page }) => {
   await openApp(page);
   const input = page.getByPlaceholder("Send a message...");
-  await input.fill("Search Odoo for companies with 'a' in the name and tell me how many there are.");
+  await input.fill(
+    "Search Odoo for companies with 'a' in the name and tell me how many there are.",
+  );
   await input.press("Enter");
-  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
+    timeout: 60_000,
+  });
 
   const summary = page.getByRole("button", { name: "Show steps" }).last();
   await expect(summary).toContainText(/\d+ steps?/);

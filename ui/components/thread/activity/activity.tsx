@@ -5,7 +5,11 @@
 
 import { ChevronRight, ListTree, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
 
 export function Activity({
@@ -18,10 +22,18 @@ export function Activity({
   children: React.ReactNode;
 }) {
   return (
-    <Collapsible data-slot="aui_chain-of-thought" className="group/activity my-2">
+    <Collapsible
+      data-slot="aui_chain-of-thought"
+      className="group/activity my-2"
+    >
       <Marker asChild>
-        <CollapsibleTrigger className="hover:text-foreground cursor-pointer" aria-label="Show steps">
-          <MarkerIcon>{running ? <Loader2 className="animate-spin" /> : <ListTree />}</MarkerIcon>
+        <CollapsibleTrigger
+          className="hover:text-foreground cursor-pointer"
+          aria-label="Show steps"
+        >
+          <MarkerIcon>
+            {running ? <Loader2 className="animate-spin" /> : <ListTree />}
+          </MarkerIcon>
           <MarkerContent className={cn(running && "animate-pulse")}>
             {running ? "Working…" : `${steps} step${steps === 1 ? "" : "s"}`}
           </MarkerContent>
@@ -29,7 +41,9 @@ export function Activity({
         </CollapsibleTrigger>
       </Marker>
       <CollapsibleContent>
-        <div className="mt-1.5 ms-2 flex flex-col gap-1.5 border-s ps-4">{children}</div>
+        <div className="mt-1.5 ms-2 flex flex-col gap-1.5 border-s ps-4">
+          {children}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

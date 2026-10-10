@@ -13,11 +13,18 @@ export function NavUser() {
   if (!me) return null;
 
   return (
-    <SidebarMenuButton size="lg" tooltip={me.name} onClick={() => openSettings()} data-slot="nav-user">
+    <SidebarMenuButton
+      size="lg"
+      tooltip={me.name}
+      onClick={() => openSettings()}
+      data-slot="nav-user"
+    >
       <UserAvatar user={me} />
       <div className="grid flex-1 text-left text-sm leading-tight">
         <span className="truncate font-medium">{me.name}</span>
-        <span className="text-muted-foreground truncate text-xs">{me.email}</span>
+        <span className="text-muted-foreground truncate text-xs">
+          {me.email}
+        </span>
       </div>
     </SidebarMenuButton>
   );

@@ -20,11 +20,28 @@ export type Users = {
   ensure(identity: { email: string; name: string }): Promise<User>;
   get(id: string): Promise<User | undefined>;
   list(): Promise<User[]>;
-  update(id: string, changes: { name?: string; avatarUrl?: string | null }): Promise<User | undefined>;
+  update(
+    id: string,
+    changes: { name?: string; avatarUrl?: string | null },
+  ): Promise<User | undefined>;
 };
 
-type Row = { id: string; email: string; name: string; avatar_url: string | null; role: User["role"]; created_at: Date };
-const toUser = (r: Row): User => ({ id: r.id, email: r.email, name: r.name, avatarUrl: r.avatar_url, role: r.role, createdAt: r.created_at });
+type Row = {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  role: User["role"];
+  created_at: Date;
+};
+const toUser = (r: Row): User => ({
+  id: r.id,
+  email: r.email,
+  name: r.name,
+  avatarUrl: r.avatar_url,
+  role: r.role,
+  createdAt: r.created_at,
+});
 
 export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
@@ -53,12 +70,17 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
     },
     async get(id) {
       await ready;
-      const { rows } = await pool.query<Row>("SELECT * FROM users WHERE id = $1", [id]);
+      const { rows } = await pool.query<Row>(
+        "SELECT * FROM users WHERE id = $1",
+        [id],
+      );
       return rows[0] && toUser(rows[0]);
     },
     async list() {
       await ready;
-      const { rows } = await pool.query<Row>("SELECT * FROM users ORDER BY created_at");
+      const { rows } = await pool.query<Row>(
+        "SELECT * FROM users ORDER BY created_at",
+      );
       return rows.map(toUser);
     },
     async update(id, { name, avatarUrl }) {
@@ -68,7 +90,12 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
            name       = COALESCE($2, name),
            avatar_url = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END
          WHERE id = $1 RETURNING *`,
-        [id, name?.trim() || null, avatarUrl !== undefined, avatarUrl?.trim() || null],
+        [
+          id,
+          name?.trim() || null,
+          avatarUrl !== undefined,
+          avatarUrl?.trim() || null,
+        ],
       );
       return rows[0] && toUser(rows[0]);
     },

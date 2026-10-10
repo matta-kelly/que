@@ -33,7 +33,9 @@ while (true) {
   if (question === "exit") break;
 
   try {
-    const result = await agent.invoke({ messages: [...messages, { role: "user", content: question }] });
+    const result = await agent.invoke({
+      messages: [...messages, { role: "user", content: question }],
+    });
     messages = result.messages;
     console.log(`\n🤖 Agent: ${messages.at(-1)?.content}\n`);
   } catch (error) {

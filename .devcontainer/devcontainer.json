@@ -29,7 +29,6 @@
     "source=que-ui-next,target=${containerWorkspaceFolder}/ui/.next,type=volume"
   ],
 
-
   // New volumes start root-owned: hand it to `node`, then install.
   "postCreateCommand": "sudo chown node:node node_modules ui/node_modules ui/.next /home/node/.cache && npm ci && npx -w @que/ui playwright install chromium",
 

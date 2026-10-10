@@ -36,8 +36,9 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 
 - `just up` / `just down`: start or stop everything
 - `just logs`: follow the agent server and UI logs
-- `just check`: typecheck, lint and package tests. The same checks run on every pull request (`.github/workflows/checks.yml`)
-- `just test`: UI tests in a browser (needs `just up`; some need Odoo connected)
+- `just check`: typecheck, lint, format check and unit tests. The same checks run on every pull request (`.github/workflows/checks.yml`)
+- `just format`: format every file with Prettier
+- `just test`: end to end tests in a browser (`ui/tests/e2e`) (needs `just up`; some need Odoo connected)
 - `just eval`: evals against the live agent (needs `just up` and Odoo connected)
 
 Anything else runs in the container: `podman exec -u node -w "$PWD" <container> <command>`. `just _container` prints the container's name.

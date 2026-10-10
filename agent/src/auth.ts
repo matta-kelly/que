@@ -19,7 +19,13 @@ export const auth = new Auth()
     const identity = await identify(request.headers);
     if (!identity) throw new HTTPException(401, { message: "Not signed in" });
     const user = await users.ensure(identity);
-    return { identity: user.id, display_name: user.name, email: user.email, permissions: [], is_authenticated: true };
+    return {
+      identity: user.id,
+      display_name: user.name,
+      email: user.email,
+      permissions: [],
+      is_authenticated: true,
+    };
   })
   .on("*", ({ value, user }) => {
     if (value && typeof value === "object" && "metadata" in value) {

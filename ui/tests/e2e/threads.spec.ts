@@ -9,7 +9,9 @@ test("threads: rename persists across reload", async ({ page }) => {
   const input = page.getByPlaceholder("Send a message...");
   await input.fill("Say hi.");
   await input.press("Enter");
-  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
+    timeout: 60_000,
+  });
 
   await openChats(page);
   const items = page.locator('[data-slot="aui_thread-list-items"]');
@@ -25,7 +27,9 @@ test("threads: rename persists across reload", async ({ page }) => {
 
   await page.reload();
   await openChats(page);
-  await expect(page.locator('[data-slot="aui_thread-list-items"]')).toContainText(title, { timeout: 15_000 });
+  await expect(
+    page.locator('[data-slot="aui_thread-list-items"]'),
+  ).toContainText(title, { timeout: 15_000 });
 });
 
 // Make a chat with a unique title: new chat (palette), send a message, rename.
@@ -36,7 +40,9 @@ async function createChat(page: Page, title: string) {
   const input = page.getByPlaceholder("Send a message...");
   await input.fill("Say hi.");
   await input.press("Enter");
-  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
+    timeout: 60_000,
+  });
   await openChats(page);
   const items = page.locator('[data-slot="aui_thread-list-items"]');
   await items.getByRole("button", { name: "More options" }).first().click();
@@ -58,7 +64,8 @@ for (const action of ["archive", "delete"] as const) {
     await createChat(page, b);
 
     const items = page.locator('[data-slot="aui_thread-list-items"]');
-    const row = (t: string) => page.locator('[data-slot="aui_thread-list-item"]', { hasText: t });
+    const row = (t: string) =>
+      page.locator('[data-slot="aui_thread-list-item"]', { hasText: t });
     await row(a).hover();
     await row(a).getByRole("button", { name: "More options" }).click();
     await page.getByRole("menuitem", { name: "Select" }).click();
@@ -66,7 +73,11 @@ for (const action of ["archive", "delete"] as const) {
     await row(b).getByRole("checkbox").click();
     await expect(page.getByText("2 selected")).toBeVisible();
 
-    await page.getByRole("button", { name: action === "archive" ? "Archive selected" : "Delete selected" }).click();
+    await page
+      .getByRole("button", {
+        name: action === "archive" ? "Archive selected" : "Delete selected",
+      })
+      .click();
     await expect(items).not.toContainText(a);
     await expect(items).not.toContainText(b);
     await expect(page.getByText(/selected$/)).toHaveCount(0);

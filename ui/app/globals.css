@@ -41,19 +41,25 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   @keyframes collapsible-down {
-  from {
-    height: 0;
+    from {
+      height: 0;
     }
-  to {
-    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    to {
+      height: var(
+        --radix-collapsible-content-height,
+        var(--collapsible-panel-height, auto)
+      );
     }
   }
   @keyframes collapsible-up {
-  from {
-    height: var(--radix-collapsible-content-height, var(--collapsible-panel-height, auto));
+    from {
+      height: var(
+        --radix-collapsible-content-height,
+        var(--collapsible-panel-height, auto)
+      );
     }
-  to {
-    height: 0;
+    to {
+      height: 0;
     }
   }
 }
@@ -143,8 +149,13 @@
 @custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
 /* prompt-kit WaveLoader animation (from its registry's tailwind config). */
 @keyframes wave {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.6); }
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.6);
+  }
 }
 
 /* No sidebar width animation while the user drags it. */

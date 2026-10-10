@@ -5,8 +5,17 @@
 
 import { useSyncExternalStore } from "react";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import { SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH_MAX, SIDEBAR_WIDTH_MIN } from "@/components/sidebar/sidebar-resize-handle";
-import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
+import {
+  SIDEBAR_WIDTH_KEY,
+  SIDEBAR_WIDTH_MAX,
+  SIDEBAR_WIDTH_MIN,
+} from "@/components/sidebar/sidebar-resize-handle";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import { SettingsProvider } from "@/components/settings/settings-dialog";
 import { CommandPalette } from "@/components/command-palette";
 
@@ -16,7 +25,10 @@ function MobileSidebarTrigger() {
   const { isMobile, openMobile } = useSidebar();
   if (!isMobile || openMobile) return null;
   return (
-    <div data-slot="floating-sidebar-trigger" className="fixed bottom-3 left-3 z-20">
+    <div
+      data-slot="floating-sidebar-trigger"
+      className="fixed bottom-3 left-3 z-20"
+    >
       <SidebarTrigger />
     </div>
   );
@@ -26,7 +38,8 @@ function MobileSidebarTrigger() {
 function savedSidebarWidth(): React.CSSProperties | undefined {
   try {
     const w = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY));
-    if (w >= SIDEBAR_WIDTH_MIN && w <= SIDEBAR_WIDTH_MAX) return { "--sidebar-width": `${w}px` } as React.CSSProperties;
+    if (w >= SIDEBAR_WIDTH_MIN && w <= SIDEBAR_WIDTH_MAX)
+      return { "--sidebar-width": `${w}px` } as React.CSSProperties;
   } catch {
     // Storage unavailable (e.g. blocked): use the default width.
   }
@@ -39,7 +52,11 @@ const noSubscribe = () => () => {};
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Threads load in the browser only; rendering on the server first produces
   // a hydration mismatch in the thread list, so render after mount.
-  const mounted = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const mounted = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
+  );
   if (!mounted) return null;
 
   return (

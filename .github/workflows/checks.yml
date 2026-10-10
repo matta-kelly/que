@@ -29,5 +29,7 @@ jobs:
         working-directory: ui
       - name: lint
         run: npx eslint
+      - name: format
+        run: npx prettier --check .
       - name: unit tests
-        run: npx tsx --test packages/odoo/test.ts
+        run: npx tsx --test "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"

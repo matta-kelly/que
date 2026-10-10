@@ -45,16 +45,21 @@ down:
 logs: _require-up
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log
 
-# Typecheck, lint, and run the package tests (agent, platform, packages, evals, UI); needs only the dev container running
+# Typecheck, lint, check the format, and run the unit tests (agent, platform, packages, evals, UI); needs only the dev container running
 check: _require-container
     podman exec -u node -w "{{root}}/agent" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}/evals" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}" "$(just _container)" npx eslint
-    podman exec -u node -w "{{root}}" "$(just _container)" npx tsx --test --test-reporter=dot packages/odoo/test.ts
+    podman exec -u node -w "{{root}}" "$(just _container)" npx prettier --check .
+    podman exec -u node -w "{{root}}" "$(just _container)" npx tsx --test --test-reporter=dot "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"
     @echo "check passed"
 
-# Run the UI tests in a browser (needs `just up`, and Odoo connected for some)
+# Format every file with Prettier
+format: _require-container
+    podman exec -u node -w "{{root}}" "$(just _container)" npx prettier --write .
+
+# Run the end to end tests in a browser (needs `just up`, and Odoo connected for some)
 test: _require-up
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test
 
