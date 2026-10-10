@@ -1,0 +1,65 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { baseTools, toolName } from "./tools.js";
+import { catalog } from "./fixture.js";
+
+const call = (name: string, args: Record<string, unknown>) =>
+  baseTools(catalog)
+    .find((t) => t.name === name)!
+    .invoke(args) as Promise<string>;
+
+test("the base tools are open_package, load_operation and read_skill", () => {
+  assert.deepEqual(
+    baseTools(catalog).map((t) => t.name),
+    ["open_package", "load_operation", "read_skill"],
+  );
+});
+
+test("there are no base tools when the rep has no packages", () => {
+  assert.deepEqual(baseTools([]), []);
+});
+
+test("read_skill is left out when no package has a skill", () => {
+  const noSkills = [{ ...catalog[0], pkg: { ...catalog[0].pkg, skills: [] } }];
+  assert.deepEqual(
+    baseTools(noSkills).map((t) => t.name),
+    ["open_package", "load_operation"],
+  );
+});
+
+test("open_package lists each operation and skill with one line, and no arguments", async () => {
+  const text = await call("open_package", { package: "shop" });
+  assert.match(text, /findOrders: Find orders\. Search orders by customer name\./);
+  assert.match(text, /getOrder: Get order\. One order with its lines\./);
+  assert.match(text, /shop\/refunds: Refunds\. How to refund an order\./);
+  assert.doesNotMatch(text, /Returns at most 20/);
+  assert.doesNotMatch(text, /Customer name/);
+});
+
+test("open_package names the packages that exist when asked for one that does not", async () => {
+  const text = await call("open_package", { package: "nope" });
+  assert.match(text, /^Error: /);
+  assert.match(text, /shop/);
+});
+
+test("load_operation says which tool the operation became", async () => {
+  const text = await call("load_operation", {
+    package: "shop",
+    operation: "findOrders",
+  });
+  assert.doesNotMatch(text, /^Error: /);
+  assert.ok(text.includes(toolName("shop", "findOrders")));
+});
+
+test("load_operation names the operations that exist when asked for one that does not", async () => {
+  const text = await call("load_operation", {
+    package: "shop",
+    operation: "nope",
+  });
+  assert.match(text, /^Error: /);
+  assert.match(text, /findOrders/);
+});
+
+test("read_skill returns the skill's text", async () => {
+  assert.equal(await call("read_skill", { id: "shop/refunds" }), "Refund steps.");
+});
