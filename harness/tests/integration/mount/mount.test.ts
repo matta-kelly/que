@@ -101,8 +101,11 @@ test("stops, naming the deployment folder, when the definition breaks the contra
   });
 });
 
-test("a deployment is loaded with the name it declares", async () => {
-  assert.equal((await loadDeployment(deployment("two"))).name, "two");
+test("a deployment is loaded with the name it declares, not the name of its folder", async () => {
+  const loaded = await loadDeployment(
+    deployment("in-a-folder-of-another-name"),
+  );
+  assert.equal(loaded.name, "declared");
 });
 
 test("the error for a package that breaks its contract has the contract's own error as its cause", async () => {
