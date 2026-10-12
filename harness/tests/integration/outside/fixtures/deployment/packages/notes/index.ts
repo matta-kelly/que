@@ -1,0 +1,19 @@
+import * as z from "zod";
+import { definePackage, OperationFailed } from "@que/core";
+
+export default definePackage({
+  name: "notes",
+  title: "Notes",
+  description: "A package that sits in its deployment's folder, outside que.",
+  ops: [
+    {
+      name: "find",
+      title: "Find",
+      description: "Finds a note by its title.",
+      schema: z.object({ title: z.string().describe("The note's title") }),
+      run: async () => {
+        throw new OperationFailed("the notes are not reachable");
+      },
+    },
+  ],
+});
