@@ -28,7 +28,7 @@ const find = (catalog: Catalog, name: string) =>
 const noPackage = (catalog: Catalog, name: string) =>
   `Error: no package "${name}". Packages: ${catalog.map(({ pkg }) => pkg.definition.name).join(", ")}`;
 
-function openPackage(catalog: Catalog): StructuredTool {
+function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
   return tool(
     async ({ package: name }) => {
       const pkg = find(catalog, name);
@@ -37,10 +37,15 @@ function openPackage(catalog: Catalog): StructuredTool {
       return [
         `# ${definition.title} (\`${definition.name}\`)`,
         definition.description,
-        "## Operations",
-        ...definition.ops.map(
-          (op) => `- ${op.name}: ${op.title}. ${firstSentence(op.description)}`,
-        ),
+        ...(definition.ops.length
+          ? [
+              "## Operations",
+              ...definition.ops.map(
+                (op) =>
+                  `- ${op.name}: ${op.title}. ${firstSentence(op.description)}`,
+              ),
+            ]
+          : []),
         ...(skills.length
           ? [
               "## Skills",
@@ -51,9 +56,10 @@ function openPackage(catalog: Catalog): StructuredTool {
     },
     {
       name: OPEN_PACKAGE,
-      description:
-        "Open Package: lists what a package holds, its operations and skills, with one line each. " +
-        "Use it to find the operation for a task. It does not make an operation callable; load_operation does.",
+      description: hasOperations
+        ? "Open Package: lists what a package holds, its operations and skills, with one line each. " +
+          "Use it to find the operation for a task. It does not make an operation callable; load_operation does."
+        : "Open Package: lists what a package holds, with one line each.",
       schema: z.object({
         package: z.string().describe("Package name from the system prompt"),
       }),
@@ -67,6 +73,7 @@ function loadOperation(catalog: Catalog): StructuredTool {
       const pkg = find(catalog, name);
       if (!pkg) return noPackage(catalog, name);
       const ops = pkg.definition.ops.map((op) => op.name);
+      if (!ops.length) return `Error: package "${name}" has no operations.`;
       if (!ops.includes(operation))
         return `Error: no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`;
       return `Loaded. Call it as the tool \`${toolName(name, operation)}\`; its arguments are in that tool's definition.`;
@@ -104,13 +111,14 @@ function readSkill(catalog: Catalog): StructuredTool {
   );
 }
 
-/** The tools every chat starts with. None when the user has no packages. */
+/** The tools every chat starts with. None when no package holds an operation or a skill. */
 export function baseTools(catalog: Catalog): StructuredTool[] {
-  if (!catalog.length) return [];
+  const hasOperations = catalog.some(({ pkg }) => pkg.definition.ops.length);
   const hasSkills = catalog.some(({ pkg }) => pkg.skills.length);
+  if (!hasOperations && !hasSkills) return [];
   return [
-    openPackage(catalog),
-    loadOperation(catalog),
+    openPackage(catalog, hasOperations),
+    ...(hasOperations ? [loadOperation(catalog)] : []),
     ...(hasSkills ? [readSkill(catalog)] : []),
   ];
 }
