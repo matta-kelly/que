@@ -24,7 +24,7 @@ const NAVIGATION = [OPEN_PACKAGE, LOAD_OPERATION, READ_SKILL];
 
 // Imported after .env is loaded: the agent reads its config at import.
 const { buildAgent } = await import("../agent/src/agent.ts");
-const { packages } = await import("../agent/src/mount/packages.ts");
+const { packages } = await import("../agent/src/mount/mounted.ts");
 const { getConnection } = await import("../agent/src/mount/credentials.ts");
 const { users } = await import("../agent/src/users.ts");
 const { identify } = await import("@que/identity");

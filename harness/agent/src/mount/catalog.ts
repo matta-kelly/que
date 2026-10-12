@@ -5,7 +5,8 @@
 
 import type { ServiceIdentity } from "@que/core";
 import { getServiceIdentity, hasAccess } from "./credentials.js";
-import { packages, type MountedPackage } from "./packages.js";
+import { packages } from "./mounted.js";
+import type { MountedPackage } from "./packages.js";
 
 /** The user's accessible packages, each with who they're logged in as there (if it can say). */
 export type Catalog = { pkg: MountedPackage; identity?: ServiceIdentity }[];

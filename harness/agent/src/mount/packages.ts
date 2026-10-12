@@ -1,15 +1,15 @@
 /**
- * Mount: discover packages at startup. Every folder in packages/ is a
- * capability package; mount reads its definition and skills and touches no
- * credentials. A definition that breaks the contract (validatePackage in
- * @que/core) or a skill without a title and description fails mounting.
+ * Mount: read packages at startup. Each folder it is given is a capability
+ * package; mount reads its definition and skills and touches no credentials.
+ * A definition that breaks the contract (validatePackage in @que/core) or a
+ * skill without a title and description fails mounting.
  */
 
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { validatePackage, type PackageDefinition } from "@que/core";
-
-const PACKAGES_DIR = join(import.meta.dirname, "../../../packages");
 
 export type Skill = {
   id: string;
@@ -60,26 +60,24 @@ async function readSkills(dir: string, pkg: string): Promise<Skill[]> {
   );
 }
 
-async function mountPackages(): Promise<MountedPackage[]> {
-  const dirs = (await readdir(PACKAGES_DIR, { withFileTypes: true })).filter(
-    (d) => d.isDirectory(),
-  );
+export async function mountPackages(dirs: string[]): Promise<MountedPackage[]> {
   const mounted: MountedPackage[] = [];
 
-  for (const d of dirs) {
-    const dir = join(PACKAGES_DIR, d.name);
-    const { name } = JSON.parse(
-      await readFile(join(dir, "package.json"), "utf8"),
-    ) as { name: string };
-    const definition = ((await import(name)) as { default?: PackageDefinition })
-      .default;
+  for (const dir of dirs) {
+    const index = join(dir, "index.ts");
+    if (!existsSync(index))
+      throw new Error(`mount: ${dir} holds no package (no index.ts)`);
+    const definition = (
+      (await import(pathToFileURL(index).href)) as {
+        default?: PackageDefinition;
+      }
+    ).default;
     try {
       validatePackage(definition);
     } catch (error) {
-      throw new Error(
-        `mount: packages/${d.name} (${name}): ${(error as Error).message}`,
-        { cause: error },
-      );
+      throw new Error(`mount: ${dir}: ${(error as Error).message}`, {
+        cause: error,
+      });
     }
     mounted.push({
       definition,
@@ -88,6 +86,3 @@ async function mountPackages(): Promise<MountedPackage[]> {
   }
   return mounted;
 }
-
-// Mounted once, when this module first loads; shared by the agent, the API and the evals.
-export const packages = await mountPackages();
