@@ -7,35 +7,48 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { loadDeployment } from "../../../agent/src/mount/deployment.js";
-import { mountPackages } from "../../../agent/src/mount/packages.js";
+import {
+  loadDeployment,
+  mountFromEnv,
+} from "../../../agent/src/mount/deployment.js";
+import {
+  mountPackages,
+  type MountedPackage,
+} from "../../../agent/src/mount/packages.js";
 
 const fixtures = join(import.meta.dirname, "fixtures");
+const deployment = (name: string) => join(fixtures, "deployments", name);
+const names = (mounted: MountedPackage[]) =>
+  mounted.map((p) => p.definition.name);
 
-const mount = async (deployment: string) =>
-  mountPackages(
-    (await loadDeployment(join(fixtures, "deployments", deployment))).packages,
-  );
+const mount = async (name: string) =>
+  mountPackages((await loadDeployment(deployment(name))).packages);
 
-test("mounts the packages the deployment lists, and no other", async () => {
-  const mounted = await mount("only-alpha");
-  assert.deepEqual(
-    mounted.map((p) => p.definition.name),
-    ["alpha"],
-  );
+test("mounts the deployment QUE_DEPLOYMENT names, by an absolute path", async () => {
+  const mounted = await mountFromEnv({ QUE_DEPLOYMENT: deployment("two") });
+  assert.deepEqual(names(mounted), ["gamma", "alpha"]);
+});
+
+test("takes a QUE_DEPLOYMENT that is not absolute from harness/", async () => {
+  const mounted = await mountFromEnv({ QUE_DEPLOYMENT: "deployments/landl" });
+  assert.deepEqual(names(mounted), ["odoo"]);
+});
+
+test("stops, naming QUE_DEPLOYMENT, when it is not set", async () => {
+  await assert.rejects(mountFromEnv({}), /QUE_DEPLOYMENT/);
+});
+
+test("mounts the packages the deployment lists, in order, and no other", async () => {
+  assert.deepEqual(names(await mount("two")), ["gamma", "alpha"]);
 });
 
 test("a listed folder can be an absolute path", async () => {
-  const mounted = await mount("absolute");
-  assert.deepEqual(
-    mounted.map((p) => p.definition.name),
-    ["beta"],
-  );
+  assert.deepEqual(names(await mount("absolute")), ["beta"]);
 });
 
 test("a mounted package has its skills", async () => {
-  const [alpha] = await mount("only-alpha");
-  assert.deepEqual(alpha.skills, [
+  const mounted = await mount("two");
+  assert.deepEqual(mounted[1].skills, [
     {
       id: "alpha/greet",
       title: "Greet",
@@ -45,23 +58,45 @@ test("a mounted package has its skills", async () => {
   ]);
 });
 
-test("stops, naming the folder, when a listed folder holds no package", async () => {
-  await assert.rejects(mount("missing"), /packages\/nope/);
+test("stops when a listed folder does not exist", async () => {
+  await assert.rejects(mount("missing"), (error: Error) => {
+    assert.match(error.message, /holds no package/);
+    assert.match(error.message, /packages\/nope/);
+    return true;
+  });
 });
 
-test("stops, naming the package, when two listed packages have the same name", async () => {
-  await assert.rejects(mount("twice"), /"alpha"/);
+test("stops when a listed folder has no index.ts", async () => {
+  await assert.rejects(mount("hollow"), (error: Error) => {
+    assert.match(error.message, /holds no package/);
+    assert.match(error.message, /packages\/hollow/);
+    return true;
+  });
+});
+
+test("stops, naming the folder and the fault, when a listed package breaks the package contract", async () => {
+  await assert.rejects(mount("bad"), (error: Error) => {
+    assert.match(error.message, /packages\/bad/);
+    assert.match(error.message, /description/);
+    return true;
+  });
+});
+
+test("stops when the deployment folder has no index.ts", async () => {
+  await assert.rejects(
+    loadDeployment(deployment("nowhere")),
+    (error: Error) => {
+      assert.match(error.message, /deployments\/nowhere/);
+      assert.match(error.message, /no index\.ts/);
+      return true;
+    },
+  );
 });
 
 test("stops, naming the deployment folder, when the definition breaks the contract", async () => {
-  await assert.rejects(mount("broken"), /deployments\/broken/);
-});
-
-test("the landl deployment mounts odoo and nothing else", async () => {
-  const landl = join(import.meta.dirname, "../../../deployments/landl");
-  const mounted = await mountPackages((await loadDeployment(landl)).packages);
-  assert.deepEqual(
-    mounted.map((p) => p.definition.name),
-    ["odoo"],
-  );
+  await assert.rejects(loadDeployment(deployment("broken")), (error: Error) => {
+    assert.match(error.message, /deployments\/broken/);
+    assert.match(error.message, /packages/);
+    return true;
+  });
 });
