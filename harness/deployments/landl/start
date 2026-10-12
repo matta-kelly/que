@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Start que for this deployment. The deployment names que; que does not name it.
+# QUE_HOME is where que is checked out; by default, the repo this folder sits in.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+que=${QUE_HOME:-"$here/../../.."}
+exec just --justfile "$que/justfile" up "$here"
