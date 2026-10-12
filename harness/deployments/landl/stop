@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Stop que, from the deployment that started it.
+# QUE_HOME is where que is checked out; by default, the repo this folder sits in.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+que=${QUE_HOME:-"$here/../../.."}
+exec just --justfile "$que/justfile" down

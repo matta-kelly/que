@@ -39,7 +39,7 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 ## Commands
 
 - `<deployment folder>/start`: start everything, from that deployment. It runs `just up <deployment folder>`
-- `just down`: stop everything
+- `<deployment folder>/stop`: stop everything. It runs `just down`
 - `just logs`: follow the agent server and UI logs
 - `just check`: typecheck, lint, format check, and the unit and integration tests, for each app. On a pull request the same checks run only for the app that changed; a change to a root file runs both (`.github/workflows/checks.yml`)
 - `just format`: format every file in both apps with Prettier
