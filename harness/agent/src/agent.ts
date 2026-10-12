@@ -1,10 +1,10 @@
 /**
  * LangChain Agent Graph
  *
- * Chat factory: buildAgent(rep) assembles an agent for one rep from the
+ * Chat factory: buildAgent(userId) assembles an agent for one user from the
  * packages they have access to. The agent starts with the system prompt and
  * base tools from src/legibility; an operation is sent to the model only once
- * the chat has loaded it. Packages the rep can't use are never loaded. The rep
+ * the chat has loaded it. Packages the user can't use are never loaded. The user
  * is fixed when the agent is built, so every tool call runs as them.
  */
 
@@ -27,13 +27,13 @@ const MODEL =
 
 function opTools(
   { definition: pkg }: MountedPackage,
-  rep: string,
+  userId: string,
 ): StructuredTool[] {
   return pkg.ops.map((op) =>
     tool(
       async (params) => {
         try {
-          const conn = await getConnection(pkg, rep);
+          const conn = await getConnection(pkg, userId);
           return JSON.stringify(await op.run({ conn }, params));
         } catch (error) {
           if (error instanceof OperationFailed)
@@ -50,19 +50,19 @@ function opTools(
   );
 }
 
-export async function buildAgent(rep: string) {
+export async function buildAgent(userId: string) {
   const access = await Promise.all(
-    packages.map((p) => hasAccess(p.definition, rep)),
+    packages.map((p) => hasAccess(p.definition, userId)),
   );
   const available = packages.filter((_, i) => access[i]);
 
   // Who the model is assisting, in que and in each connected service.
   const [user, catalog] = await Promise.all([
-    users.get(rep).catch(() => undefined),
+    users.get(userId).catch(() => undefined),
     Promise.all(
       available.map(async (pkg) => ({
         pkg,
-        identity: await getServiceIdentity(pkg.definition, rep),
+        identity: await getServiceIdentity(pkg.definition, userId),
       })),
     ),
   ]);
@@ -73,7 +73,7 @@ export async function buildAgent(rep: string) {
     model: MODEL,
     // Every operation is registered so it can run; the middleware sends the
     // model only the base tools and the operations the chat has loaded.
-    tools: [...base, ...available.flatMap((p) => opTools(p, rep))],
+    tools: [...base, ...available.flatMap((p) => opTools(p, userId))],
     middleware: [operationsInReach(base.map((t) => t.name))],
     systemPrompt: systemPrompt({ user, catalog }),
   });

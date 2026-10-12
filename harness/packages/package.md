@@ -19,7 +19,7 @@ packages/<name>/
 
 ## Definition
 - `name`, `title`, `description`
-- `credential`: optional zod schema of what it needs. Resolved per rep; unresolved → not loaded for that rep
+- `credential`: optional zod schema of what it needs. Resolved per user; unresolved → not loaded for that user
 - `connect`, `ops`
 
 ## Operation
@@ -36,7 +36,7 @@ packages/<name>/
 ## Client (gatekeeper)
 - `connect(credential) → connection`
 - owns auth + protocol; throws `OperationFailed` for every service error
-- bounds every request with a timeout; messages say which failure it was (timeout, unreachable, HTTP status, service error) so the model can tell the rep what to do
+- bounds every request with a timeout; messages say which failure it was (timeout, unreachable, HTTP status, service error) so the model can tell the user what to do
 
 ## Results vs failures
 - nothing found = a normal result

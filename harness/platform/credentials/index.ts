@@ -1,5 +1,5 @@
 /**
- * Credential store: one encrypted record per rep and package, in Postgres.
+ * Credential store: one encrypted record per user and package, in Postgres.
  * Dumb storage only; the harness validates values against each package's
  * credential schema before saving. Values never leave the server.
  */
@@ -13,10 +13,14 @@ export type StoredCredential = {
 };
 
 export type CredentialStore = {
-  get(rep: string, pkg: string): Promise<StoredCredential | undefined>;
-  set(rep: string, pkg: string, values: Record<string, unknown>): Promise<void>;
-  remove(rep: string, pkg: string): Promise<void>;
-  list(rep: string): Promise<{ package: string; updatedAt: Date }[]>;
+  get(userId: string, pkg: string): Promise<StoredCredential | undefined>;
+  set(
+    userId: string,
+    pkg: string,
+    values: Record<string, unknown>,
+  ): Promise<void>;
+  remove(userId: string, pkg: string): Promise<void>;
+  list(userId: string): Promise<{ package: string; updatedAt: Date }[]>;
 };
 
 // The one place the encryption key comes from. Swap this to fetch it from a
@@ -70,36 +74,36 @@ export function createStore(
     )`);
 
   return {
-    async get(rep, pkg) {
+    async get(userId, pkg) {
       await ready;
       const { rows } = await pool.query(
         "SELECT secret, updated_at FROM credentials WHERE rep = $1 AND package = $2",
-        [rep, pkg],
+        [userId, pkg],
       );
       return rows[0]
         ? { values: decrypt(rows[0].secret), updatedAt: rows[0].updated_at }
         : undefined;
     },
-    async set(rep, pkg, values) {
+    async set(userId, pkg, values) {
       await ready;
       await pool.query(
         `INSERT INTO credentials (rep, package, secret) VALUES ($1, $2, $3)
          ON CONFLICT (rep, package) DO UPDATE SET secret = EXCLUDED.secret, updated_at = now()`,
-        [rep, pkg, encrypt(values)],
+        [userId, pkg, encrypt(values)],
       );
     },
-    async remove(rep, pkg) {
+    async remove(userId, pkg) {
       await ready;
       await pool.query(
         "DELETE FROM credentials WHERE rep = $1 AND package = $2",
-        [rep, pkg],
+        [userId, pkg],
       );
     },
-    async list(rep) {
+    async list(userId) {
       await ready;
       const { rows } = await pool.query(
         "SELECT package, updated_at FROM credentials WHERE rep = $1",
-        [rep],
+        [userId],
       );
       return rows.map((r) => ({ package: r.package, updatedAt: r.updated_at }));
     },

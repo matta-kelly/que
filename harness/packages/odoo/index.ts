@@ -9,7 +9,7 @@ export default definePackage({
     "Odoo ERP, source of truth for customer companies, their addresses, and their buyers (the people who order).",
   credential,
   connect,
-  // The Odoo user the rep's login belongs to (e.g. the salesperson on their customers).
+  // The Odoo user this login belongs to (e.g. the salesperson on their customers).
   async whoami(conn: OdooConnection) {
     const [user] = (await conn.call("res.users", "read", [[conn.uid]], {
       fields: ["name", "email", "login"],
