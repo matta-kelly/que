@@ -5,6 +5,7 @@
  * skill without a title and description fails mounting.
  */
 
+import "./supply.js";
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
