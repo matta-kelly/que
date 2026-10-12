@@ -1,17 +1,16 @@
 /**
- * The harness's own tools: how the agent looks inside a package and brings an
+ * The on-demand tools: how the agent looks inside a package and brings an
  * operation into reach. They read any package through the package spec
  * (@que/core) and know nothing about a specific one.
  */
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import type { Catalog } from "../mount/catalog.js";
-import { toolName } from "./operations.js";
+import type { Catalog } from "../../mount/catalog.js";
+import { toolName } from "../operations.js";
 
 export const OPEN_PACKAGE = "open_package";
 export const LOAD_OPERATION = "load_operation";
-export const READ_SKILL = "read_skill";
 
 // A description opens with what the thing is for; the rest is how to use it.
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];
@@ -88,31 +87,13 @@ function loadOperation(catalog: Catalog): StructuredTool {
   );
 }
 
-function readSkill(catalog: Catalog): StructuredTool {
-  const skills = new Map(
-    catalog.flatMap(({ pkg }) => pkg.skills.map((s) => [s.id, s] as const)),
-  );
-  return tool(
-    async ({ id }) => skills.get(id)?.body ?? `Error: no skill "${id}"`,
-    {
-      name: READ_SKILL,
-      description:
-        "Read Skill: returns the full text of a skill, by the id open_package lists it under.",
-      schema: z.object({
-        id: z.string().describe("Skill id, e.g. odoo/lookup-company"),
-      }),
-    },
-  );
-}
-
-/** The tools every chat starts with. None when no package holds an operation or a skill. */
-export function baseTools(catalog: Catalog): StructuredTool[] {
+/** The tools this config adds. None when no package holds an operation or a skill. */
+export function tools(catalog: Catalog): StructuredTool[] {
   const hasOperations = catalog.some(({ pkg }) => pkg.definition.ops.length);
   const hasSkills = catalog.some(({ pkg }) => pkg.skills.length);
   if (!hasOperations && !hasSkills) return [];
   return [
     openPackage(catalog, hasOperations),
     ...(hasOperations ? [loadOperation(catalog)] : []),
-    ...(hasSkills ? [readSkill(catalog)] : []),
   ];
 }

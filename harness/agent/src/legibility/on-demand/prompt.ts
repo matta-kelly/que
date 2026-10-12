@@ -1,16 +1,11 @@
 /**
- * The system prompt: what a package is, how to find the way around, and the
- * packages this user can use. Everything about a package comes from what the
- * package says about itself through the package spec.
+ * The on-demand environment text: what a package is, and how to open one and
+ * load an operation from it.
  */
 
-import type { Catalog } from "../mount/catalog.js";
-import { LOAD_OPERATION, OPEN_PACKAGE, READ_SKILL } from "./tools.js";
-
-const ROLE = `You are a helpful assistant.
-
-- Be concise and accurate.
-- If you're unsure about something, say so rather than guessing.`;
+import type { Catalog } from "../../mount/catalog.js";
+import { READ_SKILL } from "../skills.js";
+import { LOAD_OPERATION, OPEN_PACKAGE } from "./tools.js";
 
 const environment = (hasOperations: boolean, hasSkills: boolean) =>
   [
@@ -51,44 +46,8 @@ const environment = (hasOperations: boolean, hasSkills: boolean) =>
         ]),
   ].join("\n\n");
 
-const packages = (catalog: Catalog) =>
-  [
-    "## Packages",
-    ...catalog.map(({ pkg: { definition: pkg }, identity }) =>
-      [
-        `### ${pkg.title} (\`${pkg.name}\`)`,
-        pkg.description,
-        ...(identity
-          ? [
-              `You're connected as ${identity.name} (${pkg.title} user ${identity.id}); "me"/"mine" in ${pkg.title} means this user.`,
-            ]
-          : []),
-      ].join("\n"),
-    ),
-  ].join("\n\n");
-
-export function systemPrompt({
-  user,
-  catalog,
-}: {
-  user?: { name: string; email: string };
-  catalog: Catalog;
-}): string {
-  return [
-    ROLE,
-    ...(user
-      ? [`## You\n\nYou're assisting ${user.name} (${user.email}).`]
-      : []),
-    ...(catalog.length
-      ? [
-          environment(
-            catalog.some(({ pkg }) => pkg.definition.ops.length),
-            catalog.some(({ pkg }) => pkg.skills.length),
-          ),
-          packages(catalog),
-        ]
-      : [
-          "## Your environment\n\nThe user has no packages connected, so there is nothing you can look up or do for them yet.",
-        ]),
-  ].join("\n\n");
-}
+export const prompt = (catalog: Catalog) =>
+  environment(
+    catalog.some(({ pkg }) => pkg.definition.ops.length),
+    catalog.some(({ pkg }) => pkg.skills.length),
+  );

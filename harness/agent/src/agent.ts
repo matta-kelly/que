@@ -2,19 +2,17 @@
  * LangChain Agent Graph
  *
  * Chat factory: buildAgent(userId) assembles an agent for one user from the
- * packages they have access to. The agent starts with the system prompt and
- * base tools from src/legibility; an operation is sent to the model only once
- * the chat has loaded it. Packages the user can't use are never loaded. The user
- * is fixed when the agent is built, so every tool call runs as them.
+ * packages they have access to. How those packages are put in front of the
+ * model is one config from src/legibility. Packages the user can't use are
+ * never loaded. The user is fixed when the agent is built, so every tool call
+ * runs as them.
  */
 
 import { createAgent } from "langchain";
+import { assemble } from "./legibility/assemble.js";
+import { onDemand } from "./legibility/on-demand/index.js";
 import { catalogFor } from "./mount/catalog.js";
 import { getConnection } from "./mount/credentials.js";
-import { operationsInReach } from "./legibility/middleware.js";
-import { systemPrompt } from "./legibility/system-prompt.js";
-import { operationTools } from "./legibility/operations.js";
-import { baseTools } from "./legibility/tools.js";
 import { users } from "./users.js";
 
 const MODEL =
@@ -27,19 +25,15 @@ export async function buildAgent(userId: string) {
     users.get(userId).catch(() => undefined),
     catalogFor(userId),
   ]);
-  const base = baseTools(catalog);
 
   return createAgent({
     // "provider:model" format, set via MODEL in .env
     model: MODEL,
-    // Every operation is registered so it can run; the middleware sends the
-    // model only the base tools and the operations the chat has loaded.
-    tools: [
-      ...base,
-      ...operationTools(catalog, (pkg) => getConnection(pkg, userId)),
-    ],
-    middleware: [operationsInReach(base.map((t) => t.name))],
-    systemPrompt: systemPrompt({ user, catalog }),
+    ...assemble(onDemand, {
+      user,
+      catalog,
+      connect: (pkg) => getConnection(pkg, userId),
+    }),
   });
 }
 

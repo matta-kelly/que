@@ -12,8 +12,8 @@ import { config } from "dotenv";
 import {
   LOAD_OPERATION,
   OPEN_PACKAGE,
-  READ_SKILL,
-} from "../agent/src/legibility/tools.ts";
+} from "../agent/src/legibility/on-demand/tools.ts";
+import { READ_SKILL } from "../agent/src/legibility/skills.ts";
 import { CASES, type Case, type Sample } from "./cases.ts";
 config({
   path: new URL("../agent/.env", import.meta.url).pathname,
