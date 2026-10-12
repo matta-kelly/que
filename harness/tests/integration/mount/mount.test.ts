@@ -100,3 +100,26 @@ test("stops, naming the deployment folder, when the definition breaks the contra
     return true;
   });
 });
+
+test("a deployment is loaded with the name it declares, not the name of its folder", async () => {
+  const loaded = await loadDeployment(
+    deployment("in-a-folder-of-another-name"),
+  );
+  assert.equal(loaded.name, "declared");
+});
+
+test("the error for a package that breaks its contract has the contract's own error as its cause", async () => {
+  await assert.rejects(mount("bad"), (error: Error) => {
+    assert.ok(error.cause instanceof Error);
+    assert.match(error.cause.message, /^package bad is invalid/);
+    return true;
+  });
+});
+
+test("the error for a deployment that breaks its contract has the contract's own error as its cause", async () => {
+  await assert.rejects(loadDeployment(deployment("broken")), (error: Error) => {
+    assert.ok(error.cause instanceof Error);
+    assert.match(error.cause.message, /^deployment broken is invalid/);
+    return true;
+  });
+});
