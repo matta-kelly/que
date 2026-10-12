@@ -2,11 +2,11 @@
 
 An internal agent for Lotus and Luna. A user asks a question in chat; the agent answers it with the services that user has connected (Odoo first).
 
-que is a generic harness. It knows nothing about any one service: everything it can do comes from packages. It starts from one deployment, the folder `QUE_DEPLOYMENT` names, and mounts the packages that deployment lists.
+que is a generic harness. It knows nothing about any one service: everything it can do comes from packages. A deployment starts it, and que mounts the packages that deployment lists.
 
 ## How it works
 
-- **Deployments**: one folder per way to start que (`harness/deployments/`), written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. `just up` with no folder falls back to `QUE_DEPLOYMENT` in `harness/agent/.env`: an absolute path, or one taken from `harness/`. que stops at startup when neither names one. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`harness/packages/package.md`).
+- **Deployments**: one folder per way to start que (`harness/deployments/`), written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`harness/packages/package.md`).
 - **Packages**: one folder per service, written against one small contract (`harness/platform/core/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `harness/packages/package.md`.
 - **Validation**: the harness checks every package when it mounts it (names, schemas, a description on every field) and stops on the first one that is wrong.
 - **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the packages that user has connected.
@@ -39,7 +39,7 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 ## Commands
 
 - `<deployment folder>/start`: start everything, from that deployment. It runs `just up <deployment folder>`
-- `just up` / `just down`: start everything from the deployment `QUE_DEPLOYMENT` names, or stop everything
+- `just down`: stop everything
 - `just logs`: follow the agent server and UI logs
 - `just check`: typecheck, lint, format check, and the unit and integration tests, for each app. On a pull request the same checks run only for the app that changed; a change to a root file runs both (`.github/workflows/checks.yml`)
 - `just format`: format every file in both apps with Prettier

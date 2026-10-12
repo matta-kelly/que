@@ -1,18 +1,19 @@
 /**
- * Mount: which deployment que starts from. The environment names its folder,
- * so one build can start as any deployment.
+ * Mount: which deployment que starts from. A deployment starts que and hands
+ * it its own folder in QUE_DEPLOYMENT, so que holds no setting that picks one.
  */
 
-import { isAbsolute, resolve } from "node:path";
+import { isAbsolute } from "node:path";
 
-export function deploymentFolder(
-  env: { QUE_DEPLOYMENT?: string },
-  base: string,
-): string {
+const HOW = "A deployment's start script sets it to its own folder";
+
+export function deploymentFolder(env: { QUE_DEPLOYMENT?: string }): string {
   const named = env.QUE_DEPLOYMENT;
   if (!named?.trim())
+    throw new Error(`mount: QUE_DEPLOYMENT is not set. ${HOW}`);
+  if (!isAbsolute(named))
     throw new Error(
-      "mount: QUE_DEPLOYMENT is not set. It names the deployment folder que starts from",
+      `mount: QUE_DEPLOYMENT must be an absolute path, got "${named}". ${HOW}`,
     );
-  return isAbsolute(named) ? named : resolve(base, named);
+  return named;
 }

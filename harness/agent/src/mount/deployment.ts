@@ -12,8 +12,6 @@ import { validateDeployment } from "@que/core";
 import { deploymentFolder } from "./deployment-folder.js";
 import { mountPackages, type MountedPackage } from "./packages.js";
 
-const HARNESS = join(import.meta.dirname, "../../..");
-
 export async function loadDeployment(
   dir: string,
 ): Promise<{ name: string; packages: string[] }> {
@@ -39,7 +37,5 @@ export async function loadDeployment(
 export async function mountFromEnv(env: {
   QUE_DEPLOYMENT?: string;
 }): Promise<MountedPackage[]> {
-  return mountPackages(
-    (await loadDeployment(deploymentFolder(env, HARNESS))).packages,
-  );
+  return mountPackages((await loadDeployment(deploymentFolder(env))).packages);
 }

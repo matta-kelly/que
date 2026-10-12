@@ -29,9 +29,17 @@ test("mounts the deployment QUE_DEPLOYMENT names, by an absolute path", async ()
   assert.deepEqual(names(mounted), ["gamma", "alpha"]);
 });
 
-test("takes a QUE_DEPLOYMENT that is not absolute from harness/", async () => {
-  const mounted = await mountFromEnv({ QUE_DEPLOYMENT: "deployments/landl" });
+test("the landl deployment mounts odoo and nothing else", async () => {
+  const landl = join(import.meta.dirname, "../../../deployments/landl");
+  const mounted = await mountFromEnv({ QUE_DEPLOYMENT: landl });
   assert.deepEqual(names(mounted), ["odoo"]);
+});
+
+test("stops when QUE_DEPLOYMENT is not an absolute path", async () => {
+  await assert.rejects(
+    mountFromEnv({ QUE_DEPLOYMENT: "deployments/landl" }),
+    /absolute path/,
+  );
 });
 
 test("stops, naming QUE_DEPLOYMENT, when it is not set", async () => {

@@ -2,7 +2,8 @@
  * LangChain Agent - Entry Point
  *
  * Interactive CLI chat for testing the agent locally.
- * Run with: npm start (inside the dev container). Type "exit" or Ctrl+C to quit.
+ * Run with: QUE_DEPLOYMENT=<a deployment folder, as an absolute path> npm start
+ * (inside the dev container). Type "exit" or Ctrl+C to quit.
  * Runs as the identity from @que/identity (the dev user from .env).
  */
 

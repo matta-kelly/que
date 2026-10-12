@@ -7,22 +7,17 @@ root := justfile_directory()
 default:
     @just --list
 
-# Start the database, the dev container, the agent server and the UI.
-# With a deployment folder, que starts from it; with none, from QUE_DEPLOYMENT in harness/agent/.env.
-# A deployment starts que this way from its own `start` script.
-up deployment="":
+# Start the database, the dev container, the agent server and the UI, from one deployment folder.
+# Nothing in que picks the deployment: a deployment starts que this way from its own `start` script.
+up deployment:
     #!/usr/bin/env bash
     set -euo pipefail
-    from=()
-    if [ -n "{{deployment}}" ]; then
-        dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
-        # The dev container sees this repo and nothing else on the host.
-        case "$dep/" in
-            "{{root}}"/*) ;;
-            *) echo "The dev container cannot see $dep: a deployment has to sit inside {{root}} to be started this way"; exit 1 ;;
-        esac
-        from=(-e "QUE_DEPLOYMENT=$dep")
-    fi
+    dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
+    # The dev container sees this repo and nothing else on the host.
+    case "$dep/" in
+        "{{root}}"/*) ;;
+        *) echo "The dev container cannot see $dep: a deployment has to sit inside {{root}} to be started this way"; exit 1 ;;
+    esac
     cd "{{root}}"
     ./scripts/db.sh
     c=$(just _container)
@@ -35,9 +30,9 @@ up deployment="":
     fi
     running() { podman exec "$c" pgrep -f "$1" >/dev/null; }
     if running "langgraphjs dev"; then
-        [ ${#from[@]} -eq 0 ] || echo "The agent server is already running. Run 'just down' first to start it from another deployment."
+        echo "The agent server is already running. Run 'just down' first to start it from another deployment."
     else
-        podman exec -d -u node "${from[@]}" -w "{{root}}/harness" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -w "{{root}}/harness" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
     fi
     running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
     echo "Starting…"
