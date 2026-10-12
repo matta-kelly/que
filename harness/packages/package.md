@@ -17,6 +17,12 @@ packages/<name>/
   skills/<skill>/SKILL.md  ← optional
 ```
 
+## Where it sits
+- a package can sit in any folder, inside que or outside it
+- que gives it `@que/core` and `zod`, so a folder outside que needs no install for them
+- the names que supplies are exactly `@que/core` and `zod`
+- a folder outside que needs a `package.json` with `"type": "module"`
+
 ## Definition
 - made with `definePackage` from `@que/core`
 - `name`, `title`, `description`: required. Identity is the only required part

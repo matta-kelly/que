@@ -1,0 +1,5 @@
+{
+  "name": "outside-deployment",
+  "private": true,
+  "type": "module"
+}

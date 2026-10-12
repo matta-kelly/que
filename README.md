@@ -6,7 +6,7 @@ que is a generic harness. It knows nothing about any one service: everything it 
 
 ## How it works
 
-- **Deployments**: one folder per way to start que (`harness/deployments/`), written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. `QUE_DEPLOYMENT` names the folder: an absolute path, or one taken from `harness/`. que stops at startup when it is not set.
+- **Deployments**: one folder per way to start que (`harness/deployments/`), written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. `QUE_DEPLOYMENT` names the folder: an absolute path, or one taken from `harness/`. que stops at startup when it is not set. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`harness/packages/package.md`).
 - **Packages**: one folder per service, written against one small contract (`harness/platform/core/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `harness/packages/package.md`.
 - **Validation**: the harness checks every package when it mounts it (names, schemas, a description on every field) and stops on the first one that is wrong.
 - **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the packages that user has connected.
