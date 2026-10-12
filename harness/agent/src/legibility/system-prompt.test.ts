@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { systemPrompt } from "./system-prompt.js";
-import { catalog } from "./fixture.js";
+import { catalog, skillsOnly } from "./fixture.js";
 
 const prompt = systemPrompt({
   user: { name: "Ann Rep", email: "ann@example.test" },
@@ -39,4 +39,11 @@ test("says so when the rep has no packages", () => {
   const empty = systemPrompt({ catalog: [] });
   assert.match(empty, /no packages/i);
   assert.doesNotMatch(empty, /open_package/);
+});
+
+test("mentions operations only when a package has one", () => {
+  const text = systemPrompt({ catalog: skillsOnly });
+  assert.doesNotMatch(text, /operation/i);
+  assert.match(text, /open_package/);
+  assert.match(text, /read_skill/);
 });

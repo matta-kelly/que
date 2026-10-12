@@ -43,3 +43,14 @@ export const catalog: Catalog = [
     identity: { id: 7, name: "Rep Seven" },
   },
 ];
+
+/** The same package with its operations taken out: skills alone. */
+export const skillsOnly: Catalog = [
+  {
+    ...catalog[0],
+    pkg: {
+      ...catalog[0].pkg,
+      definition: { ...catalog[0].pkg.definition, ops: [] },
+    },
+  },
+];

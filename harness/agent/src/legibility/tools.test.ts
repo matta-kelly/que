@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { baseTools, toolName } from "./tools.js";
-import { catalog } from "./fixture.js";
+import { catalog, skillsOnly } from "./fixture.js";
 
 const call = (name: string, args: Record<string, unknown>) =>
   baseTools(catalog)
@@ -67,5 +67,20 @@ test("read_skill returns the skill's text", async () => {
   assert.equal(
     await call("read_skill", { id: "shop/refunds" }),
     "Refund steps.",
+  );
+});
+
+test("open_package shows no Operations heading for a package with no operations", async () => {
+  const text = (await baseTools(skillsOnly)
+    .find((t) => t.name === "open_package")!
+    .invoke({ package: "shop" })) as string;
+  assert.doesNotMatch(text, /Operations/);
+  assert.match(text, /shop\/refunds: Refunds\. How to refund an order\./);
+});
+
+test("load_operation is left out when no package has an operation", () => {
+  assert.deepEqual(
+    baseTools(skillsOnly).map((t) => t.name),
+    ["open_package", "read_skill"],
   );
 });
