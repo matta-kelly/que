@@ -1,13 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { systemPrompt } from "./system-prompt.js";
+import { assemble } from "../assemble.js";
+import type { Catalog } from "../../mount/catalog.js";
 import {
   besideNothing,
   catalog,
   identityOnly,
   mixed,
   skillsOnly,
-} from "./fixture.js";
+} from "../fixture.js";
+import { onDemand } from "./index.js";
+
+const systemPrompt = (the: {
+  user?: { name: string; email: string };
+  catalog: Catalog;
+}) =>
+  assemble(onDemand, { ...the, connect: async () => undefined }).systemPrompt;
 
 const prompt = systemPrompt({
   user: { name: "Ann User", email: "ann@example.test" },

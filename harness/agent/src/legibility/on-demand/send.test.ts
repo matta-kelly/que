@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIMessage, HumanMessage, ToolMessage } from "langchain";
-import { loadedOperations, toolsInReach } from "./middleware.js";
+import { loadedOperations } from "./send.js";
 
 const load = (id: string, pkg: string, operation: string) =>
   new AIMessage({
@@ -46,22 +46,4 @@ test("operations stay loaded for the rest of the chat", () => {
     "shop_findOrders",
     "shop_getOrder",
   ]);
-});
-
-test("the tools sent are the base tools plus the loaded operations", () => {
-  const all = [
-    "open_package",
-    "load_operation",
-    "shop_findOrders",
-    "shop_getOrder",
-  ].map((name) => ({ name }));
-  const sent = toolsInReach(
-    all,
-    ["open_package", "load_operation"],
-    new Set(["shop_getOrder"]),
-  );
-  assert.deepEqual(
-    sent.map((t) => t.name),
-    ["open_package", "load_operation", "shop_getOrder"],
-  );
 });
