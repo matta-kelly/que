@@ -70,8 +70,8 @@ jobs:
         run: npx eslint
       - name: format
         run: npx prettier --check .
-      - name: unit tests
-        run: npx tsx --test "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"
+      - name: unit and integration tests
+        run: npx tsx --test "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
 
   ui:
     needs: [changes]
