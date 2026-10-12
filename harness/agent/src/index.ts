@@ -17,15 +17,15 @@ import { users } from "./users.js";
 // Chat init: who this chat is for, then an agent with only their packages.
 const identity = await identify(new Headers());
 if (!identity) throw new Error("No identity: set DEV_USER_EMAIL in .env");
-const rep = (await users.ensure(identity)).id;
-const agent = await buildAgent(rep);
+const userId = (await users.ensure(identity)).id;
+const agent = await buildAgent(userId);
 
 const rl = readline.createInterface({ input, output });
 
 // Full conversation so far; sent on every turn so the agent remembers context.
 let messages: BaseMessage[] = [];
 
-console.log(`🤖 Agent ready for ${rep}. Type "exit" to quit.\n`);
+console.log(`🤖 Agent ready for ${userId}. Type "exit" to quit.\n`);
 
 while (true) {
   const question = (await rl.question("📝 You: ")).trim();

@@ -43,7 +43,7 @@ export async function connect(
   const endpoint = `${credential.url.replace(/\/$/, "")}/jsonrpc`;
   const at = `Odoo at ${credential.url}`;
 
-  // Three different failures, worded so the model can tell the rep what to do:
+  // Three different failures, worded so the model can tell the user what to do:
   // no answer in time, no answer at all, or an answer that isn't a result.
   async function rpc(
     service: string,

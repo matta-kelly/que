@@ -15,7 +15,7 @@ test("the base tools are open_package, load_operation and read_skill", () => {
   );
 });
 
-test("there are no base tools when the rep has no packages", () => {
+test("there are no base tools when the user has no packages", () => {
   assert.deepEqual(baseTools([]), []);
 });
 

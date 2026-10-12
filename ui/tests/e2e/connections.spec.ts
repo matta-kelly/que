@@ -4,7 +4,7 @@ import { openApp } from "./helpers";
 // Needs Odoo connected for the dev user (it checks Odoo shows "Connected").
 
 // Settings → Connections lists packages that need a credential and whether
-// this rep has connected them. Saving is validated server-side (the harness
+// this user has connected them. Saving is validated server-side (the harness
 // test-connects first), so a bad credential is rejected and nothing changes.
 test("connections: odoo shows connected; bad credential is rejected", async ({
   page,

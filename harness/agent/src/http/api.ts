@@ -1,7 +1,7 @@
 /**
  * Connections API, served by the LangGraph server alongside the agent
  * (langgraph.json → http.app). Lists packages that need a credential and
- * whether the rep has connected them; saves and removes credentials.
+ * whether the user has connected them; saves and removes credentials.
  * Credential values are never returned.
  *
  * The caller is the user resolved by the auth hook (src/http/auth.ts). Also serves
@@ -21,14 +21,14 @@ import { users } from "../users.js";
 export const app = new Hono();
 
 // The signed-in user's id, set by the LangGraph auth hook.
-const repOf = (c: Context) =>
+const userIdOf = (c: Context) =>
   (c.get("auth" as never) as { user: { identity: string } }).user.identity;
 const find = (name: string) =>
   packages.find((p) => p.definition.name === name)?.definition;
 const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
-  const connected = await connectedPackages(repOf(c));
+  const connected = await connectedPackages(userIdOf(c));
   return c.json(
     packages
       .filter((p) => p.definition.credential)
@@ -49,7 +49,7 @@ app.put("/que/connections/:package", async (c) => {
   const pkg = find(c.req.param("package"));
   if (!pkg) return c.json({ error: "unknown package" }, 404);
   try {
-    await setCredential(pkg, repOf(c), (await c.req.json()).values);
+    await setCredential(pkg, userIdOf(c), (await c.req.json()).values);
   } catch (error) {
     if (error instanceof OperationFailed)
       return c.json({ error: error.message }, 400);
@@ -61,12 +61,12 @@ app.put("/que/connections/:package", async (c) => {
 app.delete("/que/connections/:package", async (c) => {
   const pkg = find(c.req.param("package"));
   if (!pkg) return c.json({ error: "unknown package" }, 404);
-  await removeCredential(pkg, repOf(c));
+  await removeCredential(pkg, userIdOf(c));
   return c.json({ ok: true });
 });
 
 app.get("/que/me", async (c) => {
-  const me = await users.get(repOf(c));
+  const me = await users.get(userIdOf(c));
   return me ? c.json(me) : c.json({ error: "not found" }, 404);
 });
 
@@ -83,7 +83,7 @@ app.patch("/que/me", async (c) => {
   ) {
     return c.json({ error: "picture must be an image under ~300 KB" }, 400);
   }
-  return c.json(await users.update(repOf(c), { name, avatarUrl }));
+  return c.json(await users.update(userIdOf(c), { name, avatarUrl }));
 });
 
 app.get("/que/users", async (c) => c.json(await users.list()));
