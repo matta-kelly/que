@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { systemPrompt } from "./system-prompt.js";
-import { catalog, identityOnly, mixed, skillsOnly } from "./fixture.js";
+import {
+  besideNothing,
+  catalog,
+  identityOnly,
+  mixed,
+  skillsOnly,
+} from "./fixture.js";
 
 const prompt = systemPrompt({
   user: { name: "Ann User", email: "ann@example.test" },
@@ -126,6 +132,44 @@ test("for packages that hold nothing, says there is nothing to open or run", () 
       "",
       "### Notes (`notes`)",
       "How the team writes things down.",
+    ].join("\n"),
+  );
+});
+
+test("the prompt still says how to reach an operation and read a skill when a package that holds nothing comes first", () => {
+  assert.equal(
+    systemPrompt({ catalog: besideNothing }),
+    [
+      "You are a helpful assistant.",
+      "",
+      "- Be concise and accurate.",
+      "- If you're unsure about something, say so rather than guessing.",
+      "",
+      "## Your environment",
+      "",
+      "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
+      "",
+      "- operations: actions you can run in that service, each with a description and arguments",
+      "- skills: written guides for tasks in that service",
+      "",
+      "You start with no operations in reach. To use one:",
+      "",
+      "1. Pick a package from the list below.",
+      "2. Call `open_package` to see what it holds.",
+      "3. Call `load_operation` for each operation you need. It becomes a tool named `<package>_<operation>` and stays for the rest of the conversation.",
+      "4. Call that tool.",
+      "",
+      "Before a task a skill covers, read it with `read_skill`.",
+      "",
+      "If no package covers a request, say so.",
+      "",
+      "## Packages",
+      "",
+      "### Notes (`notes`)",
+      "How the team writes things down.",
+      "",
+      "### Shop (`shop`)",
+      "The shop's order system.",
     ].join("\n"),
   );
 });

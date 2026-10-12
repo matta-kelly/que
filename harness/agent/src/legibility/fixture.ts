@@ -83,3 +83,9 @@ export const mixed: Catalog = [
 export const identityOnly: Catalog = [
   { pkg: { definition: notes, skills: [] } },
 ];
+
+/** A package that holds nothing, listed before one with operations and a skill. */
+export const besideNothing: Catalog = [
+  { pkg: { definition: notes, skills: [] } },
+  { pkg: catalog[0].pkg },
+];

@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { baseTools, toolName } from "./tools.js";
-import { catalog, identityOnly, mixed, skillsOnly } from "./fixture.js";
+import {
+  besideNothing,
+  catalog,
+  identityOnly,
+  mixed,
+  skillsOnly,
+} from "./fixture.js";
 
 const call = (name: string, args: Record<string, unknown>) =>
   baseTools(catalog)
@@ -129,5 +135,12 @@ test("open_package's description is word for word what it was when one package o
   assert.equal(
     baseTools(mixed)[0].description,
     "Open Package: lists what a package holds, its operations and skills, with one line each. Use it to find the operation for a task. It does not make an operation callable; load_operation does.",
+  );
+});
+
+test("every base tool stays when a package that holds nothing sits beside one with operations and a skill", () => {
+  assert.deepEqual(
+    baseTools(besideNothing).map((t) => t.name),
+    ["open_package", "load_operation", "read_skill"],
   );
 });
