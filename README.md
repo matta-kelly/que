@@ -12,7 +12,7 @@ que is a generic harness. It knows nothing about any one service: everything it 
 - **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the packages that user has connected.
 - **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a package is and lists the ones the user can use; it opens a package to see what is inside and loads the operations it needs (`harness/agent/src/legibility/on-demand/`, one config on the shared base in `harness/agent/src/legibility/`). The harness knows the package contract, never a specific package.
 - **Shared domain types**: Company, Address and Buyer are each defined once (`harness/packages/odoo/ontology.ts`) and every operation returns them.
-- **Evals**: real user requests run against the live agent, each several times, scored on the tool the agent picks and the arguments it sends.
+- **Eval cases**: real user requests, each with the operation the agent should pick and a check on the arguments it sends. They are kept with the package they are about (`harness/packages/odoo/evals/cases.ts`). Nothing runs them today.
 
 Built with LangChain `createAgent` on the LangGraph dev server, Next.js with assistant-ui, and Postgres.
 
@@ -25,7 +25,6 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
     - `deployments/`: one folder per deployment, each a list of the packages it uses
     - `packages/`: capability packages only, one folder per service. A deployment mounts the ones it lists
     - `platform/`: the package and deployment contracts (`@que/core`) and platform services (identity, users, credentials)
-    - `evals/`: the eval cases and runner
 - `ui/`: the chat UI (see `ui/README.md`)
 - `scripts/db.sh`: the Postgres container
 
@@ -44,6 +43,5 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 - `just check`: typecheck, lint, format check, and the unit and integration tests, for each app. On a pull request the same checks run only for the app that changed; a change to a root file runs both (`.github/workflows/checks.yml`)
 - `just format`: format every file in both apps with Prettier
 - `just test`: end to end tests in a browser (`ui/tests/e2e`) (needs `just up`; some need Odoo connected)
-- `just eval`: evals against the live agent (needs `just up` and Odoo connected)
 
 Anything else runs in the container: `podman exec -u node -w "$PWD/harness" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.

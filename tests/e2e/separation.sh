@@ -10,14 +10,14 @@ branch=$(git branch --show-current)
 fail() { echo "FAIL: $1" >&2; exit 1; }
 pass() { echo "ok: $1"; }
 
-for part in agent platform packages evals package.json package-lock.json; do
+for part in agent platform packages package.json package-lock.json; do
   [ -e "harness/$part" ] || fail "no harness/$part"
 done
 python3 - <<'PY' || fail "harness/package.json still lists the UI as a workspace"
 import json
 assert not any("ui" in w for w in json.load(open("harness/package.json"))["workspaces"])
 PY
-pass "harness/ holds the agent, platform, packages and evals, with its own package.json and lockfile"
+pass "harness/ holds the agent, platform and packages, with its own package.json and lockfile"
 
 [ -f ui/package.json ] && [ -f ui/package-lock.json ] || fail "ui/ has no package.json or lockfile of its own"
 [ ! -e package.json ] && [ ! -e package-lock.json ] || fail "the repo root still has a package.json or a lockfile"
@@ -86,6 +86,4 @@ pass "checks passes on this pull request"
 
 timeout -k 5 600 just check >/dev/null || fail "just check did not pass within 600s"
 timeout -k 5 600 just test >/dev/null || fail "the end to end tests did not pass within 600s"
-# The eval runner exits non-zero unless every case passes every run.
-timeout -k 5 900 just eval >/dev/null || fail "an eval case did not pass every run within 900s"
-pass "just check, the end to end tests and the evals pass"
+pass "just check and the end to end tests pass"

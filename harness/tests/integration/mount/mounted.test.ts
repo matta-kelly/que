@@ -1,6 +1,6 @@
 /**
- * The mount que does at startup, through the module the agent, the API and
- * the evals share. Its own file: the module mounts once for the whole process,
+ * The mount que does at startup, through the module the agent and the API
+ * share. Its own file: the module mounts once for the whole process,
  * from the environment as it is when the module first loads.
  */
 
