@@ -63,9 +63,6 @@ jobs:
       - name: types (agent, platform, packages)
         run: npx tsc --noEmit
         working-directory: harness/agent
-      - name: types (evals)
-        run: npx tsc --noEmit
-        working-directory: harness/evals
       - name: lint
         run: npx eslint
       - name: format

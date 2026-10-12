@@ -48,7 +48,6 @@ logs: _require-up
 # Typecheck, lint, check the format, and run the unit and integration tests, for the harness then the UI; needs only the dev container running
 check: _require-container
     podman exec -u node -w "{{root}}/harness/agent" "$(just _container)" npx tsc --noEmit
-    podman exec -u node -w "{{root}}/harness/evals" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}/harness" "$(just _container)" npx eslint
     podman exec -u node -w "{{root}}/harness" "$(just _container)" npx prettier --check .
     podman exec -u node -w "{{root}}/harness" "$(just _container)" npx tsx --test --test-reporter=dot "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
@@ -65,10 +64,6 @@ format: _require-container
 # Run the end to end tests in a browser (needs `just up`, and Odoo connected for some)
 test: _require-up
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test
-
-# Run the evals against the agent, each case `runs` times (needs `just up` and Odoo connected)
-eval runs="3": _require-up
-    podman exec -u node -w "{{root}}/harness" "$(just _container)" npm run eval -- {{runs}}
 
 # The dev container for this repo, found by its dev-container label
 _container:

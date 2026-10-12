@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
 import { defineConfig, globalIgnores } from "eslint/config";
 
-// One lint setup for the harness: agent, platform, packages and evals.
+// One lint setup for the harness: agent, platform, packages, deployments and tests.
 export default defineConfig([
   globalIgnores(["**/node_modules"]),
   {
