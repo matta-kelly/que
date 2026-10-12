@@ -20,9 +20,10 @@ export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = {
 };
 
 /**
- * What a package exports as its default. Packages that talk to a service
- * declare the credential they need (a zod object) and how to turn it into a
- * connection; self-contained packages leave both out.
+ * What `definePackage` returns, and a package exports as its default.
+ * Packages that talk to a service declare the credential they need (a zod
+ * object) and how to turn it into a connection; self-contained packages leave
+ * both out.
  */
 /** Who a connection is logged in as, in that service (e.g. an Odoo user). */
 export type ServiceIdentity = {
@@ -47,9 +48,11 @@ export type PackageDefinition<
 };
 
 export function definePackage<S extends z.ZodObject, Conn>(
-  definition: PackageDefinition<S, Conn>,
+  definition: Omit<PackageDefinition<S, Conn>, "ops"> & {
+    ops?: PackageDefinition<S, Conn>["ops"];
+  },
 ): PackageDefinition<S, Conn> {
-  return definition;
+  return { ...definition, ops: definition.ops ?? [] };
 }
 
 // What model APIs allow in a tool name. The harness names each tool
