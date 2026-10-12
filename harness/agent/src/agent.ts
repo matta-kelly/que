@@ -10,12 +10,9 @@
 
 import { createAgent, tool, type StructuredTool } from "langchain";
 import { OperationFailed } from "@que/core";
-import { packages, type MountedPackage } from "./mount/packages.js";
-import {
-  getConnection,
-  getServiceIdentity,
-  hasAccess,
-} from "./mount/credentials.js";
+import { catalogFor } from "./mount/catalog.js";
+import { getConnection } from "./mount/credentials.js";
+import type { MountedPackage } from "./mount/packages.js";
 import { operationsInReach } from "./legibility/middleware.js";
 import { systemPrompt } from "./legibility/system-prompt.js";
 import { baseTools, toolName } from "./legibility/tools.js";
@@ -51,20 +48,10 @@ function opTools(
 }
 
 export async function buildAgent(userId: string) {
-  const access = await Promise.all(
-    packages.map((p) => hasAccess(p.definition, userId)),
-  );
-  const available = packages.filter((_, i) => access[i]);
-
   // Who the model is assisting, in que and in each connected service.
   const [user, catalog] = await Promise.all([
     users.get(userId).catch(() => undefined),
-    Promise.all(
-      available.map(async (pkg) => ({
-        pkg,
-        identity: await getServiceIdentity(pkg.definition, userId),
-      })),
-    ),
+    catalogFor(userId),
   ]);
   const base = baseTools(catalog);
 
@@ -73,7 +60,7 @@ export async function buildAgent(userId: string) {
     model: MODEL,
     // Every operation is registered so it can run; the middleware sends the
     // model only the base tools and the operations the chat has loaded.
-    tools: [...base, ...available.flatMap((p) => opTools(p, userId))],
+    tools: [...base, ...catalog.flatMap(({ pkg }) => opTools(pkg, userId))],
     middleware: [operationsInReach(base.map((t) => t.name))],
     systemPrompt: systemPrompt({ user, catalog }),
   });

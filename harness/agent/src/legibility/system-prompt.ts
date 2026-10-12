@@ -4,12 +4,8 @@
  * package says about itself through the package spec.
  */
 
-import {
-  LOAD_OPERATION,
-  OPEN_PACKAGE,
-  READ_SKILL,
-  type Catalog,
-} from "./tools.js";
+import type { Catalog } from "../mount/catalog.js";
+import { LOAD_OPERATION, OPEN_PACKAGE, READ_SKILL } from "./tools.js";
 
 const ROLE = `You are a helpful assistant.
 

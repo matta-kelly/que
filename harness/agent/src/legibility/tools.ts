@@ -6,11 +6,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import type { ServiceIdentity } from "@que/core";
-import type { MountedPackage } from "../mount/packages.js";
-
-/** The user's accessible packages, each with who they're logged in as there (if it can say). */
-export type Catalog = { pkg: MountedPackage; identity?: ServiceIdentity }[];
+import type { Catalog } from "../mount/catalog.js";
 
 export const OPEN_PACKAGE = "open_package";
 export const LOAD_OPERATION = "load_operation";
