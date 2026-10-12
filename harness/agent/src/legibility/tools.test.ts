@@ -116,3 +116,18 @@ test("load_operation says so when the package has no operations", async () => {
 test("there are no base tools when no package holds an operation or a skill", () => {
   assert.deepEqual(baseTools(identityOnly), []);
 });
+
+test("open_package shows no Operations heading for a package with no operations, beside one that has them", async () => {
+  const text = (await baseTools(mixed)
+    .find((t) => t.name === "open_package")!
+    .invoke({ package: "notes" })) as string;
+  assert.doesNotMatch(text, /Operations/);
+  assert.match(text, /notes\/meetings: Meetings\. How to write up a meeting\./);
+});
+
+test("open_package's description is word for word what it was when one package of several has an operation", () => {
+  assert.equal(
+    baseTools(mixed)[0].description,
+    "Open Package: lists what a package holds, its operations and skills, with one line each. Use it to find the operation for a task. It does not make an operation callable; load_operation does.",
+  );
+});
