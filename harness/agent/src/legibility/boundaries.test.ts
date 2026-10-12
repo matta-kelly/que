@@ -8,8 +8,7 @@ const here = import.meta.dirname;
 /** The source files in this folder, not the tests or their fixture. */
 const sources = readdirSync(here, { recursive: true, encoding: "utf8" })
   .filter(
-    (f) =>
-      f.endsWith(".ts") && !f.endsWith(".test.ts") && f !== "fixture.ts",
+    (f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && f !== "fixture.ts",
   )
   .map((f) => ({ file: f, text: readFileSync(join(here, f), "utf8") }));
 

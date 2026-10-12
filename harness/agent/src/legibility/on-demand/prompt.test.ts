@@ -14,7 +14,8 @@ import { onDemand } from "./index.js";
 const systemPrompt = (the: {
   user?: { name: string; email: string };
   catalog: Catalog;
-}) => assemble(onDemand, { ...the, connect: async () => undefined }).systemPrompt;
+}) =>
+  assemble(onDemand, { ...the, connect: async () => undefined }).systemPrompt;
 
 const prompt = systemPrompt({
   user: { name: "Ann User", email: "ann@example.test" },
