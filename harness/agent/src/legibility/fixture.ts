@@ -40,7 +40,7 @@ export const catalog: Catalog = [
         },
       ],
     },
-    identity: { id: 7, name: "Rep Seven" },
+    identity: { id: 7, name: "User Seven" },
   },
 ];
 

@@ -1,6 +1,6 @@
 /**
  * The system prompt: what a package is, how to find the way around, and the
- * packages this rep can use. Everything about a package comes from what the
+ * packages this user can use. Everything about a package comes from what the
  * package says about itself through the package spec.
  */
 

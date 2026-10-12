@@ -1,5 +1,5 @@
 /**
- * Eval cases: what a rep asks, and which tool the agent should call (with a
+ * Eval cases: what a user asks, and which tool the agent should call (with a
  * check on its inputs), or null when it shouldn't call any. Prompts are built
  * from a real sample company picked at run time, so cases don't hard-code data.
  */
@@ -7,7 +7,7 @@
 export type Sample = {
   company: { id: number; name: string };
   salesperson: string;
-  /** The rep's own Odoo user, as the prompt tells the model ("You're connected as …"). */
+  /** The user's own Odoo user, as the prompt tells the model ("You're connected as …"). */
   me: { id: number; name: string };
 };
 
@@ -22,7 +22,7 @@ export type Case = {
 
 const lower = (v: unknown) => (typeof v === "string" ? v.toLowerCase() : "");
 
-// "Me" resolved: by Odoo user id (preferred), or by the rep's exact name.
+// "Me" resolved: by Odoo user id (preferred), or by the user's exact name.
 const isMe = (a: Record<string, unknown>, s: Sample) =>
   a.salespersonId === s.me.id || lower(a.salesperson) === lower(s.me.name);
 

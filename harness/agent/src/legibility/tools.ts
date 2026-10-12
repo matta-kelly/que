@@ -9,7 +9,7 @@ import * as z from "zod";
 import type { ServiceIdentity } from "@que/core";
 import type { MountedPackage } from "../mount/packages.js";
 
-/** The rep's accessible packages, each with who they're logged in as there (if it can say). */
+/** The user's accessible packages, each with who they're logged in as there (if it can say). */
 export type Catalog = { pkg: MountedPackage; identity?: ServiceIdentity }[];
 
 export const OPEN_PACKAGE = "open_package";
@@ -104,7 +104,7 @@ function readSkill(catalog: Catalog): StructuredTool {
   );
 }
 
-/** The tools every chat starts with. None when the rep has no packages. */
+/** The tools every chat starts with. None when the user has no packages. */
 export function baseTools(catalog: Catalog): StructuredTool[] {
   if (!catalog.length) return [];
   const hasSkills = catalog.some(({ pkg }) => pkg.skills.length);

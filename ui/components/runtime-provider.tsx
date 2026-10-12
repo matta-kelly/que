@@ -43,7 +43,7 @@ const createClient = () =>
 
 // Thread list backed by the LangGraph server, so chats, titles, and archive
 // state survive reloads. Thread metadata carries `title` and `archived`; the
-// proxy scopes threads to the current rep.
+// proxy scopes threads to the current user.
 type ThreadMeta = { title?: string; archived?: boolean };
 const createThreadListAdapter = (client: Client): RemoteThreadListAdapter => {
   const toMeta = (t: {
