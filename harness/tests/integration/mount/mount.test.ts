@@ -123,3 +123,15 @@ test("the error for a deployment that breaks its contract has the contract's own
     return true;
   });
 });
+
+test("a deployment that declares neither is loaded with a login and the store", async () => {
+  const loaded = await loadDeployment(deployment("two"));
+  assert.equal(loaded.user, "login");
+  assert.equal(loaded.credentials, "store");
+});
+
+test("a deployment is loaded with the user and the credentials it declares", async () => {
+  const loaded = await loadDeployment(deployment("local-setup"));
+  assert.equal(loaded.user, "none");
+  assert.equal(loaded.credentials, "env");
+});

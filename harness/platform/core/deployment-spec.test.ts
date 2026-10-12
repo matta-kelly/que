@@ -72,3 +72,27 @@ test("validateDeployment rejects a package folder of only spaces", () => {
     /packages/,
   );
 });
+
+test("validateDeployment accepts a deployment with no login and credentials from the environment", () => {
+  validateDeployment({
+    name: "mine",
+    packages: [],
+    user: "none",
+    credentials: "env",
+  });
+});
+
+test("validateDeployment rejects a user it does not know", () => {
+  assert.throws(
+    () => validateDeployment({ name: "mine", packages: [], user: "nobody" }),
+    /user/,
+  );
+});
+
+test("validateDeployment rejects a source of credentials it does not know", () => {
+  assert.throws(
+    () =>
+      validateDeployment({ name: "mine", packages: [], credentials: "vault" }),
+    /credentials/,
+  );
+});
