@@ -61,3 +61,14 @@ test("validateDeployment names every problem in one error", () => {
 test("validateDeployment says so when there is no definition", () => {
   assert.throws(() => validateDeployment(undefined), /no definition/);
 });
+
+test("validateDeployment says so when the definition is null", () => {
+  assert.throws(() => validateDeployment(null), /no definition/);
+});
+
+test("validateDeployment rejects a package folder of only spaces", () => {
+  assert.throws(
+    () => validateDeployment({ name: "shop", packages: ["  "] }),
+    /packages/,
+  );
+});
