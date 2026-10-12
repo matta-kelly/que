@@ -1,13 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { baseTools, toolName } from "./tools.js";
+import type { Catalog } from "../../mount/catalog.js";
 import {
   besideNothing,
   catalog,
   identityOnly,
   mixed,
   skillsOnly,
-} from "./fixture.js";
+} from "../fixture.js";
+import { toolName } from "../operations.js";
+import { skillTools } from "../skills.js";
+import { onDemand } from "./index.js";
+
+// What a chat starts with: the config's tools, then the shared read_skill.
+const baseTools = (catalog: Catalog) => [
+  ...onDemand.tools(catalog),
+  ...skillTools(catalog),
+];
 
 const call = (name: string, args: Record<string, unknown>) =>
   baseTools(catalog)

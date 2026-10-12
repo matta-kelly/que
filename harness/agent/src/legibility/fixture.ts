@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { definePackage } from "@que/core";
-import type { Catalog } from "./tools.js";
+import type { Catalog } from "../mount/catalog.js";
 
 /** A catalog with one fake package, for the tests in this folder. */
 export const catalog: Catalog = [
