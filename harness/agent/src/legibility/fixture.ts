@@ -43,3 +43,49 @@ export const catalog: Catalog = [
     identity: { id: 7, name: "User Seven" },
   },
 ];
+
+/** The same package with its operations taken out: skills alone. */
+export const skillsOnly: Catalog = [
+  {
+    pkg: {
+      ...catalog[0].pkg,
+      definition: { ...catalog[0].pkg.definition, ops: [] },
+    },
+  },
+];
+
+const notes = definePackage({
+  name: "notes",
+  title: "Notes",
+  description: "How the team writes things down.",
+  ops: [],
+});
+
+/** One package with operations beside one with skills alone. */
+export const mixed: Catalog = [
+  catalog[0],
+  {
+    pkg: {
+      definition: notes,
+      skills: [
+        {
+          id: "notes/meetings",
+          title: "Meetings",
+          description: "How to write up a meeting.",
+          body: "Meeting steps.",
+        },
+      ],
+    },
+  },
+];
+
+/** A package that declares its identity and nothing else. */
+export const identityOnly: Catalog = [
+  { pkg: { definition: notes, skills: [] } },
+];
+
+/** A package that holds nothing, listed before one with operations and a skill. */
+export const besideNothing: Catalog = [
+  { pkg: { definition: notes, skills: [] } },
+  { pkg: catalog[0].pkg },
+];

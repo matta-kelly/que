@@ -16,27 +16,43 @@ const ROLE = `You are a helpful assistant.
 - Be concise and accurate.
 - If you're unsure about something, say so rather than guessing.`;
 
-const environment = (hasSkills: boolean) =>
+const environment = (hasOperations: boolean, hasSkills: boolean) =>
   [
     "## Your environment",
-    "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
-    [
-      "- operations: actions you can run in that service, each with a description and arguments",
-      ...(hasSkills
-        ? ["- skills: written guides for tasks in that service"]
-        : []),
-    ].join("\n"),
-    "You start with no operations in reach. To use one:",
-    [
-      "1. Pick a package from the list below.",
-      `2. Call \`${OPEN_PACKAGE}\` to see what it holds.`,
-      `3. Call \`${LOAD_OPERATION}\` for each operation you need. It becomes a tool named \`<package>_<operation>\` and stays for the rest of the conversation.`,
-      "4. Call that tool.",
-    ].join("\n"),
-    ...(hasSkills
-      ? [`Before a task a skill covers, read it with \`${READ_SKILL}\`.`]
-      : []),
-    "If no package covers a request, say so.",
+    ...(hasOperations || hasSkills
+      ? [
+          "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
+          [
+            ...(hasOperations
+              ? [
+                  "- operations: actions you can run in that service, each with a description and arguments",
+                ]
+              : []),
+            ...(hasSkills
+              ? ["- skills: written guides for tasks in that service"]
+              : []),
+          ].join("\n"),
+          ...(hasOperations
+            ? [
+                "You start with no operations in reach. To use one:",
+                [
+                  "1. Pick a package from the list below.",
+                  `2. Call \`${OPEN_PACKAGE}\` to see what it holds.`,
+                  `3. Call \`${LOAD_OPERATION}\` for each operation you need. It becomes a tool named \`<package>_<operation>\` and stays for the rest of the conversation.`,
+                  "4. Call that tool.",
+                ].join("\n"),
+              ]
+            : [
+                `Pick a package from the list below and call \`${OPEN_PACKAGE}\` to see what it holds.`,
+              ]),
+          ...(hasSkills
+            ? [`Before a task a skill covers, read it with \`${READ_SKILL}\`.`]
+            : []),
+          "If no package covers a request, say so.",
+        ]
+      : [
+          "The user's packages are listed below. They hold nothing to open or run: what each one says about itself is all there is.",
+        ]),
   ].join("\n\n");
 
 const packages = (catalog: Catalog) =>
@@ -69,7 +85,10 @@ export function systemPrompt({
       : []),
     ...(catalog.length
       ? [
-          environment(catalog.some(({ pkg }) => pkg.skills.length)),
+          environment(
+            catalog.some(({ pkg }) => pkg.definition.ops.length),
+            catalog.some(({ pkg }) => pkg.skills.length),
+          ),
           packages(catalog),
         ]
       : [

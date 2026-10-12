@@ -8,19 +8,22 @@ One package = one concern. No Pi or LangChain imports inside; each harness gets 
 ## Anatomy
 ```
 packages/<name>/
-  package.json   ← @que/<name>
-  index.ts       ← default export: the definition
-  client.ts      ← only if it talks to a service
-  ontology.ts    ← the domain types its ops return (zod schemas + row mappers), defined once
-  ops/index.ts   ← exports ops[]
-  index.test.ts  ← node:test, no network: validatePackage + each op against a fake connection
-  skills/<skill>/SKILL.md
+  package.json   ← required: @que/<name>
+  index.ts       ← required: default export, the definition
+  client.ts      ← optional: only if it talks to a service
+  ontology.ts    ← optional: the domain types its ops return (zod schemas + row mappers), defined once
+  ops/index.ts   ← optional: exports ops[]
+  index.test.ts  ← optional: node:test, no network: validatePackage + each op against a fake connection
+  skills/<skill>/SKILL.md  ← optional
 ```
 
 ## Definition
-- `name`, `title`, `description`
+- made with `definePackage` from `@que/core`
+- `name`, `title`, `description`: required. Identity is the only required part
 - `credential`: optional zod schema of what it needs. Resolved per user; unresolved → not loaded for that user
-- `connect`, `ops`
+- `connect`: optional
+- `whoami`: optional. Who the connection is logged in as
+- `ops`: optional
 
 ## Operation
 - `{ name, title, description, schema (zod), run(ctx, params) }`
