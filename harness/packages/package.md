@@ -3,13 +3,13 @@ type: component
 description: the package contract for que. Framework-free folders + plain TS; the harness loads what they declare
 status: draft
 ---
-One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. `packages/` holds only capability packages; the contract (`@que/core`, in `platform/core/package-spec.ts`) and platform services (identity, users, credentials) live in `platform/`.
+One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. `packages/` holds only capability packages; the contract (`@que/core`, in `platform/core/package-spec.ts`) and platform services (identity, users, credentials) live in `platform/`. A deployment (`deployments/<name>/index.ts`, made with `defineDeployment` from `@que/core`) lists the packages it uses, each by its folder; que mounts those and no other.
 
 ## Anatomy
 ```
 packages/<name>/
-  package.json   ← required: @que/<name>
-  index.ts       ← required: default export, the definition
+  index.ts       ← required, and the only required file: default export, the definition
+  package.json   ← optional: only if it has dependencies of its own
   client.ts      ← optional: only if it talks to a service
   ontology.ts    ← optional: the domain types its ops return (zod schemas + row mappers), defined once
   ops/index.ts   ← optional: exports ops[]

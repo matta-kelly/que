@@ -45,13 +45,13 @@ down:
 logs: _require-up
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log
 
-# Typecheck, lint, check the format, and run the unit tests, for the harness then the UI; needs only the dev container running
+# Typecheck, lint, check the format, and run the unit and integration tests, for the harness then the UI; needs only the dev container running
 check: _require-container
     podman exec -u node -w "{{root}}/harness/agent" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}/harness/evals" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}/harness" "$(just _container)" npx eslint
     podman exec -u node -w "{{root}}/harness" "$(just _container)" npx prettier --check .
-    podman exec -u node -w "{{root}}/harness" "$(just _container)" npx tsx --test --test-reporter=dot "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts"
+    podman exec -u node -w "{{root}}/harness" "$(just _container)" npx tsx --test --test-reporter=dot "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx tsc --noEmit
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx eslint
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx prettier --check .

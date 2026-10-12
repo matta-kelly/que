@@ -10,7 +10,7 @@
 
 import { Hono, type Context } from "hono";
 import { OperationFailed } from "@que/core";
-import { packages } from "../mount/packages.js";
+import { packages } from "../mount/mounted.js";
 import {
   connectedPackages,
   removeCredential,

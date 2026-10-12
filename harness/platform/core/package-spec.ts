@@ -57,7 +57,7 @@ export function definePackage<S extends z.ZodObject, Conn>(
 
 // What model APIs allow in a tool name. The harness names each tool
 // `<package>_<op>`, so the combined name must fit too.
-const NAME = /^[a-zA-Z0-9_-]{1,64}$/;
+export const NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /**
  * Check a definition against the contract, throwing one error that lists
