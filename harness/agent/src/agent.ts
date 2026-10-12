@@ -8,44 +8,18 @@
  * is fixed when the agent is built, so every tool call runs as them.
  */
 
-import { createAgent, tool, type StructuredTool } from "langchain";
-import { OperationFailed } from "@que/core";
+import { createAgent } from "langchain";
 import { catalogFor } from "./mount/catalog.js";
 import { getConnection } from "./mount/credentials.js";
-import type { MountedPackage } from "./mount/packages.js";
 import { operationsInReach } from "./legibility/middleware.js";
 import { systemPrompt } from "./legibility/system-prompt.js";
-import { baseTools, toolName } from "./legibility/tools.js";
+import { operationTools } from "./legibility/operations.js";
+import { baseTools } from "./legibility/tools.js";
 import { users } from "./users.js";
 
 const MODEL =
   process.env.MODEL ??
   "fireworks:accounts/fireworks/models/deepseek-v4p1-flash";
-
-function opTools(
-  { definition: pkg }: MountedPackage,
-  userId: string,
-): StructuredTool[] {
-  return pkg.ops.map((op) =>
-    tool(
-      async (params) => {
-        try {
-          const conn = await getConnection(pkg, userId);
-          return JSON.stringify(await op.run({ conn }, params));
-        } catch (error) {
-          if (error instanceof OperationFailed)
-            return `Error: ${error.message}`;
-          throw error;
-        }
-      },
-      {
-        name: toolName(pkg.name, op.name),
-        description: `${op.title}: ${op.description}`,
-        schema: op.schema,
-      },
-    ),
-  );
-}
 
 export async function buildAgent(userId: string) {
   // Who the model is assisting, in que and in each connected service.
@@ -60,7 +34,10 @@ export async function buildAgent(userId: string) {
     model: MODEL,
     // Every operation is registered so it can run; the middleware sends the
     // model only the base tools and the operations the chat has loaded.
-    tools: [...base, ...catalog.flatMap(({ pkg }) => opTools(pkg, userId))],
+    tools: [
+      ...base,
+      ...operationTools(catalog, (pkg) => getConnection(pkg, userId)),
+    ],
     middleware: [operationsInReach(base.map((t) => t.name))],
     systemPrompt: systemPrompt({ user, catalog }),
   });

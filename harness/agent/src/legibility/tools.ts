@@ -7,13 +7,11 @@
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
 import type { Catalog } from "../mount/catalog.js";
+import { toolName } from "./operations.js";
 
 export const OPEN_PACKAGE = "open_package";
 export const LOAD_OPERATION = "load_operation";
 export const READ_SKILL = "read_skill";
-
-// Model APIs only allow [a-zA-Z0-9_-] in tool names (validatePackage enforces it).
-export const toolName = (pkg: string, op: string) => `${pkg}_${op}`;
 
 // A description opens with what the thing is for; the rest is how to use it.
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];

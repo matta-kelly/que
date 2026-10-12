@@ -5,7 +5,8 @@
  */
 
 import { createMiddleware, type BaseMessage } from "langchain";
-import { LOAD_OPERATION, toolName } from "./tools.js";
+import { toolName } from "./operations.js";
+import { LOAD_OPERATION } from "./tools.js";
 
 type ToolCall = { id?: string; name: string; args: Record<string, unknown> };
 
