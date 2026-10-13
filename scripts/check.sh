@@ -51,15 +51,18 @@ plan() {
   done <<<"$paths"
 }
 
-# Packages, from the lockfile and frozen. A copy of the lockfile inside node_modules
-# says which lockfile they came from, so a stale install is made again and a current one is left alone.
+# Packages, from the lockfile and frozen. A copy of package.json and of the lockfile inside node_modules
+# says what they came from, so a stale install is made again and a current one is left alone.
+# npm's own record of the tree is written on every install: one newer than the copy means an install by hand.
+# `step` runs this on the left of `||`, where `set -e` does not act: each command that can fail returns by itself.
 install() {
-  if cmp -s package-lock.json node_modules/.installed-lock; then
-    echo "node_modules matches the lockfile"
+  local stamp=node_modules/.installed-from
+  if cat package.json package-lock.json | cmp -s - "$stamp" && [ ! node_modules/.package-lock.json -nt "$stamp" ]; then
+    echo "node_modules matches package.json and the lockfile"
     return
   fi
-  npm ci
-  cp package-lock.json node_modules/.installed-lock
+  npm ci || return 1
+  cat package.json package-lock.json >"$stamp" || return 1
 }
 
 # One step, named in the output, so a failure reads the same on a machine and in the pipeline.
