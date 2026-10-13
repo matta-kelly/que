@@ -55,6 +55,10 @@ async function handleRequest(req: NextRequest, method: string) {
     const contentType = req.headers.get("content-type");
     if (contentType) headers.set("content-type", contentType);
 
+    // A stream that was cut is asked for again from the last event the browser got.
+    const lastEventId = req.headers.get("last-event-id");
+    if (lastEventId) headers.set("last-event-id", lastEventId);
+
     // Who's asking is decided by the LangGraph server's auth hook. Pass along
     // Cloudflare Access's signed identity token for when that's wired in.
     const accessToken = req.headers.get("cf-access-jwt-assertion");

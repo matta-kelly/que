@@ -7,6 +7,11 @@ through the proxy at `app/api/[..._path]`.
 - `app/`: routes, plus the root layout
 - `components/<feature>/`: UI; `hooks/`: React hooks; `lib/`: non-UI code
 - `components/runtime-provider.tsx`: connects to the LangGraph server
+  - a run outlives its connection. que makes the stream call itself, and sends each run to go on when its stream ends (`onDisconnect: "continue"`), with its events kept (`streamResumable`)
+  - a stream that is cut is picked up by the SDK from the last event it got. The proxy hands on the header it does that with, `Last-Event-ID`
+  - the run a thread is on is kept in session storage, from when the run is made to when its stream comes to its end (`lib/run-of-thread.ts`)
+  - stop is a call: `runs.cancel` with `interrupt`, for the run the open thread is on. The end of a stream cancels nothing, so a reload leaves the run going. A stop that comes before the chat has the id of its run finds the run on the server
+  - a chat that is opened while its run is going joins it: when the saved chat is loaded and the server says the run is going, a run with no message is started in the library, and the stream call answers it with the events of that run from its first. Each event holds a message whole so far, so none is doubled
 - `components/thread/toolkit.tsx`: custom UIs for agent tools, keyed by tool name
 - `lib/que-api.ts`: the que API's response types and the fetcher for `useSWR`
 - `lib/run-pick.ts`: the pick of a chat, the agent and the model its runs name. The composer has a picker for each, made from what the deployment lists (`/api/que/deployment`)
