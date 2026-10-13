@@ -4,18 +4,24 @@
  * instructions, no package names.
  */
 
-import type { AgentDefinition, ModelDefinition } from "@que/core";
+import type { AgentDefinition, ModelPrice, MountedModel } from "@que/core";
 import { modelFor } from "./model.js";
 
 export type DeploymentInfo = {
   /** In the order listed. A run that names none gets the first. */
   agents: { name: string; model: string }[];
-  models: { name: string; window: number; maxTokens: number }[];
+  /** `price` is in dollars for one million tokens. */
+  models: {
+    name: string;
+    window: number;
+    maxTokens: number;
+    price: ModelPrice;
+  }[];
 };
 
 export function deploymentInfo(
   agents: AgentDefinition[],
-  models: ModelDefinition[],
+  models: MountedModel[],
 ): DeploymentInfo {
   return {
     // The model a run of the agent gets when the run names none.
@@ -23,10 +29,11 @@ export function deploymentInfo(
       name: agent.name,
       model: modelFor(models, agent, undefined).name,
     })),
-    models: models.map(({ name, window, maxTokens }) => ({
+    models: models.map(({ name, window, maxTokens, price }) => ({
       name,
       window,
       maxTokens,
+      price,
     })),
   };
 }

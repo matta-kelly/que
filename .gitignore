@@ -5,3 +5,5 @@ dist
 .langgraph_api
 *.tsbuildinfo
 next-env.d.ts
+# A deployment's run state: the saved copy of its models' facts.
+.que/

@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { loadDeployment } from "../../../harness/src/mount/deployment.js";
 import * as fromDeployment from "../../../harness/src/mount/deployment.js";
+import type { FactSources } from "../../../harness/src/mount/model-facts/index.js";
 import {
   mountPackages,
   type MountedPackage,
@@ -131,12 +132,14 @@ test("a deployment is mounted with its models, in the order it lists them, and w
       id: "fireworks:big-model",
       window: 1_000_000,
       maxTokens: 100_000,
+      price: { input: 1, output: 2 },
     },
     {
       name: "small",
       id: "fireworks:small-model",
       window: 64_000,
       maxTokens: 8_000,
+      price: { input: 1, output: 2 },
     },
   ]);
   assert.deepEqual(
@@ -217,10 +220,121 @@ test("stops, naming the file, on a model file that is missing, breaks the contra
   await assert.rejects(
     fromDeployment.mountDeployment(deployment("model-bad")),
     (error: Error) => {
-      assert.match(error.message, /^mount: .*models\/windowless\.ts/);
+      assert.match(error.message, /^mount: .*models\/bad-price\.ts/);
       assert.ok(error.cause instanceof Error);
-      assert.match(error.cause.message, /^model windowless is invalid/);
+      assert.match(error.cause.message, /^model bad-price is invalid/);
       return true;
     },
+  );
+});
+
+/** Sources a test hands to mount: what each gives, and what each was asked for. */
+function sources(gives: {
+  window?: number;
+  price?: { input: number; output: number };
+}) {
+  const asked: string[] = [];
+  const made: FactSources & { asked: string[]; done_: number } = {
+    asked,
+    done_: 0,
+    window: async (model) => {
+      asked.push(`window of ${model.name}`);
+      return gives.window === undefined
+        ? { reason: "the provider did not answer" }
+        : { window: gives.window };
+    },
+    price: async (model) => {
+      asked.push(`price of ${model.name}`);
+      return gives.price === undefined
+        ? { reason: "the database has no such model" }
+        : { price: gives.price };
+    },
+    done: async () => {
+      made.done_++;
+    },
+  };
+  return made;
+}
+
+test("mount asks no source for a model whose file writes its window and price", async () => {
+  const none = sources({});
+  const mounted = await fromDeployment.mountDeployment(
+    deployment("models-two"),
+    {},
+    none,
+  );
+  assert.equal(mounted.models.length, 2);
+  assert.deepEqual(none.asked, []);
+});
+
+test("a deployment is mounted with its models whole, in the order it lists them", async () => {
+  const given = sources({ window: 200_000, price: { input: 3, output: 4 } });
+  const mounted = await fromDeployment.mountDeployment(
+    deployment("models-bare"),
+    {},
+    given,
+  );
+  assert.deepEqual(mounted.models, [
+    {
+      name: "big",
+      id: "fireworks:big-model",
+      window: 1_000_000,
+      maxTokens: 100_000,
+      price: { input: 1, output: 2 },
+    },
+    {
+      name: "bare",
+      id: "fireworks:accounts/fireworks/models/bare-model",
+      window: 200_000,
+      maxTokens: 8_000,
+      price: { input: 3, output: 4 },
+    },
+  ]);
+  // Only the model that writes no fact is asked for, and the sources are told when mount is done.
+  assert.deepEqual(given.asked, ["window of bare", "price of bare"]);
+  assert.equal(given.done_, 1);
+});
+
+test("stops, naming the model, the fact, the reason and the field, when a model has no window or no price", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(
+      deployment("models-bare"),
+      {},
+      sources({ price: { input: 3, output: 4 } }),
+    ),
+    (error: Error) => {
+      assert.match(error.message, /^mount: the model "bare" has no window/);
+      assert.match(error.message, /the provider did not answer/);
+      assert.match(error.message, /Write `window` in the model file/);
+      return true;
+    },
+  );
+  await assert.rejects(
+    fromDeployment.mountDeployment(
+      deployment("models-bare"),
+      {},
+      sources({ window: 200_000 }),
+    ),
+    (error: Error) => {
+      assert.match(error.message, /^mount: the model "bare" has no price/);
+      assert.match(error.message, /the database has no such model/);
+      assert.match(error.message, /Write `price` in the model file/);
+      return true;
+    },
+  );
+  // What a source gave before mount stopped is still kept: the sources are told mount is done.
+  const half = sources({ window: 200_000 });
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("models-bare"), {}, half),
+  );
+  assert.equal(half.done_, 1);
+  // A window from the source that maxTokens does not fit in stops mount too.
+  await assert.rejects(
+    fromDeployment.mountDeployment(
+      deployment("models-bare"),
+      {},
+      sources({ window: 4_000, price: { input: 3, output: 4 } }),
+    ),
+    /^Error: mount: .*maxTokens of the model bare must not be above its window/,
   );
 });

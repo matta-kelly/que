@@ -149,15 +149,30 @@ export default defineDeployment({
 export default defineModel({
   name: "glm-flash",
   id: "fireworks:accounts/fireworks/models/glm-5p3-flash",
-  window: 1_040_000,
   maxTokens: 131_072,
 });
 ```
-- `name`: what an agent config or a run names
-- `id`: the provider's model, as `provider:model`
-- `window`: the most tokens the model takes in. A share in a loop's settings is a share of this
-- `maxTokens`: the most tokens the model gives in one reply. Sent to the provider with each call. Not above `window`
-- each of the four is required
+- a model has two kinds of field. Choices, which the file has to write
+	- `name`: what an agent config or a run names
+	- `id`: the provider's model, as `provider:model`
+	- `maxTokens`: the most tokens the model may give in one reply. Sent to the provider with each call. Not above `window`
+- and facts, which the file can write, and which que fills in at mount when it does not
+	- `window`: the most tokens the model takes in. A share in a loop's settings is a share of this. From the provider: for Fireworks, `contextLength` of its model record, read with the deployment's `FIREWORKS_API_KEY`
+	- `price`: what the model costs, in dollars for one million tokens: `{ input, output, cachedInput }`. `cachedInput` is for tokens in that the provider read from its cache, and with none they cost as `input`. From `https://models.dev/api.json`, a public database of models: no provider gives its price as data
+	- a value in the file wins, and que asks no source for it. So a deployment can pin a number, and a model that a source does not have can still run
+	```ts
+	export default defineModel({
+	  name: "house-model",
+	  id: "fireworks:accounts/acme/models/house",
+	  maxTokens: 8_000,
+	  window: 64_000,
+	  price: { input: 0.2, output: 0.8 },
+	});
+	```
+- que keeps the last good answer of each source in the deployment's folder, in `.que/model-facts.json`, by the model's id. A source that does not answer in 5 seconds, or answers with an error, is read from there. The file is run state, and is not in git
+- mount stops when a model has no `window` or no `price` from its file, its source or the saved copy. The error names the model, the fact, the reason the source gave, and the field to write. A model with no price is not run as a free one
+- a mounted model is whole: `MountedModel` in `@que/core`. `mountedModel(definition, facts)` makes one
+- the code is in `server/harness/src/mount/model-facts/`: one file for each source, one for the saved copy, and `factSources`, which mount is handed. A test hands mount sources of its own, and calls no network
 - which model a run gets, the first that holds
 	- the one the run names, with `model` in its `configurable`: `{ configurable: { agent: "chat", model: "minimax-m3" } }`
 	- the one its agent config names
@@ -165,13 +180,13 @@ export default defineModel({
 	- que's own: `glm-flash`
 - a name the deployment does not have fails the run, and the error lists the names it has
 - each reply of the model in a run has the name of the model config that gave it, in `response_metadata.que.model`. que adds it on both engines, and it is in the saved chat. A reply of a subagent of the deep agent is not in the chat, and has none
-- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none, and its models, each with its `window` and `maxTokens`. In the order listed, and with no provider id. The chat UI makes its pickers from it
+- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none, and its models, each with its `window`, `maxTokens` and `price`. In the order listed, and with no provider id. The chat UI makes its pickers from it
 - que keeps model configs of its own in `server/models/`, and a deployment lists one by its path: `glm-flash`, `deepseek-flash`, `minimax-m3`. A deployment that lists one of que's agents lists the model it names: `chat` and `deep-chat` name `minimax-m3`
-- the provider of a model is one que has the package for. Today: `fireworks`. Another one is a package added to `server/harness`, a name in `PROVIDERS` in `server/harness/src/mount/models.ts`, and its key in the deployment's `.env`
+- the provider of a model is one que has the package for. Today: `fireworks`. Another one is a package added to `server/harness`, an entry in `PROVIDERS` in `server/harness/src/mount/models.ts` (how the window of one of its models is read, and its name in the model database), and its key in the deployment's `.env`
 - the `MODEL` setting is gone. A deployment that still sets it stops at startup, and the error says to list a model file
 - a model file, as an agent file, has a `package.json` with `"type": "module"` in its folder or one above
 - `validateModel` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error
-- mount stops when a listed file does not exist, when two models have one name, and when a model has a provider que does not have
+- mount stops when a listed file does not exist, when two models have one name, when a model has a provider que does not have, and when a model has no window or no price
 
 ## Client (gatekeeper)
 - `connect(credential) → connection`
