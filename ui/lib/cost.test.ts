@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { about, callCost, chatCost, money, replyCost } from "./cost.ts";
+import {
+  about,
+  callCost,
+  chatCost,
+  money,
+  priced,
+  rate,
+  replyCost,
+} from "./cost.ts";
 
 const human = { type: "human" };
 const toolResult = { type: "tool" };
@@ -213,4 +221,21 @@ test("about says a cost as an estimate", () => {
   assert.equal(about(0.0123), "about $0.012");
   assert.equal(about(0.00001), "under $0.0001");
   assert.equal(about(0), "about $0.00");
+});
+
+test("a price is written with each of its digits, and two decimals at the least", () => {
+  // A cost is counted at the exact price, so the price shown is the exact one.
+  assert.equal(rate(0.15), "$0.15");
+  assert.equal(rate(0.5), "$0.50");
+  assert.equal(rate(3), "$3.00");
+  assert.equal(rate(0.075), "$0.075");
+  assert.equal(rate(0.0375), "$0.0375");
+  assert.equal(rate(0.006), "$0.006");
+  assert.equal(rate(0), "$0.00");
+  // A sum of floats has a tail that is not a part of the price.
+  assert.equal(rate(0.1 + 0.2), "$0.30");
+  assert.equal(
+    priced({ input: 0.075, output: 0.3, cachedInput: 0.006 }),
+    "$0.075 in · $0.30 out",
+  );
 });
