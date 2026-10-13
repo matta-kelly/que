@@ -16,5 +16,9 @@ through the proxy at `app/api/[..._path]`.
   - the meter, in the composer: the tokens of the chat's last model call, in plus out, over the window of the model the chat is on. Not a sum over the chat: each call sends the chat again
   - the line under a reply: the model that gave it (que's stamp, `response_metadata.que.model`), tokens in and tokens out. A reply is a turn: tokens out is the sum over its model calls, tokens in is from the last one. Cached and reasoning are in the tooltip
   - a reply's own messages come from the library's `getExternalStoreMessages`, which it marks experimental
+- `lib/cost.ts`: what a chat cost, counted in the browser and stored in no place: the usage of each model call times the price of the model its stamp names. The price of a model is on `/api/que/deployment`
+  - it shows in three places: the price beside each model in the picker, the cost at the end of the line under a reply, and the cost of the chat in the hover of the meter
+  - a model call with no stamp, or of a model with no price, has no cost, and is not counted as zero. The chat's cost says how many replies it could not count
+  - a cost is an estimate, at the price of today. The tokens of a subagent are in no count
 - `lib/*.test.ts` run on Node's own test runner, in `just check`
 - `.env.local`: copy from `.env.example`

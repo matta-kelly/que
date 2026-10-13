@@ -51,7 +51,7 @@ test("usage: a new chat has no meter, and a chat with a reply has one", async ({
   );
   // The reply says what it took, and the model that gave it.
   await expect(replyUsage(page)).toHaveText(
-    new RegExp(`^${model.name} · [\\d.]+[kM]? in · [\\d.]+[kM]? out$`),
+    new RegExp(`^${model.name} · [\\d.]+[kM]? in · [\\d.]+[kM]? out · \\S+$`),
   );
 });
 

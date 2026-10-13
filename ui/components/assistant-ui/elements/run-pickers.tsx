@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useChatPick } from "@/hooks/use-chat-pick";
 import { createClient } from "@/lib/langgraph-client";
+import { priced } from "@/lib/cost";
 import type { RunPick } from "@/lib/run-pick";
 import { changePick } from "@/lib/run-pick-store";
 
@@ -52,6 +53,13 @@ export const RunPickers: FC = () => {
           label="Model"
           value={shown.model}
           names={deployment.models.map((model) => model.name)}
+          // What a model costs, seen before it is picked.
+          detail={Object.fromEntries(
+            deployment.models.map((model) => [
+              model.name,
+              model.price && priced(model.price),
+            ]),
+          )}
           onPick={(model) => change({ model })}
         />
       )}
@@ -64,8 +72,10 @@ const Picker: FC<{
   value: string | undefined;
   names: string[];
   disabled?: boolean;
+  /** A line beside a name, by the name. */
+  detail?: Record<string, string | undefined>;
   onPick: (name: string) => void;
-}> = ({ label, value, names, disabled, onPick }) => (
+}> = ({ label, value, names, disabled, detail, onPick }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild disabled={disabled}>
       <Button
@@ -82,8 +92,14 @@ const Picker: FC<{
     <DropdownMenuContent align="start" side="top">
       <DropdownMenuRadioGroup value={value} onValueChange={onPick}>
         {names.map((name) => (
-          <DropdownMenuRadioItem key={name} value={name}>
+          // The row's name, for a screen reader and a test, is the name alone.
+          <DropdownMenuRadioItem key={name} value={name} aria-label={name}>
             {name}
+            {detail?.[name] && (
+              <span className="text-muted-foreground ms-auto ps-6 text-xs tabular-nums">
+                {detail[name]}
+              </span>
+            )}
           </DropdownMenuRadioItem>
         ))}
       </DropdownMenuRadioGroup>

@@ -4,8 +4,9 @@
  * contract (validateDeployment in @que/core) fails mounting, and so does an
  * agent config or a loop config that breaks its own, and an agent config that
  * names a package the deployment does not mount, or a loop or a model it does
- * not list. So does a model config that breaks its own, and a `MODEL` setting,
- * which que no longer reads.
+ * not list. So does a model config that breaks its own or has no window or no
+ * price from its file or a source, and a `MODEL` setting, which que no longer
+ * reads.
  */
 
 import "./supply.js";
@@ -16,10 +17,11 @@ import {
   validateDeployment,
   type AgentDefinition,
   type LoopDefinition,
-  type ModelDefinition,
+  type MountedModel,
 } from "@que/core";
 import { mountAgents } from "./agents.js";
 import { mountLoops } from "./loops.js";
+import { factSources, type FactSources } from "./model-facts/index.js";
 import { mountModels } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
 import { mountPackages, type MountedPackage } from "./packages.js";
@@ -55,12 +57,14 @@ export async function loadDeployment(dir: string): Promise<{
 
 export async function mountDeployment(
   dir: string,
-  env: { MODEL?: string } = {},
+  env: { MODEL?: string; FIREWORKS_API_KEY?: string } = {},
+  // Where a model's window and price come from when its file writes none. A test hands in its own.
+  sources: FactSources = factSources(dir, env),
 ): Promise<{
   packages: MountedPackage[];
   agents: AgentDefinition[];
   loops: LoopDefinition[];
-  models: ModelDefinition[];
+  models: MountedModel[];
 }> {
   if (env.MODEL !== undefined)
     throw new Error(
@@ -75,7 +79,7 @@ export async function mountDeployment(
   const packages = await mountPackages(folders);
   const agents = await mountAgents(files);
   const loops = await mountLoops(loopFiles);
-  const models = await mountModels(modelFiles);
+  const models = await mountModels(modelFiles, sources);
   const mounted = packages.map((p) => p.definition.name);
   for (const agent of agents) {
     const unmounted = (agent.packages ?? []).filter(
@@ -109,6 +113,8 @@ export async function mountDeployment(
 
 export async function mountFromEnv(env: {
   QUE_DEPLOYMENT?: string;
+  MODEL?: string;
+  FIREWORKS_API_KEY?: string;
 }): Promise<MountedPackage[]> {
-  return (await mountDeployment(deploymentFolder(env))).packages;
+  return (await mountDeployment(deploymentFolder(env), env)).packages;
 }

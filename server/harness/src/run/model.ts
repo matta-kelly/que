@@ -4,21 +4,26 @@
  */
 
 import { initChatModel } from "langchain";
-import type { AgentDefinition, ModelDefinition } from "@que/core";
+import type { AgentDefinition, MountedModel } from "@que/core";
 
-/** What a run is built with on a deployment that lists no model. The same as `server/models/glm-flash.ts`. */
-export const OWN_MODEL: ModelDefinition = {
+/**
+ * What a run is built with on a deployment that lists no model: `server/models/glm-flash.ts`,
+ * with its facts written out, since no mount fills them. No reader shows its price: the
+ * deployment route gives the models a deployment lists.
+ */
+export const OWN_MODEL: MountedModel = {
   name: "glm-flash",
   id: "fireworks:accounts/fireworks/models/glm-5p3-flash",
-  window: 1_040_000,
   maxTokens: 131_072,
+  window: 1_048_576,
+  price: { input: 0.15, output: 0.5, cachedInput: 0.03 },
 };
 
 export function modelFor(
-  models: ModelDefinition[],
+  models: MountedModel[],
   config: AgentDefinition,
   named: unknown,
-): ModelDefinition {
+): MountedModel {
   const name = named ?? config.model;
   if (name === undefined) return models[0] ?? OWN_MODEL;
   const model = models.find((m) => m.name === name);
@@ -38,7 +43,7 @@ export function modelFor(
  * It reads no field of the run: left to itself the framework takes `configurable.model`,
  * the name of a model config, as the provider's model.
  */
-export const chatModel = (model: ModelDefinition) =>
+export const chatModel = (model: MountedModel) =>
   initChatModel(model.id, {
     maxTokens: model.maxTokens,
     configurableFields: [],

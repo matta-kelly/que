@@ -4,7 +4,7 @@ import { defineAgent } from "@que/core";
 // and the agent gets every package of that deployment the user can reach.
 export default defineAgent({
   name: "chat",
-  model: "glm-flash",
+  model: "minimax-m3",
   instructions: `You are a helpful assistant.
 
 - Be concise and accurate.

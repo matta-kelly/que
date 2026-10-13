@@ -51,6 +51,7 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 
 1. Copy `templates/deployment/` to a folder of your own, outside this repo. That folder is your deployment
 2. In it, copy `.env.example` to `.env` and fill it in. A deployment's settings and secrets are kept there, and none in this repo
+   - que makes a `.que/` folder in it when a start learns a fact of a model: the saved copy of what it learned of the deployment's models (window and price). It is run state, and the template leaves it out of git
 3. Put its packages in it and list their folders in its `index.ts`. A package folder outside que needs a `package.json` with `"type": "module"`, or one above it
 4. Copy `ui/.env.example` to `ui/.env.local` in this repo and fill it in
 5. Set `QUE_HOME` to this repo's folder, and run the deployment's `start`. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder

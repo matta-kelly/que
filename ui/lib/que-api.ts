@@ -28,11 +28,24 @@ export type Connection = {
   connectedAt: string | null;
 };
 
+/** What a model costs: dollars for one million tokens. With no `cachedInput`, cached tokens are at `input`. */
+export type ModelPrice = {
+  input: number;
+  output: number;
+  cachedInput?: number;
+};
+
 /** What the deployment lists: the agents and models a run can name. */
 export type Deployment = {
   /** In the order listed. A chat with no pick gets the first. `model` is the one the agent runs on when no model is picked. */
   agents: { name: string; model: string }[];
-  models: { name: string; window: number; maxTokens: number }[];
+  /** An older server sends no `price`. */
+  models: {
+    name: string;
+    window: number;
+    maxTokens: number;
+    price?: ModelPrice;
+  }[];
 };
 
 /** GET a URL as JSON; a non-OK response throws, so SWR reports it as an error. */
