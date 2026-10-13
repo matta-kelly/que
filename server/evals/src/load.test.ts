@@ -6,8 +6,9 @@ import { load } from "./load.js";
 const deployment = (name: string) =>
   join(import.meta.dirname, "../fixtures/deployments", name);
 
-test("loads the cases of each package a deployment lists, each with its package, and its agents in order", async () => {
+test("loads the name of a deployment, the cases of each package it lists, each with its package, and its agent configs as written, in order", async () => {
   assert.deepEqual(await load(deployment("shop")), {
+    deployment: "shop",
     cases: [
       {
         package: "shop",
@@ -28,7 +29,7 @@ test("loads the cases of each package a deployment lists, each with its package,
     ],
     agents: [
       { name: "chat" },
-      { name: "lean" },
+      { name: "lean", model: "provider:small-model" },
       { name: "notes-only", packages: ["notes"] },
     ],
   });
@@ -36,6 +37,7 @@ test("loads the cases of each package a deployment lists, each with its package,
 
 test("a package with no cases file gives no case", async () => {
   assert.deepEqual(await load(deployment("no-cases")), {
+    deployment: "no-cases",
     cases: [],
     agents: [{ name: "chat" }],
   });

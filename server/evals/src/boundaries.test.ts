@@ -33,3 +33,14 @@ test("only que.ts imports the LangGraph SDK", () => {
     ["que.ts"],
   );
 });
+
+test("only langfuse.ts imports the Langfuse SDK, or OpenTelemetry", () => {
+  assert.deepEqual(
+    sources
+      .filter(({ text }) =>
+        imports(text).some((path) => /^@(langfuse|opentelemetry)\//.test(path)),
+      )
+      .map(({ file }) => file),
+    ["langfuse.ts"],
+  );
+});
