@@ -5,6 +5,10 @@ import reactHooks from "eslint-plugin-react-hooks";
 import sonarjs from "eslint-plugin-sonarjs";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+const fromServer = /(?:^|\/)\.\.\/server(?:\/|$)|^@que\//;
+const fromServerWhy =
+  "The UI imports nothing from server/: neither app imports from the other.";
+
 export default defineConfig([
   // Build output, test artifacts, and vendored shadcn primitives.
   globalIgnores([
@@ -27,6 +31,23 @@ export default defineConfig([
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
     plugins: { sonarjs },
     rules: { "sonarjs/no-commented-code": "error" },
+  },
+  // Neither app imports from the other: the UI takes nothing from server/, by path or by package name.
+  {
+    files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ regex: fromServer.source, message: fromServerWhy }] },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        ...["ImportExpression", "TSImportType"].map((node) => ({
+          selector: `${node}[source.value=/${fromServer.source}/]`,
+          message: `'import()' of this path is restricted. ${fromServerWhy}`,
+        })),
+      ],
+    },
   },
   // Vendored from assistant-ui: memoizes by reading a ref during render, on purpose.
   {
