@@ -5,7 +5,7 @@ import { nameNewestChat, openApp, openChat } from "./helpers";
 // enough to be cut part way, and reads the run on the server.
 
 const LONG =
-  "Write the numbers from 1 to 250, one per line, as digits. No other text.";
+  "Write the numbers from 1 to 1500, one per line, as digits. No other text.";
 
 const isRun = (req: Request) =>
   req.method() === "POST" && /\/threads\/[^/]+\/runs\/stream$/.test(req.url());
@@ -28,7 +28,7 @@ async function start(page: Page, text: string) {
   };
 }
 
-/** The runs of a thread, newest first, as the server has them. */
+/** The runs of a thread, as the server has them. */
 async function runsOf(page: Page, thread: string) {
   const res = await page.request.get(`/api/threads/${thread}/runs`);
   expect(res.ok()).toBe(true);
@@ -47,11 +47,14 @@ async function partWay(page: Page) {
   await expect(stop(page)).toBeVisible();
 }
 
-/** The whole reply, with no part of it twice. */
+/** The chat joins its run, and then has the whole reply, with no part of it twice. */
 async function wholeOnce(page: Page) {
-  await expect(sendButton(page)).toBeVisible({ timeout: 90_000 });
+  // It shows as running first: the send button is there for a moment before the chat has looked.
+  await expect(stop(page)).toBeVisible({ timeout: 15_000 });
+  await expect(sendButton(page)).toBeVisible({ timeout: 110_000 });
   const text = (await reply(page).textContent())!;
-  for (const n of [1, 57, 123, 250])
+  // Not the last one: the line under the reply comes right after it in the text.
+  for (const n of [57, 777, 1234, 1499])
     expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
 }
 
@@ -80,15 +83,19 @@ test("survive: stop cancels the run on the server, and the chat goes on", async 
 
   // The run is stopped by a call, and the thread can be used: `interrupted`, and no error state.
   await expect
-    .poll(async () => (await runsOf(page, thread))[0].status)
-    .toBe("interrupted");
+    .poll(async () => (await runsOf(page, thread)).map((run) => run.status))
+    .toEqual(["interrupted"]);
   expect((await threadOf(page, thread)).status).not.toBe("error");
 
   await start(page, "Say hi in one word.");
   await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
   await expect(reply(page)).not.toBeEmpty();
-  expect((await runsOf(page, thread))[0].status).toBe("success");
+  // The run that was stopped, and the one after it.
+  expect((await runsOf(page, thread)).map((run) => run.status).sort()).toEqual([
+    "interrupted",
+    "success",
+  ]);
 });
 
 test("survive: a reload in the middle of a run, and the chat has the whole reply one time", async ({
