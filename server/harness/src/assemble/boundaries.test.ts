@@ -32,6 +32,19 @@ test("agent.ts takes only assemble, its legibility from run/legibility, its loop
   );
 });
 
+test("agents, loops and models are mounted by one function", () => {
+  const mount = join(here, "../mount");
+  for (const file of ["agents.ts", "loops.ts", "models.ts"]) {
+    const text = readFileSync(join(mount, file), "utf8");
+    assert.ok(imports(text).includes("./files.js"), `${file} uses files.ts`);
+    assert.doesNotMatch(
+      text,
+      /existsSync|await import\(/,
+      `${file} reads a file`,
+    );
+  }
+});
+
 test("only run/engine names deepagents", () => {
   const harness = join(here, "..");
   const files = readdirSync(harness, { recursive: true, encoding: "utf8" })

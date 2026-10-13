@@ -5,4 +5,5 @@ export default defineDeployment({
   packages: ["../../packages/gamma", "../../packages/alpha"],
   agents: ["../../agents/looped.ts", "../../agents/lean.ts"],
   loops: ["../../loops/short-run.ts", "../../loops/long-chat.ts"],
+  models: ["../../models/small.ts"],
 });

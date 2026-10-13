@@ -11,4 +11,5 @@ export default defineDeployment({
     "../../../../../../loops/long-chat.ts",
     "../../../../../../loops/deep.ts",
   ],
+  models: ["../../../../../../models/glm-flash.ts"],
 });

@@ -19,7 +19,7 @@ export type AgentDefinition = {
   name: string;
   /** Names of the packages the agent gets, out of the ones the deployment mounts. */
   packages?: string[];
-  /** In "provider:model" form. */
+  /** The name of a model config the deployment lists. */
   model?: string;
   /** Opens the system prompt, in place of que's own role text. */
   instructions?: string;
@@ -72,7 +72,17 @@ export function validateAgent(def: unknown): asserts def is AgentDefinition {
         `packages of the agent must each be a package name, got ${JSON.stringify(pkg)}`,
       );
   }
-  text(model, "model");
+  if (typeof model === "string" && model.includes(":"))
+    problems.push(
+      `model of the agent is written as "provider:model": a model is a file of its own, listed in \`models\` in the deployment, and the agent names it`,
+    );
+  else if (
+    model !== undefined &&
+    (typeof model !== "string" || !NAME.test(model))
+  )
+    problems.push(
+      `model of the agent must be the name of a model, got ${JSON.stringify(model)}`,
+    );
   text(instructions, "instructions");
   if (
     legibility !== undefined &&

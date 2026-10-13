@@ -6,6 +6,8 @@ import type { BaseChatModel } from "@langchain/core/language_models/chat_models"
 export type Parts = {
   /** In "provider:model" form, or a model that is already made. */
   model: string | BaseChatModel;
+  /** The most tokens that model takes in. A share in a loop's settings is a share of this. */
+  window: number;
   systemPrompt: string;
   tools: StructuredTool[];
   middleware: AgentMiddleware[];

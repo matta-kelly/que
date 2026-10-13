@@ -5,7 +5,7 @@ import { defineAgent } from "@que/core";
 export default defineAgent({
   name: "chat",
   // packages: [],            names, out of the ones the deployment lists
-  // model: "provider:model",
+  // model: "glm-flash",      the name of a model config the deployment lists
   // instructions: "...",     opens the system prompt, in place of que's own role text
   // legibility: "on-demand", how the model is shown its packages
   // loop: "long-chat",       the name of a loop config the deployment lists

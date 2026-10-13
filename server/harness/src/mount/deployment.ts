@@ -3,7 +3,9 @@
  * has its definition as the default export. A definition that breaks the
  * contract (validateDeployment in @que/core) fails mounting, and so does an
  * agent config or a loop config that breaks its own, and an agent config that
- * names a package the deployment does not mount or a loop it does not list.
+ * names a package the deployment does not mount, or a loop or a model it does
+ * not list. So does a model config that breaks its own, and a `MODEL` setting,
+ * which que no longer reads.
  */
 
 import "./supply.js";
@@ -14,9 +16,11 @@ import {
   validateDeployment,
   type AgentDefinition,
   type LoopDefinition,
+  type ModelDefinition,
 } from "@que/core";
 import { mountAgents } from "./agents.js";
 import { mountLoops } from "./loops.js";
+import { mountModels } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
 import { mountPackages, type MountedPackage } from "./packages.js";
 
@@ -25,6 +29,7 @@ export async function loadDeployment(dir: string): Promise<{
   packages: string[];
   agents: string[];
   loops: string[];
+  models: string[];
 }> {
   const index = join(dir, "index.ts");
   if (!existsSync(index))
@@ -44,22 +49,33 @@ export async function loadDeployment(dir: string): Promise<{
     packages: definition.packages.map((folder) => resolve(dir, folder)),
     agents: (definition.agents ?? []).map((file) => resolve(dir, file)),
     loops: (definition.loops ?? []).map((file) => resolve(dir, file)),
+    models: (definition.models ?? []).map((file) => resolve(dir, file)),
   };
 }
 
-export async function mountDeployment(dir: string): Promise<{
+export async function mountDeployment(
+  dir: string,
+  env: { MODEL?: string } = {},
+): Promise<{
   packages: MountedPackage[];
   agents: AgentDefinition[];
   loops: LoopDefinition[];
+  models: ModelDefinition[];
 }> {
+  if (env.MODEL !== undefined)
+    throw new Error(
+      "mount: MODEL is set, and que no longer reads it: a model is a file of its own, listed in `models` in the deployment",
+    );
   const {
     packages: folders,
     agents: files,
     loops: loopFiles,
+    models: modelFiles,
   } = await loadDeployment(dir);
   const packages = await mountPackages(folders);
   const agents = await mountAgents(files);
   const loops = await mountLoops(loopFiles);
+  const models = await mountModels(modelFiles);
   const mounted = packages.map((p) => p.definition.name);
   for (const agent of agents) {
     const unmounted = (agent.packages ?? []).filter(
@@ -70,18 +86,25 @@ export async function mountDeployment(dir: string): Promise<{
         `mount: deployment ${dir}: the agent "${agent.name}" names packages the deployment does not mount: ${unmounted.join(", ")}`,
       );
   }
-  const listed = loops.map((loop) => loop.name);
-  for (const agent of agents) {
-    if (agent.loop !== undefined && !listed.includes(agent.loop))
-      throw new Error(
-        `mount: deployment ${dir}: the agent "${agent.name}" names the loop "${agent.loop}", which the deployment does not list. ${
-          listed.length
-            ? `Loops: ${listed.join(", ")}`
-            : "This deployment lists no loops"
-        }`,
-      );
+  // An agent names a loop and a model by name, and each has to be one the deployment lists.
+  for (const [kind, configs] of [
+    ["loop", loops],
+    ["model", models],
+  ] as const) {
+    const listed = configs.map((config) => config.name);
+    for (const agent of agents) {
+      const named = agent[kind];
+      if (named !== undefined && !listed.includes(named))
+        throw new Error(
+          `mount: deployment ${dir}: the agent "${agent.name}" names the ${kind} "${named}", which the deployment does not list. ${
+            listed.length
+              ? `${kind === "loop" ? "Loops" : "Models"}: ${listed.join(", ")}`
+              : `This deployment lists no ${kind}s`
+          }`,
+        );
+    }
   }
-  return { packages, agents, loops };
+  return { packages, agents, loops, models };
 }
 
 export async function mountFromEnv(env: {

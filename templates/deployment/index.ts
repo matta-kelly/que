@@ -8,4 +8,6 @@ export default defineDeployment({
   agents: ["./agents/chat.ts"],
   // One file per loop config: how a chat is handled as it grows.
   loops: ["./loops/long-chat.ts"],
+  // One file per model config. An agent names one, and so can a run; with neither, a run gets the first.
+  models: ["./models/glm-flash.ts"],
 });

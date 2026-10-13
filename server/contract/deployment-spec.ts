@@ -1,6 +1,6 @@
 /**
  * The contract every deployment is written against: its name, the packages
- * it uses, the agent configs it can run, and its loop configs. Framework-free, as the package
+ * it uses, the agent configs it can run, and its loop and model configs. Framework-free, as the package
  * contract is.
  */
 
@@ -15,6 +15,8 @@ export type DeploymentDefinition = {
   agents?: string[];
   /** One file per loop config: an absolute path, or one taken from the deployment's own folder. */
   loops?: string[];
+  /** One file per model config: an absolute path, or one taken from the deployment's own folder. With none, an agent runs on que's own model. */
+  models?: string[];
 };
 
 export function defineDeployment(
@@ -32,7 +34,7 @@ export function validateDeployment(
 ): asserts def is DeploymentDefinition {
   if (!def || typeof def !== "object")
     throw new Error("deployment: no definition (default export)");
-  const { name, packages, agents, agent, loops } = def as Record<
+  const { name, packages, agents, agent, loops, models } = def as Record<
     string,
     unknown
   >;
@@ -53,7 +55,7 @@ export function validateDeployment(
       );
   }
 
-  for (const [list, files] of Object.entries({ agents, loops })) {
+  for (const [list, files] of Object.entries({ agents, loops, models })) {
     if (files !== undefined && !Array.isArray(files))
       problems.push(`${list} of deployment ${deployment} must be an array`);
     for (const file of Array.isArray(files) ? files : []) {

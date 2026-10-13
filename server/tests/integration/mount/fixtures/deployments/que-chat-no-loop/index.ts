@@ -4,5 +4,5 @@ export default defineDeployment({
   name: "que-chat-no-loop",
   packages: [],
   agents: ["../../../../../../agents/chat.ts"],
-  loops: [],
+  models: ["../../../../../../models/glm-flash.ts"],
 });

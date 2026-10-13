@@ -147,3 +147,22 @@ test("validateDeployment rejects loops that are not a list, and a loop that is n
     },
   );
 });
+
+test("validateDeployment accepts model files, and rejects models that are not a list of file paths", () => {
+  validateDeployment(
+    defineDeployment({
+      name: "shop",
+      packages: [],
+      models: ["./models/small.ts", "/abs/models/glm-flash.ts"],
+    }),
+  );
+  assert.throws(
+    () =>
+      validateDeployment({ name: "shop", packages: [], models: "./small.ts" }),
+    /models of deployment shop must be an array/,
+  );
+  assert.throws(
+    () => validateDeployment({ name: "shop", packages: [], models: [7] }),
+    /models of deployment shop must each be a file path, got 7/,
+  );
+});
