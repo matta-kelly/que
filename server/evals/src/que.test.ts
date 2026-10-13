@@ -20,7 +20,10 @@ test("sends the input as one user message on a new thread, with the agent's name
     assert.deepEqual(body.input, {
       messages: [{ role: "user", content: "Where is the order of Ada?" }],
     });
-    assert.deepEqual(body.config, { configurable: { agent: "lean" } });
+    assert.deepEqual(body.config, {
+      configurable: { agent: "lean" },
+      tags: ["eval"],
+    });
   } finally {
     await server.close();
   }
