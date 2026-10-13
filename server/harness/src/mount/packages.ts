@@ -7,7 +7,7 @@
 
 import "./supply.js";
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -19,30 +19,31 @@ import {
 
 export type MountedPackage = { definition: PackageDefinition; skills: Skill[] };
 
-async function readSkills(dir: string, pkg: string): Promise<Skill[]> {
-  let entries;
-  try {
-    entries = await readdir(join(dir, "skills"), { withFileTypes: true });
-  } catch {
-    return [];
-  }
+// Only the skills the definition lists: a folder it does not list is not read.
+async function readSkills(
+  dir: string,
+  { name: pkg, skills }: PackageDefinition,
+): Promise<Skill[]> {
   return Promise.all(
-    entries
-      .filter((e) => e.isDirectory())
-      .map(async (e) => {
-        const id = `${pkg}/${e.name}`;
-        const text = await readFile(
-          join(dir, "skills", e.name, "SKILL.md"),
-          "utf8",
-        );
-        try {
-          return parseSkill(id, text);
-        } catch (error) {
-          throw new Error(`mount: ${(error as Error).message}`, {
-            cause: error,
-          });
-        }
-      }),
+    skills.map(async (name) => {
+      const id = `${pkg}/${name}`;
+      const file = join(dir, "skills", name, "SKILL.md");
+      let text;
+      try {
+        text = await readFile(file, "utf8");
+      } catch (error) {
+        throw new Error(`mount: skill ${id} has no file (${file})`, {
+          cause: error,
+        });
+      }
+      try {
+        return parseSkill(id, text);
+      } catch (error) {
+        throw new Error(`mount: ${(error as Error).message}`, {
+          cause: error,
+        });
+      }
+    }),
   );
 }
 
@@ -67,7 +68,7 @@ export async function mountPackages(dirs: string[]): Promise<MountedPackage[]> {
     }
     mounted.push({
       definition,
-      skills: await readSkills(dir, definition.name),
+      skills: await readSkills(dir, definition),
     });
   }
   return mounted;
