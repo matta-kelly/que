@@ -31,9 +31,9 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
         - `access/`: the packages one user can use, their connections, and the users
         - `assemble/`: puts those packages in front of the model, as one config
         - `run/`: builds the agent per user, serves the graph and the `/que/*` API, and the CLI
+    - `agents/`: que's own agent configs. Each one names no package, so any deployment can list it by its path. `chat.ts` is the agent a chat gets, with que's own choices written out
     - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
-- `agents/`: que's own agent configs. Each one names no package, so any deployment can list it by its path. `chat.ts` is the agent a chat gets, with que's own choices written out
 - `templates/deployment/`: an empty deployment to copy: its definition, one agent config, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder
