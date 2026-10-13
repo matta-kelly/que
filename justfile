@@ -22,8 +22,11 @@ up deployment:
     if running "langgraphjs dev"; then
         echo "The agent server is already running. Run 'just down' first to start it from another deployment."
     else
+        # The commit que runs from, for the trace of a run. Code that is not committed does not carry the name of a commit.
+        commit=$(git -C "{{root}}" rev-parse HEAD 2>/dev/null || true)
+        if [ -n "$commit" ] && ! git -C "{{root}}" diff --quiet HEAD; then commit="$commit-dirty"; fi
         # The server takes its settings from the deployment's .env, and none from que's own folder.
-        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "NODE_OPTIONS=--require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "QUE_COMMIT=$commit" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "NODE_OPTIONS=--require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
     fi
     running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
     echo "Starting…"

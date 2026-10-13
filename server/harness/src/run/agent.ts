@@ -10,6 +10,9 @@
  * or the first the deployment lists. Packages the user can't use are never
  * loaded. The user is fixed when the agent is built, so every tool call runs
  * as them.
+ *
+ * A run is traced when the deployment's `.env` says where to send the trace
+ * (run/trace.ts). A fault in those settings stops the server when it starts.
  */
 
 import { assemble } from "../assemble/assemble.js";
@@ -23,6 +26,9 @@ import { build } from "./engine/index.js";
 import { legibilityFor } from "./legibility.js";
 import { loopFor } from "./loop.js";
 import { chatModel, modelFor } from "./model.js";
+import { runOf, settingsFor, startTracing } from "./trace.js";
+
+const traced = startTracing(settingsFor(process.env));
 
 export async function buildAgent(
   userId: string,
@@ -55,11 +61,22 @@ export async function buildAgent(
 // whatever they have connected right now, under the agent config the run
 // names (`agent`, sent in the run's configurable), on the model the run names
 // (`model`, sent the same way). Calls without a user (e.g.
-// fetching the graph schema) get no packages.
-export const agent = (config?: { configurable?: Record<string, unknown> }) =>
-  buildAgent(
-    (config?.configurable?.langgraph_auth_user_id as string | undefined) ??
-      "anonymous",
-    config?.configurable?.agent,
-    config?.configurable?.model,
+// fetching the graph schema) get no packages. The server says what each call
+// is for in its second argument, and only a run is traced.
+export const agent = async (
+  config?: { configurable?: Record<string, unknown> },
+  runtime?: { accessContext?: string },
+) =>
+  traced(
+    await buildAgent(
+      (config?.configurable?.langgraph_auth_user_id as string | undefined) ??
+        "anonymous",
+      config?.configurable?.agent,
+      config?.configurable?.model,
+    ),
+    runOf(
+      config,
+      runtime,
+      configFor(mounted.agents, config?.configurable?.agent),
+    ),
   );
