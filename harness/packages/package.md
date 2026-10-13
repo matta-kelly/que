@@ -3,13 +3,13 @@ type: component
 description: the package contract for que. Framework-free folders + plain TS; the harness loads what they declare
 status: draft
 ---
-One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. `packages/` holds only capability packages; the contract (`@que/core`, in `platform/core/package-spec.ts`) and platform services (identity, users, credentials) live in `platform/`. A deployment (`deployments/<name>/index.ts`, made with `defineDeployment` from `@que/core`) lists the packages it uses, each by its folder; que mounts those and no other.
+One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder kept in the deployment that uses it; que holds none. The contract (`@que/core`, in `platform/core/package-spec.ts`) and platform services (identity, users, credentials) are in que, in `platform/`. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
 
 ## Anatomy
 ```
 packages/<name>/
-  index.ts       ← required, and the only required file: default export, the definition
-  package.json   ← optional: only if it has dependencies of its own
+  index.ts       ← required: default export, the definition
+  package.json   ← needed, here or in a folder above: it says `"type": "module"`
   client.ts      ← optional: only if it talks to a service
   ontology.ts    ← optional: the domain types its ops return (zod schemas + row mappers), defined once
   ops/index.ts   ← optional: exports ops[]
@@ -21,7 +21,7 @@ packages/<name>/
 - a package can sit in any folder, inside que or outside it
 - que gives it `@que/core` and `zod`, so a folder outside que needs no install for them
 - the names que supplies are exactly `@que/core` and `zod`
-- a folder outside que needs a `package.json` with `"type": "module"`
+- the folder, or one above it such as the deployment's, has a `package.json` with `"type": "module"`
 
 ## Definition
 - made with `definePackage` from `@que/core`
@@ -38,7 +38,7 @@ packages/<name>/
 - the description is the tool card: when to use it and which op to use instead, what it returns, its limits
 
 ## Validation
-- `validatePackage` in `@que/core`; mount runs it on every folder and fails loudly
+- `validatePackage` in `@que/core`; mount runs it on every folder a deployment lists, and fails loudly
 - package and op names match `^[a-zA-Z0-9_-]{1,64}$`; `<package>_<op>` is ≤ 64 chars; op names unique
 - package and ops carry a title and description; `schema` is a `z.object` and every field has `.describe()`
 

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Run this deployment's own tests: its packages, against que's contract.
+# QUE_HOME is the folder que is checked out in.
+set -euo pipefail
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+: "${QUE_HOME:?Set QUE_HOME to the folder que is checked out in}"
+exec just --justfile "$QUE_HOME/justfile" check-deployment "$here"
