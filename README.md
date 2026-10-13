@@ -6,11 +6,11 @@ It knows nothing about any one service or any one company: everything it can do 
 
 ## How it works
 
-- **Deployments**: one folder per way to start que, kept outside this repo, written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`harness/packages/package.md`).
-- **Packages**: one folder per service, kept in the deployment that uses it, written against one small contract (`harness/platform/core/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `harness/packages/package.md`.
+- **Deployments**: one folder per way to start que, kept outside this repo, written against one small contract (`server/contract/deployment-spec.ts`): its name and the package folders it uses. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`server/contract/package.md`).
+- **Packages**: one folder per service, kept in the deployment that uses it, written against one small contract (`server/contract/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `server/contract/package.md`.
 - **Validation**: the harness checks every package when it mounts it (names, schemas, a description on every field) and stops on the first one that is wrong.
 - **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the packages that user has connected.
-- **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a package is and lists the ones the user can use; it opens a package to see what is inside and loads the operations it needs (`harness/agent/src/legibility/on-demand/`, one config on the shared base in `harness/agent/src/legibility/`). The harness knows the package contract, never a specific package.
+- **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a package is and lists the ones the user can use; it opens a package to see what is inside and loads the operations it needs (`server/harness/src/assemble/on-demand/`, one config on the shared base in `server/harness/src/assemble/`). The harness knows the package contract, never a specific package.
 
 Built with LangChain `createAgent` on the LangGraph dev server, Next.js with assistant-ui, and Postgres.
 
@@ -18,10 +18,15 @@ Built with LangChain `createAgent` on the LangGraph dev server, Next.js with ass
 
 Two apps in one repo. Each has its own `package.json`, lockfile, lint and format config, and neither imports from the other.
 
-- `harness/`: the agent and everything it loads
-    - `agent/`: mounts the packages its deployment lists, builds the agent per user, serves the graph and the `/que/*` API
-    - `packages/package.md`: the package contract, in words. The packages themselves are in deployments
-    - `platform/`: the package and deployment contracts (`@que/core`) and platform services (identity, users, credentials)
+- `server/`: the contract, the backend and the harness
+    - `contract/`: the package and deployment contracts (`@que/core`), and `package.md`, the package contract in words. The packages themselves are in deployments
+    - `backend/`: the services the harness stands on (`identity/`, `users/`, `credentials/`)
+    - `harness/`: the agent (`@que/agent`). In `src/`, in the order the work flows, and the only way an import points:
+        - `mount/`: reads the deployment and the packages it lists
+        - `access/`: the packages one user can use, their connections, and the users
+        - `assemble/`: puts those packages in front of the model, as one config
+        - `run/`: builds the agent per user, serves the graph and the `/que/*` API, and the CLI
+    - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
 - `templates/deployment/`: an empty deployment to copy: its definition, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
 - `scripts/db.sh`: the Postgres container
@@ -53,4 +58,4 @@ From this repo, for que's own code:
 - `just format`: format every file in both apps with Prettier
 - `just test`: end to end tests in a browser (`ui/tests/e2e`). They need a deployment started, and most were written against one deployment's services and name
 
-Anything else runs in the container: `podman exec -u node -w "$PWD/harness" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.
+Anything else runs in the container: `podman exec -u node -w "$PWD/server" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.

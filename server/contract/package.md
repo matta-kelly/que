@@ -3,7 +3,7 @@ type: component
 description: the package contract for que. Framework-free folders + plain TS; the harness loads what they declare
 status: draft
 ---
-One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder kept in the deployment that uses it; que holds none. The contract (`@que/core`, in `platform/core/package-spec.ts`) and platform services (identity, users, credentials) are in que, in `platform/`. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
+One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder kept in the deployment that uses it; que holds none. The contract (`@que/core`, in `server/contract/package-spec.ts`) and the backend services (identity, users, credentials, in `server/backend/`) are in que. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
 
 ## Anatomy
 ```
@@ -55,7 +55,7 @@ packages/<name>/
 
 ## Skills
 - `SKILL.md` with `title` + `description` frontmatter; read on demand
-- the contract defines a skill (`Skill` and `parseSkill`, in `platform/core/skill-spec.ts`); mount reads the file and hands it the text
+- the contract defines a skill (`Skill` and `parseSkill`, in `server/contract/skill-spec.ts`); mount reads the file and hands it the text
 
 ## Not yet
 - `context/`, `bin/`, code mode, npm distribution
