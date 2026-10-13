@@ -1,7 +1,7 @@
 import { defineDeployment } from "@que/core";
 
 export default defineDeployment({
-  name: "agent-names-mounted",
+  name: "agent-file-missing",
   packages: ["../../packages/gamma", "../../packages/alpha"],
-  agent: { packages: ["alpha"], instructions: "You help the sales team." },
+  agents: ["../../agents/nope.ts"],
 });
