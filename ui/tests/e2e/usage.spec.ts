@@ -47,7 +47,8 @@ test("usage: a new chat has no meter, and a chat with a reply has one", async ({
 
   await send(page, "Say hi in one word.");
   await expect(meter(page)).toHaveText(
-    new RegExp(`^[\\d.]+[kM]? / ${short(model.window)}$`),
+    // The tokens over the window, and then what the chat cost.
+    new RegExp(`^[\\d.]+[kM]? / ${short(model.window)} · \\S+$`),
   );
   // The reply says what it took, and the model that gave it.
   await expect(replyUsage(page)).toHaveText(
