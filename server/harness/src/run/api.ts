@@ -5,7 +5,7 @@
  * Credential values are never returned.
  *
  * The caller is the user resolved by the auth hook (src/run/auth.ts). Also serves
- * the signed-in user's profile, the user list, and what the deployment lists:
+ * the signed-in user's profile with their own instructions, the user list, and what the deployment lists:
  * the agents and models a run can name.
  */
 
@@ -17,7 +17,8 @@ import {
   removeCredential,
   setCredential,
 } from "../access/connections.js";
-import { users } from "../access/users.js";
+import { accepted } from "../access/instructions.js";
+import { instructionsFile, userInstructions, users } from "../access/users.js";
 import { deploymentInfo } from "./deployment-info.js";
 
 export const app = new Hono();
@@ -67,16 +68,32 @@ app.delete("/que/connections/:package", async (c) => {
   return c.json({ ok: true });
 });
 
+// The user's row, with their instructions in use and where those are from.
+const profile = async (userId: string) => {
+  const [me, { text, from }] = await Promise.all([
+    users.get(userId),
+    userInstructions(userId),
+  ]);
+  return me && { ...me, instructions: text, instructionsFrom: from };
+};
+
 app.get("/que/me", async (c) => {
-  const me = await users.get(userIdOf(c));
+  const me = await profile(userIdOf(c));
   return me ? c.json(me) : c.json({ error: "not found" }, 404);
 });
 
 app.patch("/que/me", async (c) => {
-  const { name, avatarUrl } = (await c.req.json()) as {
+  const { name, avatarUrl, instructions } = (await c.req.json()) as {
     name?: string;
     avatarUrl?: string | null;
+    instructions?: unknown;
   };
+  const change =
+    instructions === undefined
+      ? undefined
+      : accepted(instructions, instructionsFile ? "file" : "account");
+  if (change && "error" in change)
+    return c.json({ error: change.error }, change.status);
   // Pictures are small data URLs made in the browser (or a plain https link).
   if (
     avatarUrl &&
@@ -85,7 +102,12 @@ app.patch("/que/me", async (c) => {
   ) {
     return c.json({ error: "picture must be an image under ~300 KB" }, 400);
   }
-  return c.json(await users.update(userIdOf(c), { name, avatarUrl }));
+  await users.update(userIdOf(c), {
+    name,
+    avatarUrl,
+    instructions: change?.text,
+  });
+  return c.json(await profile(userIdOf(c)));
 });
 
 app.get("/que/users", async (c) => c.json(await users.list()));

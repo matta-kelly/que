@@ -9,7 +9,7 @@ export const QUE_API = {
   deployment: "/api/que/deployment",
 } as const;
 
-/** A user; /api/que/me returns the signed-in one. */
+/** A user, as the list of users gives one. */
 export type User = {
   id: string;
   email: string;
@@ -17,6 +17,14 @@ export type User = {
   avatarUrl: string | null;
   role: "admin" | "member";
   createdAt: string;
+};
+
+/** The signed-in user, from /api/que/me: their row, and their own instructions. */
+export type Me = User & {
+  /** The text in use, or none. */
+  instructions: string | null;
+  /** `file`: a file of the deployment sets the text, and it cannot be changed here. */
+  instructionsFrom: "file" | "account";
 };
 
 /** A package that needs a credential, and whether this user has connected it. */
