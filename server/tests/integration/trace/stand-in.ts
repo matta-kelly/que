@@ -152,6 +152,7 @@ export function agentOn(engine: Engine) {
   model.respond(new AIMessage("Well."));
   return build(resolveLoop({ name: "test", engine }), {
     model,
+    window: 100_000,
     systemPrompt: "You help the sales team.",
     tools: [report],
     middleware: [],
