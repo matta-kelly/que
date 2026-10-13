@@ -29,7 +29,9 @@ test("agent.ts takes only assemble and a config from legibility", () => {
 test("legibility does not reach for credentials", () => {
   for (const { file, text } of sources)
     assert.ok(
-      !imports(text).some((path) => path.includes("credentials")),
+      !imports(text).some((path) =>
+        /credentials|access\/connections/.test(path),
+      ),
       `${file} imports credentials`,
     );
 });
