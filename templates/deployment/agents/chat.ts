@@ -1,0 +1,11 @@
+import { defineAgent } from "@que/core";
+
+// One way this deployment's packages are run. Only `name` is needed: each
+// other field is optional, and what is left out has que's own value.
+export default defineAgent({
+  name: "chat",
+  // packages: [],            names, out of the ones the deployment lists
+  // model: "provider:model",
+  // instructions: "...",     opens the system prompt, in place of que's own role text
+  // legibility: "on-demand", how the model is shown its packages
+});
