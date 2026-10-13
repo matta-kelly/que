@@ -123,3 +123,28 @@ test("chat: a reply follows the instructions saved in Account", async ({
     await page.request.patch("/api/que/me", { data: { instructions: "" } });
   }
 });
+
+test("chat: Refresh on a reply runs its turn again from the checkpoint before it", async ({
+  page,
+}) => {
+  await openApp(page);
+  const input = page.getByPlaceholder("Send a message...");
+  await input.fill("Reply with one random word.");
+  await input.press("Enter");
+  const send = page.getByRole("button", { name: "Send message" });
+  await expect(send).toBeVisible({ timeout: 60_000 });
+
+  const rerun = page.waitForRequest(
+    (request) =>
+      /\/runs\/stream/.test(request.url()) &&
+      (request.postData() ?? "").includes('"checkpoint_id"'),
+    { timeout: 30_000 },
+  );
+  const reply = page.locator('[data-role="assistant"]').last();
+  await reply.hover();
+  await reply.getByRole("button", { name: "Refresh" }).click();
+  await rerun;
+  await expect(send).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('[data-role="assistant"]')).toHaveCount(1);
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
+});
