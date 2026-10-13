@@ -9,7 +9,18 @@ test("validateAgent accepts a name, packages, a model, instructions and a legibi
     model: "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
     instructions: "You help the sales team.",
     legibility: "on-demand",
+    loop: "long-chat",
   });
+});
+
+test("validateAgent accepts a loop, and rejects one that is not a plain name", () => {
+  validateAgent({ name: "chat", loop: "deep" });
+  for (const loop of ["two words", "", 7, null])
+    assert.throws(
+      () => validateAgent({ name: "chat", loop }),
+      /loop of the agent/,
+      JSON.stringify(loop),
+    );
 });
 
 test("validateAgent accepts a config with only a name", () => {

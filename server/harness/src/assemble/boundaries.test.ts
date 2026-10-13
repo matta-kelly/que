@@ -15,7 +15,7 @@ const sources = readdirSync(here, { recursive: true, encoding: "utf8" })
 const imports = (text: string) =>
   [...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
 
-test("agent.ts takes only assemble, and its legibility from run/legibility", () => {
+test("agent.ts takes only assemble, its legibility from run/legibility, its loop from run/loop, and its build from run/engine", () => {
   const agent = readFileSync(join(here, "../run/agent.ts"), "utf8");
   assert.deepEqual(
     imports(agent)
@@ -24,7 +24,31 @@ test("agent.ts takes only assemble, and its legibility from run/legibility", () 
     ["../assemble/assemble.js"],
   );
   assert.ok(imports(agent).includes("./legibility.js"));
-  assert.doesNotMatch(agent, /\btool\(|wrapModelCall|createMiddleware/);
+  assert.ok(imports(agent).includes("./loop.js"));
+  assert.ok(imports(agent).includes("./engine/index.js"));
+  assert.doesNotMatch(
+    agent,
+    /\btool\(|wrapModelCall|createMiddleware|createAgent|createDeepAgent/,
+  );
+});
+
+test("only run/engine names deepagents", () => {
+  const harness = join(here, "..");
+  const files = readdirSync(harness, { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+    .filter((f) => !f.startsWith(join("run", "engine")));
+  for (const file of files)
+    assert.ok(
+      !imports(readFileSync(join(harness, file), "utf8")).includes(
+        "deepagents",
+      ),
+      `${file} imports deepagents`,
+    );
+  assert.ok(
+    imports(
+      readFileSync(join(harness, "run/engine/deepagents.ts"), "utf8"),
+    ).includes("deepagents"),
+  );
 });
 
 test("run/legibility.ts is the one file in run that names a legibility", () => {

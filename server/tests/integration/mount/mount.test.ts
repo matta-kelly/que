@@ -270,3 +270,43 @@ test("stops, naming the name, when two loops have one name", async () => {
     },
   );
 });
+
+test("a deployment is mounted with an agent that names one of its loops", async () => {
+  const mounted = await fromDeployment.mountDeployment(
+    deployment("agent-loop"),
+  );
+  assert.deepEqual(
+    mounted.agents.map((agent) => [agent.name, agent.loop]),
+    [
+      ["looped", "long-chat"],
+      ["lean", undefined],
+    ],
+  );
+  assert.deepEqual(
+    mounted.loops.map((loop) => loop.name),
+    ["short-run", "long-chat"],
+  );
+});
+
+test("stops, naming the agent and the loop, when an agent names a loop the deployment does not list", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-loop-unlisted")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /"looped"/);
+      assert.match(error.message, /"long-chat"/);
+      return true;
+    },
+  );
+});
+
+test("the error for a loop that is not listed lists the loops the deployment has, or says it has none", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-loop-unlisted")),
+    /Loops: short-run/,
+  );
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-loop-none")),
+    /This deployment lists no loops/,
+  );
+});
