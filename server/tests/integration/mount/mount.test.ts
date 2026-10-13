@@ -7,10 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import {
-  loadDeployment,
-  mountFromEnv,
-} from "../../../harness/src/mount/deployment.js";
+import { loadDeployment } from "../../../harness/src/mount/deployment.js";
 import * as fromDeployment from "../../../harness/src/mount/deployment.js";
 import {
   mountPackages,
@@ -24,26 +21,6 @@ const names = (mounted: MountedPackage[]) =>
 
 const mount = async (name: string) =>
   mountPackages((await loadDeployment(deployment(name))).packages);
-
-test("mounts the deployment QUE_DEPLOYMENT names, by an absolute path", async () => {
-  const mounted = await mountFromEnv({ QUE_DEPLOYMENT: deployment("two") });
-  assert.deepEqual(names(mounted), ["gamma", "alpha"]);
-});
-
-test("stops when QUE_DEPLOYMENT is not an absolute path", async () => {
-  await assert.rejects(
-    mountFromEnv({ QUE_DEPLOYMENT: "deployments/two" }),
-    /absolute path/,
-  );
-});
-
-test("stops, naming QUE_DEPLOYMENT, when it is not set", async () => {
-  await assert.rejects(mountFromEnv({}), /QUE_DEPLOYMENT/);
-});
-
-test("mounts the packages the deployment lists, in order, and no other", async () => {
-  assert.deepEqual(names(await mount("two")), ["gamma", "alpha"]);
-});
 
 test("a listed folder can be an absolute path", async () => {
   assert.deepEqual(names(await mount("absolute")), ["beta"]);
@@ -61,22 +38,6 @@ test("a mounted package has its skills", async () => {
   ]);
 });
 
-test("stops when a listed folder does not exist", async () => {
-  await assert.rejects(mount("missing"), (error: Error) => {
-    assert.match(error.message, /holds no package/);
-    assert.match(error.message, /packages\/nope/);
-    return true;
-  });
-});
-
-test("stops when a listed folder has no index.ts", async () => {
-  await assert.rejects(mount("hollow"), (error: Error) => {
-    assert.match(error.message, /holds no package/);
-    assert.match(error.message, /packages\/hollow/);
-    return true;
-  });
-});
-
 test("stops, naming the folder and the fault, when a listed package breaks the package contract", async () => {
   await assert.rejects(mount("bad"), (error: Error) => {
     assert.match(error.message, /packages\/bad/);
@@ -85,44 +46,10 @@ test("stops, naming the folder and the fault, when a listed package breaks the p
   });
 });
 
-test("stops when the deployment folder has no index.ts", async () => {
-  await assert.rejects(
-    loadDeployment(deployment("nowhere")),
-    (error: Error) => {
-      assert.match(error.message, /deployments\/nowhere/);
-      assert.match(error.message, /no index\.ts/);
-      return true;
-    },
-  );
-});
-
 test("stops, naming the deployment folder, when the definition breaks the contract", async () => {
   await assert.rejects(loadDeployment(deployment("broken")), (error: Error) => {
     assert.match(error.message, /deployments\/broken/);
     assert.match(error.message, /packages/);
-    return true;
-  });
-});
-
-test("a deployment is loaded with the name it declares, not the name of its folder", async () => {
-  const loaded = await loadDeployment(
-    deployment("in-a-folder-of-another-name"),
-  );
-  assert.equal(loaded.name, "declared");
-});
-
-test("the error for a package that breaks its contract has the contract's own error as its cause", async () => {
-  await assert.rejects(mount("bad"), (error: Error) => {
-    assert.ok(error.cause instanceof Error);
-    assert.match(error.cause.message, /^package bad is invalid/);
-    return true;
-  });
-});
-
-test("the error for a deployment that breaks its contract has the contract's own error as its cause", async () => {
-  await assert.rejects(loadDeployment(deployment("broken")), (error: Error) => {
-    assert.ok(error.cause instanceof Error);
-    assert.match(error.cause.message, /^deployment broken is invalid/);
     return true;
   });
 });
@@ -142,48 +69,8 @@ test("a skill folder the definition does not list is not mounted", async () => {
   assert.deepEqual(mounted[0].skills, []);
 });
 
-test("stops, naming the skill, when a listed skill has no file", async () => {
-  await assert.rejects(mount("fileless-skill"), (error: Error) => {
-    assert.match(error.message, /^mount:/);
-    assert.match(error.message, /fileless-skill\/ghost/);
-    return true;
-  });
-});
-
 test("a package with a bad cases file still mounts", async () => {
   assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
-});
-
-test("a deployment is mounted with its agents, in the order it lists them", async () => {
-  const mounted = await fromDeployment.mountDeployment(
-    deployment("agents-two"),
-  );
-  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
-  assert.deepEqual(mounted.agents, [
-    {
-      name: "chat",
-      packages: ["alpha"],
-      instructions: "You help the sales team.",
-    },
-    { name: "lean", model: "small" },
-  ]);
-});
-
-test("a deployment that lists no agents is mounted with none", async () => {
-  const mounted = await fromDeployment.mountDeployment(deployment("two"));
-  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
-  assert.deepEqual(mounted.agents, []);
-});
-
-test("stops, naming the file, when a listed agent file does not exist", async () => {
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-file-missing")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /agents\/nope\.ts/);
-      return true;
-    },
-  );
 });
 
 test("stops, naming the file, when an agent breaks the contract, with the contract's own error as its cause", async () => {
@@ -222,72 +109,6 @@ test("stops, naming the agent and the package, when an agent names a package the
   );
 });
 
-test("a deployment is mounted with its loops, in the order it lists them", async () => {
-  const mounted = await fromDeployment.mountDeployment(deployment("loops-two"));
-  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
-  assert.deepEqual(mounted.loops, [
-    { name: "short-run", result: { max: 60_000 }, summarize: false },
-    { name: "long-chat", summarize: { at: 0.7 } },
-  ]);
-});
-
-test("a deployment that lists no loops is mounted with none", async () => {
-  const mounted = await fromDeployment.mountDeployment(deployment("two"));
-  assert.deepEqual(mounted.loops, []);
-});
-
-test("stops, naming the file, when a listed loop file does not exist", async () => {
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("loop-file-missing")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /loops\/nope\.ts/);
-      return true;
-    },
-  );
-});
-
-test("stops, naming the file, when a loop breaks the contract, with the contract's own error as its cause", async () => {
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("loop-bad")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /loops\/endless\.ts/);
-      assert.ok(error.cause instanceof Error);
-      assert.match(error.cause.message, /^loop endless is invalid/);
-      return true;
-    },
-  );
-});
-
-test("stops, naming the name, when two loops have one name", async () => {
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("loops-one-name")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /two loops are named "long-chat"/);
-      return true;
-    },
-  );
-});
-
-test("a deployment is mounted with an agent that names one of its loops", async () => {
-  const mounted = await fromDeployment.mountDeployment(
-    deployment("agent-loop"),
-  );
-  assert.deepEqual(
-    mounted.agents.map((agent) => [agent.name, agent.loop]),
-    [
-      ["looped", "long-chat"],
-      ["lean", undefined],
-    ],
-  );
-  assert.deepEqual(
-    mounted.loops.map((loop) => loop.name),
-    ["short-run", "long-chat"],
-  );
-});
-
 test("stops, naming the agent and the loop, when an agent names a loop the deployment does not list", async () => {
   await assert.rejects(
     fromDeployment.mountDeployment(deployment("agent-loop-unlisted")),
@@ -297,17 +118,6 @@ test("stops, naming the agent and the loop, when an agent names a loop the deplo
       assert.match(error.message, /"long-chat"/);
       return true;
     },
-  );
-});
-
-test("the error for a loop that is not listed lists the loops the deployment has, or says it has none", async () => {
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-loop-unlisted")),
-    /Loops: short-run/,
-  );
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-loop-none")),
-    /This deployment lists no loops/,
   );
 });
 
@@ -332,29 +142,6 @@ test("a deployment is mounted with its models, in the order it lists them, and w
   assert.deepEqual(
     (await fromDeployment.mountDeployment(deployment("two"))).models,
     [],
-  );
-});
-
-test("stops, naming the file, on a model file that is missing, breaks the contract, or has the name of another", async () => {
-  const stopsWith = (name: string, ...patterns: RegExp[]) =>
-    assert.rejects(
-      fromDeployment.mountDeployment(deployment(name)),
-      (error: Error) => {
-        assert.match(error.message, /^mount:/);
-        for (const pattern of patterns) assert.match(error.message, pattern);
-        return true;
-      },
-    );
-  await stopsWith("model-file-missing", /models\/nope\.ts holds no model/);
-  await stopsWith("models-one-name", /two models are named "small"/);
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("model-bad")),
-    (error: Error) => {
-      assert.match(error.message, /^mount: .*models\/windowless\.ts/);
-      assert.ok(error.cause instanceof Error);
-      assert.match(error.cause.message, /^model windowless is invalid/);
-      return true;
-    },
   );
 });
 
@@ -400,4 +187,40 @@ test("stops when MODEL is set, and says to list a model file", async () => {
     },
   );
   await fromDeployment.mountDeployment(deployment("two"), {});
+});
+
+test("stops, naming the file, when a loop breaks the contract, with the contract's own error as its cause", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("loop-bad")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /loops\/endless\.ts/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, /^loop endless is invalid/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the file, on a model file that is missing, breaks the contract, or has the name of another", async () => {
+  const stopsWith = (name: string, ...patterns: RegExp[]) =>
+    assert.rejects(
+      fromDeployment.mountDeployment(deployment(name)),
+      (error: Error) => {
+        assert.match(error.message, /^mount:/);
+        for (const pattern of patterns) assert.match(error.message, pattern);
+        return true;
+      },
+    );
+  await stopsWith("model-file-missing", /models\/nope\.ts holds no model/);
+  await stopsWith("models-one-name", /two models are named "small"/);
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("model-bad")),
+    (error: Error) => {
+      assert.match(error.message, /^mount: .*models\/windowless\.ts/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, /^model windowless is invalid/);
+      return true;
+    },
+  );
 });

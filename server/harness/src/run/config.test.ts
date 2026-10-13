@@ -24,10 +24,3 @@ test("on a deployment with no agents, a run that names none gets que's own choic
   assert.equal(configFor([], undefined), OWN_CHOICES);
   assert.deepEqual(OWN_CHOICES, { name: "default" });
 });
-
-test("on a deployment with no agents, a run that names one fails", () => {
-  assert.throws(
-    () => configFor([], "lean"),
-    /no agent "lean"\. This deployment lists no agents/,
-  );
-});

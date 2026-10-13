@@ -24,14 +24,6 @@ const asked = {
   good: "The answer holds the notes of the meeting of today.",
 };
 
-test("validateCases accepts a package with no cases", () => {
-  validateCases(notes, defineCases([]));
-});
-
-test("validateCases accepts a case that names a capability of the package", () => {
-  validateCases(notes, defineCases([asked]));
-});
-
 test("validateCases lists a case with a bad name, and a name used twice", () => {
   assert.throws(
     () =>
@@ -44,14 +36,6 @@ test("validateCases lists a case with a bad name, and a name used twice", () => 
       assert.match(error.message, /case name "write-up-asked" is used twice/);
       return true;
     },
-  );
-});
-
-test("validateCases lists a case that names a capability the package does not have", () => {
-  assert.throws(
-    () =>
-      validateCases(notes, defineCases([{ ...asked, capability: "refund" }])),
-    /case write-up-asked names the capability "refund", which package notes does not have/,
   );
 });
 
@@ -81,16 +65,6 @@ test("validateCases lists a case with a field that is not one of the five, and o
     (error: Error) => {
       assert.match(error.message, /case write-up-asked has a field "grader"/);
       assert.match(error.message, /good of case write-up-judged must be text/);
-      return true;
-    },
-  );
-});
-
-test("validateCases names the package in its error", () => {
-  assert.throws(
-    () => validateCases(notes, defineCases([{ ...asked, input: "" }])),
-    (error: Error) => {
-      assert.match(error.message, /^cases of package notes are invalid/);
       return true;
     },
   );

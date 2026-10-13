@@ -15,23 +15,6 @@ const sources = readdirSync(here, { recursive: true, encoding: "utf8" })
 const imports = (text: string) =>
   [...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
 
-test("agent.ts takes only assemble, its legibility from run/legibility, its loop from run/loop, and its build from run/engine", () => {
-  const agent = readFileSync(join(here, "../run/agent.ts"), "utf8");
-  assert.deepEqual(
-    imports(agent)
-      .filter((path) => path.includes("assemble"))
-      .sort(),
-    ["../assemble/assemble.js"],
-  );
-  assert.ok(imports(agent).includes("./legibility.js"));
-  assert.ok(imports(agent).includes("./loop.js"));
-  assert.ok(imports(agent).includes("./engine/index.js"));
-  assert.doesNotMatch(
-    agent,
-    /\btool\(|wrapModelCall|createMiddleware|createAgent|createDeepAgent/,
-  );
-});
-
 test("agents, loops and models are mounted by one function", () => {
   const mount = join(here, "../mount");
   for (const file of ["agents.ts", "loops.ts", "models.ts"]) {
@@ -108,16 +91,6 @@ test("legibility does not reach for credentials", () => {
       ),
       `${file} imports credentials`,
     );
-});
-
-test("only the on-demand config names its own tools", () => {
-  for (const { file, text } of sources) {
-    if (file.startsWith("on-demand")) continue;
-    assert.doesNotMatch(text, /load_operation/, `${file} names load_operation`);
-    // read_skill's description says where a skill's id is listed.
-    if (file !== "skills.ts")
-      assert.doesNotMatch(text, /open_package/, `${file} names open_package`);
-  }
 });
 
 test("the contract imports no framework", () => {

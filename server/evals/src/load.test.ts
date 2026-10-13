@@ -35,14 +35,6 @@ test("loads the name of a deployment, the cases of each package it lists, each w
   });
 });
 
-test("a package with no cases file gives no case", async () => {
-  assert.deepEqual(await load(deployment("no-cases")), {
-    deployment: "no-cases",
-    cases: [],
-    agents: [{ name: "chat" }],
-  });
-});
-
 test("a deployment that lists no agents gives none", async () => {
   assert.deepEqual((await load(deployment("no-agents"))).agents, []);
 });

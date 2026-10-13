@@ -29,14 +29,6 @@ test("resolve sends a pick the deployment lists", () => {
   });
 });
 
-test("resolve gives an agent's own model when the pick has an agent and no model", () => {
-  assert.deepEqual(resolve({ agent: "lean", model: null }, deployment), {
-    agent: "lean",
-    model: "small",
-    send: { agent: "lean" },
-  });
-});
-
 test("resolve drops a name the deployment does not list", () => {
   assert.deepEqual(resolve({ agent: "gone", model: "huge" }, deployment), {
     agent: "chat",

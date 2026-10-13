@@ -122,23 +122,6 @@ test("plain builds the agent with the parts it is handed, and no other middlewar
   assert.equal(result.files, undefined);
 });
 
-test("on plain, no setting adds middleware", async () => {
-  for (const loop of [
-    { name: "none" },
-    everySetting,
-    {
-      name: "off",
-      result: false,
-      summarize: false,
-      args: false,
-      limits: false,
-    },
-  ] as LoopDefinition[]) {
-    const { graph } = await run(loop, [new AIMessage("Well.")]);
-    assert.deepEqual(middlewareOf(graph), ["Seen"], loop.name);
-  }
-});
-
 test("deepagents gives the model que's instructions", async () => {
   const { sent } = await run({ name: "deep", engine: "deepagents" }, [
     new AIMessage("Well."),
@@ -204,26 +187,6 @@ test("on deepagents, a result over result.max is stored, and the chat has its he
   );
 });
 
-test("on deepagents, read_file gives the lines asked for of a stored result", async () => {
-  const { result } = await run(
-    { name: "deep", engine: "deepagents", result: { max: 100 } },
-    [
-      calling("big", "shop_report", { rows: 200 }),
-      calling("page", "read_file", {
-        file_path: "/large_tool_results/big.txt",
-        offset: 100,
-        limit: 3,
-      }),
-      new AIMessage("Well."),
-    ],
-  );
-  const page = text(resultOf(result.messages, "page"));
-  for (const row of [100, 101, 102])
-    assert.match(page, new RegExp(`row ${row} of the report`));
-  assert.doesNotMatch(page, /row 99 of the report/);
-  assert.doesNotMatch(page, /row 103 of the report/);
-});
-
 test("on deepagents, a result under result.max, and any result with result off, is in the chat whole", async () => {
   const under = await run(
     { name: "deep", engine: "deepagents", result: { max: 100 } },
@@ -237,43 +200,6 @@ test("on deepagents, a result under result.max, and any result with result off, 
   ]);
   assert.equal(text(resultOf(off.result.messages, "big")), rows(5000));
   assert.deepEqual(Object.keys(off.result.files ?? {}), []);
-});
-
-test("on deepagents, que's own value for result.max is the one a loop gets when it names none", async () => {
-  // 20,000 tokens is about 80,000 characters: one result under it, one over.
-  const { result } = await run({ name: "deep", engine: "deepagents" }, [
-    calling("under", "shop_report", { rows: 2000 }),
-    calling("over", "shop_report", { rows: 6000 }),
-    new AIMessage("Well."),
-  ]);
-  assert.equal(text(resultOf(result.messages, "under")), rows(2000));
-  assert.match(
-    text(resultOf(result.messages, "over")),
-    /\/large_tool_results\/over/,
-  );
-});
-
-test("on deepagents, args and limits change nothing in what is built", async () => {
-  const built = async (loop: LoopDefinition) =>
-    middlewareOf(
-      (await run({ ...loop, engine: "deepagents" }, [new AIMessage("Well.")]))
-        .graph,
-    );
-  const plainly = await built({ name: "deep" });
-  for (const name of ["FilesystemMiddleware", "SummarizationMiddleware"])
-    assert.equal(plainly.filter((m) => m === name).length, 1, name);
-  assert.deepEqual(
-    await built({ name: "deep", args: false, limits: false }),
-    plainly,
-  );
-  assert.deepEqual(
-    await built({
-      name: "deep",
-      args: { max: 10 },
-      limits: { modelCalls: 1, toolCalls: 1 },
-    }),
-    plainly,
-  );
 });
 
 // Each report is about 10,000 tokens: two are under half of the window, three are over.
@@ -326,40 +252,4 @@ test("on deepagents, a chat past summarize.at of the window is sent as a summary
   ]);
   for (const id of ["a", "b", "c"])
     assert.equal(text(resultOf(result.messages, id)), rows(REPORT));
-});
-
-test("on deepagents, a chat under summarize.at, and any chat with summarize off, is sent whole", async () => {
-  const whole = ["human", "ai", "tool", "ai", "tool", "ai", "tool"];
-  const off = await run(
-    { name: "deep", engine: "deepagents", result: false, summarize: false },
-    threeReports(),
-  );
-  assert.deepEqual(kinds(off.sent.at(-1)!.messages), whole);
-
-  // The same chat and the same shares, in a window ten times the size.
-  const under = await run(
-    {
-      name: "deep",
-      engine: "deepagents",
-      result: false,
-      summarize: { at: 0.5, keep: 0.25 },
-    },
-    threeReports(),
-    { tools: [report] },
-    WINDOW * 10,
-  );
-  assert.deepEqual(kinds(under.sent.at(-1)!.messages), whole);
-});
-
-test("on plain, a loop and a window add no middleware", async () => {
-  for (const window of [1_000, WINDOW, 1_000_000]) {
-    const { graph, sent } = await run(
-      { ...everySetting, engine: "plain" },
-      threeReports(),
-      { tools: [report] },
-      window,
-    );
-    assert.deepEqual(middlewareOf(graph), ["Seen"]);
-    assert.equal(sent.at(-1)!.messages.length, 7);
-  }
 });

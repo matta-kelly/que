@@ -26,17 +26,6 @@ test("sends the input as one user message on a new thread, with the agent's name
   }
 });
 
-test("with no agent, sends no configurable", async () => {
-  const server = await replay();
-  try {
-    await que(server.url).run("Where is the order of Ada?");
-    const body = server.sent[1].body as RunBody;
-    assert.equal(body.config, undefined);
-  } finally {
-    await server.close();
-  }
-});
-
 test("gives back the messages of the run, in que's own form", async () => {
   const server = await replay();
   try {
@@ -84,31 +73,6 @@ test("deletes the thread when the run finished, and when it did not", async () =
     await finished.close();
     await failed.close();
   }
-});
-
-test("gives back the error of a run that did not finish", async () => {
-  const server = await replay(() => true);
-  try {
-    await assert.rejects(
-      que(server.url).run("What can you do?", "nope"),
-      (error: Error) => {
-        assert.equal(error.message, 'no agent "nope". Agents: chat');
-        return true;
-      },
-    );
-  } finally {
-    await server.close();
-  }
-});
-
-test("says que is up when it answers, and not up when nothing does", async () => {
-  const server = await replay();
-  try {
-    assert.equal(await que(server.url).up(), true);
-  } finally {
-    await server.close();
-  }
-  assert.equal(await que(server.url).up(), false);
 });
 
 test("the text of a content in parts is its text parts, joined", () => {

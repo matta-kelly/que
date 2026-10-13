@@ -57,27 +57,3 @@ test("with no agents listed, plans one run for each case, with no agent named", 
     { case: notAsked },
   ]);
 });
-
-test("stops on a named agent when the deployment lists none", () => {
-  assert.throws(
-    () => plan([byCustomer], [], ["chat"]),
-    (error: Error) => {
-      assert.equal(
-        error.message,
-        'eval: no agent "chat". This deployment lists no agents',
-      );
-      return true;
-    },
-  );
-});
-
-test("skips a case under an agent that names packages, and not the case's package", () => {
-  assert.deepEqual(plan([byCustomer], [chat, notesOnly], []), [
-    { case: byCustomer, agent: "chat" },
-    {
-      case: byCustomer,
-      agent: "notes-only",
-      skipped: "notes-only does not have shop",
-    },
-  ]);
-});

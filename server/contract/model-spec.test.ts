@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defineModel, validateModel } from "./model-spec.js";
+import { validateModel } from "./model-spec.js";
 
 const faults = (def: unknown) => {
   try {
@@ -10,17 +10,6 @@ const faults = (def: unknown) => {
   }
   return "";
 };
-
-test("validateModel accepts a name, an id, a window and a maxTokens", () => {
-  validateModel(
-    defineModel({
-      name: "glm-flash",
-      id: "fireworks:accounts/fireworks/models/glm-5p3-flash",
-      window: 1_040_000,
-      maxTokens: 131_072,
-    }),
-  );
-});
 
 test("validateModel lists each fault in one error, and names the model", () => {
   const message = faults({

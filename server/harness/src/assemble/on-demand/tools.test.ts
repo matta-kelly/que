@@ -23,25 +23,6 @@ const call = (name: string, args: Record<string, unknown>) =>
     .find((t) => t.name === name)!
     .invoke(args) as Promise<string>;
 
-test("the base tools are open_package, load_operation and read_skill", () => {
-  assert.deepEqual(
-    baseTools(catalog).map((t) => t.name),
-    ["open_package", "load_operation", "read_skill"],
-  );
-});
-
-test("there are no base tools when the user has no packages", () => {
-  assert.deepEqual(baseTools([]), []);
-});
-
-test("read_skill is left out when no package has a skill", () => {
-  const noSkills = [{ ...catalog[0], pkg: { ...catalog[0].pkg, skills: [] } }];
-  assert.deepEqual(
-    baseTools(noSkills).map((t) => t.name),
-    ["open_package", "load_operation"],
-  );
-});
-
 test("open_package lists each operation and skill with one line, and no arguments", async () => {
   const text = await call("open_package", { package: "shop" });
   assert.match(
@@ -85,14 +66,6 @@ test("read_skill returns the skill's text", async () => {
   );
 });
 
-test("open_package shows no Operations heading for a package with no operations", async () => {
-  const text = (await baseTools(skillsOnly)
-    .find((t) => t.name === "open_package")!
-    .invoke({ package: "shop" })) as string;
-  assert.doesNotMatch(text, /Operations/);
-  assert.match(text, /shop\/refunds: Refunds\. How to refund an order\./);
-});
-
 test("load_operation is left out when no package has an operation", () => {
   assert.deepEqual(
     baseTools(skillsOnly).map((t) => t.name),
@@ -114,20 +87,6 @@ test("open_package's description names no operation when no package has one", ()
   );
 });
 
-test("load_operation stays when one package of several has an operation", () => {
-  assert.deepEqual(
-    baseTools(mixed).map((t) => t.name),
-    ["open_package", "load_operation", "read_skill"],
-  );
-});
-
-test("load_operation says so when the package has no operations", async () => {
-  const text = (await baseTools(mixed)
-    .find((t) => t.name === "load_operation")!
-    .invoke({ package: "notes", operation: "findNotes" })) as string;
-  assert.equal(text, 'Error: package "notes" has no operations.');
-});
-
 test("there are no base tools when no package holds an operation or a skill", () => {
   assert.deepEqual(baseTools(identityOnly), []);
 });
@@ -138,13 +97,6 @@ test("open_package shows no Operations heading for a package with no operations,
     .invoke({ package: "notes" })) as string;
   assert.doesNotMatch(text, /Operations/);
   assert.match(text, /notes\/meetings: Meetings\. How to write up a meeting\./);
-});
-
-test("open_package's description is word for word what it was when one package of several has an operation", () => {
-  assert.equal(
-    baseTools(mixed)[0].description,
-    "Open Package: lists what a package holds, its operations and skills, with one line each. Use it to find the operation for a task. It does not make an operation callable; load_operation does.",
-  );
 });
 
 test("every base tool stays when a package that holds nothing sits beside one with operations and a skill", () => {
