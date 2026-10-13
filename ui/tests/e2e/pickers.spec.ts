@@ -18,8 +18,11 @@ async function deploymentOf(page: Page): Promise<Deployment> {
 const agentPicker = (page: Page) => page.getByRole("button", { name: "Agent" });
 const modelPicker = (page: Page) => page.getByRole("button", { name: "Model" });
 
-// Send a message, and hand back the `configurable` its run was sent.
+// Send a message, and hand back the `configurable` its run was sent. The run
+// has to give a reply: a pick the server cannot run on is a failed test.
 async function send(page: Page, text: string) {
+  const replies = page.locator('[data-role="assistant"]');
+  const before = await replies.count();
   const isRun = (req: Request) =>
     req.method() === "POST" &&
     /\/threads\/[^/]+\/runs\/stream$/.test(req.url());
@@ -33,6 +36,9 @@ async function send(page: Page, text: string) {
   await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
     timeout: 60_000,
   });
+  await expect(replies).toHaveCount(before + 1);
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
+  await expect(replies.last()).not.toBeEmpty();
   return body.config?.configurable ?? {};
 }
 
