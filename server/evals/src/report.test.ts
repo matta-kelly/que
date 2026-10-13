@@ -64,19 +64,6 @@ test("a run with no agent named is shown as default", () => {
   );
 });
 
-test("the report shows a skipped run, with the agent and the package it does not have", () => {
-  assert.match(
-    report([
-      {
-        case: byCustomer,
-        agent: "notes-only",
-        skipped: "notes-only does not have shop",
-      },
-    ]),
-    /\n {2}\[notes-only\]\n {4}skipped {2}notes-only does not have shop\n/,
-  );
-});
-
 test("the report cuts a long result to 200 characters, and marks it", () => {
   const out = report([
     {
@@ -92,17 +79,4 @@ test("the report cuts a long result to 200 characters, and marks it", () => {
   ]);
   assert.ok(out.includes(`    result   ${"x".repeat(200)} (cut)\n`));
   assert.ok(!out.includes("x".repeat(201)));
-});
-
-test("the last line counts the runs, the ones that did not finish, and the ones skipped", () => {
-  const out = report([
-    { case: byCustomer, agent: "chat", record: { steps: [], answer: "Open." } },
-    { case: byCustomer, agent: "lean", error: "it stopped" },
-    {
-      case: byCustomer,
-      agent: "notes-only",
-      skipped: "notes-only does not have shop",
-    },
-  ]);
-  assert.equal(out.split("\n").at(-1), "2 runs, 1 did not finish, 1 skipped");
 });

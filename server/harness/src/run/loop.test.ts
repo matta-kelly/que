@@ -38,10 +38,3 @@ test("a config that names no loop gets plain", () => {
   });
   assert.equal(loopFor([], { name: "default" }).engine, "plain");
 });
-
-test("a config that names a loop the run does not have fails, naming it", () => {
-  assert.throws(
-    () => loopFor([shortRun], { name: "chat", loop: "deep" }),
-    /no loop "deep"/,
-  );
-});

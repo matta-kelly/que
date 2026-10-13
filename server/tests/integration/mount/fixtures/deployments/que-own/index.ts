@@ -10,6 +10,7 @@ export default defineDeployment({
   loops: [
     "../../../../../../loops/long-chat.ts",
     "../../../../../../loops/deep.ts",
+    "../../../../../../loops/short-run.ts",
   ],
   models: ["../../../../../../models/glm-flash.ts"],
 });

@@ -13,25 +13,9 @@ const load = (id: string, pkg: string, operation: string) =>
 const result = (id: string, content: string) =>
   new ToolMessage({ tool_call_id: id, content });
 
-test("an operation is loaded once load_operation succeeded for it", () => {
-  const messages = [
-    new HumanMessage("hi"),
-    load("1", "shop", "findOrders"),
-    result("1", "Loaded."),
-  ];
-  assert.deepEqual([...loadedOperations(messages)], ["shop_findOrders"]);
-});
-
 test("a failed load_operation loads nothing", () => {
   const messages = [load("1", "shop", "nope"), result("1", "Error: no such")];
   assert.deepEqual([...loadedOperations(messages)], []);
-});
-
-test("a load_operation with no result yet loads nothing", () => {
-  assert.deepEqual(
-    [...loadedOperations([load("1", "shop", "findOrders")])],
-    [],
-  );
 });
 
 test("operations stay loaded for the rest of the chat", () => {

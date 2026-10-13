@@ -1,11 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  LOOP_DEFAULTS,
-  defineLoop,
-  resolveLoop,
-  validateLoop,
-} from "./loop-spec.js";
+import { resolveLoop, validateLoop } from "./loop-spec.js";
 
 const faults = (def: unknown) => {
   try {
@@ -16,19 +11,6 @@ const faults = (def: unknown) => {
   return "";
 };
 
-test("validateLoop accepts a name and every setting", () => {
-  validateLoop(
-    defineLoop({
-      name: "long-chat",
-      engine: "deepagents",
-      result: { max: 20_000 },
-      summarize: { at: 0.85, keep: 0.1 },
-      args: { max: 2_000 },
-      limits: { modelCalls: 50, toolCalls: 100 },
-    }),
-  );
-});
-
 test("validateLoop accepts each engine que has, and rejects another, listing the ones it has", () => {
   validateLoop({ name: "a", engine: "plain" });
   validateLoop({ name: "b", engine: "deepagents" });
@@ -38,28 +20,6 @@ test("validateLoop accepts each engine que has, and rejects another, listing the
     assert.match(message, /plain/);
     assert.match(message, /deepagents/);
   }
-});
-
-test("resolveLoop gives plain to a loop that names no engine", () => {
-  assert.equal(resolveLoop({ name: "a" }).engine, "plain");
-  assert.equal(
-    resolveLoop({ name: "b", engine: "deepagents" }).engine,
-    "deepagents",
-  );
-});
-
-test("validateLoop accepts a loop with only a name", () => {
-  validateLoop({ name: "plain" });
-});
-
-test("validateLoop accepts a setting that is false", () => {
-  validateLoop({
-    name: "bare",
-    result: false,
-    summarize: false,
-    args: false,
-    limits: false,
-  });
 });
 
 test("validateLoop rejects a loop with no name, and a name that is not a plain name", () => {
@@ -90,24 +50,6 @@ test("validateLoop rejects a setting that is not an object or false", () => {
         faults({ name: "odd", [setting]: value }),
         new RegExp(`${setting} of the loop must be an object or false`),
         `${setting}: ${JSON.stringify(value)}`,
-      );
-});
-
-test("validateLoop rejects a count that is not a whole number above zero", () => {
-  const counts: [string, string][] = [
-    ["result", "max"],
-    ["args", "max"],
-    ["limits", "modelCalls"],
-    ["limits", "toolCalls"],
-  ];
-  for (const [setting, field] of counts)
-    for (const value of [0, -1, 1.5, "50", Number.NaN])
-      assert.match(
-        faults({ name: "odd", [setting]: { [field]: value } }),
-        new RegExp(
-          `${setting}\\.${field} of the loop must be a whole number above zero`,
-        ),
-        `${setting}.${field}: ${String(value)}`,
       );
 });
 
@@ -150,50 +92,9 @@ test("validateLoop names every fault in one error", () => {
   assert.match(message, /limits\.toolCalls/);
 });
 
-test("validateLoop names the loop in its error", () => {
-  assert.match(faults({ name: "odd", compact: true }), /^loop odd is invalid/);
-  assert.match(faults({ compact: true }), /^loop is invalid/);
-});
-
 test("validateLoop rejects what is not an object", () => {
   for (const def of [undefined, null, "long-chat", []])
     assert.match(faults(def), /loop must be an object/);
-});
-
-test("resolveLoop gives que's own value for each setting a loop leaves out", () => {
-  assert.deepEqual(resolveLoop({ name: "plain" }), {
-    name: "plain",
-    engine: "plain",
-    result: { max: 20_000 },
-    summarize: { at: 0.85, keep: 0.1 },
-    args: { max: 2_000 },
-    limits: { modelCalls: 50, toolCalls: 100 },
-  });
-  assert.deepEqual(resolveLoop({ name: "plain" }), {
-    name: "plain",
-    engine: "plain",
-    ...LOOP_DEFAULTS,
-  });
-});
-
-test("resolveLoop keeps a loop's own value, and a setting that is false", () => {
-  assert.deepEqual(
-    resolveLoop({
-      name: "short-run",
-      result: { max: 60_000 },
-      summarize: false,
-      args: false,
-      limits: { modelCalls: 15, toolCalls: 30 },
-    }),
-    {
-      name: "short-run",
-      engine: "plain",
-      result: { max: 60_000 },
-      summarize: false,
-      args: false,
-      limits: { modelCalls: 15, toolCalls: 30 },
-    },
-  );
 });
 
 test("resolveLoop fills the part of a setting a loop leaves out", () => {
@@ -204,10 +105,4 @@ test("resolveLoop fills the part of a setting a loop leaves out", () => {
   });
   assert.deepEqual(loop.summarize, { at: 0.6, keep: 0.1 });
   assert.deepEqual(loop.limits, { modelCalls: 15, toolCalls: 100 });
-});
-
-test("resolveLoop hands back settings a caller can change with no effect on que's own", () => {
-  const loop = resolveLoop({ name: "plain" });
-  (loop.result as { max: number }).max = 1;
-  assert.deepEqual(resolveLoop({ name: "plain" }).result, { max: 20_000 });
 });

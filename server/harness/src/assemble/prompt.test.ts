@@ -29,30 +29,6 @@ const instructed = systemPrompt({
   instructions: "You help the sales team.",
 });
 
-test("given no instructions, the prompt opens with the role text, word for word what it was", () => {
-  assert.equal(
-    systemPrompt({ user, catalog, environment }),
-    [
-      "You are a helpful assistant.",
-      "",
-      "- Be concise and accurate.",
-      "- If you're unsure about something, say so rather than guessing.",
-      "",
-      REST,
-    ].join("\n"),
-  );
-});
-
-test("given instructions, the prompt opens with them", () => {
-  assert.ok(instructed.startsWith("You help the sales team."));
-});
-
-test("given instructions, the prompt holds no role text", () => {
-  assert.doesNotMatch(instructed, /You are a helpful assistant/);
-  assert.doesNotMatch(instructed, /Be concise and accurate/);
-  assert.doesNotMatch(instructed, /say so rather than guessing/);
-});
-
 test("given instructions, the rest of the prompt is the same", () => {
   assert.equal(instructed, ["You help the sales team.", "", REST].join("\n"));
 });

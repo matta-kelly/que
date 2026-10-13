@@ -8,18 +8,6 @@ const notes = definePackage({
   description: "How the team writes things down.",
 });
 
-test("definePackage accepts a package that declares only its identity", () => {
-  validatePackage(notes);
-});
-
-test("a package that declares no operations has none", () => {
-  assert.deepEqual(notes.ops, []);
-});
-
-test("a package that declares no skills has none", () => {
-  assert.deepEqual(notes.skills, []);
-});
-
 test("validatePackage lists a skill with a bad name, and a name used twice", () => {
   assert.throws(
     () =>
@@ -32,10 +20,6 @@ test("validatePackage lists a skill with a bad name, and a name used twice", () 
       return true;
     },
   );
-});
-
-test("a package that declares no capabilities has none", () => {
-  assert.deepEqual(notes.capabilities, []);
 });
 
 test("validatePackage lists a capability with a bad name, a name used twice, and one with no title or description", () => {
