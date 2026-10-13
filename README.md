@@ -34,9 +34,10 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
         - `run/`: builds the agent per user, serves the graph and the `/que/*` API, and the CLI
     - `loops/`: que's own loop configs, which any deployment can list by its path. `long-chat.ts` holds que's own value for each setting, and `short-run.ts` is for a run with one job and no person
     - `agents/`: que's own agent configs. Each one names no package, so any deployment can list it by its path. `chat.ts` is the agent a chat gets, with que's own choices written out
+    - `evals/`: the eval runner (`@que/evals`). It reads a deployment's cases and agent configs, runs each case against a running que over HTTP, and prints the runs. It imports the contract, and nothing from the harness or the backend
     - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
-- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
+- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, its `.env.example`, and its `start`, `stop`, `logs`, `check` and `eval` scripts
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder
 
@@ -59,6 +60,7 @@ From a deployment's folder:
 - `./stop`: stop everything. It runs `just down`
 - `./logs`: follow the agent server and UI logs. It runs `just logs`
 - `./check`: type check the deployment's own code and run its tests, with que's contract handed to both. It runs `just check-deployment <deployment folder>`
+- `./eval`: run each case of the deployment's packages against que, under each of its agent configs, and print what the agent did. que has to be up. `--agent <name>`, one or more times, runs only those configs. Nothing grades a run, and the runs act on the real services. It runs `just eval <deployment folder>`
 
 From this repo, for que's own code:
 
