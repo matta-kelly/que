@@ -1,7 +1,8 @@
 /**
  * The contract for an agent config: one way a deployment's packages are run.
  * It has a name, and says which packages the agent gets, the model it runs
- * on, its instructions, and how it is shown the environment. A config is a
+ * on, its instructions, how it is shown the environment, and the loop it
+ * runs in. A config is a
  * file of its own, and a deployment lists it. Framework-free, as the package
  * contract is.
  */
@@ -24,13 +25,22 @@ export type AgentDefinition = {
   instructions?: string;
   /** How the model is shown the environment, and when. */
   legibility?: Legibility;
+  /** The name of a loop config the deployment lists: how the agent's loop is run. */
+  loop?: string;
 };
 
 export function defineAgent(definition: AgentDefinition): AgentDefinition {
   return definition;
 }
 
-const FIELDS = ["name", "packages", "model", "instructions", "legibility"];
+const FIELDS = [
+  "name",
+  "packages",
+  "model",
+  "instructions",
+  "legibility",
+  "loop",
+];
 
 /**
  * Check a config against the contract, throwing one error that lists every
@@ -39,10 +49,8 @@ const FIELDS = ["name", "packages", "model", "instructions", "legibility"];
 export function validateAgent(def: unknown): asserts def is AgentDefinition {
   if (!def || typeof def !== "object" || Array.isArray(def))
     throw new Error("agent must be an object");
-  const { name, packages, model, instructions, legibility } = def as Record<
-    string,
-    unknown
-  >;
+  const { name, packages, model, instructions, legibility, loop } =
+    def as Record<string, unknown>;
   const problems: string[] = [];
   const text = (value: unknown, what: string) => {
     if (value !== undefined && (typeof value !== "string" || !value.trim()))
@@ -72,6 +80,10 @@ export function validateAgent(def: unknown): asserts def is AgentDefinition {
   )
     problems.push(
       `legibility of the agent must be one of: ${LEGIBILITY.join(", ")}, got ${JSON.stringify(legibility)}`,
+    );
+  if (loop !== undefined && (typeof loop !== "string" || !NAME.test(loop)))
+    problems.push(
+      `loop of the agent must be the name of a loop, got ${JSON.stringify(loop)}`,
     );
 
   if (problems.length)

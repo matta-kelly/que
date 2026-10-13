@@ -42,8 +42,15 @@ export function assemble(
 ) {
   const base = [...config.tools(catalog), ...skillTools(catalog)];
   const operations = operationTools(catalog, connect);
-  const baseNames = base.map((t) => t.name);
   const operationNames = operations.map((t) => t.name);
+  // Only an operation is held back. A tool the engine adds is not ours to hold back.
+  const notOperations = (tools: unknown[]) =>
+    tools.flatMap((t) => {
+      const name = (t as { name?: unknown }).name;
+      return typeof name === "string" && !operationNames.includes(name)
+        ? [name]
+        : [];
+    });
 
   return {
     systemPrompt: systemPrompt({
@@ -61,7 +68,7 @@ export function assemble(
             ...request,
             tools: toolsInReach(
               request.tools,
-              baseNames,
+              notOperations(request.tools),
               new Set(config.send(request.messages, operationNames)),
             ),
           }),

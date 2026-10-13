@@ -1,16 +1,22 @@
 /**
  * The contract for a loop config: one way an agent handles a chat as it
- * grows, and how far one run can go. It has a name, and holds settings and no
- * code. A loop is a file of its own, and a deployment lists it.
+ * grows, and how far one run can go. It has a name, names the engine that
+ * runs it, and holds settings and no code. A loop is a file of its own, and a deployment lists it.
  * Framework-free, as the package contract is.
  */
 
 import { NAME } from "./package-spec.js";
 
+/** What que has to build and run a loop with. `plain` is the framework's own agent; `deepagents` is a LangChain deep agent. */
+export const ENGINES = ["plain", "deepagents"] as const;
+export type Engine = (typeof ENGINES)[number];
+
 /** What `defineLoop` returns, and a loop file exports as its default. A setting left out keeps que's own value; `false` turns it off. */
 export type LoopDefinition = {
   /** What an agent names to get this loop. */
   name: string;
+  /** What builds and runs the loop. Left out, it is `plain`. */
+  engine?: Engine;
   /** `max`: in tokens. A tool result over it is not put in the chat whole. */
   result?: { max?: number } | false;
   /** `at`: the share of the model's window past which the old part of the chat is sent as a summary. `keep`: the share that is sent as it is. */
@@ -24,6 +30,7 @@ export type LoopDefinition = {
 /** A loop with nothing left out: each setting has every value, or is `false`. */
 export type ResolvedLoop = {
   name: string;
+  engine: Engine;
   result: { max: number } | false;
   summarize: { at: number; keep: number } | false;
   args: { max: number } | false;
@@ -58,7 +65,7 @@ export function validateLoop(def: unknown): asserts def is LoopDefinition {
   if (!def || typeof def !== "object" || Array.isArray(def))
     throw new Error("loop must be an object");
   const loop = def as Record<string, unknown>;
-  const { name } = loop;
+  const { name, engine } = loop;
   const problems: string[] = [];
   const named = typeof name === "string" && NAME.test(name);
 
@@ -66,8 +73,12 @@ export function validateLoop(def: unknown): asserts def is LoopDefinition {
     problems.push("name of the loop is missing");
   else if (!named) problems.push(`loop name "${name}" must match ${NAME}`);
   for (const field of Object.keys(loop))
-    if (field !== "name" && !SETTINGS.includes(field as Setting))
+    if (!["name", "engine", ...SETTINGS].includes(field))
       problems.push(`the loop has no field "${field}"`);
+  if (engine !== undefined && !(ENGINES as readonly unknown[]).includes(engine))
+    problems.push(
+      `engine of the loop must be one of: ${ENGINES.join(", ")}, got ${JSON.stringify(engine)}`,
+    );
 
   for (const setting of SETTINGS) {
     const value = loop[setting];
@@ -110,6 +121,7 @@ export function resolveLoop(loop: LoopDefinition): ResolvedLoop {
       : { ...LOOP_DEFAULTS[name], ...(loop[name] as object | undefined) };
   return {
     name: loop.name,
+    engine: loop.engine ?? "plain",
     result: setting("result"),
     summarize: setting("summarize"),
     args: setting("args"),

@@ -8,4 +8,5 @@ export default defineAgent({
   // model: "provider:model",
   // instructions: "...",     opens the system prompt, in place of que's own role text
   // legibility: "on-demand", how the model is shown its packages
+  // loop: "long-chat",       the name of a loop config the deployment lists
 });
