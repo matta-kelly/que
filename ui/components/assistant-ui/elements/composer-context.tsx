@@ -9,9 +9,12 @@
 // - each count is exact. The library reads its counts as thousands
 // - the share to warn at is handed in. The library's is 85 percent, always
 // - rows can be put under the parts, and a thing beside the ring
+// - the percent has one decimal while it is small, so a chat that has started is not at zero
+// - the button is described by the panel, for a screen reader
 // It counts nothing, and knows no model and no cost.
 
-import type { ComponentProps, ReactNode } from "react";
+import { useId, type ComponentProps, type ReactNode } from "react";
+import { percent } from "@/lib/usage";
 import { cn } from "@/lib/utils";
 import { clamp, pct } from "../utils/range";
 import { floating, ghostButton, mono } from "./surfaces";
@@ -50,7 +53,7 @@ export function ComposerContext({
   const fraction = total === 0 ? 0 : used / total;
   const warn = fraction > warnAt;
   const circumference = 2 * Math.PI * 6;
-  const percent = fraction * 100;
+  const panel = useId();
 
   return (
     <div
@@ -60,6 +63,7 @@ export function ComposerContext({
     >
       <div
         data-slot="composer-context-panel"
+        id={panel}
         className={cn(
           floating,
           "absolute end-0 bottom-full z-10 mb-2 flex w-60 origin-bottom-right flex-col gap-3.5 rounded-2xl p-4",
@@ -78,11 +82,7 @@ export function ComposerContext({
               warn ? "text-red-500 dark:text-red-400" : "text-muted-foreground",
             )}
           >
-            {/* A chat that has just started is not at zero. */}
-            {percent > 0 && percent < 10
-              ? percent.toFixed(1)
-              : Math.round(percent)}
-            %
+            {percent(fraction)}
           </p>
         </div>
         <div className="bg-foreground/[0.06] inset-ring-border flex h-[5px] w-full gap-px overflow-hidden rounded-full inset-ring forced-colors:border">
@@ -148,6 +148,8 @@ export function ComposerContext({
       <button
         type="button"
         aria-label="Context usage"
+        // The panel is what the ring says, for one who does not see it fill.
+        aria-describedby={panel}
         className={cn(
           ghostButton,
           "size-8",

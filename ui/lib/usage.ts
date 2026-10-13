@@ -97,3 +97,15 @@ export function short(count: number): string {
   const text = value < 9.95 ? value.toFixed(1) : String(Math.round(value));
   return text.replace(/\.0$/, "") + unit;
 }
+
+/**
+ * A share of the window, as a percent. A chat that has started is not at zero,
+ * and a window that is not full is not at 100: a share is written with one
+ * decimal while it is small, and is not rounded up to the end.
+ */
+export function percent(share: number): string {
+  const value = share * 100;
+  if (value > 0 && value < 0.05) return "<0.1%";
+  if (value < 9.95) return `${value.toFixed(1).replace(/\.0$/, "")}%`;
+  return `${value < 100 ? Math.min(99, Math.round(value)) : Math.round(value)}%`;
+}

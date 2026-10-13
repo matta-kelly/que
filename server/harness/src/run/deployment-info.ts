@@ -32,7 +32,7 @@ export type DeploymentInfo = {
 export function deploymentInfo(
   agents: AgentDefinition[],
   models: MountedModel[],
-  loops: LoopDefinition[] = [],
+  loops: LoopDefinition[],
 ): DeploymentInfo {
   return {
     // `model` is the one a run of the agent gets when the run names none.
