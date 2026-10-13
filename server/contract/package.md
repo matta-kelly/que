@@ -57,26 +57,40 @@ packages/<name>/
 - `parseSkill` in `@que/core` checks each skill; mount runs it on the `SKILL.md` of each skill the definition lists, and a skill with no title or no description stops the mount
 - `validateCases` in `@que/core` checks the cases of a package against its definition. The package's own test runs it. Mount does not: a bad case never stops que
 
-## The deployment's agent
-- a deployment can write an `agent` block beside `name` and `packages`, to say how its agent runs. The contract is `AgentDefinition` in `server/contract/agent-spec.ts`
+## The deployment's agents
+- an agent config is one way a deployment's packages are run. It is a file of its own, made with `defineAgent`, and the deployment lists it in `agents`, as it lists package folders in `packages`. The contract is `AgentDefinition` in `server/contract/agent-spec.ts`
 ```ts
+// agents/chat.ts
+export default defineAgent({
+  name: "chat",
+  packages: ["orders"],
+  model: "provider:model-name",
+  instructions: "You help the sales team.",
+  legibility: "on-demand",
+});
+```
+```ts
+// index.ts
 export default defineDeployment({
   name: "shop",
   packages: ["./packages/orders", "./packages/notes"],
-  agent: {
-    packages: ["orders"],
-    model: "provider:model-name",
-    instructions: "You help the sales team.",
-  },
+  agents: ["./agents/chat.ts", "./agents/lean.ts"],
 });
 ```
-- the block is optional, and so is each field. What is left out has que's own value
+- `agents` is optional. A deployment that lists none runs on que's own choices. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
+- `name`: required. What a run names to get this config. Each other field is optional, and what is left out has que's own value
 - `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
 - `model`: as `provider:model`. Left out: `MODEL` from the environment, and with no `MODEL`, the one named in que
 - `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
-- `validateAgent` in `@que/core`; `validateDeployment` runs it, and its faults are listed in the deployment's one error: a field that is not one of the three, a `packages` that is not a list of names, a `model` or an `instructions` that is empty or only spaces
-- mount stops when `packages` names a package the deployment does not mount, and the error names it
-- a package is written with no knowledge of this block
+- `legibility`: the name of the way the model is shown its packages. One exists, `on-demand`, and it is the one a config gets when it names none
+- which config a run gets
+	- a run names one with `agent` in its `configurable`: `{ configurable: { agent: "lean" } }`
+	- a run that names none gets the first one the deployment lists. So the chat is the first file
+	- a name the deployment does not have fails the run, and the error lists the names it has
+- `validateAgent` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a `packages` that is not a list of names, a `model` or an `instructions` that is empty or only spaces, a `legibility` que does not have
+- mount stops when a listed file does not exist, when two configs have one name, and when `packages` names a package the deployment does not mount. The error names the file, the name, or the config and the package
+- a deployment that still writes an `agent` block stops at startup, and the error says a config is now a file
+- a package is written with no knowledge of a config
 
 ## Client (gatekeeper)
 - `connect(credential) → connection`
