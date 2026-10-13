@@ -1,0 +1,14 @@
+{
+  "node_version": "22",
+  "dockerfile_lines": [],
+  "dependencies": ["."],
+  "graphs": {
+    "agent": "./src/run/agent.ts:agent"
+  },
+  "http": {
+    "app": "./src/run/api.ts:app"
+  },
+  "auth": {
+    "path": "./src/run/auth.ts:auth"
+  }
+}

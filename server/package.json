@@ -1,0 +1,28 @@
+{
+  "name": "que",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "contract",
+    "backend/*",
+    "harness"
+  ],
+  "scripts": {
+    "start": "npm start -w harness",
+    "server": "npm run server -w harness"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "10.10.0",
+    "eslint-plugin-sonarjs": "4.2.2",
+    "globals": "^17.11.0",
+    "jiti": "^2.7.0",
+    "prettier": "3.9.10",
+    "typescript-eslint": "8.70.0"
+  },
+  "overrides": {
+    "js-yaml": "4.3.2",
+    "langsmith": "0.9.0",
+    "ws": "8.21.3"
+  }
+}

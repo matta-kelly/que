@@ -1,6 +1,6 @@
 // Node runs in this container, so node_modules never lands in the repo folder:
 // the folder sits in a notes vault whose indexer reads every file.
-// Opens the whole repo: harness/ and ui/ are two apps, each with its own node_modules.
+// Opens the whole repo: server/ and ui/ are two apps, each with its own node_modules.
 {
   "name": "que",
   "build": { "dockerfile": "Dockerfile" },
@@ -20,7 +20,7 @@
 
   "mounts": [
     // Packages live in a podman volume, not the repo folder.
-    "source=que-node-modules,target=${containerWorkspaceFolder}/harness/node_modules,type=volume",
+    "source=que-node-modules,target=${containerWorkspaceFolder}/server/node_modules,type=volume",
     "source=que-ui-node-modules,target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
     // Playwright's Chromium survives rebuilds.
     "source=que-browsers,target=/home/node/.cache,type=volume",
@@ -29,7 +29,7 @@
   ],
 
   // New volumes start root-owned: hand it to `node`, then install.
-  "postCreateCommand": "sudo chown node:node harness/node_modules ui/node_modules ui/.next /home/node/.cache && (cd harness && npm ci) && (cd ui && npm ci && npx playwright install chromium)",
+  "postCreateCommand": "sudo chown node:node server/node_modules ui/node_modules ui/.next /home/node/.cache && (cd server && npm ci) && (cd ui && npm ci && npx playwright install chromium)",
 
   "customizations": {
     "vscode": {
