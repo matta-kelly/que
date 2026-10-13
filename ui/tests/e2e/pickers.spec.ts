@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Request } from "@playwright/test";
-import { openApp, openChats } from "./helpers";
+import { nameNewestChat, openApp, openChat } from "./helpers";
 
 // Needs a deployment that lists two agents and two models or more. The names
 // are read from the server, so the tests hold for any such deployment.
@@ -105,15 +105,6 @@ test("pickers: the agent picker does not open in a chat with a message", async (
   await expect(modelPicker(page)).toBeEnabled();
 });
 
-// The newest chat is the first row of the list.
-async function openNewestChat(page: Page) {
-  await openChats(page);
-  await page
-    .locator('[data-slot="aui_thread-list-item-trigger"]')
-    .first()
-    .click();
-}
-
 // A reload lands on a new chat, so the chat is opened again from the list.
 test("pickers: the pick holds after a reload, and after a move to another chat and back", async ({
   page,
@@ -126,6 +117,8 @@ test("pickers: the pick holds after a reload, and after a move to another chat a
   await pick(page, "Agent", agent.name);
   await pick(page, "Model", model);
   await send(page, "Say hi in one word.");
+  const title = `Pick ${Date.now()}`;
+  await nameNewestChat(page, title);
 
   await page.reload();
   await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
@@ -133,7 +126,7 @@ test("pickers: the pick holds after a reload, and after a move to another chat a
   await expect(agentPicker(page)).toHaveText(agents[0].name);
   await expect(modelPicker(page)).toHaveText(agents[0].model);
 
-  await openNewestChat(page);
+  await openChat(page, title);
   await expect(agentPicker(page)).toHaveText(agent.name);
   await expect(modelPicker(page)).toHaveText(model);
 
@@ -142,7 +135,7 @@ test("pickers: the pick holds after a reload, and after a move to another chat a
   await page.getByRole("option", { name: "New chat", exact: true }).click();
   await expect(agentPicker(page)).toHaveText(agents[0].name);
 
-  await openNewestChat(page);
+  await openChat(page, title);
   await expect(agentPicker(page)).toHaveText(agent.name);
   await expect(modelPicker(page)).toHaveText(model);
   const sent = await send(page, "Say bye in one word.");

@@ -12,5 +12,9 @@ through the proxy at `app/api/[..._path]`.
 - `lib/run-pick.ts`: the pick of a chat, the agent and the model its runs name. The composer has a picker for each, made from what the deployment lists (`/api/que/deployment`)
   - the pick is kept in the thread's metadata, as `agent` and `model`, beside its title. A chat with no pick follows the deployment
   - the model can change at any message. The agent is fixed after the first
-  - `lib/run-pick.test.ts` runs on Node's own test runner, in `just check`
+- `lib/usage.ts`: what a chat used, counted from the usage on each reply of the model
+  - the meter, in the composer: the tokens of the chat's last model call, in plus out, over the window of the model the chat is on. Not a sum over the chat: each call sends the chat again
+  - the line under a reply: the model that gave it (que's stamp, `response_metadata.que.model`), tokens in and tokens out. A reply is a turn: tokens out is the sum over its model calls, tokens in is from the last one. Cached and reasoning are in the tooltip
+  - a reply's own messages come from the library's `getExternalStoreMessages`, which it marks experimental
+- `lib/*.test.ts` run on Node's own test runner, in `just check`
 - `.env.local`: copy from `.env.example`

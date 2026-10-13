@@ -11,9 +11,10 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useChatPick } from "@/hooks/use-chat-pick";
 import { createClient } from "@/lib/langgraph-client";
-import { resolve, type RunPick } from "@/lib/run-pick";
-import { changePick, pickOf, useRunPicks } from "@/lib/run-pick-store";
+import type { RunPick } from "@/lib/run-pick";
+import { changePick } from "@/lib/run-pick-store";
 
 /**
  * The agent and the model the open chat runs on, each with a menu to pick
@@ -23,20 +24,10 @@ import { changePick, pickOf, useRunPicks } from "@/lib/run-pick-store";
  */
 export const RunPickers: FC = () => {
   const client = useMemo(() => createClient(), []);
-  const deployment = useRunPicks((s) => s.deployment);
-  // The open chat: its id on the server, and before its first message its local id.
-  const localId = useAuiState((s) => s.threads.mainThreadId);
-  const remoteId = useAuiState(
-    (s) =>
-      s.threads.threadItems.find((t) => t.id === s.threads.mainThreadId)
-        ?.remoteId,
-  );
+  const { deployment, thread, remoteId, shown } = useChatPick();
   const started = useAuiState((s) => s.thread.messages.length > 0);
-  const thread = remoteId ?? localId;
-  const pick = useRunPicks((s) => pickOf(s, thread));
   if (!deployment) return <div />;
 
-  const shown = resolve(pick, deployment);
   const change = (next: RunPick) => {
     changePick(thread, next);
     // A thread not made yet gets its pick when it is made.

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openApp, openChats } from "./helpers";
+import { nameNewestChat, openApp, openChat } from "./helpers";
 import { short } from "../../lib/usage.ts";
 
 // Needs a deployment that lists two models or more, with two windows.
@@ -81,14 +81,12 @@ test("usage: a chat opened again shows the same meter and reply info", async ({
   await send(page, "Say hi in one word.");
   const meterText = await meter(page).textContent();
   const replyText = await replyUsage(page).textContent();
+  const title = `Usage ${Date.now()}`;
+  await nameNewestChat(page, title);
 
   await page.reload();
   await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
-  await openChats(page);
-  await page
-    .locator('[data-slot="aui_thread-list-item-trigger"]')
-    .first()
-    .click();
+  await openChat(page, title);
   await expect(meter(page)).toHaveText(meterText!);
   await expect(replyUsage(page)).toHaveText(replyText!);
 });
