@@ -35,8 +35,8 @@ const usePrices = (deployment: Deployment | undefined): Prices =>
 
 /**
  * How full the model's window is: the tokens of the chat's last model call,
- * over the window of the model the chat is on. Its hover has what the chat
- * cost. Nothing for a chat with no reply, or on a deployment that lists no
+ * over the window of the model the chat is on, and then what the chat cost.
+ * Its hover has the exact counts, and how many replies the cost leaves out. Nothing for a chat with no reply, or on a deployment that lists no
  * models.
  */
 export const ContextMeter: FC = () => {
@@ -64,6 +64,7 @@ export const ContextMeter: FC = () => {
           className="text-muted-foreground cursor-default px-2 text-xs tabular-nums"
         >
           {short(used)} / {short(model.window)}
+          {cost && ` · ${money(cost.total)}`}
         </span>
       </TooltipTrigger>
       <TooltipContent side="top">
