@@ -6,11 +6,28 @@ test("validateAgent accepts a name, packages, a model, instructions and a legibi
   validateAgent({
     name: "chat",
     packages: ["odoo"],
-    model: "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
+    model: "glm-flash",
     instructions: "You help the sales team.",
     legibility: "on-demand",
     loop: "long-chat",
   });
+});
+
+test("validateAgent rejects a model that is not a plain name, and says where a model goes for one written as provider:model", () => {
+  for (const model of ["two words", 7, null])
+    assert.throws(
+      () => validateAgent({ name: "chat", model }),
+      /model of the agent must be the name of a model/,
+      JSON.stringify(model),
+    );
+  assert.throws(
+    () => validateAgent({ name: "chat", model: "fireworks:some-model" }),
+    (error: Error) => {
+      assert.match(error.message, /a model is a file of its own/);
+      assert.match(error.message, /`models`/);
+      return true;
+    },
+  );
 });
 
 test("validateAgent accepts a loop, and rejects one that is not a plain name", () => {

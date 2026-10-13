@@ -1,25 +1,47 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_MODEL, modelFor } from "./model.js";
+import { OWN_MODEL, chatModel, modelFor } from "./model.js";
 
-test("the model is the one the config names, over MODEL", () => {
-  assert.equal(
-    modelFor({ model: "openai:gpt-config" }, { MODEL: "openai:gpt-env" }),
-    "openai:gpt-config",
+const big = {
+  name: "big",
+  id: "fireworks:big-model",
+  window: 1_000_000,
+  maxTokens: 100_000,
+};
+const small = {
+  name: "small",
+  id: "fireworks:small-model",
+  window: 64_000,
+  maxTokens: 8_000,
+};
+
+test("the model of a run: the one the run names, then its agent's, then the first listed, then que's own", () => {
+  const lean = { name: "lean", model: "small" };
+  assert.equal(modelFor([big, small], lean, "big"), big);
+  assert.equal(modelFor([big, small], lean, undefined), small);
+  assert.equal(modelFor([big, small], { name: "chat" }, undefined), big);
+  assert.equal(modelFor([], { name: "chat" }, undefined), OWN_MODEL);
+});
+
+test("a run that names a model the deployment does not have fails, and the error lists the ones it has", () => {
+  assert.throws(
+    () => modelFor([big, small], { name: "chat" }, "huge"),
+    /no model "huge"\. Models: big, small/,
   );
-});
-
-test("with no model in the config, the model is MODEL", () => {
-  assert.equal(modelFor({}, { MODEL: "openai:gpt-env" }), "openai:gpt-env");
-});
-
-test("with no model in the config and no MODEL, the model is the one named in code", () => {
-  assert.equal(modelFor({}, {}), DEFAULT_MODEL);
-});
-
-test("the model named in code is the one it was", () => {
-  assert.equal(
-    DEFAULT_MODEL,
-    "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
+  assert.throws(
+    () => modelFor([], { name: "chat" }, "big"),
+    /no model "big"\. This deployment lists no models/,
   );
+  assert.throws(() => modelFor([big], { name: "chat" }, 7), /no model 7/);
+});
+
+test("the model made for a run has the id and the maxTokens of its config", async () => {
+  // The provider's model is made with a key, and none is used: no call goes out.
+  process.env.FIREWORKS_API_KEY ??= "none";
+  const made = (await chatModel(small)) as unknown as {
+    _defaultConfig: Record<string, unknown>;
+  };
+  assert.equal(made._defaultConfig.modelProvider, "fireworks");
+  assert.equal(made._defaultConfig.model, "small-model");
+  assert.equal(made._defaultConfig.maxTokens, 8_000);
 });

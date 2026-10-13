@@ -33,6 +33,9 @@ const report = tool(async ({ rows: count }) => rows(count), {
   schema: z.object({ rows: z.number().describe("How many rows") }),
 });
 
+/** A window small enough for a test to fill: shares of it are counts a chat can reach. */
+const WINDOW = 60_000;
+
 type Run = {
   messages: BaseMessage[];
   files?: Record<string, unknown>;
@@ -45,12 +48,21 @@ async function run(
   parts: { tools: StructuredTool[]; middleware?: AgentMiddleware[] } = {
     tools: [report],
   },
+  window = WINDOW,
 ) {
+  // The engine asks the same model for a summary: it gets one, and each other call gets the next reply.
   const model = fakeModel();
-  for (const reply of replies) model.respond(reply);
-  const sent: { tools: string[]; system: string }[] = [];
+  let next = 0;
+  const reply = (messages: BaseMessage[]) =>
+    messages.some((m) => /conversation summarizer/.test(text(m)))
+      ? new AIMessage("SUMMARY OF THE OLD PART")
+      : (replies[next++] ?? new AIMessage("No reply left."));
+  for (let i = 0; i < 20; i++) model.respond(reply);
+  const sent: { tools: string[]; system: string; messages: BaseMessage[] }[] =
+    [];
   const graph = build(resolveLoop(loop), {
     model,
+    window,
     systemPrompt: INSTRUCTIONS,
     tools: parts.tools,
     middleware: [
@@ -64,6 +76,7 @@ async function run(
               String((t as { name: unknown }).name),
             ),
             system: JSON.stringify(request.systemMessage?.content ?? ""),
+            messages: [...request.messages],
           });
           return handler(request);
         },
@@ -240,29 +253,113 @@ test("on deepagents, que's own value for result.max is the one a loop gets when 
   );
 });
 
-test("on deepagents, summarize, args and limits change nothing in what is built", async () => {
+test("on deepagents, args and limits change nothing in what is built", async () => {
   const built = async (loop: LoopDefinition) =>
     middlewareOf(
       (await run({ ...loop, engine: "deepagents" }, [new AIMessage("Well.")]))
         .graph,
     );
   const plainly = await built({ name: "deep" });
-  assert.ok(plainly.includes("SummarizationMiddleware"));
-  assert.equal(
-    plainly.filter((name) => name === "FilesystemMiddleware").length,
-    1,
-  );
+  for (const name of ["FilesystemMiddleware", "SummarizationMiddleware"])
+    assert.equal(plainly.filter((m) => m === name).length, 1, name);
   assert.deepEqual(
-    await built({ name: "deep", summarize: false, args: false, limits: false }),
+    await built({ name: "deep", args: false, limits: false }),
     plainly,
   );
   assert.deepEqual(
     await built({
       name: "deep",
-      summarize: { at: 0.5, keep: 0.1 },
       args: { max: 10 },
       limits: { modelCalls: 1, toolCalls: 1 },
     }),
     plainly,
   );
+});
+
+// Each report is about 10,000 tokens: two are under half of the window, three are over.
+const REPORT = 1800;
+const threeReports = () => [
+  calling("a", "shop_report", { rows: REPORT }),
+  calling("b", "shop_report", { rows: REPORT }),
+  calling("c", "shop_report", { rows: REPORT }),
+  new AIMessage("Well."),
+];
+const kinds = (messages: BaseMessage[]) => messages.map((m) => m.getType());
+
+test("on deepagents, a chat past summarize.at of the window is sent as a summary and what is kept, and its own messages stay", async () => {
+  const { sent, result } = await run(
+    {
+      name: "deep",
+      engine: "deepagents",
+      result: false,
+      summarize: { at: 0.5, keep: 0.25 },
+    },
+    threeReports(),
+  );
+  // Under half of the window: the chat as it is.
+  assert.deepEqual(kinds(sent[2].messages), [
+    "human",
+    "ai",
+    "tool",
+    "ai",
+    "tool",
+  ]);
+  assert.equal(text(sent[2].messages[2]), rows(REPORT));
+
+  // Over it: a summary in place of the old part, and the newest report, which a quarter of the window holds.
+  const last = sent.at(-1)!.messages;
+  assert.match(text(last[0]), /SUMMARY OF THE OLD PART/);
+  assert.deepEqual(kinds(last), ["human", "ai", "tool"]);
+  assert.equal(text(last[2]), rows(REPORT));
+  assert.equal((last[2] as { tool_call_id?: string }).tool_call_id, "c");
+
+  // The chat itself holds every message.
+  assert.deepEqual(kinds(result.messages), [
+    "human",
+    "ai",
+    "tool",
+    "ai",
+    "tool",
+    "ai",
+    "tool",
+    "ai",
+  ]);
+  for (const id of ["a", "b", "c"])
+    assert.equal(text(resultOf(result.messages, id)), rows(REPORT));
+});
+
+test("on deepagents, a chat under summarize.at, and any chat with summarize off, is sent whole", async () => {
+  const whole = ["human", "ai", "tool", "ai", "tool", "ai", "tool"];
+  const off = await run(
+    { name: "deep", engine: "deepagents", result: false, summarize: false },
+    threeReports(),
+  );
+  assert.deepEqual(kinds(off.sent.at(-1)!.messages), whole);
+
+  // The same chat and the same shares, in a window ten times the size.
+  const under = await run(
+    {
+      name: "deep",
+      engine: "deepagents",
+      result: false,
+      summarize: { at: 0.5, keep: 0.25 },
+    },
+    threeReports(),
+    { tools: [report] },
+    WINDOW * 10,
+  );
+  assert.deepEqual(kinds(under.sent.at(-1)!.messages), whole);
+});
+
+test("on plain, a loop and a window add no middleware", async () => {
+  for (const window of [1_000, WINDOW, 1_000_000]) {
+    const { graph, sent } = await run(
+      { ...everySetting, engine: "plain" },
+      threeReports(),
+      { tools: [report] },
+      window,
+    );
+    assert.deepEqual(middlewareOf(graph), ["Seen"]);
+    assert.equal(sent.at(-1)!.messages.length, 7);
+  }
 });

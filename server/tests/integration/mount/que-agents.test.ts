@@ -37,6 +37,27 @@ test("que's agents and the loops they name mount as one deployment", async () =>
   );
 });
 
+test("que's agents name que's own model, and stop the mount without it", async () => {
+  const mounted = await mountDeployment(deployment("que-own"));
+  assert.deepEqual(
+    mounted.agents.map((agent) => agent.model),
+    ["glm-flash", "glm-flash"],
+  );
+  assert.deepEqual(
+    mounted.models.map((model) => model.name),
+    ["glm-flash"],
+  );
+  await assert.rejects(
+    mountDeployment(deployment("que-chat-no-model")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /"chat"/);
+      assert.match(error.message, /"glm-flash"/);
+      return true;
+    },
+  );
+});
+
 test("que's chat agent stops the mount when its loop is not listed", async () => {
   await assert.rejects(
     mountDeployment(deployment("que-chat-no-loop")),

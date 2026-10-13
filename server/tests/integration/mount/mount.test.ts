@@ -165,7 +165,7 @@ test("a deployment is mounted with its agents, in the order it lists them", asyn
       packages: ["alpha"],
       instructions: "You help the sales team.",
     },
-    { name: "lean", model: "provider:small-model" },
+    { name: "lean", model: "small" },
   ]);
 });
 
@@ -309,4 +309,95 @@ test("the error for a loop that is not listed lists the loops the deployment has
     fromDeployment.mountDeployment(deployment("agent-loop-none")),
     /This deployment lists no loops/,
   );
+});
+
+test("a deployment is mounted with its models, in the order it lists them, and with none when it lists none", async () => {
+  const mounted = await fromDeployment.mountDeployment(
+    deployment("models-two"),
+  );
+  assert.deepEqual(mounted.models, [
+    {
+      name: "big",
+      id: "fireworks:big-model",
+      window: 1_000_000,
+      maxTokens: 100_000,
+    },
+    {
+      name: "small",
+      id: "fireworks:small-model",
+      window: 64_000,
+      maxTokens: 8_000,
+    },
+  ]);
+  assert.deepEqual(
+    (await fromDeployment.mountDeployment(deployment("two"))).models,
+    [],
+  );
+});
+
+test("stops, naming the file, on a model file that is missing, breaks the contract, or has the name of another", async () => {
+  const stopsWith = (name: string, ...patterns: RegExp[]) =>
+    assert.rejects(
+      fromDeployment.mountDeployment(deployment(name)),
+      (error: Error) => {
+        assert.match(error.message, /^mount:/);
+        for (const pattern of patterns) assert.match(error.message, pattern);
+        return true;
+      },
+    );
+  await stopsWith("model-file-missing", /models\/nope\.ts holds no model/);
+  await stopsWith("models-one-name", /two models are named "small"/);
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("model-bad")),
+    (error: Error) => {
+      assert.match(error.message, /^mount: .*models\/windowless\.ts/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, /^model windowless is invalid/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the model and the provider, when a model has a provider que does not have", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("model-provider")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /"elsewhere"/);
+      assert.match(error.message, /"nowhere"/);
+      assert.match(error.message, /Providers: fireworks/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the agent and the model, when an agent names a model the deployment does not list", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-model-unlisted")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /"lean"/);
+      assert.match(error.message, /"small"/);
+      assert.match(error.message, /Models: big/);
+      return true;
+    },
+  );
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-model-none")),
+    /This deployment lists no models/,
+  );
+});
+
+test("stops when MODEL is set, and says to list a model file", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("two"), {
+      MODEL: "fireworks:some-model",
+    }),
+    (error: Error) => {
+      assert.match(error.message, /^mount: MODEL is set/);
+      assert.match(error.message, /`models`/);
+      return true;
+    },
+  );
+  await fromDeployment.mountDeployment(deployment("two"), {});
 });
