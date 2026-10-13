@@ -1,0 +1,12 @@
+{
+  "name": "accounts/fireworks/models/glm-5p3-flash",
+  "displayName": "GLM 5.3 Flash",
+  "contextLength": 1048576,
+  "trainingContextLength": 65536,
+  "kind": "HF_BASE_MODEL",
+  "state": "READY",
+  "supportsTools": true,
+  "supportsImageInput": true,
+  "supportsServerless": true,
+  "public": true
+}

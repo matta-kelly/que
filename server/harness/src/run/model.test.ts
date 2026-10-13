@@ -7,12 +7,14 @@ const big = {
   id: "fireworks:big-model",
   window: 1_000_000,
   maxTokens: 100_000,
+  price: { input: 1, output: 2 },
 };
 const small = {
   name: "small",
   id: "fireworks:small-model",
   window: 64_000,
   maxTokens: 8_000,
+  price: { input: 0.5, output: 1, cachedInput: 0.1 },
 };
 
 test("the model of a run: the one the run names, then its agent's, then the first listed, then que's own", () => {
@@ -59,4 +61,10 @@ test("the model made for a run is not changed by what the run names", async () =
     }),
     {},
   );
+});
+
+test("que's own model is whole", () => {
+  assert.equal(OWN_MODEL.window, 1_048_576, "the provider's window");
+  assert.ok(OWN_MODEL.maxTokens <= OWN_MODEL.window);
+  assert.ok(OWN_MODEL.price.input > 0 && OWN_MODEL.price.output > 0);
 });
