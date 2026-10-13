@@ -147,16 +147,6 @@
 @custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
 
 @custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
-/* prompt-kit WaveLoader animation (from its registry's tailwind config). */
-@keyframes wave {
-  0%,
-  100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(0.6);
-  }
-}
 
 /* No sidebar width animation while the user drags it. */
 [data-resizing="true"] * {
