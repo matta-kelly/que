@@ -130,9 +130,9 @@ test("pickers: the pick holds after a reload, and after a move to another chat a
   await expect(agentPicker(page)).toHaveText(agent.name);
   await expect(modelPicker(page)).toHaveText(model);
 
-  await page.locator("header").click();
-  await page.keyboard.press("Control+k");
-  await page.getByRole("option", { name: "New chat", exact: true }).click();
+  // "Chats" in the sidebar opens a fresh chat.
+  await page.getByRole("button", { name: "Chats", exact: true }).click();
+  await expect(page.locator('[data-slot="page-title"]')).toHaveText("New chat");
   await expect(agentPicker(page)).toHaveText(agents[0].name);
 
   await openChat(page, title);
