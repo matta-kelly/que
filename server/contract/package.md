@@ -67,6 +67,7 @@ export default defineAgent({
   model: "provider:model-name",
   instructions: "You help the sales team.",
   legibility: "on-demand",
+  loop: "nightly",
 });
 ```
 ```ts
@@ -75,22 +76,24 @@ export default defineDeployment({
   name: "shop",
   packages: ["./packages/orders", "./packages/notes"],
   agents: ["./agents/chat.ts", "./agents/lean.ts"],
+  loops: ["./loops/nightly.ts"],
 });
 ```
 - an agent file, as a package, has a `package.json` with `"type": "module"` in its folder or one above. A deployment's own has the deployment's, and que's have `server/package.json`
-- que keeps agent configs of its own in `server/agents/`. Each names no package, so any deployment can list it by its path
+- que keeps agent configs of its own in `server/agents/`. Each names no package, so any deployment can list it by its path. `chat` is the chat agent, and `deep-chat` is the same agent run as a LangChain deep agent
 - `agents` is optional. A deployment that lists none runs on que's own choices. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
 - `name`: required. What a run names to get this config. Each other field is optional, and what is left out has que's own value
 - `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
 - `model`: as `provider:model`. Left out: `MODEL` from the environment, and with no `MODEL`, the one named in que
 - `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
 - `legibility`: the name of the way the model is shown its packages. One exists, `on-demand`, and it is the one a config gets when it names none
+- `loop`: the name of a loop config the deployment lists: how the agent's loop is run. Left out: the agent runs on the `plain` engine, as it does with no loop. See [the deployment's loops](#the-deployments-loops)
 - which config a run gets
 	- a run names one with `agent` in its `configurable`: `{ configurable: { agent: "lean" } }`
 	- a run that names none gets the first one the deployment lists. So the chat is the first file
 	- a name the deployment does not have fails the run, and the error lists the names it has
 - `validateAgent` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a `packages` that is not a list of names, a `model` or an `instructions` that is empty or only spaces, a `legibility` que does not have
-- mount stops when a listed file does not exist, when two configs have one name, and when `packages` names a package the deployment does not mount. The error names the file, the name, or the config and the package
+- mount stops when a listed file does not exist, when two configs have one name, when `packages` names a package the deployment does not mount, and when `loop` names a loop the deployment does not list. The error names the file, the name, or the config and what it names
 - a deployment that still writes an `agent` block stops at startup, and the error says a config is now a file
 - a package is written with no knowledge of a config
 
@@ -114,11 +117,19 @@ export default defineDeployment({
   loops: ["./loops/nightly.ts"],
 });
 ```
-- no setting has an effect yet, and no agent names a loop yet. A loop is checked and mounted, and that is all
+- an agent config names a loop with `loop`, and a run of that agent is built with it. A loop no agent names is mounted and not used
+- `engine`: what builds and runs the loop. Left out: `plain`
+	- `plain`: the framework's own agent (`createAgent`), with que's prompt, tools and tool rule. No setting acts on it
+	- `deepagents`: a LangChain deep agent (`createDeepAgent`), handed the same prompt, tools and tool rule
+		- `result` acts: a tool result over `result.max` goes to a file store kept in the thread's state, and the chat gets its head, its tail and its path. `result: false` turns that off
+		- the model gets the engine's own tools beside que's: `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, and `task` (a subagent). It reads a stored result with `read_file`, by offset and limit
+		- `summarize` and `args` do not act yet: the engine summarizes and cuts arguments by its own defaults. Both are shares of the model's window, which que does not hold yet
+	- `limits` acts on neither engine yet
 - a loop file, as an agent file, has a `package.json` with `"type": "module"` in its folder or one above
-- que keeps loop configs of its own in `server/loops/`, and a deployment can list one by its path
+- que keeps loop configs of its own in `server/loops/`, and a deployment can list one by its path. A deployment that lists one of que's agents lists the loop that agent names: `chat` names `long-chat`, and `deep-chat` names `deep`
 	- `long-chat`: que's own value for each setting, written out
 	- `short-run`: for a run with one job and no person
+	- `deep`: on `deepagents`, with que's own value for `result`
 - `loops` is optional. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
 - `name`: required. Each setting is optional, and so is each part of one. What is left out has que's own value, and a setting can be `false`: off
 - `result.max`: in tokens. A tool result over it is not put in the chat whole. que's own: 20,000
@@ -127,7 +138,7 @@ export default defineDeployment({
 - `args.max`: in characters. In the old part of a chat, a longer argument of a tool call is cut. que's own: 2,000
 - `limits.modelCalls`, `limits.toolCalls`: the most of each that one run can make. que's own: 50 and 100
 - `resolveLoop` in `@que/core` hands back every setting of a loop: its own value, que's where it has none, and `false` where it says so. `LOOP_DEFAULTS` holds que's own values
-- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
+- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, an `engine` que does not have, a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
 - mount stops when a listed file does not exist, and when two loops have one name. The error names the file or the name
 
 ## Client (gatekeeper)

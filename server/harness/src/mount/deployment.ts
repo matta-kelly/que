@@ -3,7 +3,7 @@
  * has its definition as the default export. A definition that breaks the
  * contract (validateDeployment in @que/core) fails mounting, and so does an
  * agent config or a loop config that breaks its own, and an agent config that
- * names a package the deployment does not mount.
+ * names a package the deployment does not mount or a loop it does not list.
  */
 
 import "./supply.js";
@@ -68,6 +68,17 @@ export async function mountDeployment(dir: string): Promise<{
     if (unmounted.length)
       throw new Error(
         `mount: deployment ${dir}: the agent "${agent.name}" names packages the deployment does not mount: ${unmounted.join(", ")}`,
+      );
+  }
+  const listed = loops.map((loop) => loop.name);
+  for (const agent of agents) {
+    if (agent.loop !== undefined && !listed.includes(agent.loop))
+      throw new Error(
+        `mount: deployment ${dir}: the agent "${agent.name}" names the loop "${agent.loop}", which the deployment does not list. ${
+          listed.length
+            ? `Loops: ${listed.join(", ")}`
+            : "This deployment lists no loops"
+        }`,
       );
   }
   return { packages, agents, loops };

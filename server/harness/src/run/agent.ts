@@ -3,14 +3,14 @@
  *
  * Chat factory: buildAgent(userId, name) assembles an agent for one user from
  * the packages they have access to, as one of the deployment's agent configs
- * says: which of those packages, the model, the instructions, and how the
- * packages are put in front of the model. The config is the one the run names,
+ * says: which of those packages, the model, the instructions, how the
+ * packages are put in front of the model, and the loop it runs in. The loop
+ * names the engine that builds the agent. The config is the one the run names,
  * or the first the deployment lists. Packages the user can't use are never
  * loaded. The user is fixed when the agent is built, so every tool call runs
  * as them.
  */
 
-import { createAgent } from "langchain";
 import { assemble } from "../assemble/assemble.js";
 import { catalogFor } from "../access/catalog.js";
 import { narrow } from "../access/narrow.js";
@@ -18,7 +18,9 @@ import { getConnection } from "../access/connections.js";
 import { users } from "../access/users.js";
 import * as mounted from "../mount/mounted.js";
 import { configFor } from "./config.js";
+import { build } from "./engine/index.js";
 import { legibilityFor } from "./legibility.js";
+import { loopFor } from "./loop.js";
 import { modelFor } from "./model.js";
 
 export async function buildAgent(userId: string, name?: unknown) {
@@ -30,7 +32,7 @@ export async function buildAgent(userId: string, name?: unknown) {
   ]);
   const catalog = narrow(reachable, config.packages);
 
-  return createAgent({
+  return build(loopFor(mounted.loops, config), {
     // "provider:model" format, set in the config or via MODEL in .env
     model: modelFor(config, process.env),
     ...assemble(legibilityFor(config), {

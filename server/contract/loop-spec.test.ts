@@ -20,11 +20,31 @@ test("validateLoop accepts a name and every setting", () => {
   validateLoop(
     defineLoop({
       name: "long-chat",
+      engine: "deepagents",
       result: { max: 20_000 },
       summarize: { at: 0.85, keep: 0.1 },
       args: { max: 2_000 },
       limits: { modelCalls: 50, toolCalls: 100 },
     }),
+  );
+});
+
+test("validateLoop accepts each engine que has, and rejects another, listing the ones it has", () => {
+  validateLoop({ name: "a", engine: "plain" });
+  validateLoop({ name: "b", engine: "deepagents" });
+  for (const engine of ["deep", "", 7, null]) {
+    const message = faults({ name: "odd", engine });
+    assert.match(message, /engine of the loop must be one of/);
+    assert.match(message, /plain/);
+    assert.match(message, /deepagents/);
+  }
+});
+
+test("resolveLoop gives plain to a loop that names no engine", () => {
+  assert.equal(resolveLoop({ name: "a" }).engine, "plain");
+  assert.equal(
+    resolveLoop({ name: "b", engine: "deepagents" }).engine,
+    "deepagents",
   );
 });
 
@@ -143,6 +163,7 @@ test("validateLoop rejects what is not an object", () => {
 test("resolveLoop gives que's own value for each setting a loop leaves out", () => {
   assert.deepEqual(resolveLoop({ name: "plain" }), {
     name: "plain",
+    engine: "plain",
     result: { max: 20_000 },
     summarize: { at: 0.85, keep: 0.1 },
     args: { max: 2_000 },
@@ -150,6 +171,7 @@ test("resolveLoop gives que's own value for each setting a loop leaves out", () 
   });
   assert.deepEqual(resolveLoop({ name: "plain" }), {
     name: "plain",
+    engine: "plain",
     ...LOOP_DEFAULTS,
   });
 });
@@ -165,6 +187,7 @@ test("resolveLoop keeps a loop's own value, and a setting that is false", () => 
     }),
     {
       name: "short-run",
+      engine: "plain",
       result: { max: 60_000 },
       summarize: false,
       args: false,
