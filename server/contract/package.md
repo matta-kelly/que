@@ -43,6 +43,27 @@ packages/<name>/
 - package and ops carry a title and description; `schema` is a `z.object` and every field has `.describe()`
 - `parseSkill` in `@que/core` checks each skill; mount runs it on every `SKILL.md`, and a skill with no title or no description stops the mount
 
+## The deployment's agent
+- a deployment can write an `agent` block beside `name` and `packages`, to say how its agent runs. The contract is `AgentDefinition` in `server/contract/agent-spec.ts`
+```ts
+export default defineDeployment({
+  name: "shop",
+  packages: ["./packages/orders", "./packages/notes"],
+  agent: {
+    packages: ["orders"],
+    model: "provider:model-name",
+    instructions: "You help the sales team.",
+  },
+});
+```
+- the block is optional, and so is each field. What is left out has que's own value
+- `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
+- `model`: as `provider:model`. Left out: `MODEL` from the environment, and with no `MODEL`, the one named in que
+- `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
+- `validateAgent` in `@que/core`; `validateDeployment` runs it, and its faults are listed in the deployment's one error: a field that is not one of the three, a `packages` that is not a list of names, a `model` or an `instructions` that is empty or only spaces
+- mount stops when `packages` names a package the deployment does not mount, and the error names it
+- a package is written with no knowledge of this block
+
 ## Client (gatekeeper)
 - `connect(credential) → connection`
 - owns auth + protocol; throws `OperationFailed` for every service error
