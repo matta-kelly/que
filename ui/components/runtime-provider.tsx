@@ -194,12 +194,16 @@ export function RuntimeProvider({
         // with nothing in the chat to name it, so it is found there and cancelled.
         if (config.abortSignal.aborted && !run && stopAsked) {
           stopAsked = false;
-          const active = await client.runs.list(thread).catch(() => []);
-          for (const { run_id, status } of active)
-            if (status === "pending" || status === "running")
+          // Asked for by status: a list of all the runs of a thread is its first few, in no order.
+          for (const status of ["pending", "running"] as const) {
+            const active = await client.runs
+              .list(thread, { status })
+              .catch(() => []);
+            for (const { run_id } of active)
               client.runs
                 .cancel(thread, run_id, false, "interrupt")
                 .catch(() => {});
+          }
         }
         // An end from this side is not an error for the chat. A join that fails is a
         // run with no events left to give: the chat is as it was loaded.
