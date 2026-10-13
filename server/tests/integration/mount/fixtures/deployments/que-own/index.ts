@@ -12,5 +12,5 @@ export default defineDeployment({
     "../../../../../../loops/deep.ts",
     "../../../../../../loops/short-run.ts",
   ],
-  models: ["../../../../../../models/glm-flash.ts"],
+  models: ["../../../../../../models/minimax-m3.ts"],
 });

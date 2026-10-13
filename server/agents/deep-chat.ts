@@ -5,7 +5,7 @@ import { defineAgent } from "@que/core";
 // run its packages each way.
 export default defineAgent({
   name: "deep-chat",
-  model: "glm-flash",
+  model: "minimax-m3",
   instructions: `You are a helpful assistant.
 
 - Be concise and accurate.
