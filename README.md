@@ -74,3 +74,4 @@ From this repo, for que's own code:
 - `tests/e2e/trace.sh <deployment folder>`: checks against the real Langfuse that que sends the trace of a run. It needs the deployment started, with the Langfuse settings in its `.env`, and it makes one model call
 
 Anything else runs in the container: `podman exec -u node -w "$PWD/server" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.
+
