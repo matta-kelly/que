@@ -34,6 +34,23 @@ test("validateAgent rejects empty instructions", () => {
   assert.throws(() => validateAgent({ instructions: "" }), /instructions/);
 });
 
+test("validateAgent accepts each loop policy que has", () => {
+  validateAgent({ loop: "keep-all" });
+  validateAgent({ loop: "compact" });
+});
+
+test("validateAgent rejects a loop that is not a policy, naming the ones there are", () => {
+  assert.throws(
+    () => validateAgent({ loop: "summarize" }),
+    (error: Error) => {
+      assert.match(error.message, /loop/);
+      assert.match(error.message, /keep-all/);
+      assert.match(error.message, /compact/);
+      return true;
+    },
+  );
+});
+
 test("validateAgent names every fault in one error", () => {
   assert.throws(
     () =>

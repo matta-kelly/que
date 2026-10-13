@@ -15,15 +15,44 @@ const sources = readdirSync(here, { recursive: true, encoding: "utf8" })
 const imports = (text: string) =>
   [...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
 
-test("agent.ts takes only assemble and a config from legibility", () => {
+test("agent.ts takes only assemble, a config and a loop policy from assemble", () => {
   const agent = readFileSync(join(here, "../run/agent.ts"), "utf8");
   assert.deepEqual(
     imports(agent)
       .filter((path) => path.includes("assemble"))
       .sort(),
-    ["../assemble/assemble.js", "../assemble/on-demand/index.js"],
+    [
+      "../assemble/assemble.js",
+      "../assemble/loop/index.js",
+      "../assemble/on-demand/index.js",
+    ],
   );
   assert.doesNotMatch(agent, /\btool\(|wrapModelCall|createMiddleware/);
+});
+
+test("only a loop policy names a framework's context middleware", () => {
+  const named = /contextEditingMiddleware|ClearToolUsesEdit|summarizationMiddleware/;
+  const harness = join(here, "..");
+  const files = readdirSync(harness, { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+    .filter((f) => !f.startsWith(join("assemble", "loop")));
+  for (const file of files)
+    assert.doesNotMatch(
+      readFileSync(join(harness, file), "utf8"),
+      named,
+      `${file} names a context middleware`,
+    );
+});
+
+test("the contract imports no framework", () => {
+  const contract = join(here, "../../../contract");
+  for (const file of readdirSync(contract).filter((f) => f.endsWith(".ts")))
+    assert.ok(
+      !imports(readFileSync(join(contract, file), "utf8")).some((path) =>
+        /langchain|langgraph/.test(path),
+      ),
+      `${file} imports a framework`,
+    );
 });
 
 test("legibility does not reach for credentials", () => {
