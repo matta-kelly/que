@@ -5,6 +5,14 @@ status: draft
 ---
 One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder kept in the deployment that uses it; que holds none. The contract (`@que/core`, in `server/contract/package-spec.ts`) and the backend services (identity, users, credentials, in `server/backend/`) are in que. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
 
+## What it is for
+- two kinds, by what it touches ([[capability]])
+	- connector: one resource
+	- domain: logic across connectors
+- a capability lives in one package: an outcome the package gives, made from its ops and skills
+- an op is shown to be right by its tests. A capability is shown to work by its cases ([[evals]])
+- the contract knows ops and skills. It does not know a kind, a capability or a case: see Not yet
+
 ## Anatomy
 ```
 packages/<name>/
@@ -79,4 +87,5 @@ export default defineDeployment({
 - the contract defines a skill (`Skill` and `parseSkill`, in `server/contract/skill-spec.ts`); mount reads the file and hands it the text
 
 ## Not yet
+- capabilities and their cases: a package names the capabilities it gives, and holds their cases
 - `context/`, `bin/`, code mode, npm distribution
