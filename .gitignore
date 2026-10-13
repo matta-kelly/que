@@ -7,3 +7,6 @@ dist
 next-env.d.ts
 # A deployment's run state: the saved copy of its models' facts.
 .que/
+
+# The test deployment keeps its settings in git: each value in them is made up.
+!server/tests/integration/browser/.env
