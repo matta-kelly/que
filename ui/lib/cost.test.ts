@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { callCost, chatCost, money, replyCost } from "./cost.ts";
+import { about, callCost, chatCost, money, replyCost } from "./cost.ts";
 
 const human = { type: "human" };
 const toolResult = { type: "tool" };
@@ -207,4 +207,10 @@ test("money writes a cost that rounds up to a limit in the form above it", () =>
   assert.equal(money(0.9996), "$1.00");
   // Under the least cost that is written, no rounding: it is not that cost.
   assert.equal(money(0.00009999), "<$0.0001");
+});
+
+test("about says a cost as an estimate", () => {
+  assert.equal(about(0.0123), "about $0.012");
+  assert.equal(about(0.00001), "under $0.0001");
+  assert.equal(about(0), "about $0.00");
 });

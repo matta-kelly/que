@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { nameNewestChat, openApp, openChat } from "./helpers";
 
 // Needs a deployment that lists two models of two prices, on a server that
@@ -24,7 +24,20 @@ const COST = /(<\$0\.0001|\$\d+\.\d{2,4})/;
 
 const meter = (page: Page) => page.locator('[data-slot="context-meter"]');
 const replyUsage = (page: Page) => page.locator('[data-slot="reply-usage"]');
-const tooltip = (page: Page) => page.getByRole("tooltip");
+// The one that is open: a hover that has ended leaves its own for a moment, as it closes.
+const tooltip = (page: Page) =>
+  page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])');
+
+// Hover a thing and read its tooltip. A hover scrolls the thing into view, and a
+// scroll closes a tooltip, so the hover is made again until its tooltip stays.
+async function expectHover(page: Page, on: Locator, text: string) {
+  await on.scrollIntoViewIfNeeded();
+  await expect(async () => {
+    await page.mouse.move(0, 0);
+    await on.hover();
+    await expect(tooltip(page)).toContainText(text, { timeout: 1_500 });
+  }).toPass({ timeout: 15_000 });
+}
 
 async function send(page: Page, text: string) {
   const replies = page.locator('[data-role="assistant"]');
@@ -70,7 +83,7 @@ test("cost: a reply shows what it cost, and the meter what the chat cost", async
   await page.mouse.move(0, 0);
   await meter(page).hover();
   await expect(tooltip(page)).toContainText(
-    new RegExp(`this chat: about ${COST.source}`),
+    /this chat: (about \$\d+\.\d{2,4}|under \$0\.0001)/,
   );
 });
 
@@ -89,11 +102,8 @@ test("cost: a reply on another model is at that model's price", async ({
     .click();
   await send(page, "Say bye in one word.");
 
-  await replyUsage(page).first().hover();
-  await expect(tooltip(page)).toContainText(priced(first.price));
-  await page.mouse.move(0, 0);
-  await replyUsage(page).last().hover();
-  await expect(tooltip(page)).toContainText(priced(other.price));
+  await expectHover(page, replyUsage(page).first(), priced(first.price));
+  await expectHover(page, replyUsage(page).last(), priced(other.price));
 });
 
 test("cost: a chat opened again shows the same costs", async ({ page }) => {
@@ -103,7 +113,7 @@ test("cost: a chat opened again shows the same costs", async ({ page }) => {
   expect(reply).toMatch(COST);
   await meter(page).hover();
   const total = (await tooltip(page).textContent())!.match(
-    /this chat: about \S+/,
+    /this chat: (about|under) \S+/,
   )![0];
   const title = `Cost ${Date.now()}`;
   await nameNewestChat(page, title);

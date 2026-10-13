@@ -96,3 +96,13 @@ export function money(dollars: number): string {
   }
   return "$" + dollars.toFixed(2);
 }
+
+/** A price, written for a person: `$0.15 in · $0.50 out`, for one million tokens. */
+export const priced = (price: ModelPrice) =>
+  `$${price.input.toFixed(2)} in · $${price.output.toFixed(2)} out`;
+
+/** A cost in a sentence, said as the estimate it is: `about $0.012`, and `under $0.0001` for the least. */
+export const about = (dollars: number) => {
+  const text = money(dollars);
+  return text.startsWith("<") ? `under ${text.slice(1)}` : `about ${text}`;
+};
