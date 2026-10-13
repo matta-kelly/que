@@ -28,6 +28,8 @@ import {
 } from "@/lib/run-pick-store";
 
 const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
+// A stop was asked for while the chat did not have the id of its run yet.
+let stopAsked = false;
 // As the library's own stream call asks for.
 const STREAM_MODE: ("messages" | "updates" | "custom")[] = [
   "messages",
@@ -137,8 +139,13 @@ export function RuntimeProvider({
       // opened in the middle of that run, and joins it. From its first event:
       // each one holds a message whole so far, so one the chat has is not doubled.
       const going = runs.get(thread);
+      // Not a refresh of a reply: that is a send of no message too, from a checkpoint.
       const joins =
-        going !== undefined && !messages.length && config.command == null;
+        going !== undefined &&
+        !messages.length &&
+        config.command == null &&
+        config.checkpointId == null;
+      stopAsked = false;
       let run = joins ? going : undefined;
       try {
         if (joins) {
@@ -183,6 +190,17 @@ export function RuntimeProvider({
         // asks the server when it is opened again.
         if (run) runs.clear(thread, run);
       } catch (error) {
+        // A stop that came before the id of the run did: the run is on the server
+        // with nothing in the chat to name it, so it is found there and cancelled.
+        if (config.abortSignal.aborted && !run && stopAsked) {
+          stopAsked = false;
+          const active = await client.runs.list(thread).catch(() => []);
+          for (const { run_id, status } of active)
+            if (status === "pending" || status === "running")
+              client.runs
+                .cancel(thread, run_id, false, "interrupt")
+                .catch(() => {});
+        }
         // An end from this side is not an error for the chat. A join that fails is a
         // run with no events left to give: the chat is as it was loaded.
         if (config.abortSignal.aborted || joins) return;
@@ -259,7 +277,11 @@ function StopsRuns({ client }: Readonly<{ client: Client }>) {
   const thread = useOpenThread();
   const stop = () => {
     const run = thread && runs.get(thread);
-    if (!run) return;
+    if (!run) {
+      // The run is being made. The stream call cancels it when its fetch ends.
+      stopAsked = true;
+      return;
+    }
     runs.clear(thread, run);
     // A run that has just ended cannot be cancelled, and the chat is as it should be.
     client.runs.cancel(thread, run, false, "interrupt").catch(() => {});
@@ -272,8 +294,9 @@ function StopsRuns({ client }: Readonly<{ client: Client }>) {
 }
 
 /**
- * A chat that is opened while its run is going joins it: after a reload, and
- * after a look at another chat. When the saved chat is loaded, a run that is
+ * A chat that is opened while its run is going joins it: after a reload. (A
+ * look at another chat does not end the stream: the library keeps a thread it
+ * has opened, with its stream, so that chat is still on its run on the way back.) When the saved chat is loaded, a run that is
  * still going on the server is started in the library with no message, which
  * the stream call answers with the events of that run.
  */
@@ -302,8 +325,11 @@ function JoinsRuns({ client }: Readonly<{ client: Client }>) {
         if (status === "pending" || status === "running") return send([], {});
         runs.clear(thread, run);
       })
-      // A run the server does not have is no run to join.
-      .catch(() => runs.clear(thread, run));
+      // A run the server does not have is no run to join. A server that does not
+      // answer says nothing of the run: what is kept stays, for the next visit.
+      .catch((error: { status?: number }) => {
+        if (error?.status === 404) runs.clear(thread, run);
+      });
     return () => {
       left = true;
     };

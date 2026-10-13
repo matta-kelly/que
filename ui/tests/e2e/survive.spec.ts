@@ -5,7 +5,7 @@ import { nameNewestChat, openApp, openChat } from "./helpers";
 // enough to be cut part way, and reads the run on the server.
 
 const LONG =
-  "Write the numbers from 1 to 1500, one per line, as digits. No other text.";
+  "Write the numbers from 1 to 3000, one per line, as digits. No other text.";
 
 const isRun = (req: Request) =>
   req.method() === "POST" && /\/threads\/[^/]+\/runs\/stream$/.test(req.url());
@@ -51,10 +51,10 @@ async function partWay(page: Page) {
 async function wholeOnce(page: Page) {
   // It shows as running first: the send button is there for a moment before the chat has looked.
   await expect(stop(page)).toBeVisible({ timeout: 15_000 });
-  await expect(sendButton(page)).toBeVisible({ timeout: 110_000 });
+  await expect(sendButton(page)).toBeVisible({ timeout: 150_000 });
   const text = (await reply(page).textContent())!;
   // Not the last one: the line under the reply comes right after it in the text.
-  for (const n of [57, 777, 1234, 1499])
+  for (const n of [57, 777, 1234, 2999])
     expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
 }
 
@@ -120,6 +120,7 @@ test("survive: a reload in the middle of a run, and the chat has the whole reply
   expect(runs[0].status).toBe("success");
 });
 
+// The library keeps a thread it has opened, with its stream: the chat is still on its run on the way back.
 test("survive: a look at another chat and back in the middle of a run", async ({
   page,
 }) => {
@@ -147,7 +148,15 @@ test("survive: a chat opened after its run has ended makes no run", async ({
   const { thread } = await start(page, "Say hi in one word.");
   await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
   await nameNewestChat(page, title);
+  const [{ run_id }] = await runsOf(page, thread);
 
+  // As a chat is left when its stream was cut and its run then ended with no
+  // chat on it: the run is still kept in the browser.
+  const key = `que:run:${thread}`;
+  await page.evaluate(
+    ([k, run]) => sessionStorage.setItem(k, run),
+    [key, run_id],
+  );
   await page.reload();
   await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
   const streams: string[] = [];
@@ -157,6 +166,10 @@ test("survive: a chat opened after its run has ended makes no run", async ({
   });
   await openChat(page, title);
   await expect(reply(page)).not.toBeEmpty();
+  // The chat asks the server, hears the run has ended, and lets go of it.
+  await expect
+    .poll(() => page.evaluate((k) => sessionStorage.getItem(k), key))
+    .toBeNull();
   await expect(sendButton(page)).toBeVisible();
   expect(streams).toEqual([]);
   expect(await runsOf(page, thread)).toHaveLength(1);
