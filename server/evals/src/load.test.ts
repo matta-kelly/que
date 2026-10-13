@@ -7,32 +7,53 @@ const deployment = (name: string) =>
   join(import.meta.dirname, "../fixtures/deployments", name);
 
 test("loads the name of a deployment, the cases of each package it lists, each with its package, and its agent configs as written, in order", async () => {
-  assert.deepEqual(await load(deployment("shop")), {
-    deployment: "shop",
-    cases: [
-      {
-        package: "shop",
-        name: "find-order-by-customer",
-        capability: "find-order",
-        input: "Where is the order of Ada?",
-        start: "Ada has one open order.",
-        good: "The answer gives the state of the order of Ada.",
-      },
-      {
-        package: "shop",
-        name: "find-order-not-asked",
-        capability: "find-order",
-        input: "What can you do?",
-        start: "Any.",
-        good: "No operation is called.",
-      },
-    ],
-    agents: [
-      { name: "chat" },
-      { name: "lean", model: "small" },
-      { name: "notes-only", packages: ["notes"] },
-    ],
-  });
+  const { deployment: name, cases, agents } = await load(deployment("shop"));
+  assert.deepEqual(
+    { deployment: name, cases, agents },
+    {
+      deployment: "shop",
+      cases: [
+        {
+          package: "shop",
+          name: "find-order-by-customer",
+          capability: "find-order",
+          input: "Where is the order of Ada?",
+          start: "Ada has one open order.",
+          good: "The answer gives the state of the order of Ada.",
+        },
+        {
+          package: "shop",
+          name: "find-order-not-asked",
+          capability: "find-order",
+          input: "What can you do?",
+          start: "Any.",
+          good: "No operation is called.",
+        },
+      ],
+      agents: [
+        { name: "chat" },
+        { name: "lean", model: "small" },
+        { name: "notes-only", packages: ["notes"] },
+      ],
+    },
+  );
+});
+
+test("loads the model configs of a deployment, as written, in order", async () => {
+  assert.deepEqual((await load(deployment("shop"))).models, [
+    {
+      name: "small",
+      id: "fireworks:accounts/fireworks/models/small-model",
+      window: 128_000,
+      maxTokens: 8_000,
+    },
+    {
+      name: "big",
+      id: "fireworks:accounts/fireworks/models/big-model",
+      window: 1_000_000,
+      maxTokens: 64_000,
+    },
+  ]);
 });
 
 test("a deployment that lists no agents gives none", async () => {

@@ -12,6 +12,7 @@ import {
   SECRET_KEY,
   standIn,
 } from "../fixtures/langfuse-stand-in.js";
+import { KEY, provider } from "../fixtures/provider-stand-in.js";
 import { replay } from "../fixtures/replay.js";
 
 const cli = join(import.meta.dirname, "cli.ts");
@@ -32,7 +33,7 @@ const command = (url: string, ...args: string[]) =>
     );
   });
 
-/** The command, with Langfuse set as a deployment's `.env` sets it, and the commit as `just eval` gives it. */
+/** The command, with the settings a deployment's `.env` gives it, and the commit as `just eval` gives it. */
 const commandWith = (
   langfuse: Record<string, string>,
   url: string,
@@ -242,5 +243,101 @@ test("the command still prints the report, and ends with a fault, when Langfuse 
   } finally {
     await server.close();
     await langfuse.close();
+  }
+});
+
+test("the command stops before any run, and lists the models, when the judge is not one the deployment lists", async () => {
+  const server = await replay();
+  try {
+    const { code, out, err } = await commandWith(
+      { QUE_JUDGE: "nope" },
+      server.url,
+      shop,
+    );
+    assert.equal(code, 1);
+    assert.equal(out, "");
+    assert.match(err, /eval: no model "nope"\. Models: small, big/);
+    assert.deepEqual(threads(server.sent), []);
+  } finally {
+    await server.close();
+  }
+});
+
+test("with a judge set, the command prints a verdict under each run, and sends each as a score", async () => {
+  const server = await replay();
+  const langfuse = await standIn();
+  // The run of each case is the same replay: it opens a package, then answers.
+  const model = await provider((question) =>
+    question.includes("No operation is called.")
+      ? "The agent called open_package.\nVERDICT: no"
+      : "The answer says what the agent finds.\nVERDICT: yes",
+  );
+  try {
+    const { code, out } = await commandWith(
+      {
+        LANGFUSE_BASE_URL: langfuse.url,
+        LANGFUSE_PUBLIC_KEY: PUBLIC_KEY,
+        LANGFUSE_SECRET_KEY: SECRET_KEY,
+        QUE_COMMIT: "abc1234",
+        QUE_JUDGE: "small",
+        FIREWORKS_BASE_URL: model.url,
+        FIREWORKS_API_KEY: KEY,
+      },
+      server.url,
+      shop,
+      "--agent",
+      "chat",
+    );
+    // A verdict of fail is no fault.
+    assert.equal(code, 0);
+    assert.equal(model.asked.length, 2);
+    assert.ok(
+      out.includes(
+        "    answer   I can find the shop's orders by customer name.\n    verdict  pass  The answer says what the agent finds.\n",
+      ),
+    );
+    assert.ok(
+      out.includes(
+        "    answer   I can find the shop's orders by customer name.\n    verdict  fail  The agent called open_package.\n",
+      ),
+    );
+    assert.ok(
+      out.includes(
+        "\n\n2 runs, 0 did not finish, 0 skipped\n  [chat]  1 of 2 passed\n\nLangfuse\n",
+      ),
+    );
+    assert.deepEqual(
+      langfuse.scores().map(({ item, name, dataType, value, comment }) => ({
+        item,
+        name,
+        dataType,
+        value,
+        comment,
+      })),
+      [
+        {
+          item: "shop.shop.find-order-by-customer",
+          name: "good",
+          dataType: "BOOLEAN",
+          value: 1,
+          comment: "The answer says what the agent finds.",
+        },
+        {
+          item: "shop.shop.find-order-not-asked",
+          name: "good",
+          dataType: "BOOLEAN",
+          value: 0,
+          comment: "The agent called open_package.",
+        },
+      ],
+    );
+    assert.deepEqual(
+      langfuse.traces().map(({ metadata }) => metadata.judge),
+      ["small", "small"],
+    );
+  } finally {
+    await server.close();
+    await langfuse.close();
+    await model.close();
   }
 });

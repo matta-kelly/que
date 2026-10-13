@@ -8,4 +8,5 @@ export default defineDeployment({
     "../../agents/lean.ts",
     "../../agents/notes-only.ts",
   ],
+  models: ["../../models/small.ts", "../../models/big.ts"],
 });
