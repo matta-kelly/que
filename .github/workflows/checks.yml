@@ -60,7 +60,7 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
-      - name: types (contract, backend, harness, tests)
+      - name: types (contract, backend, harness, evals, tests)
         run: npx tsc --noEmit
         working-directory: server/harness
       - name: lint
@@ -68,7 +68,7 @@ jobs:
       - name: format
         run: npx prettier --check .
       - name: unit and integration tests
-        run: npx tsx --test "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "tests/integration/**/*.test.ts"
+        run: npx tsx --test "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
 
   ui:
     needs: [changes]

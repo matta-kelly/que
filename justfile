@@ -82,7 +82,7 @@ check:
     at server/harness npx tsc --noEmit
     at server npx eslint
     at server npx prettier --check .
-    at server npx tsx --test --test-reporter=dot "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "tests/integration/**/*.test.ts"
+    at server npx tsx --test --test-reporter=dot "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
     at ui npx tsc --noEmit
     at ui npx eslint
     at ui npx prettier --check .
