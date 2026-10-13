@@ -3,6 +3,7 @@
  * like, and under it what the agent did under each config.
  */
 
+import type { Sent } from "./experiment.js";
 import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
 
@@ -64,4 +65,15 @@ export function report(outcomes: Outcome[]): string {
     `${outcomes.length - skipped} runs, ${unfinished} did not finish, ${skipped} skipped`,
   );
   return blocks.join("\n\n");
+}
+
+/** Where each experiment is in Langfuse: the link to its run, or its run name when Langfuse gave no link. */
+export function links(sent: Sent[], url: string): string {
+  return [
+    "Langfuse",
+    ...sent.map(
+      ({ agent, run, url: link }) =>
+        `  [${agent}]  ${link ?? `${run}, under Experiments at ${url}`}`,
+    ),
+  ].join("\n");
 }

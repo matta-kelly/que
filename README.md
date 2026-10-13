@@ -37,7 +37,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
     - `loops/`: que's own loop configs, which any deployment can list by its path. `long-chat.ts` holds que's own value for each setting, `short-run.ts` is for a run with one job and no person, and `deep.ts` is run as a LangChain deep agent
     - `models/`: que's own model configs, which any deployment can list by its path: `glm-flash.ts`, `deepseek-flash.ts` and `minimax-m3.ts`
     - `agents/`: que's own agent configs. Each one names no package, so any deployment can list it by its path, with the loop and the model it names. `chat.ts` is the agent a chat gets, with que's own choices written out, and `deep-chat.ts` is the same agent on the `deep` loop
-    - `evals/`: the eval runner (`@que/evals`). It reads a deployment's cases and agent configs, runs each case against a running que over HTTP, and prints the runs. It imports the contract, and nothing from the harness or the backend
+    - `evals/`: the eval runner (`@que/evals`). It reads a deployment's cases and agent configs, runs each case against a running que over HTTP, and prints the runs. When the deployment's `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, it also sends the runs to that Langfuse: the cases as one dataset, and the runs under each agent config as one experiment run (`evals/src/langfuse.ts`). It imports the contract, and nothing from the harness or the backend
     - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
 - `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config, its `.env.example`, and its `start`, `stop`, `logs`, `check` and `eval` scripts
@@ -63,7 +63,7 @@ From a deployment's folder:
 - `./stop`: stop everything. It runs `just down`
 - `./logs`: follow the agent server and UI logs. It runs `just logs`
 - `./check`: type check the deployment's own code and run its tests, with que's contract handed to both. It runs `just check-deployment <deployment folder>`
-- `./eval`: run each case of the deployment's packages against que, under each of its agent configs, and print what the agent did. que has to be up. `--agent <name>`, one or more times, runs only those configs. Nothing grades a run, and the runs act on the real services. It runs `just eval <deployment folder>`
+- `./eval`: run each case of the deployment's packages against que, under each of its agent configs, and print what the agent did. que has to be up. `--agent <name>`, one or more times, runs only those configs. Nothing grades a run, and the runs act on the real services. When the `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, the runs also go to the deployment's Langfuse, as one experiment run for each agent config, named by the config and the commit of que, and a link to each is printed under the report. With none of the three it only prints the runs, and with one or two it stops before any run. It runs `just eval <deployment folder>`
 
 From this repo, for que's own code:
 
