@@ -11,6 +11,7 @@ import {
   loadDeployment,
   mountFromEnv,
 } from "../../../harness/src/mount/deployment.js";
+import * as fromDeployment from "../../../harness/src/mount/deployment.js";
 import {
   mountPackages,
   type MountedPackage,
@@ -124,4 +125,45 @@ test("the error for a deployment that breaks its contract has the contract's own
     assert.match(error.cause.message, /^deployment broken is invalid/);
     return true;
   });
+});
+
+test("stops, naming the package, when the agent names a package the deployment does not mount", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-names-unmounted")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /delta/);
+      return true;
+    },
+  );
+});
+
+test("mounts a deployment whose agent names a package it mounts, and hands back its packages and its agent", async () => {
+  const mounted = await fromDeployment.mountDeployment(
+    deployment("agent-names-mounted"),
+  );
+  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
+  assert.deepEqual(mounted.agent, {
+    packages: ["alpha"],
+    instructions: "You help the sales team.",
+  });
+});
+
+test("a deployment with no agent is mounted with an empty one", async () => {
+  const mounted = await fromDeployment.mountDeployment(deployment("two"));
+  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
+  assert.deepEqual(mounted.agent, {});
+});
+
+test("a deployment is loaded with the agent it declares", async () => {
+  const loaded = await loadDeployment(deployment("agent-names-mounted"));
+  assert.deepEqual(loaded.agent, {
+    packages: ["alpha"],
+    instructions: "You help the sales team.",
+  });
+});
+
+test("a deployment with no agent is loaded with an empty one", async () => {
+  const loaded = await loadDeployment(deployment("two"));
+  assert.deepEqual(loaded.agent, {});
 });

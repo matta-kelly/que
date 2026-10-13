@@ -1,8 +1,9 @@
 /**
- * The contract every deployment is written against: its name and the
- * packages it uses. Framework-free, as the package contract is.
+ * The contract every deployment is written against: its name, the packages
+ * it uses, and the agent it runs. Framework-free, as the package contract is.
  */
 
+import { validateAgent, type AgentDefinition } from "./agent-spec.js";
 import { NAME } from "./package-spec.js";
 
 /** What `defineDeployment` returns, and a deployment exports as its default. */
@@ -10,6 +11,8 @@ export type DeploymentDefinition = {
   name: string;
   /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
   packages: string[];
+  /** How the agent runs. Left out, the agent runs on que's own choices. */
+  agent?: AgentDefinition;
 };
 
 export function defineDeployment(
@@ -27,7 +30,7 @@ export function validateDeployment(
 ): asserts def is DeploymentDefinition {
   if (!def || typeof def !== "object")
     throw new Error("deployment: no definition (default export)");
-  const { name, packages } = def as Record<string, unknown>;
+  const { name, packages, agent } = def as Record<string, unknown>;
   const problems: string[] = [];
   const deployment = name || "(unnamed)";
 
@@ -43,6 +46,15 @@ export function validateDeployment(
       problems.push(
         `packages of deployment ${deployment} must each be a folder path, got ${JSON.stringify(folder)}`,
       );
+  }
+
+  if (agent !== undefined) {
+    try {
+      validateAgent(agent);
+    } catch (error) {
+      // The agent's own list, set one level in under this one.
+      problems.push((error as Error).message.replaceAll("\n", "\n  "));
+    }
   }
 
   if (problems.length)

@@ -1,6 +1,6 @@
 /**
- * The system prompt every config shares: the role, who the user is, and the
- * packages this user can use. The config supplies the text about the
+ * The system prompt every config shares: the role (or the instructions given
+ * in its place), who the user is, and the packages this user can use. The config supplies the text about the
  * environment. Everything about a package comes from what the package says
  * about itself through the package spec.
  */
@@ -32,13 +32,15 @@ export function systemPrompt({
   user,
   catalog,
   environment,
+  instructions,
 }: {
   user?: { name: string; email: string };
   catalog: Catalog;
   environment: (catalog: Catalog) => string;
+  instructions?: string;
 }): string {
   return [
-    ROLE,
+    instructions ?? ROLE,
     ...(user
       ? [`## You\n\nYou're assisting ${user.name} (${user.email}).`]
       : []),
