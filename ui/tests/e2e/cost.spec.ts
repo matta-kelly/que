@@ -97,6 +97,10 @@ test("cost: a reply shows what it cost, and the meter what the chat cost", async
     1_000_000;
   await expect(replyUsage(page)).toContainText(` · ${money(cost)}`);
 
+  // The meter shows what the chat cost, with no hover: one reply so far, so it is that reply's cost.
+  await expect(meter(page)).toHaveText(new RegExp(` · ${COST.source}$`));
+  await expect(meter(page)).toContainText(` · ${money(cost)}`);
+
   await page.mouse.move(0, 0);
   await meter(page).hover();
   await expect(tooltip(page)).toContainText(
