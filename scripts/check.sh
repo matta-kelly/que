@@ -94,7 +94,7 @@ check_ui() {
   step "ui: types" ui npx tsc --noEmit
   step "ui: lint" ui npx eslint
   step "ui: format" ui npx prettier --check .
-  step "ui: unit tests" ui node --test --test-reporter="$reporter" "lib/**/*.test.ts"
+  step "ui: unit tests" ui node --test --test-reporter="$reporter" "components/**/*.test.ts"
 }
 
 case "${1:-}" in

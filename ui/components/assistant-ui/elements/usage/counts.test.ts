@@ -7,7 +7,7 @@ import {
   replyUsage,
   short,
   warnShare,
-} from "./usage.ts";
+} from "./counts.ts";
 
 const human = { type: "human" };
 const toolResult = { type: "tool" };

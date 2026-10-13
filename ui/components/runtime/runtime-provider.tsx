@@ -15,17 +15,17 @@ import {
   type LangGraphStreamCallback,
 } from "@assistant-ui/react-langgraph";
 import type { Client } from "@langchain/langgraph-sdk";
-import { checkpointFor } from "@/lib/checkpoint";
-import { createClient } from "@/lib/langgraph-client";
-import { runs } from "@/lib/run-of-thread";
-import { resolve } from "@/lib/run-pick";
+import { checkpointFor } from "@/components/runtime/checkpoint";
+import { createClient } from "@/components/runtime/langgraph-client";
+import { runs } from "@/components/runtime/run-of-thread";
+import { resolve } from "@/components/assistant-ui/elements/run-pickers/pick";
 import {
   loadDeployment,
   pickIn,
   pickOf,
   rememberPick,
   useRunPicks,
-} from "@/lib/run-pick-store";
+} from "@/components/assistant-ui/elements/run-pickers/pick-store";
 
 const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
 // A stop was asked for while the chat did not have the id of its run yet.
@@ -61,7 +61,7 @@ const mapMessages = (data: unknown) =>
 
 // Thread list backed by the LangGraph server, so chats, titles, and archive
 // state survive reloads. Thread metadata carries `title` and `archived`, and
-// the chat's pick of agent and model (lib/run-pick); the proxy scopes threads
+// the chat's pick of agent and model (elements/run-pickers/pick); the proxy scopes threads
 // to the current user.
 type ThreadMeta = { title?: string; archived?: boolean };
 const createThreadListAdapter = (client: Client): RemoteThreadListAdapter => {
