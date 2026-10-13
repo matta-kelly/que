@@ -17,17 +17,49 @@ export type UsageMessage = {
 const usageOf = (message: UsageMessage) =>
   message.type === "ai" ? message.usage_metadata : undefined;
 
+export type ContextParts = {
+  /** Tokens in that the provider read from its cache. */
+  cached: number;
+  /** The rest of tokens in. */
+  fresh: number;
+  /** Tokens out. */
+  reply: number;
+};
+
 /**
- * How full the model's window is: tokens in plus out of the last model call.
- * Not a sum over the chat: each call sends the chat again, so the last call is
- * the size of the chat.
+ * Where the model's window went: the parts of the chat's last model call, as
+ * the provider counts them. The provider counts cached tokens as a part of
+ * tokens in. The last call is the size of the chat: each call sends the chat
+ * again, so a sum over the chat would count it many times.
  */
-export function contextUsed(messages: UsageMessage[]): number | undefined {
+export function contextParts(
+  messages: UsageMessage[],
+): ContextParts | undefined {
   const last = messages.findLast((message) => usageOf(message));
   if (!last) return undefined;
   const usage = usageOf(last)!;
-  return (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
+  const cached = usage.input_token_details?.cache_read ?? 0;
+  return {
+    cached,
+    fresh: Math.max(0, (usage.input_tokens ?? 0) - cached),
+    reply: usage.output_tokens ?? 0,
+  };
 }
+
+/** How full the model's window is: the sum of the parts of the chat's last model call. */
+export function contextUsed(messages: UsageMessage[]): number | undefined {
+  const parts = contextParts(messages);
+  return parts && parts.cached + parts.fresh + parts.reply;
+}
+
+/**
+ * The share of the window past which the meter warns: the one the agent sends
+ * the old part of a chat as a summary at, and for an agent that does not
+ * summarize, the share at which a window is nearly full.
+ */
+export const NEARLY_FULL = 0.85;
+export const warnShare = (summarizeAt: number | undefined) =>
+  summarizeAt ?? NEARLY_FULL;
 
 export type ReplyUsage = {
   /** Of the last model call of the turn. */

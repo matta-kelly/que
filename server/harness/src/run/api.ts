@@ -11,7 +11,7 @@
 
 import { Hono, type Context } from "hono";
 import { OperationFailed } from "@que/core";
-import { agents, models, packages } from "../mount/mounted.js";
+import { agents, loops, models, packages } from "../mount/mounted.js";
 import {
   connectedPackages,
   removeCredential,
@@ -113,4 +113,6 @@ app.patch("/que/me", async (c) => {
 app.get("/que/users", async (c) => c.json(await users.list()));
 
 // The same for every user, and fixed at mount.
-app.get("/que/deployment", (c) => c.json(deploymentInfo(agents, models)));
+app.get("/que/deployment", (c) =>
+  c.json(deploymentInfo(agents, models, loops)),
+);
