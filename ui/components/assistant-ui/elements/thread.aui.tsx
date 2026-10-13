@@ -9,7 +9,7 @@ import { Activity } from "@/components/thread/activity/activity";
 import { ThinkingStep } from "@/components/thread/activity/thinking-step";
 import { ToolStep } from "@/components/thread/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
-import { GenerationLoader } from "@/components/assistant-ui/elements/loading-state";
+import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { RunPickers } from "@/components/assistant-ui/elements/run-pickers";
 import {
   ContextMeter,
@@ -47,14 +47,7 @@ import {
   RefreshCwIcon,
   SquareIcon,
 } from "lucide-react";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ComponentType,
-  type FC,
-} from "react";
+import { createContext, useContext, type ComponentType, type FC } from "react";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
@@ -358,19 +351,6 @@ const MessageError: FC = () => {
   );
 };
 
-// GenerationLoader does not advance its own clock: the tick comes from here,
-// for as long as the indicator is on screen.
-const ReplyLoader: FC = () => {
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 120);
-    return () => clearInterval(id);
-  }, []);
-
-  return <GenerationLoader label="Generating" tick={tick} />;
-};
-
 const AssistantMessage: FC = () => {
   const { TaskGroup: TaskGroupComponent } = useContext(ThreadComponentsContext);
   const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
@@ -429,7 +409,7 @@ const AssistantMessage: FC = () => {
                     className="inline-flex py-1"
                     aria-label="Assistant is working"
                   >
-                    <ReplyLoader />
+                    <ThinkingIndicator label="Thinking" />
                   </span>
                 );
               default:
