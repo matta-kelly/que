@@ -1,5 +1,6 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { nameNewestChat, openApp, openChat } from "./helpers";
+import { money } from "../../lib/cost.ts";
 
 // Needs a deployment that lists two models of two prices, on a server that
 // gives each model's price.
@@ -16,9 +17,14 @@ async function deploymentOf(page: Page): Promise<Deployment> {
   return res.json();
 }
 
-// A price as the UI writes it, for one million tokens.
+// A price as the UI writes it, for one million tokens: each digit the server gave, and
+// two decimals at the least. Written here apart from the UI's own code, from the number as JSON has it.
+const rate = (dollars: number) => {
+  const [whole, decimals = ""] = String(dollars).split(".");
+  return `$${whole}.${decimals.padEnd(2, "0")}`;
+};
 const priced = ({ input, output }: Price) =>
-  `$${input.toFixed(2)} in · $${output.toFixed(2)} out`;
+  `${rate(input)} in · ${rate(output)} out`;
 // A cost as the UI writes it.
 const COST = /(<\$0\.0001|\$\d+\.\d{2,4})/;
 
@@ -80,6 +86,17 @@ test("cost: a reply shows what it cost, and the meter what the chat cost", async
   await expect(tooltip(page)).toContainText(/estimate/i);
   await expect(tooltip(page)).toContainText(priced(model.price));
 
+  // The amount is the tokens the hover gives, at the price the server gives. One model call made this reply.
+  const said = (await tooltip(page).textContent())!.replaceAll(",", "");
+  const [, tokensIn, cached, tokensOut] = said
+    .match(/(\d+) in \((\d+) cached\) · (\d+) out/)!
+    .map(Number);
+  const { input, output, cachedInput = input } = model.price;
+  const cost =
+    ((tokensIn - cached) * input + cached * cachedInput + tokensOut * output) /
+    1_000_000;
+  await expect(replyUsage(page)).toContainText(` · ${money(cost)}`);
+
   await page.mouse.move(0, 0);
   await meter(page).hover();
   await expect(tooltip(page)).toContainText(
@@ -93,7 +110,8 @@ test("cost: a reply on another model is at that model's price", async ({
   await openApp(page);
   const { agents, models } = await deploymentOf(page);
   const first = models.find((m) => m.name === agents[0].model)!;
-  const other = models.find((m) => m.price.input !== first.price.input)!;
+  // One whose price reads another way, so the two hovers cannot pass on one text.
+  const other = models.find((m) => priced(m.price) !== priced(first.price))!;
 
   await send(page, "Say hi in one word.");
   await page.getByRole("button", { name: "Model" }).click();

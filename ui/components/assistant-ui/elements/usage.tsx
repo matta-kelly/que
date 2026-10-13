@@ -13,10 +13,12 @@ import {
   chatCost,
   money,
   priced,
+  rate,
   replyCost,
   type Prices,
 } from "@/lib/cost";
 import type { Deployment } from "@/lib/que-api";
+import { useRunPicks } from "@/lib/run-pick-store";
 import { contextUsed, replyUsage, short, type UsageMessage } from "@/lib/usage";
 
 const exact = (count: number) => count.toLocaleString("en-US");
@@ -88,7 +90,8 @@ export const ContextMeter: FC = () => {
  * today, and a reply with a model call that has no price shows none.
  */
 export const ReplyUsage: FC = () => {
-  const { deployment } = useChatPick();
+  // Only the deployment: a reply does not need what the open chat is on, and there is one of these for each reply.
+  const deployment = useRunPicks((s) => s.deployment);
   const prices = usePrices(deployment);
   // A selector hands back the same list while the reply has no new message.
   const messages = useAuiState((s) =>
@@ -128,7 +131,7 @@ export const ReplyUsage: FC = () => {
                   <div key={name}>
                     {name}: {priced(price)}
                     {price.cachedInput !== undefined &&
-                      ` · $${price.cachedInput} cached in`}
+                      ` · ${rate(price.cachedInput)} cached in`}
                   </div>
                 )
               );

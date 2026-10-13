@@ -97,9 +97,19 @@ export function money(dollars: number): string {
   return "$" + dollars.toFixed(2);
 }
 
+/**
+ * One number of a price, with each of its digits and two decimals at the least: `$0.50`, `$0.075`.
+ * It is not rounded as a cost is: a cost is counted at the exact price, so that is the one shown.
+ */
+export const rate = (dollars: number) => {
+  // Six decimals holds any price for one million tokens, and cuts the tail of a float.
+  const [whole, decimals] = dollars.toFixed(6).split(".");
+  return `$${whole}.${decimals.replace(/0+$/, "").padEnd(2, "0")}`;
+};
+
 /** A price, written for a person: `$0.15 in · $0.50 out`, for one million tokens. */
 export const priced = (price: ModelPrice) =>
-  `$${price.input.toFixed(2)} in · $${price.output.toFixed(2)} out`;
+  `${rate(price.input)} in · ${rate(price.output)} out`;
 
 /** A cost in a sentence, said as the estimate it is: `about $0.012`, and `under $0.0001` for the least. */
 export const about = (dollars: number) => {
