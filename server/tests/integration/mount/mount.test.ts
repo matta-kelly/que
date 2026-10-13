@@ -176,3 +176,21 @@ test("stops, naming the skill, when a listed package has a skill that breaks the
     return true;
   });
 });
+
+test("a skill folder the definition does not list is not mounted", async () => {
+  const mounted = await mount("unlisted-skill");
+  assert.deepEqual(names(mounted), ["unlisted-skill"]);
+  assert.deepEqual(mounted[0].skills, []);
+});
+
+test("stops, naming the skill, when a listed skill has no file", async () => {
+  await assert.rejects(mount("fileless-skill"), (error: Error) => {
+    assert.match(error.message, /^mount:/);
+    assert.match(error.message, /fileless-skill\/ghost/);
+    return true;
+  });
+});
+
+test("a package with a bad cases file still mounts", async () => {
+  assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
+});
