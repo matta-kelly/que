@@ -2,21 +2,30 @@
  * Mount: read a deployment from disk. A deployment is a folder whose index.ts
  * has its definition as the default export. A definition that breaks the
  * contract (validateDeployment in @que/core) fails mounting, and so does an
- * agent config that names a package the deployment does not mount.
+ * agent config or a loop config that breaks its own, and an agent config that
+ * names a package the deployment does not mount.
  */
 
 import "./supply.js";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { validateDeployment, type AgentDefinition } from "@que/core";
+import {
+  validateDeployment,
+  type AgentDefinition,
+  type LoopDefinition,
+} from "@que/core";
 import { mountAgents } from "./agents.js";
+import { mountLoops } from "./loops.js";
 import { deploymentFolder } from "./deployment-folder.js";
 import { mountPackages, type MountedPackage } from "./packages.js";
 
-export async function loadDeployment(
-  dir: string,
-): Promise<{ name: string; packages: string[]; agents: string[] }> {
+export async function loadDeployment(dir: string): Promise<{
+  name: string;
+  packages: string[];
+  agents: string[];
+  loops: string[];
+}> {
   const index = join(dir, "index.ts");
   if (!existsSync(index))
     throw new Error(`mount: deployment ${dir} has no index.ts`);
@@ -34,15 +43,23 @@ export async function loadDeployment(
     name: definition.name,
     packages: definition.packages.map((folder) => resolve(dir, folder)),
     agents: (definition.agents ?? []).map((file) => resolve(dir, file)),
+    loops: (definition.loops ?? []).map((file) => resolve(dir, file)),
   };
 }
 
-export async function mountDeployment(
-  dir: string,
-): Promise<{ packages: MountedPackage[]; agents: AgentDefinition[] }> {
-  const { packages: folders, agents: files } = await loadDeployment(dir);
+export async function mountDeployment(dir: string): Promise<{
+  packages: MountedPackage[];
+  agents: AgentDefinition[];
+  loops: LoopDefinition[];
+}> {
+  const {
+    packages: folders,
+    agents: files,
+    loops: loopFiles,
+  } = await loadDeployment(dir);
   const packages = await mountPackages(folders);
   const agents = await mountAgents(files);
+  const loops = await mountLoops(loopFiles);
   const mounted = packages.map((p) => p.definition.name);
   for (const agent of agents) {
     const unmounted = (agent.packages ?? []).filter(
@@ -53,7 +70,7 @@ export async function mountDeployment(
         `mount: deployment ${dir}: the agent "${agent.name}" names packages the deployment does not mount: ${unmounted.join(", ")}`,
       );
   }
-  return { packages, agents };
+  return { packages, agents, loops };
 }
 
 export async function mountFromEnv(env: {

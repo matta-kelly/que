@@ -94,6 +94,42 @@ export default defineDeployment({
 - a deployment that still writes an `agent` block stops at startup, and the error says a config is now a file
 - a package is written with no knowledge of a config
 
+## The deployment's loops
+- a loop config is one way an agent handles a chat as it grows, and how far one run can go. It is a file of its own, made with `defineLoop`, and the deployment lists it in `loops`, as it lists agent files in `agents`. The contract is `LoopDefinition` in `server/contract/loop-spec.ts`
+```ts
+// loops/nightly.ts
+export default defineLoop({
+  name: "nightly",
+  result: { max: 60_000 },
+  summarize: false,
+  limits: { modelCalls: 15 },
+});
+```
+```ts
+// index.ts
+export default defineDeployment({
+  name: "shop",
+  packages: ["./packages/orders"],
+  agents: ["./agents/chat.ts"],
+  loops: ["./loops/nightly.ts"],
+});
+```
+- no setting has an effect yet, and no agent names a loop yet. A loop is checked and mounted, and that is all
+- a loop file, as an agent file, has a `package.json` with `"type": "module"` in its folder or one above
+- que keeps loop configs of its own in `server/loops/`, and a deployment can list one by its path
+	- `long-chat`: que's own value for each setting, written out
+	- `short-run`: for a run with one job and no person
+- `loops` is optional. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
+- `name`: required. Each setting is optional, and so is each part of one. What is left out has que's own value, and a setting can be `false`: off
+- `result.max`: in tokens. A tool result over it is not put in the chat whole. que's own: 20,000
+- `summarize.at`: the share of the model's window past which the old part of the chat is sent as a summary. que's own: 0.85
+- `summarize.keep`: the share of the window that is sent as it is. Below `at`. que's own: 0.1
+- `args.max`: in characters. In the old part of a chat, a longer argument of a tool call is cut. que's own: 2,000
+- `limits.modelCalls`, `limits.toolCalls`: the most of each that one run can make. que's own: 50 and 100
+- `resolveLoop` in `@que/core` hands back every setting of a loop: its own value, que's where it has none, and `false` where it says so. `LOOP_DEFAULTS` holds que's own values
+- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
+- mount stops when a listed file does not exist, and when two loops have one name. The error names the file or the name
+
 ## Client (gatekeeper)
 - `connect(credential) → connection`
 - owns auth + protocol; throws `OperationFailed` for every service error

@@ -58,3 +58,14 @@ test("only the on-demand config names its own tools", () => {
       assert.doesNotMatch(text, /open_package/, `${file} names open_package`);
   }
 });
+
+test("the contract imports no framework", () => {
+  const contract = join(here, "../../../contract");
+  for (const file of readdirSync(contract).filter((f) => f.endsWith(".ts")))
+    assert.ok(
+      !imports(readFileSync(join(contract, file), "utf8")).some((path) =>
+        /langchain|langgraph/.test(path),
+      ),
+      `${file} imports a framework`,
+    );
+});
