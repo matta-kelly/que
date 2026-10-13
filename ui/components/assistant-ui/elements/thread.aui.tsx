@@ -10,6 +10,7 @@ import { Activity } from "@/components/thread/activity/activity";
 import { ThinkingStep } from "@/components/thread/activity/thinking-step";
 import { ToolStep } from "@/components/thread/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
+import { RunPickers } from "@/components/assistant-ui/elements/run-pickers";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
@@ -299,7 +300,8 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 
 const ComposerAction: FC = () => {
   return (
-    <div className="aui-composer-action-wrapper relative flex items-center justify-end">
+    <div className="aui-composer-action-wrapper relative flex items-center justify-between">
+      <RunPickers />
       <div className="flex items-center gap-1.5">
         <AuiIf condition={(s) => !s.thread.isRunning}>
           <ComposerPrimitive.Send asChild>
