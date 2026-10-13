@@ -77,6 +77,8 @@ export default defineDeployment({
   agents: ["./agents/chat.ts", "./agents/lean.ts"],
 });
 ```
+- an agent file, as a package, has a `package.json` with `"type": "module"` in its folder or one above. A deployment's own has the deployment's, and que's have `server/package.json`
+- que keeps agent configs of its own in `server/agents/`. Each names no package, so any deployment can list it by its path
 - `agents` is optional. A deployment that lists none runs on que's own choices. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
 - `name`: required. What a run names to get this config. Each other field is optional, and what is left out has que's own value
 - `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
