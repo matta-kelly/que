@@ -69,7 +69,7 @@ test("cost: each model in the picker shows its price", async ({ page }) => {
     ).toContainText(priced(model.price));
 });
 
-test("cost: a reply shows what it cost, and the meter what the chat cost", async ({
+test("cost: a reply shows what it cost, and the meter what the chat cost @live", async ({
   page,
 }) => {
   await openApp(page);

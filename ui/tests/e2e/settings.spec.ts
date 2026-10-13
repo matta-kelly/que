@@ -12,10 +12,10 @@ test("settings: home tiles and search into sections", async ({ page }) => {
   for (const id of ["account", "connections", "users"])
     await expect(dialog.getByTestId(`settings-tile-${id}`)).toBeVisible();
 
-  await search.fill("odoo");
+  await search.fill("shelf");
   await expect(dialog.getByTestId("settings-tile-account")).toHaveCount(0);
-  await dialog.getByRole("button", { name: /Odoo connection/ }).click();
-  await expect(dialog.getByTestId("connection-odoo")).toBeVisible();
+  await dialog.getByRole("button", { name: /Shelf connection/ }).click();
+  await expect(dialog.getByTestId("connection-shelf")).toBeVisible();
 
   await dialog.getByRole("button", { name: "Home", exact: true }).click();
   await dialog

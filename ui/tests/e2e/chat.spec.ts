@@ -4,7 +4,7 @@ import { openApp } from "./helpers";
 // Send a message in a new thread and expect the agent's reply on screen.
 // Always prints a diagnostic report: requests to the LangGraph server, the
 // stream events the browser actually received, and browser console output.
-test("chat: a message gets a reply", async ({ page }) => {
+test("chat: a message gets a reply @live", async ({ page }) => {
   const consoleLog: string[] = [];
   const requests: string[] = [];
   page.on("console", (msg) => consoleLog.push(`[${msg.type()}] ${msg.text()}`));
@@ -102,7 +102,7 @@ test("chat: a message gets a reply", async ({ page }) => {
 
 // Needs a deployment whose first agent takes the user's instructions, and no
 // DEV_USER_INSTRUCTIONS.
-test("chat: a reply follows the instructions saved in Account", async ({
+test("chat: a reply follows the instructions saved in Account @live", async ({
   page,
 }) => {
   await openApp(page);

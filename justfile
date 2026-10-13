@@ -107,9 +107,67 @@ format:
     podman exec -u node -w "{{root}}/server" "$c" npx prettier --write .
     podman exec -u node -w "{{root}}/ui" "$c" npx prettier --write .
 
-# Run the end to end tests in a browser (needs a deployment started; some need its services connected)
-test: _require-up
-    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test
+# Run the browser tests that are not marked @live, on the test deployment (server/tests/integration/browser).
+# Its models are a local stand-in and it sends no trace, so a run calls no provider and no Langfuse.
+# It starts what is down (the database, the stand-in, the agent server, the UI) and stops what it started.
+test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dep="{{root}}/server/tests/integration/browser"
+    cd "{{root}}"
+    c=$(./scripts/container.sh)
+    running() { podman exec "$c" pgrep -f "$1" >/dev/null; }
+    if running "langgraphjs dev"; then
+        # The deployment the agent server was started from. Only the user that runs it can read it.
+        of=$(podman exec -u node "$c" sh -c 'tr "\0" "\n" < /proc/$(pgrep -of "[l]anggraphjs dev")/environ | sed -n "s/^QUE_DEPLOYMENT=//p"')
+        [ "$of" = "$dep" ] || { echo "que is up for another deployment ($of), so no test ran. Stop it first: 'just down'"; exit 1; }
+    fi
+    # A thing that is down is started as a process group of its own, and that group is stopped at the end.
+    started=()
+    db_was_up=$(podman inspect -f '{{{{.State.Running}}' que-postgres 2>/dev/null || echo false)
+    start() {
+        local name=$1 dir=$2 command=$3
+        shift 3
+        podman exec -d -u node "$@" -w "$dir" "$c" bash -c "echo \$\$ > /tmp/test-$name.pid; $command > /tmp/$name.log 2>&1" >/dev/null
+        started+=("$name")
+    }
+    stop() {
+        for name in "${started[@]}"; do
+            podman exec "$c" sh -c "kill -- -\$(cat /tmp/test-$name.pid)" || true
+        done
+        [ "$db_was_up" = true ] || podman stop que-postgres >/dev/null 2>&1 || true
+    }
+    trap stop EXIT
+    ./scripts/db.sh "$dep/.env" >/dev/null
+    # The database keeps the password it was made with, which can be another deployment's.
+    password=$(podman inspect que-postgres -f '{{{{range .Config.Env}}{{{{println .}}{{{{end}}' | sed -n 's/^POSTGRES_PASSWORD=//p')
+    running "browser/provider.ts" || start provider "{{root}}/server" "npx tsx --env-file=$dep/.env $dep/provider.ts"
+    running "langgraphjs dev" || start server "{{root}}/server" "npm run server" \
+        -e "QUE_DEPLOYMENT=$dep" -e "DATABASE_URL=postgres://que:$password@127.0.0.1:5433/que" \
+        -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "NODE_OPTIONS=--require dotenv/config"
+    running "next dev" || start ui "{{root}}/ui" "npm run dev"
+    echo "Starting…"
+    for _ in $(seq 1 60); do
+        curl -s -m 2 localhost:2024/ok >/dev/null && curl -s -m 30 -o /dev/null localhost:3000 && break
+        sleep 2
+    done
+    curl -s -m 2 -o /dev/null localhost:3000 || { echo "que didn't come up on the test deployment. See /tmp/server.log and /tmp/ui.log in the container"; exit 1; }
+    running "browser/provider.ts" || { echo "The stand-in of the provider didn't come up. See /tmp/provider.log in the container"; exit 1; }
+    # The package of the test deployment, connected for the dev user: its token is made up (packages/shelf).
+    curl -sf -m 10 -o /dev/null -X PUT -H "content-type: application/json" -d '{"values":{"token":"shelf-test"}}' localhost:2024/que/connections/shelf \
+        || { echo "The package of the test deployment did not connect. See /tmp/server.log in the container"; exit 1; }
+    # Some tests need a chat in the list, and a new checkout has none.
+    threads() { curl -sf -m 10 -X POST -H "content-type: application/json" -d "$2" "localhost:2024/threads$1"; }
+    [ "$(threads /search '{"limit":1}')" != "[]" ] || threads "" "{}" >/dev/null
+    status=0
+    podman exec -u node -w "{{root}}/ui" "$c" npx playwright test --grep-invert @live || status=$?
+    echo "The stand-in answered $(podman exec "$c" grep -c '^model request' /tmp/provider.log) model requests."
+    exit $status
+
+# Run the browser tests marked @live, against the que that is up: the real model and the real services of that deployment.
+# Each message is a model call that is paid for, and a trace when the deployment has a Langfuse.
+test-live: _require-up
+    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep @live
 
 # The dev container for this repo, found by its dev-container label
 _container:

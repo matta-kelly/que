@@ -12,15 +12,15 @@ test("palette: / opens it and finds a connector that opens settings", async ({
   const input = page.getByPlaceholder("Search everything…");
   await expect(input).toBeFocused();
 
-  await input.fill("odoo");
+  await input.fill("shelf");
   await expect(
-    page.getByRole("option", { name: /Odoo connection/ }),
+    page.getByRole("option", { name: /Shelf connection/ }),
   ).toBeVisible();
   await page.keyboard.press("Enter");
 
   await expect(input).toHaveCount(0);
   await expect(
-    page.getByRole("dialog").getByTestId("connection-odoo"),
+    page.getByRole("dialog").getByTestId("connection-shelf"),
   ).toBeVisible();
 });
 
