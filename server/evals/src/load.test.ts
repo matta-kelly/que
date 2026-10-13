@@ -29,7 +29,7 @@ test("loads the name of a deployment, the cases of each package it lists, each w
     ],
     agents: [
       { name: "chat" },
-      { name: "lean", model: "provider:small-model" },
+      { name: "lean", model: "small" },
       { name: "notes-only", packages: ["notes"] },
     ],
   });
