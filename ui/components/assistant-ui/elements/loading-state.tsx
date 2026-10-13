@@ -33,11 +33,10 @@ export function GenerationLoader({
   return (
     <div
       data-slot="generation-loader"
-      className={cn("flex flex-col items-center gap-4", className)}
-
+      className={cn("flex items-center gap-2", className)}
       {...props}
     >
-      <div aria-hidden className="grid grid-cols-3 gap-1">
+      <div aria-hidden className="grid grid-cols-3 gap-0.5">
         {Array.from({ length: 9 }, (_, index) => {
           const active = (index * 2 + pixelOffset) % 9 < 3;
 
@@ -45,7 +44,7 @@ export function GenerationLoader({
             <span
               key={index}
               className={cn(
-                "bg-foreground size-2 transition-opacity duration-300 motion-reduce:transition-none",
+                "bg-foreground size-1 transition-opacity duration-300 motion-reduce:transition-none",
                 CELL_SHAPES[variant],
                 active ? "opacity-90" : "opacity-15",
               )}
