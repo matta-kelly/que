@@ -6,7 +6,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import type { Catalog } from "../../mount/catalog.js";
+import type { Catalog } from "../../access/catalog.js";
 import { toolName } from "../operations.js";
 
 export const OPEN_PACKAGE = "open_package";

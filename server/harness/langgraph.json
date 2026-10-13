@@ -3,12 +3,12 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "agent": "./src/agent.ts:agent"
+    "agent": "./src/run/agent.ts:agent"
   },
   "http": {
-    "app": "./src/http/api.ts:app"
+    "app": "./src/run/api.ts:app"
   },
   "auth": {
-    "path": "./src/http/auth.ts:auth"
+    "path": "./src/run/auth.ts:auth"
   }
 }

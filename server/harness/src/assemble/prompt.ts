@@ -5,7 +5,7 @@
  * about itself through the package spec.
  */
 
-import type { Catalog } from "../mount/catalog.js";
+import type { Catalog } from "../access/catalog.js";
 
 const ROLE = `You are a helpful assistant.
 

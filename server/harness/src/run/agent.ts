@@ -3,17 +3,17 @@
  *
  * Chat factory: buildAgent(userId) assembles an agent for one user from the
  * packages they have access to. How those packages are put in front of the
- * model is one config from src/legibility. Packages the user can't use are
+ * model is one config from src/assemble. Packages the user can't use are
  * never loaded. The user is fixed when the agent is built, so every tool call
  * runs as them.
  */
 
 import { createAgent } from "langchain";
-import { assemble } from "./legibility/assemble.js";
-import { onDemand } from "./legibility/on-demand/index.js";
-import { catalogFor } from "./mount/catalog.js";
-import { getConnection } from "./mount/credentials.js";
-import { users } from "./users.js";
+import { assemble } from "../assemble/assemble.js";
+import { onDemand } from "../assemble/on-demand/index.js";
+import { catalogFor } from "../access/catalog.js";
+import { getConnection } from "../access/connections.js";
+import { users } from "../access/users.js";
 
 const MODEL =
   process.env.MODEL ??

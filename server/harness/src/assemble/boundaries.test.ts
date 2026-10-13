@@ -16,12 +16,12 @@ const imports = (text: string) =>
   [...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
 
 test("agent.ts takes only assemble and a config from legibility", () => {
-  const agent = readFileSync(join(here, "../agent.ts"), "utf8");
+  const agent = readFileSync(join(here, "../run/agent.ts"), "utf8");
   assert.deepEqual(
     imports(agent)
-      .filter((path) => path.includes("legibility"))
+      .filter((path) => path.includes("assemble"))
       .sort(),
-    ["./legibility/assemble.js", "./legibility/on-demand/index.js"],
+    ["../assemble/assemble.js", "../assemble/on-demand/index.js"],
   );
   assert.doesNotMatch(agent, /\btool\(|wrapModelCall|createMiddleware/);
 });

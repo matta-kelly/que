@@ -10,14 +10,14 @@ branch=$(git branch --show-current)
 fail() { echo "FAIL: $1" >&2; exit 1; }
 pass() { echo "ok: $1"; }
 
-for part in agent platform packages package.json package-lock.json; do
-  [ -e "harness/$part" ] || fail "no harness/$part"
+for part in contract backend harness package.json package-lock.json; do
+  [ -e "server/$part" ] || fail "no server/$part"
 done
-python3 - <<'PY' || fail "harness/package.json still lists the UI as a workspace"
+python3 - <<'PY' || fail "server/package.json still lists the UI as a workspace"
 import json
-assert not any("ui" in w for w in json.load(open("harness/package.json"))["workspaces"])
+assert not any("ui" in w for w in json.load(open("server/package.json"))["workspaces"])
 PY
-pass "harness/ holds the agent, platform and packages, with its own package.json and lockfile"
+pass "server/ holds the contract, backend and harness, with its own package.json and lockfile"
 
 [ -f ui/package.json ] && [ -f ui/package-lock.json ] || fail "ui/ has no package.json or lockfile of its own"
 [ ! -e package.json ] && [ ! -e package-lock.json ] || fail "the repo root still has a package.json or a lockfile"
@@ -33,42 +33,42 @@ for f in files:
         assert not spec.startswith("@que/"), (f, spec)
         assert spec.count("../") <= depth, (f, spec)
 PY
-! git grep -nE '\.\./ui/|"ui"|-w @que/ui' -- harness ':!harness/package-lock.json' >/dev/null \
-  || fail "code in harness/ refers to the UI's folder"
-pass "nothing in ui/ imports from outside it, and nothing in harness/ refers to it"
+! git grep -nE '\.\./ui/|"ui"|-w @que/ui' -- server ':!server/package-lock.json' >/dev/null \
+  || fail "code in server/ refers to the UI's folder"
+pass "nothing in ui/ imports from outside it, and nothing in server/ refers to it"
 
-python3 - <<'PY' || fail "ui/ and harness/ are not both on TypeScript 6"
+python3 - <<'PY' || fail "ui/ and server/ are not both on TypeScript 6"
 import json
 lock = lambda p: json.load(open(p))["packages"]["node_modules/typescript"]["version"]
 assert lock("ui/package-lock.json").startswith("6."), lock("ui/package-lock.json")
-assert lock("harness/package-lock.json").startswith("6."), lock("harness/package-lock.json")
+assert lock("server/package-lock.json").startswith("6."), lock("server/package-lock.json")
 PY
-pass "the UI is on TypeScript 6, the same major version as the harness"
+pass "the UI is on TypeScript 6, the same major version as the server"
 
-python3 - "$workflow" <<'PY' || fail "the harness and ui jobs do not each check out only their own folder"
+python3 - "$workflow" <<'PY' || fail "the server and ui jobs do not each check out only their own folder"
 import sys, yaml
 jobs = yaml.safe_load(open(sys.argv[1]))["jobs"]
-for name in ("harness", "ui"):
+for name in ("server", "ui"):
     sparse = [s["with"]["sparse-checkout"].split() for s in jobs[name]["steps"] if "sparse-checkout" in s.get("with", {})]
     assert sparse == [[name]], (name, sparse)
 PY
 pass "each app installs and passes its checks with the other folder absent"
 
-python3 - "$workflow" <<'PY' || fail "the harness and ui jobs are not each limited to their own paths"
+python3 - "$workflow" <<'PY' || fail "the server and ui jobs are not each limited to their own paths"
 import sys, yaml
 jobs = yaml.safe_load(open(sys.argv[1]))["jobs"]
 assert "changes" in jobs
-for name in ("harness", "ui"):
+for name in ("server", "ui"):
     assert "changes" in jobs[name]["needs"], name
     assert f"needs.changes.outputs.{name}" in jobs[name]["if"], name
 assert all(0 < job.get("timeout-minutes", 0) <= 10 for job in jobs.values())
 PY
 pass "a change to one app runs that app's checks only"
 
-python3 - "$workflow" <<'PY' || fail "the checks job does not always run after changes, harness and ui"
+python3 - "$workflow" <<'PY' || fail "the checks job does not always run after changes, server and ui"
 import sys, yaml
 gate = yaml.safe_load(open(sys.argv[1]))["jobs"]["checks"]
-assert set(gate["needs"]) == {"changes", "harness", "ui"}
+assert set(gate["needs"]) == {"changes", "server", "ui"}
 assert "always()" in gate["if"]
 PY
 timeout 60 gh api "repos/$repo/rules/branches/main" \

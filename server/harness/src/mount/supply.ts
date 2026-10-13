@@ -13,7 +13,7 @@ const SUPPLIED = new Set(["@que/core", "zod"]);
 
 function isOutsideQue(parentURL: string | undefined): boolean {
   if (!parentURL?.startsWith("file:")) return false;
-  // The separator keeps a sibling such as `harness-old/` outside.
+  // The separator keeps a sibling such as `server-old/` outside.
   return !fileURLToPath(parentURL).startsWith(HARNESS + sep);
 }
 

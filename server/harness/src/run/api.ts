@@ -4,7 +4,7 @@
  * whether the user has connected them; saves and removes credentials.
  * Credential values are never returned.
  *
- * The caller is the user resolved by the auth hook (src/http/auth.ts). Also serves
+ * The caller is the user resolved by the auth hook (src/run/auth.ts). Also serves
  * the signed-in user's profile and the user list.
  */
 
@@ -15,8 +15,8 @@ import {
   connectedPackages,
   removeCredential,
   setCredential,
-} from "../mount/credentials.js";
-import { users } from "../users.js";
+} from "../access/connections.js";
+import { users } from "../access/users.js";
 
 export const app = new Hono();
 

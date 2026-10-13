@@ -13,7 +13,7 @@ test("que mounts, at startup, the deployment the environment names", async () =>
     import.meta.dirname,
     "fixtures/deployments/two",
   );
-  const { packages } = await import("../../../agent/src/mount/mounted.js");
+  const { packages } = await import("../../../harness/src/mount/mounted.js");
   assert.deepEqual(
     packages.map((p) => p.definition.name),
     ["gamma", "alpha"],

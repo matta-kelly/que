@@ -5,7 +5,7 @@
  */
 
 import type { BaseMessage, StructuredTool } from "langchain";
-import type { Catalog } from "../mount/catalog.js";
+import type { Catalog } from "../access/catalog.js";
 
 export type Config = {
   name: string;

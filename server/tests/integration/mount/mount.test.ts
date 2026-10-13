@@ -10,11 +10,11 @@ import { join } from "node:path";
 import {
   loadDeployment,
   mountFromEnv,
-} from "../../../agent/src/mount/deployment.js";
+} from "../../../harness/src/mount/deployment.js";
 import {
   mountPackages,
   type MountedPackage,
-} from "../../../agent/src/mount/packages.js";
+} from "../../../harness/src/mount/packages.js";
 
 const fixtures = join(import.meta.dirname, "fixtures");
 const deployment = (name: string) => join(fixtures, "deployments", name);

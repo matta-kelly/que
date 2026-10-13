@@ -7,7 +7,7 @@
 
 import { createMiddleware } from "langchain";
 import type { PackageDefinition } from "@que/core";
-import type { Catalog } from "../mount/catalog.js";
+import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
 import { operationTools } from "./operations.js";
 import { systemPrompt } from "./prompt.js";

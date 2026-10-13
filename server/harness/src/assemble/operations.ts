@@ -5,7 +5,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import { OperationFailed, type PackageDefinition } from "@que/core";
-import type { Catalog } from "../mount/catalog.js";
+import type { Catalog } from "../access/catalog.js";
 
 // Model APIs only allow [a-zA-Z0-9_-] in tool names (validatePackage enforces it).
 export const toolName = (pkg: string, op: string) => `${pkg}_${op}`;

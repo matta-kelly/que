@@ -23,7 +23,7 @@ up deployment:
         echo "The agent server is already running. Run 'just down' first to start it from another deployment."
     else
         # The server takes its settings from the deployment's .env, and none from que's own folder.
-        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "NODE_OPTIONS=--require dotenv/config" -w "{{root}}/harness" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "NODE_OPTIONS=--require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
     fi
     running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
     echo "Starting…"
@@ -54,35 +54,35 @@ check-deployment deployment:
     dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
     cd "{{root}}"
     c=$(./scripts/container.sh "$dep")
-    h="{{root}}/harness"
+    h="{{root}}/server"
     # The deployment has no install of its own: the compiler is told where que keeps what it imports.
     podman exec -i -u node "$c" sh -c 'mkdir -p /tmp/que-check && cat > /tmp/que-check/tsconfig.json' <<EOF
     {
-      "extends": "$h/agent/tsconfig.json",
+      "extends": "$h/harness/tsconfig.json",
       "compilerOptions": {
         "rootDir": "/",
         "typeRoots": ["$h/node_modules/@types"],
-        "paths": { "@que/core": ["$h/platform/core/index.ts"], "zod": ["$h/node_modules/zod"] }
+        "paths": { "@que/core": ["$h/contract/index.ts"], "zod": ["$h/node_modules/zod"] }
       },
       "include": ["$dep/**/*.ts"],
       "exclude": ["$dep/**/node_modules"]
     }
     EOF
     podman exec -u node -w "$h" "$c" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
-    podman exec -u node -w "$dep" "$c" "$h/node_modules/.bin/tsx" --import "$h/agent/src/mount/supply.ts" --test "**/*.test.ts"
+    podman exec -u node -w "$dep" "$c" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
     echo "check passed"
 
-# Typecheck, lint, check the format, and run the unit and integration tests of que's own code, for the harness then the UI
+# Typecheck, lint, check the format, and run the unit and integration tests of que's own code, for the server then the UI
 check:
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{root}}"
     c=$(./scripts/container.sh)
     at() { local where=$1; shift; podman exec -u node -w "{{root}}/$where" "$c" "$@"; }
-    at harness/agent npx tsc --noEmit
-    at harness npx eslint
-    at harness npx prettier --check .
-    at harness npx tsx --test --test-reporter=dot "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
+    at server/harness npx tsc --noEmit
+    at server npx eslint
+    at server npx prettier --check .
+    at server npx tsx --test --test-reporter=dot "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "tests/integration/**/*.test.ts"
     at ui npx tsc --noEmit
     at ui npx eslint
     at ui npx prettier --check .
@@ -94,7 +94,7 @@ format:
     set -euo pipefail
     cd "{{root}}"
     c=$(./scripts/container.sh)
-    podman exec -u node -w "{{root}}/harness" "$c" npx prettier --write .
+    podman exec -u node -w "{{root}}/server" "$c" npx prettier --write .
     podman exec -u node -w "{{root}}/ui" "$c" npx prettier --write .
 
 # Run the end to end tests in a browser (needs a deployment started; some need its services connected)

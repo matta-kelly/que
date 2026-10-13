@@ -5,7 +5,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import type { Catalog } from "../mount/catalog.js";
+import type { Catalog } from "../access/catalog.js";
 
 export const READ_SKILL = "read_skill";
 

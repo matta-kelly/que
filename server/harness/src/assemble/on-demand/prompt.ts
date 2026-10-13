@@ -3,7 +3,7 @@
  * load an operation from it.
  */
 
-import type { Catalog } from "../../mount/catalog.js";
+import type { Catalog } from "../../access/catalog.js";
 import { READ_SKILL } from "../skills.js";
 import { LOAD_OPERATION, OPEN_PACKAGE } from "./tools.js";
 

@@ -10,8 +10,8 @@ import { cpSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OperationFailed } from "@que/core";
-import { loadDeployment } from "../../../agent/src/mount/deployment.js";
-import { mountPackages } from "../../../agent/src/mount/packages.js";
+import { loadDeployment } from "../../../harness/src/mount/deployment.js";
+import { mountPackages } from "../../../harness/src/mount/packages.js";
 
 const outside = mkdtempSync(join(tmpdir(), "que-outside-"));
 cpSync(join(import.meta.dirname, "fixtures"), outside, { recursive: true });

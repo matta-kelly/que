@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Catalog } from "../../mount/catalog.js";
+import type { Catalog } from "../../access/catalog.js";
 import {
   besideNothing,
   catalog,

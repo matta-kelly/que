@@ -14,7 +14,7 @@ import { stdin as input, stdout as output } from "node:process";
 import type { BaseMessage } from "langchain";
 import { identify } from "@que/identity";
 import { buildAgent } from "./agent.js";
-import { users } from "./users.js";
+import { users } from "../access/users.js";
 
 // Chat init: who this chat is for, then an agent with only their packages.
 const identity = await identify(new Headers());

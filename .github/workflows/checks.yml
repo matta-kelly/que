@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      harness: ${{ steps.paths.outputs.harness }}
+      server: ${{ steps.paths.outputs.server }}
       ui: ${{ steps.paths.outputs.ui }}
     steps:
       - uses: actions/checkout@v4
@@ -22,53 +22,53 @@ jobs:
           fetch-depth: 2
       - id: paths
         run: |
-          harness=false
+          server=false
           ui=false
           if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
             paths=$(git diff --name-only HEAD^1 HEAD)
             while read -r path; do
               case "$path" in
                 "") ;;
-                harness/*) harness=true ;;
+                server/*) server=true ;;
                 ui/*) ui=true ;;
-                *) harness=true; ui=true ;;
+                *) server=true; ui=true ;;
               esac
             done <<< "$paths"
           else
-            harness=true
+            server=true
             ui=true
           fi
-          echo "harness=$harness" >> "$GITHUB_OUTPUT"
+          echo "server=$server" >> "$GITHUB_OUTPUT"
           echo "ui=$ui" >> "$GITHUB_OUTPUT"
 
-  harness:
+  server:
     needs: [changes]
-    if: needs.changes.outputs.harness == 'true'
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: harness
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
         with:
-          # Without ui/ on disk, a pass proves the harness stands alone.
-          sparse-checkout: harness
+          # Without ui/ on disk, a pass proves the server stands alone.
+          sparse-checkout: server
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: harness/package-lock.json
+          cache-dependency-path: server/package-lock.json
       - run: npm ci
-      - name: types (agent, platform, tests)
+      - name: types (contract, backend, harness, tests)
         run: npx tsc --noEmit
-        working-directory: harness/agent
+        working-directory: server/harness
       - name: lint
         run: npx eslint
       - name: format
         run: npx prettier --check .
       - name: unit and integration tests
-        run: npx tsx --test "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
+        run: npx tsx --test "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "tests/integration/**/*.test.ts"
 
   ui:
     needs: [changes]
@@ -81,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Without harness/ on disk, a pass proves the UI stands alone.
+          # Without server/ on disk, a pass proves the UI stands alone.
           sparse-checkout: ui
       - uses: actions/setup-node@v4
         with:
@@ -98,20 +98,20 @@ jobs:
 
   # The one name the ruleset on main requires, whichever apps ran.
   checks:
-    needs: [changes, harness, ui]
+    needs: [changes, server, ui]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
-          HARNESS: ${{ needs.harness.result }}
+          SERVER: ${{ needs.server.result }}
           UI: ${{ needs.ui.result }}
         run: |
-          echo "changes=$CHANGES harness=$HARNESS ui=$UI"
+          echo "changes=$CHANGES server=$SERVER ui=$UI"
           # A failed `changes` skips both apps, which must not read as a pass.
           [ "$CHANGES" = success ] || exit 1
-          for result in "$HARNESS" "$UI"; do
+          for result in "$SERVER" "$UI"; do
             case "$result" in
               success | skipped) ;;
               *) exit 1 ;;
