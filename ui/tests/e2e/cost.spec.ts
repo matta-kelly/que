@@ -98,6 +98,14 @@ test("cost: a reply shows what it cost, and the ring what the chat cost", async 
     1_000_000;
   await expect(replyUsage(page)).toContainText(` · ${money(cost)}`);
 
+  // The panel of the ring has the same call, in its three parts: it is the chat's last one.
+  const panel = (await meter(page).textContent())!.replaceAll(",", "");
+  const part = (label: string) =>
+    Number(panel.match(new RegExp(`${label}(\\d+)`))![1]);
+  expect(part("Cached")).toBe(cached);
+  expect(part("New")).toBe(tokensIn - cached);
+  expect(part("Reply")).toBe(tokensOut);
+
   // The cost of the chat is beside the ring, with no hover: one reply so far, so it is that reply's cost.
   await expect(chatCost(page)).toHaveText(money(cost));
   // The panel of the ring says it too, as the estimate it is.

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   contextParts,
   contextUsed,
+  percent,
   replyUsage,
   short,
   warnShare,
@@ -112,4 +113,17 @@ test("contextParts gives the cached, new and reply tokens of the last reply with
 test("warnShare is the share the agent summarizes at, or 85 percent", () => {
   assert.equal(warnShare(0.5), 0.5);
   assert.equal(warnShare(undefined), 0.85);
+});
+
+test("percent writes a share of the window, and never a chat that has started as zero", () => {
+  assert.equal(percent(0), "0%");
+  assert.equal(percent(0.0004), "<0.1%");
+  assert.equal(percent(0.002), "0.2%");
+  assert.equal(percent(0.0995), "9.9%");
+  // The form is the one of the rounded share, and a window that is not full is not at 100.
+  assert.equal(percent(0.0996), "10%");
+  assert.equal(percent(0.5), "50%");
+  assert.equal(percent(0.996), "99%");
+  assert.equal(percent(1), "100%");
+  assert.equal(percent(1.63), "163%");
 });

@@ -20,14 +20,14 @@ const chat = { name: "chat" };
 const lean = { name: "lean", model: "small", instructions: "Be brief." };
 
 test("an agent has the model it names, and one that names none has the first model listed", () => {
-  assert.deepEqual(deploymentInfo([chat, lean], [big, small]).agents, [
+  assert.deepEqual(deploymentInfo([chat, lean], [big, small], []).agents, [
     { name: "chat", model: "big" },
     { name: "lean", model: "small" },
   ]);
 });
 
 test("a model has its name, window, maxTokens and price, and no provider id", () => {
-  assert.deepEqual(deploymentInfo([chat], [big, small]).models, [
+  assert.deepEqual(deploymentInfo([chat], [big, small], []).models, [
     {
       name: "big",
       window: 1_000_000,
