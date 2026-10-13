@@ -1,6 +1,6 @@
 /**
- * What a deployment has to run: the cases of its packages, and its agent
- * configs. Read from the deployment's own files, as mount reads them, and
+ * What a deployment has to run: its name, the cases of its packages, and its
+ * agent configs. Read from the deployment's own files, as mount reads them, and
  * checked with the contract.
  */
 
@@ -12,13 +12,14 @@ import {
   validateCases,
   validateDeployment,
   validatePackage,
+  type AgentDefinition,
   type Case,
   type PackageDefinition,
 } from "@que/core";
 
 export type LoadedCase = Case & { package: string };
-/** The part of an agent config the runner uses: what a run names, and the packages the config narrows to. */
-export type Agent = { name: string; packages?: string[] };
+/** An agent config, as its file gives it. */
+export type Agent = AgentDefinition;
 
 const definitionIn = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
@@ -40,7 +41,7 @@ async function casesOf(dir: string): Promise<LoadedCase[]> {
 
 export async function load(
   folder: string,
-): Promise<{ cases: LoadedCase[]; agents: Agent[] }> {
+): Promise<{ deployment: string; cases: LoadedCase[]; agents: Agent[] }> {
   try {
     const deployment = await definitionIn(join(folder, "index.ts"));
     validateDeployment(deployment);
@@ -51,13 +52,9 @@ export async function load(
     for (const path of deployment.agents ?? []) {
       const agent = await definitionIn(resolve(folder, path));
       validateAgent(agent);
-      agents.push(
-        agent.packages
-          ? { name: agent.name, packages: agent.packages }
-          : { name: agent.name },
-      );
+      agents.push(agent);
     }
-    return { cases, agents };
+    return { deployment: deployment.name, cases, agents };
   } catch (error) {
     throw new Error(`eval: ${folder}: ${(error as Error).message}`, {
       cause: error,

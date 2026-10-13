@@ -3,6 +3,7 @@
 # agent configs, and print what the agent did. que has to be up: ./start
 # Pass `--agent <name>`, one or more times, to run only those configs.
 # The runs act on the real services. A case that changes data changes real data.
+# With the Langfuse settings in .env, the runs are also sent to Langfuse. With none, they are only printed.
 # QUE_HOME is the folder que is checked out in.
 set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
