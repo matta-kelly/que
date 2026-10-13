@@ -66,7 +66,7 @@ export default defineAgent({
   packages: ["orders"],
   model: "glm-flash",
   instructions: "You help the sales team.",
-  legibility: "on-demand",
+  loading: "on-demand",
   loop: "nightly",
   userInstructions: true,
 });
@@ -87,7 +87,7 @@ export default defineDeployment({
 - `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
 - `model`: the name of a model config the deployment lists. Left out: the first model the deployment lists, and with none listed, que's own. See [the deployment's models](#the-deployments-models)
 - `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
-- `legibility`: the name of the way the model is shown its packages. One exists, `on-demand`, and it is the one a config gets when it names none
+- `loading`: the name of the way the model is shown its packages, and when it gets their operations. One exists, `on-demand`, and it is the one a config gets when it names none
 - `loop`: the name of a loop config the deployment lists: how the agent's loop is run. Left out: the agent runs on the `plain` engine, as it does with no loop. See [the deployment's loops](#the-deployments-loops)
 - `userInstructions`: `true`, and the agent's system prompt gets the user's own instructions, in `## You`, after the line that names the user. `false` or left out: it gets none. The agent's `instructions` come first, and the prompt says they stand where the two do not agree
 	- where the text is from is not in the agent config. The deployment's `.env` can name a file with `DEV_USER_INSTRUCTIONS`: absolute, or taken from the deployment's own folder. It is read for each run, and que stops at startup when it cannot be read. With no file named, the text is the one the user saved in Settings, in Account, of at most 16,000 characters
@@ -97,7 +97,7 @@ export default defineDeployment({
 	- a run names one with `agent` in its `configurable`: `{ configurable: { agent: "lean" } }`
 	- a run that names none gets the first one the deployment lists. So the chat is the first file
 	- a name the deployment does not have fails the run, and the error lists the names it has
-- `validateAgent` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a `packages` that is not a list of names, an `instructions` that is empty or only spaces, a `model` that is not a plain name (one written as `provider:model` gets a fault that says a model is now a file), a `legibility` que does not have, a `userInstructions` that is not `true` or `false`
+- `validateAgent` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a `packages` that is not a list of names, an `instructions` that is empty or only spaces, a `model` that is not a plain name (one written as `provider:model` gets a fault that says a model is now a file), a `loading` que does not have, a field named `legibility` (the fault says it is now `loading`), a `userInstructions` that is not `true` or `false`
 - mount stops when a listed file does not exist, when two configs have one name, when `packages` names a package the deployment does not mount, and when `loop` or `model` names one the deployment does not list. The error names the file, the name, or the config and what it names
 - a deployment that still writes an `agent` block stops at startup, and the error says a config is now a file
 - a package is written with no knowledge of a config
@@ -125,6 +125,7 @@ export default defineDeployment({
 - an agent config names a loop with `loop`, and a run of that agent is built with it. A loop no agent names is mounted and not used
 - `engine`: what builds and runs the loop. Left out: `plain`
 	- `plain`: the framework's own agent (`createAgent`), with que's prompt, tools and tool rule. No setting acts on it
+	- both engines repair a chat that has a tool call with no result, which a run stopped between a call and its result leaves: the call gets a result that says it was cancelled, in the saved chat and in what the model is sent. It is the framework's own middleware (`createPatchToolCallsMiddleware` of `deepagents`), and no setting turns it off
 	- `deepagents`: a LangChain deep agent (`createDeepAgent`), handed the same prompt, tools and tool rule
 		- `result` acts: a tool result over `result.max` goes to a file store kept in the thread's state, and the chat gets its head, its tail and its path. `result: false` turns that off
 		- the model gets the engine's own tools beside que's: `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, and `task` (a subagent). It reads a stored result with `read_file`, by offset and limit
@@ -185,7 +186,7 @@ export default defineModel({
 	- que's own: `glm-flash`
 - a name the deployment does not have fails the run, and the error lists the names it has
 - each reply of the model in a run has the name of the model config that gave it, in `response_metadata.que.model`. que adds it on both engines, and it is in the saved chat. A reply of a subagent of the deep agent is not in the chat, and has none
-- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none, and its models, each with its `window`, `maxTokens` and `price`. In the order listed, and with no provider id. The chat UI makes its pickers from it
+- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none and, for an agent that summarizes, the share of the window it does so at (`summarizeAt`), and its models, each with its `window`, `maxTokens` and `price`. In the order listed, and with no provider id. The chat UI makes its pickers from it
 - que keeps model configs of its own in `server/models/`, and a deployment lists one by its path: `glm-flash`, `deepseek-flash`, `minimax-m3`. A deployment that lists one of que's agents lists the model it names: `chat` and `deep-chat` name `minimax-m3`
 - the provider of a model is one que has the package for. Today: `fireworks`. Another one is a package added to `server/harness`, an entry in `PROVIDERS` in `server/harness/src/mount/models.ts` (how the window of one of its models is read, and its name in the model database), and its key in the deployment's `.env`
 - the `MODEL` setting is gone. A deployment that still sets it stops at startup, and the error says to list a model file

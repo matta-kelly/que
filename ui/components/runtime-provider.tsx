@@ -11,6 +11,7 @@ import {
   type LangChainMessage,
 } from "@assistant-ui/react-langgraph";
 import type { Client } from "@langchain/langgraph-sdk";
+import { checkpointFor } from "@/lib/checkpoint";
 import { createClient } from "@/lib/langgraph-client";
 import { resolve } from "@/lib/run-pick";
 import {
@@ -22,6 +23,10 @@ import {
 } from "@/lib/run-pick-store";
 
 const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
+
+// How far back in a thread a checkpoint is looked for. A turn is one state for
+// each step of it, so this is ten turns or more.
+const HISTORY = 100;
 
 // OpenAI-compatible providers (Fireworks/DeepSeek) put reasoning in
 // additional_kwargs.reasoning_content; assistant-ui reads additional_kwargs.reasoning.
@@ -149,6 +154,13 @@ export function RuntimeProvider({
     unstable_allowCancellation: true,
     stream,
     unstable_threadListAdapter: threadListAdapter,
+    // With this, a reply can be made again and a sent message edited: the run
+    // starts from the checkpoint that held the messages before it.
+    getCheckpointId: async (threadId, parents) =>
+      checkpointFor(
+        await client.threads.getHistory(threadId, { limit: HISTORY }),
+        parents,
+      ),
     load: async (externalId) => {
       const [state, thread] = await Promise.all([
         client.threads.getState<{ messages: LangChainMessage[] }>(externalId),

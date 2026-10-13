@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ComposerContext } from "@/components/assistant-ui/elements/composer-context";
 import { useChatPick } from "@/hooks/use-chat-pick";
 import {
   about,
@@ -19,7 +20,13 @@ import {
 } from "@/lib/cost";
 import type { Deployment } from "@/lib/que-api";
 import { useRunPicks } from "@/lib/run-pick-store";
-import { contextUsed, replyUsage, short, type UsageMessage } from "@/lib/usage";
+import {
+  contextParts,
+  replyUsage,
+  short,
+  warnShare,
+  type UsageMessage,
+} from "@/lib/usage";
 
 const exact = (count: number) => count.toLocaleString("en-US");
 
@@ -34,10 +41,12 @@ const usePrices = (deployment: Deployment | undefined): Prices =>
   );
 
 /**
- * How full the model's window is: the tokens of the chat's last model call,
- * over the window of the model the chat is on, and then what the chat cost.
- * Its hover has the exact counts, and how many replies the cost leaves out. Nothing for a chat with no reply, or on a deployment that lists no
- * models.
+ * How full the model's window is, in the composer: a ring that fills as the
+ * chat grows, and what the chat cost beside it. Its panel says where the window
+ * went (the parts of the chat's last model call), the window and the model it
+ * is of, and the cost again as the estimate it is. The ring warns past the
+ * share the agent summarizes at, or when the window is nearly full. Nothing for
+ * a chat with no reply, or on a deployment that lists no models.
  */
 export const ContextMeter: FC = () => {
   const { deployment, shown } = useChatPick();
@@ -52,36 +61,55 @@ export const ContextMeter: FC = () => {
       ),
     [messages],
   );
-  const used = useMemo(() => contextUsed(turns.flat()), [turns]);
+  const parts = useMemo(() => contextParts(turns.flat()), [turns]);
   const cost = useMemo(() => chatCost(turns, prices), [turns, prices]);
   const model = deployment?.models.find((m) => m.name === shown.model);
-  if (used === undefined || !model) return null;
+  if (!parts || !model) return null;
+  const summarizeAt = deployment?.agents.find(
+    (agent) => agent.name === shown.agent,
+  )?.summarizeAt;
+  const share = `${Math.round(warnShare(summarizeAt) * 100)}%`;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          data-slot="context-meter"
-          className="text-muted-foreground cursor-default px-2 text-xs tabular-nums"
-        >
-          {short(used)} / {short(model.window)}
-          {cost && ` · ${money(cost.total)}`}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="top">
-        <div>
-          {exact(used)} of {exact(model.window)} tokens (
-          {((used / model.window) * 100).toFixed(1)}%) in the window of{" "}
-          {model.name}
-        </div>
+    <div data-slot="context-meter" className="flex items-center">
+      <ComposerContext
+        parts={[
+          { label: "Cached", value: parts.cached },
+          { label: "New", value: parts.fresh },
+          { label: "Reply", value: parts.reply },
+        ]}
+        total={model.window}
+        warnAt={warnShare(summarizeAt)}
+        rows={[
+          { label: "Model", value: model.name },
+          ...(cost
+            ? [
+                {
+                  label: "This chat",
+                  value:
+                    about(cost.total) +
+                    (cost.uncounted > 0
+                      ? `, ${cost.uncounted} ${cost.uncounted === 1 ? "reply" : "replies"} not counted`
+                      : ""),
+                },
+              ]
+            : []),
+        ]}
+        note={
+          summarizeAt === undefined
+            ? `Past ${share} the window is nearly full.`
+            : `Past ${share} the old part of the chat is sent as a summary.`
+        }
+      >
         {cost && (
-          <div>
-            this chat: {about(cost.total)}
-            {cost.uncounted > 0 &&
-              `, ${cost.uncounted} ${cost.uncounted === 1 ? "reply" : "replies"} not counted`}
-          </div>
+          <span
+            data-slot="context-cost"
+            className="text-muted-foreground pe-1 text-xs tabular-nums"
+          >
+            {money(cost.total)}
+          </span>
         )}
-      </TooltipContent>
-    </Tooltip>
+      </ComposerContext>
+    </div>
   );
 };
 

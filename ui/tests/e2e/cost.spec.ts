@@ -29,6 +29,7 @@ const priced = ({ input, output }: Price) =>
 const COST = /(<\$0\.0001|\$\d+\.\d{2,4})/;
 
 const meter = (page: Page) => page.locator('[data-slot="context-meter"]');
+const chatCost = (page: Page) => page.locator('[data-slot="context-cost"]');
 const replyUsage = (page: Page) => page.locator('[data-slot="reply-usage"]');
 // The one that is open: a hover that has ended leaves its own for a moment, as it closes.
 const tooltip = (page: Page) =>
@@ -69,7 +70,7 @@ test("cost: each model in the picker shows its price", async ({ page }) => {
     ).toContainText(priced(model.price));
 });
 
-test("cost: a reply shows what it cost, and the meter what the chat cost @live", async ({
+test("cost: a reply shows what it cost, and the ring what the chat cost @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -97,14 +98,19 @@ test("cost: a reply shows what it cost, and the meter what the chat cost @live",
     1_000_000;
   await expect(replyUsage(page)).toContainText(` · ${money(cost)}`);
 
-  // The meter shows what the chat cost, with no hover: one reply so far, so it is that reply's cost.
-  await expect(meter(page)).toHaveText(new RegExp(` · ${COST.source}$`));
-  await expect(meter(page)).toContainText(` · ${money(cost)}`);
+  // The panel of the ring has the same call, in its three parts: it is the chat's last one.
+  const panel = (await meter(page).textContent())!.replaceAll(",", "");
+  const part = (label: string) =>
+    Number(panel.match(new RegExp(`${label}(\\d+)`))![1]);
+  expect(part("Cached")).toBe(cached);
+  expect(part("New")).toBe(tokensIn - cached);
+  expect(part("Reply")).toBe(tokensOut);
 
-  await page.mouse.move(0, 0);
-  await meter(page).hover();
-  await expect(tooltip(page)).toContainText(
-    /this chat: (about \$\d+\.\d{2,4}|under \$0\.0001)/,
+  // The cost of the chat is beside the ring, with no hover: one reply so far, so it is that reply's cost.
+  await expect(chatCost(page)).toHaveText(money(cost));
+  // The panel of the ring says it too, as the estimate it is.
+  await expect(meter(page)).toContainText(
+    /This chat(about \$\d+\.\d{2,4}|under \$0\.0001)/,
   );
 });
 
@@ -133,10 +139,8 @@ test("cost: a chat opened again shows the same costs", async ({ page }) => {
   await send(page, "Say hi in one word.");
   const reply = await replyUsage(page).textContent();
   expect(reply).toMatch(COST);
-  await meter(page).hover();
-  const total = (await tooltip(page).textContent())!.match(
-    /this chat: (about|under) \S+/,
-  )![0];
+  const total = await chatCost(page).textContent();
+  expect(total).toMatch(COST);
   const title = `Cost ${Date.now()}`;
   await nameNewestChat(page, title);
 
@@ -144,6 +148,5 @@ test("cost: a chat opened again shows the same costs", async ({ page }) => {
   await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
   await openChat(page, title);
   await expect(replyUsage(page)).toHaveText(reply!);
-  await meter(page).hover();
-  await expect(tooltip(page)).toContainText(total);
+  await expect(chatCost(page)).toHaveText(total!);
 });
