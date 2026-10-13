@@ -5,18 +5,20 @@
  * Credential values are never returned.
  *
  * The caller is the user resolved by the auth hook (src/run/auth.ts). Also serves
- * the signed-in user's profile and the user list.
+ * the signed-in user's profile, the user list, and what the deployment lists:
+ * the agents and models a run can name.
  */
 
 import { Hono, type Context } from "hono";
 import { OperationFailed } from "@que/core";
-import { packages } from "../mount/mounted.js";
+import { agents, models, packages } from "../mount/mounted.js";
 import {
   connectedPackages,
   removeCredential,
   setCredential,
 } from "../access/connections.js";
 import { users } from "../access/users.js";
+import { deploymentInfo } from "./deployment-info.js";
 
 export const app = new Hono();
 
@@ -87,3 +89,6 @@ app.patch("/que/me", async (c) => {
 });
 
 app.get("/que/users", async (c) => c.json(await users.list()));
+
+// The same for every user, and fixed at mount.
+app.get("/que/deployment", (c) => c.json(deploymentInfo(agents, models)));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   AssistantRuntimeProvider,
   type RemoteThreadListAdapter,
@@ -10,7 +10,16 @@ import {
   useLangGraphRuntime,
   type LangChainMessage,
 } from "@assistant-ui/react-langgraph";
-import { Client } from "@langchain/langgraph-sdk";
+import type { Client } from "@langchain/langgraph-sdk";
+import { createClient } from "@/lib/langgraph-client";
+import { resolve } from "@/lib/run-pick";
+import {
+  loadDeployment,
+  pickIn,
+  pickOf,
+  rememberPick,
+  useRunPicks,
+} from "@/lib/run-pick-store";
 
 const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
 
@@ -32,18 +41,10 @@ const withReasoning = <T,>(message: T): T => {
 const mapMessages = (data: unknown) =>
   Array.isArray(data) ? data.map(withReasoning) : data;
 
-// All requests go through the Next.js proxy at /api.
-const createClient = () =>
-  new Client({
-    apiUrl:
-      typeof window !== "undefined"
-        ? new URL("/api", window.location.href).href
-        : "/api",
-  });
-
 // Thread list backed by the LangGraph server, so chats, titles, and archive
-// state survive reloads. Thread metadata carries `title` and `archived`; the
-// proxy scopes threads to the current user.
+// state survive reloads. Thread metadata carries `title` and `archived`, and
+// the chat's pick of agent and model (lib/run-pick); the proxy scopes threads
+// to the current user.
 type ThreadMeta = { title?: string; archived?: boolean };
 const createThreadListAdapter = (client: Client): RemoteThreadListAdapter => {
   const toMeta = (t: {
@@ -69,8 +70,11 @@ const createThreadListAdapter = (client: Client): RemoteThreadListAdapter => {
       });
       return { threads: threads.map(toMeta) };
     },
-    async initialize() {
-      const t = await client.threads.create();
+    // A pick made before the first message is under the thread's local id.
+    async initialize(localId) {
+      const pick = pickOf(useRunPicks.getState(), localId);
+      const t = await client.threads.create({ metadata: pick });
+      rememberPick(t.thread_id, pick);
       return { remoteId: t.thread_id, externalId: t.thread_id };
     },
     async fetch(threadId) {
@@ -106,14 +110,35 @@ export function RuntimeProvider({
       client,
       assistantId: ASSISTANT_ID,
     });
-    return async function* (...args: Parameters<typeof inner>) {
-      for await (const event of await inner(...args)) {
+    // Each run names what its chat picked. The runtime hands in a config of
+    // its own (empty for a message; for a resume after an interrupt, the one
+    // of the run it resumes), and what that one names is kept.
+    return async function* (...[messages, config]: Parameters<typeof inner>) {
+      const { externalId } = await config.initialize();
+      const state = useRunPicks.getState();
+      const { send } = resolve(pickOf(state, externalId), state.deployment);
+      const given = (config.runConfig ?? {}) as {
+        configurable?: Record<string, unknown>;
+      };
+      const runConfig = {
+        ...given,
+        configurable: { ...send, ...given.configurable },
+      };
+      for await (const event of await inner(messages, {
+        ...config,
+        runConfig,
+      })) {
         yield event.event.startsWith("messages")
           ? { ...event, data: mapMessages(event.data) }
           : event;
       }
     } as typeof inner;
   }, [client]);
+
+  useEffect(() => {
+    // Without the list there are no pickers, and a chat runs on the deployment's own choices.
+    loadDeployment().catch(() => {});
+  }, []);
 
   const threadListAdapter = useMemo(
     () => createThreadListAdapter(client),
@@ -125,9 +150,11 @@ export function RuntimeProvider({
     stream,
     unstable_threadListAdapter: threadListAdapter,
     load: async (externalId) => {
-      const state = await client.threads.getState<{
-        messages: LangChainMessage[];
-      }>(externalId);
+      const [state, thread] = await Promise.all([
+        client.threads.getState<{ messages: LangChainMessage[] }>(externalId),
+        client.threads.get(externalId),
+      ]);
+      rememberPick(externalId, pickIn(thread.metadata));
       return {
         messages: (state.values?.messages ?? []).map(withReasoning),
         interrupts: state.tasks[0]?.interrupts,

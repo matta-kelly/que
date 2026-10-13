@@ -164,6 +164,7 @@ export default defineModel({
 	- the first one the deployment lists
 	- que's own: `glm-flash`
 - a name the deployment does not have fails the run, and the error lists the names it has
+- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none, and its models, each with its `window` and `maxTokens`. In the order listed, and with no provider id. The chat UI makes its pickers from it
 - que keeps model configs of its own in `server/models/`, and a deployment lists one by its path: `glm-flash`, `deepseek-flash`, `minimax-m3`. A deployment that lists one of que's agents lists the model it names: `chat` and `deep-chat` name `glm-flash`
 - the provider of a model is one que has the package for. Today: `fireworks`. Another one is a package added to `server/harness`, a name in `PROVIDERS` in `server/harness/src/mount/models.ts`, and its key in the deployment's `.env`
 - the `MODEL` setting is gone. A deployment that still sets it stops at startup, and the error says to list a model file

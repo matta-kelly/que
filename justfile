@@ -97,6 +97,7 @@ check:
     at ui npx tsc --noEmit
     at ui npx eslint
     at ui npx prettier --check .
+    at ui node --test --test-reporter=dot "lib/**/*.test.ts"
     echo "check passed"
 
 # Format every file in both apps with Prettier

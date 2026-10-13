@@ -33,6 +33,13 @@ export function modelFor(
   );
 }
 
-/** The framework's model for a config: its provider's model, with the most it gives in one reply. */
+/**
+ * The framework's model for a config: its provider's model, with the most it gives in one reply.
+ * It reads no field of the run: left to itself the framework takes `configurable.model`,
+ * the name of a model config, as the provider's model.
+ */
 export const chatModel = (model: ModelDefinition) =>
-  initChatModel(model.id, { maxTokens: model.maxTokens });
+  initChatModel(model.id, {
+    maxTokens: model.maxTokens,
+    configurableFields: [],
+  });

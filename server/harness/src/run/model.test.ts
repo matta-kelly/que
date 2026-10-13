@@ -45,3 +45,18 @@ test("the model made for a run has the id and the maxTokens of its config", asyn
   assert.equal(made._defaultConfig.model, "small-model");
   assert.equal(made._defaultConfig.maxTokens, 8_000);
 });
+
+test("the model made for a run is not changed by what the run names", async () => {
+  // A run names a model config in `configurable.model`. The framework's model
+  // reads that field too, as the provider's model, unless it is told to read none.
+  process.env.FIREWORKS_API_KEY ??= "none";
+  const made = (await chatModel(small)) as unknown as {
+    _modelParams(config: object): Record<string, unknown>;
+  };
+  assert.deepEqual(
+    made._modelParams({
+      configurable: { model: "big", modelProvider: "openai" },
+    }),
+    {},
+  );
+});
