@@ -1,7 +1,7 @@
 ---
 type: component
 description: the package contract for que. Framework-free folders + plain TS; the harness loads what they declare
-status: draft
+status: running
 ---
 One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder kept in the deployment that uses it; que holds none. The contract (`@que/core`, in `server/contract/package-spec.ts`) and the backend services (identity, users, credentials, in `server/backend/`) are in que. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
 
