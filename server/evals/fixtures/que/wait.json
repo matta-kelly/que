@@ -1,0 +1,134 @@
+{
+  "messages": [
+    {
+      "content": "What can you do? Answer in one sentence.",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "id": "message-1",
+      "type": "human"
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "reasoning_content": "The user asks what I can do. I should open the shop package to see operations.",
+        "tool_calls": [
+          {
+            "index": 0,
+            "id": "call_27f98a239e7c45149a7b1afc",
+            "type": "function",
+            "function": {
+              "name": "open_package",
+              "arguments": "{\"package\":\"shop\"}"
+            }
+          }
+        ]
+      },
+      "response_metadata": {
+        "model_provider": "openai",
+        "usage": {
+          "prompt_tokens": 767,
+          "total_tokens": 828,
+          "completion_tokens": 61,
+          "prompt_tokens_details": {
+            "cached_tokens": 638
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 20
+          },
+          "output_tokens_details": {
+            "reasoning_tokens": 20
+          }
+        }
+      },
+      "tool_call_chunks": [
+        {
+          "name": "open_package",
+          "args": "{\"package\":\"shop\"}",
+          "id": "call_27f98a239e7c45149a7b1afc",
+          "index": 0,
+          "type": "tool_call_chunk"
+        }
+      ],
+      "tool_calls": [
+        {
+          "name": "open_package",
+          "args": {
+            "package": "shop"
+          },
+          "id": "call_27f98a239e7c45149a7b1afc",
+          "type": "tool_call"
+        }
+      ],
+      "id": "message-2",
+      "usage_metadata": {
+        "input_tokens": 767,
+        "output_tokens": 61,
+        "total_tokens": 828,
+        "input_token_details": {
+          "cache_read": 638
+        },
+        "output_token_details": {
+          "reasoning": 20
+        }
+      },
+      "invalid_tool_calls": [],
+      "name": "model",
+      "type": "ai"
+    },
+    {
+      "status": "success",
+      "content": "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- findOrders: Find orders. Search orders by customer name.",
+      "tool_call_id": "call_27f98a239e7c45149a7b1afc",
+      "name": "open_package",
+      "metadata": {
+        "versions": {
+          "@langchain/core": "1.2.12"
+        }
+      },
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "id": "message-3",
+      "type": "tool"
+    },
+    {
+      "content": "I can find the shop's orders by customer name.",
+      "additional_kwargs": {
+        "reasoning_content": "The user asks \"What can you do? Answer in one sentence.\" I should answer concisely. Maybe load operations? Just answer based on what's available.\n\nI can answer in one sentence: I can look up Shop customer companies, their addresses, and buyers via findPartners and getCompany."
+      },
+      "response_metadata": {
+        "model_provider": "openai",
+        "usage": {
+          "prompt_tokens": 939,
+          "total_tokens": 1055,
+          "completion_tokens": 116,
+          "prompt_tokens_details": {
+            "cached_tokens": 810
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 63
+          },
+          "output_tokens_details": {
+            "reasoning_tokens": 63
+          }
+        }
+      },
+      "tool_call_chunks": [],
+      "tool_calls": [],
+      "id": "message-4",
+      "usage_metadata": {
+        "input_tokens": 939,
+        "output_tokens": 116,
+        "total_tokens": 1055,
+        "input_token_details": {
+          "cache_read": 810
+        },
+        "output_token_details": {
+          "reasoning": 63
+        }
+      },
+      "invalid_tool_calls": [],
+      "name": "model",
+      "type": "ai"
+    }
+  ]
+}

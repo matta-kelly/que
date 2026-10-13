@@ -47,6 +47,17 @@ down:
 logs: _require-up
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log
 
+# Run the cases of a deployment's packages against que, under each of its agent configs, and print what the agent did.
+# que has to be up for that deployment. `--agent <name>`, one or more times, runs only those configs.
+eval deployment *args: _require-up
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
+    cd "{{root}}"
+    c=$(./scripts/container.sh "$dep")
+    # The deployment imports the contract by name, and has no copy of its own: it is handed que's, as mount hands it.
+    podman exec -u node -w "{{root}}/server/evals" "$c" npx tsx --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
+
 # Type check a deployment's own code and run its tests, with que's contract handed to both
 check-deployment deployment:
     #!/usr/bin/env bash
@@ -82,7 +93,7 @@ check:
     at server/harness npx tsc --noEmit
     at server npx eslint
     at server npx prettier --check .
-    at server npx tsx --test --test-reporter=dot "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "tests/integration/**/*.test.ts"
+    at server npx tsx --test --test-reporter=dot "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
     at ui npx tsc --noEmit
     at ui npx eslint
     at ui npx prettier --check .

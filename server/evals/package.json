@@ -1,0 +1,11 @@
+{
+  "name": "@que/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The eval runner: runs a deployment's cases against a running que, and prints what the agent did.",
+  "dependencies": {
+    "@langchain/langgraph-sdk": "^1.11.2",
+    "@que/core": "*"
+  }
+}

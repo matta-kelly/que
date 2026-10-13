@@ -1,0 +1,66 @@
+/**
+ * What a deployment has to run: the cases of its packages, and its agent
+ * configs. Read from the deployment's own files, as mount reads them, and
+ * checked with the contract.
+ */
+
+import { existsSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import {
+  validateAgent,
+  validateCases,
+  validateDeployment,
+  validatePackage,
+  type Case,
+  type PackageDefinition,
+} from "@que/core";
+
+export type LoadedCase = Case & { package: string };
+/** The part of an agent config the runner uses: what a run names, and the packages the config narrows to. */
+export type Agent = { name: string; packages?: string[] };
+
+const definitionIn = async (file: string): Promise<unknown> =>
+  ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
+
+async function casesOf(dir: string): Promise<LoadedCase[]> {
+  const definition = (await definitionIn(join(dir, "index.ts"))) as
+    PackageDefinition | undefined;
+  validatePackage(definition);
+  const file = join(dir, "cases.ts");
+  if (!existsSync(file)) return [];
+  const cases = await definitionIn(file);
+  if (!Array.isArray(cases))
+    throw new Error(
+      `cases of package ${definition.name}: no list of cases (default export)`,
+    );
+  validateCases(definition, cases as Case[]);
+  return (cases as Case[]).map((c) => ({ package: definition.name, ...c }));
+}
+
+export async function load(
+  folder: string,
+): Promise<{ cases: LoadedCase[]; agents: Agent[] }> {
+  try {
+    const deployment = await definitionIn(join(folder, "index.ts"));
+    validateDeployment(deployment);
+    const cases: LoadedCase[] = [];
+    for (const path of deployment.packages)
+      cases.push(...(await casesOf(resolve(folder, path))));
+    const agents: Agent[] = [];
+    for (const path of deployment.agents ?? []) {
+      const agent = await definitionIn(resolve(folder, path));
+      validateAgent(agent);
+      agents.push(
+        agent.packages
+          ? { name: agent.name, packages: agent.packages }
+          : { name: agent.name },
+      );
+    }
+    return { cases, agents };
+  } catch (error) {
+    throw new Error(`eval: ${folder}: ${(error as Error).message}`, {
+      cause: error,
+    });
+  }
+}
