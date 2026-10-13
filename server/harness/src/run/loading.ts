@@ -1,0 +1,14 @@
+/**
+ * The way a config has the model shown its environment: the code behind the
+ * name in its `loading`. The one place a name is turned into code.
+ */
+
+import type { AgentDefinition, Loading } from "@que/core";
+import type { Config } from "../assemble/config.js";
+import { onDemand } from "../assemble/on-demand/index.js";
+
+const WAYS: Record<Loading, Config> = { "on-demand": onDemand };
+
+export function loadingFor(agent: AgentDefinition): Config {
+  return WAYS[agent.loading ?? "on-demand"];
+}
