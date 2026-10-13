@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { catalog, mixed } from "../assemble/fixture.js";
-import { narrow } from "./catalog.js";
+import { narrow } from "./narrow.js";
 
 const names = (the: { pkg: { definition: { name: string } } }[]) =>
   the.map(({ pkg }) => pkg.definition.name);
