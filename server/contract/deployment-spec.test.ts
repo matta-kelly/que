@@ -114,3 +114,36 @@ test("validateDeployment rejects an agent block, and says a config is now a file
     /deployment shop has an `agent` block: an agent config is a file of its own, listed in `agents`/,
   );
 });
+
+test("validateDeployment accepts a deployment that lists loop files, and one with none", () => {
+  validateDeployment(defineDeployment({ name: "shop", packages: [] }));
+  validateDeployment(
+    defineDeployment({
+      name: "shop",
+      packages: [],
+      loops: ["./loops/nightly.ts", "/abs/loops/long-chat.ts"],
+    }),
+  );
+});
+
+test("validateDeployment rejects loops that are not a list, and a loop that is not a file path", () => {
+  assert.throws(
+    () =>
+      validateDeployment({ name: "shop", packages: [], loops: "./nightly.ts" }),
+    /loops of deployment shop must be an array/,
+  );
+  assert.throws(
+    () => validateDeployment({ name: "shop", packages: [], loops: [7, " "] }),
+    (error: Error) => {
+      assert.match(
+        error.message,
+        /loops of deployment shop must each be a file path, got 7/,
+      );
+      assert.match(
+        error.message,
+        /loops of deployment shop must each be a file path, got " "/,
+      );
+      return true;
+    },
+  );
+});

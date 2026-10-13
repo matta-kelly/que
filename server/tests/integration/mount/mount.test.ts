@@ -221,3 +221,52 @@ test("stops, naming the agent and the package, when an agent names a package the
     },
   );
 });
+
+test("a deployment is mounted with its loops, in the order it lists them", async () => {
+  const mounted = await fromDeployment.mountDeployment(deployment("loops-two"));
+  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
+  assert.deepEqual(mounted.loops, [
+    { name: "short-run", result: { max: 60_000 }, summarize: false },
+    { name: "long-chat", summarize: { at: 0.7 } },
+  ]);
+});
+
+test("a deployment that lists no loops is mounted with none", async () => {
+  const mounted = await fromDeployment.mountDeployment(deployment("two"));
+  assert.deepEqual(mounted.loops, []);
+});
+
+test("stops, naming the file, when a listed loop file does not exist", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("loop-file-missing")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /loops\/nope\.ts/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the file, when a loop breaks the contract, with the contract's own error as its cause", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("loop-bad")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /loops\/endless\.ts/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, /^loop endless is invalid/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the name, when two loops have one name", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("loops-one-name")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /two loops are named "long-chat"/);
+      return true;
+    },
+  );
+});
