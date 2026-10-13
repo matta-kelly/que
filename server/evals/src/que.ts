@@ -22,6 +22,8 @@ export type Que = {
 
 // The graph que serves (server/harness/langgraph.json).
 const GRAPH = "agent";
+// On the trace que sends of each run: it tells a run of the runner from a chat.
+const TAG = "eval";
 const FROM = { human: "user", ai: "agent", tool: "tool" } as const;
 
 type Raw = {
@@ -88,9 +90,10 @@ export function que(url: string): Que {
         // que answers the wait with the values of the thread: its messages.
         const values = (await client.runs.wait(thread, GRAPH, {
           input: { messages: [{ role: "user", content: input }] },
-          ...(agent === undefined
-            ? {}
-            : { config: { configurable: { agent } } }),
+          config: {
+            tags: [TAG],
+            ...(agent === undefined ? {} : { configurable: { agent } }),
+          },
         })) as { messages?: Raw[] };
         return (values.messages ?? []).flatMap(own);
       } catch (error) {
