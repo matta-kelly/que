@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { contextUsed, replyUsage, short } from "./usage.ts";
+import {
+  contextParts,
+  contextUsed,
+  replyUsage,
+  short,
+  warnShare,
+} from "./usage.ts";
 
 const human = { type: "human" };
 const toolResult = { type: "tool" };
@@ -79,4 +85,31 @@ test("short writes a count in three forms", () => {
   assert.equal(short(1_040_000), "1M");
   assert.equal(short(1_200_000), "1.2M");
   assert.equal(short(12_500_000), "13M");
+});
+
+test("contextParts gives the cached, new and reply tokens of the last reply with usage", () => {
+  assert.equal(contextParts([]), undefined);
+  assert.equal(contextParts([human]), undefined);
+  const chat = [
+    human,
+    ai(600, 20),
+    toolResult,
+    ai(900, 40, { cached: 620 }),
+    human,
+    { type: "ai" },
+  ];
+  assert.deepEqual(contextParts(chat), { cached: 620, fresh: 280, reply: 40 });
+  // The three are the whole of the last call: what the meter counts.
+  assert.equal(contextUsed(chat), 620 + 280 + 40);
+  // A provider that counts cached tokens apart from tokens in gives no rest under zero.
+  assert.deepEqual(contextParts([ai(10, 5, { cached: 30 })]), {
+    cached: 30,
+    fresh: 0,
+    reply: 5,
+  });
+});
+
+test("warnShare is the share the agent summarizes at, or 85 percent", () => {
+  assert.equal(warnShare(0.5), 0.5);
+  assert.equal(warnShare(undefined), 0.85);
 });

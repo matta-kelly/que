@@ -42,3 +42,35 @@ test("a model has its name, window, maxTokens and price, and no provider id", ()
     },
   ]);
 });
+
+test("an agent has the share its loop summarizes at, and none when it does not summarize", () => {
+  const loops = [
+    { name: "deep", engine: "deepagents" as const },
+    {
+      name: "deep-early",
+      engine: "deepagents" as const,
+      summarize: { at: 0.5, keep: 0.1 },
+    },
+    {
+      name: "deep-whole",
+      engine: "deepagents" as const,
+      summarize: false as const,
+    },
+    { name: "long-chat", summarize: { at: 0.5, keep: 0.1 } },
+  ];
+  const on = (loop?: string) => ({ name: loop ?? "bare", loop });
+  const { agents } = deploymentInfo(
+    [on("deep"), on("deep-early"), on("deep-whole"), on("long-chat"), on()],
+    [big],
+    loops,
+  );
+  assert.deepEqual(agents, [
+    // que's own share, when the loop leaves it out.
+    { name: "deep", model: "big", summarizeAt: 0.85 },
+    { name: "deep-early", model: "big", summarizeAt: 0.5 },
+    { name: "deep-whole", model: "big" },
+    // No setting acts on the plain engine, so its share is not one the chat reaches.
+    { name: "long-chat", model: "big" },
+    { name: "bare", model: "big" },
+  ]);
+});
