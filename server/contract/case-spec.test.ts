@@ -89,6 +89,9 @@ test("validateCases lists a case with a field that is not one of the five, and o
 test("validateCases names the package in its error", () => {
   assert.throws(
     () => validateCases(notes, defineCases([{ ...asked, input: "" }])),
-    /^cases of package notes are invalid/,
+    (error: Error) => {
+      assert.match(error.message, /^cases of package notes are invalid/);
+      return true;
+    },
   );
 });
