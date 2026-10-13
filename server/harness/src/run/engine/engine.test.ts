@@ -110,12 +110,12 @@ const everySetting: LoopDefinition = {
   limits: { modelCalls: 1, toolCalls: 1 },
 };
 
-test("plain builds the agent with the parts it is handed, and no other middleware, for a loop with every setting", async () => {
+test("plain builds the agent with the parts it is handed, and the repair as its one middleware, for a loop with every setting", async () => {
   const { result, sent, graph } = await run(
     { ...everySetting, engine: "plain" },
     [calling("big", "shop_report", { rows: 200 }), new AIMessage("Well.")],
   );
-  assert.deepEqual(middlewareOf(graph), ["Seen"]);
+  assert.deepEqual(middlewareOf(graph), ["patchToolCallsMiddleware", "Seen"]);
   assert.deepEqual(sent[0].tools, ["shop_report"]);
   assert.match(sent[0].system, /You help the sales team\./);
   assert.equal(text(resultOf(result.messages, "big")), rows(200));
