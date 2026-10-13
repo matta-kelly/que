@@ -167,3 +167,12 @@ test("a deployment with no agent is loaded with an empty one", async () => {
   const loaded = await loadDeployment(deployment("two"));
   assert.deepEqual(loaded.agent, {});
 });
+
+test("stops, naming the skill, when a listed package has a skill that breaks the contract", async () => {
+  await assert.rejects(mount("untitled-skill"), (error: Error) => {
+    assert.match(error.message, /^mount:/);
+    assert.match(error.message, /untitled-skill\/nameless/);
+    assert.ok(error.cause instanceof Error);
+    return true;
+  });
+});
