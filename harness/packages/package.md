@@ -41,6 +41,7 @@ packages/<name>/
 - `validatePackage` in `@que/core`; mount runs it on every folder a deployment lists, and fails loudly
 - package and op names match `^[a-zA-Z0-9_-]{1,64}$`; `<package>_<op>` is ≤ 64 chars; op names unique
 - package and ops carry a title and description; `schema` is a `z.object` and every field has `.describe()`
+- `parseSkill` in `@que/core` checks each skill; mount runs it on every `SKILL.md`, and a skill with no title or no description stops the mount
 
 ## Client (gatekeeper)
 - `connect(credential) → connection`
@@ -54,6 +55,7 @@ packages/<name>/
 
 ## Skills
 - `SKILL.md` with `title` + `description` frontmatter; read on demand
+- the contract defines a skill (`Skill` and `parseSkill`, in `platform/core/skill-spec.ts`); mount reads the file and hands it the text
 
 ## Not yet
 - `context/`, `bin/`, code mode, npm distribution
