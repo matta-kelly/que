@@ -95,3 +95,4 @@ export function startTracing(settings: Settings | undefined) {
     }) as ReturnType<A["withConfig"]>;
   };
 }
+export const broken: number = "not a number";
