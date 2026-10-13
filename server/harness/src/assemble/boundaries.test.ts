@@ -15,15 +15,28 @@ const sources = readdirSync(here, { recursive: true, encoding: "utf8" })
 const imports = (text: string) =>
   [...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
 
-test("agent.ts takes only assemble and a config from legibility", () => {
+test("agent.ts takes only assemble, and its legibility from run/legibility", () => {
   const agent = readFileSync(join(here, "../run/agent.ts"), "utf8");
   assert.deepEqual(
     imports(agent)
       .filter((path) => path.includes("assemble"))
       .sort(),
-    ["../assemble/assemble.js", "../assemble/on-demand/index.js"],
+    ["../assemble/assemble.js"],
   );
+  assert.ok(imports(agent).includes("./legibility.js"));
   assert.doesNotMatch(agent, /\btool\(|wrapModelCall|createMiddleware/);
+});
+
+test("run/legibility.ts is the one file in run that names a legibility", () => {
+  const run = join(here, "../run");
+  const naming = readdirSync(run)
+    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+    .filter((f) =>
+      imports(readFileSync(join(run, f), "utf8")).some((path) =>
+        path.includes("assemble/on-demand"),
+      ),
+    );
+  assert.deepEqual(naming, ["legibility.ts"]);
 });
 
 test("legibility does not reach for credentials", () => {
