@@ -43,6 +43,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config, its `.env.example`, and its `start`, `stop`, `logs`, `check` and `eval` scripts
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder
+- `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
 
 ## Setup
 
@@ -68,9 +69,9 @@ From a deployment's folder:
 
 From this repo, for que's own code:
 
-- `just check`: typecheck, lint, format check, and the unit and integration tests, for each app. On a pull request the same checks run only for the app that changed; a change to a root file runs both (`.github/workflows/checks.yml`)
+- `just check`: the one way to check que's own code. It runs `scripts/check.sh` in the dev container: types, lint, format, and the unit and integration tests, for each app the change touched, measured against `origin/main` with files not yet committed counted. A change to notes and docs alone runs no set, and the command says so. `just check server` or `just check ui` runs one app's set, whatever changed. It installs an app's packages again, from the lockfile, when its `package.json` or its lockfile has changed. The pipeline runs the same script (`.github/workflows/checks.yml`)
 - `just format`: format every file in both apps with Prettier
-- `just test`: end to end tests in a browser (`ui/tests/e2e`). They need a deployment started, and most were written against one deployment's services and name
+- `just test`: the browser tests (`ui/tests/e2e`). They are a manual run for now, and no part of `just check` or of the pipeline. They need a deployment started, and most were written against one deployment's services and name
 - `tests/e2e/trace.sh <deployment folder>`: checks against the real Langfuse that que sends the trace of a run. It needs the deployment started, with the Langfuse settings in its `.env`, and it makes one model call
 
 Anything else runs in the container: `podman exec -u node -w "$PWD/server" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.

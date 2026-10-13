@@ -1,5 +1,5 @@
 # The checks every pull request must pass, and that main is held to.
-# The same steps as `just check`, without the dev container.
+# The check set is in `scripts/check.sh`, which `just check` runs too: this file sets up the toolchain and calls it.
 name: checks
 
 on:
@@ -7,96 +7,75 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+# A newer push to a pull request replaces the run of the older one. A run on main is never cancelled.
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  # Which app a change touches. A path outside both apps can affect either, so it counts for both.
+  # Which app sets the change needs. The script decides, as it does on a machine.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      server: ${{ steps.paths.outputs.server }}
-      ui: ${{ steps.paths.outputs.ui }}
+      server: ${{ steps.plan.outputs.server }}
+      ui: ${{ steps.plan.outputs.ui }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # A pull request is checked out as its merge commit: the first parent is main.
+          # A pull request is checked out as its merge commit, whose first parent is main.
+          # On main, the first parent is the commit before the merge.
           fetch-depth: 2
-      - id: paths
+      - id: plan
+        env:
+          CHECK_BASE: HEAD^1
         run: |
-          server=false
-          ui=false
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            paths=$(git diff --name-only HEAD^1 HEAD)
-            while read -r path; do
-              case "$path" in
-                "") ;;
-                server/*) server=true ;;
-                ui/*) ui=true ;;
-                *) server=true; ui=true ;;
-              esac
-            done <<< "$paths"
-          else
-            server=true
-            ui=true
-          fi
-          echo "server=$server" >> "$GITHUB_OUTPUT"
-          echo "ui=$ui" >> "$GITHUB_OUTPUT"
+          scripts/check.sh --plan >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
 
   server:
     needs: [changes]
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: server
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Without ui/ on disk, a pass proves the server stands alone.
-          sparse-checkout: server
-      - uses: actions/setup-node@v4
+          sparse-checkout: |
+            scripts
+            server
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: server/package-lock.json
-      - run: npm ci
-      - name: types (contract, backend, harness, evals, tests)
-        run: npx tsc --noEmit
-        working-directory: server/harness
-      - name: lint
-        run: npx eslint
-      - name: format
-        run: npx prettier --check .
-      - name: unit and integration tests
-        run: npx tsx --test "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
+      - run: scripts/check.sh server
 
   ui:
     needs: [changes]
     if: needs.changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: ui
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Without server/ on disk, a pass proves the UI stands alone.
-          sparse-checkout: ui
-      - uses: actions/setup-node@v4
+          sparse-checkout: |
+            scripts
+            ui
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: ui/package-lock.json
-      - run: npm ci
-      - name: types
-        run: npx tsc --noEmit
-      - name: lint
-        run: npx eslint
-      - name: format
-        run: npx prettier --check .
+      - run: scripts/check.sh ui
 
-  # The one name the ruleset on main requires, whichever apps ran.
+  # The one name the ruleset on main requires. It always starts, so it is never left pending:
+  # an app job that the change did not need is skipped, and a skipped job passes here.
   checks:
     needs: [changes, server, ui]
     if: always()

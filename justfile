@@ -91,22 +91,12 @@ check-deployment deployment:
     podman exec -u node -w "$dep" "$c" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
     echo "check passed"
 
-# Typecheck, lint, check the format, and run the unit and integration tests of que's own code, for the server then the UI
-check:
+# Check que's own code: the sets of the apps the change touched. `just check server` or `just check ui` runs one app's set, whatever changed
+check *set:
     #!/usr/bin/env bash
     set -euo pipefail
-    cd "{{root}}"
-    c=$(./scripts/container.sh)
-    at() { local where=$1; shift; podman exec -u node -w "{{root}}/$where" "$c" "$@"; }
-    at server/harness npx tsc --noEmit
-    at server npx eslint
-    at server npx prettier --check .
-    at server npx tsx --test --test-reporter=dot "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
-    at ui npx tsc --noEmit
-    at ui npx eslint
-    at ui npx prettier --check .
-    at ui node --test --test-reporter=dot "lib/**/*.test.ts"
-    echo "check passed"
+    c=$("{{root}}/scripts/container.sh")
+    podman exec -u node -w "{{root}}" "$c" scripts/check.sh {{set}}
 
 # Format every file in both apps with Prettier
 format:
