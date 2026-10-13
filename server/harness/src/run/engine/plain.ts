@@ -3,4 +3,5 @@
 import { createAgent } from "langchain";
 import type { Parts } from "./parts.js";
 
-export const plain = (parts: Parts) => createAgent(parts);
+export const plain = ({ model, systemPrompt, tools, middleware }: Parts) =>
+  createAgent({ model, systemPrompt, tools, middleware });

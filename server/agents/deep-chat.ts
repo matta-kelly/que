@@ -5,7 +5,7 @@ import { defineAgent } from "@que/core";
 // run its packages each way.
 export default defineAgent({
   name: "deep-chat",
-  model: "fireworks:accounts/fireworks/models/deepseek-v4p1-flash",
+  model: "glm-flash",
   instructions: `You are a helpful assistant.
 
 - Be concise and accurate.
