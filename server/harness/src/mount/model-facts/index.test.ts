@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, readFileSync, existsSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { factSources } from "./index.js";
@@ -105,4 +105,19 @@ test("factSources asks a source one time for two models of one id", async () => 
     sources.price(twin),
   ]);
   assert.equal(calls.length, 2, calls.join(", "));
+});
+
+test("factSources does not stop when the saved copy cannot be written", async (t) => {
+  // `.que` is a file here, so no folder of that name can be made.
+  const dir = folder();
+  writeFileSync(join(dir, ".que"), "in the way");
+  const warned = t.mock.method(console, "warn", () => {});
+  const sources = factSources(dir, ENV, network(true).fetch);
+  assert.deepEqual(await sources.window(glm), { window: 1_048_576 });
+  await sources.done();
+  assert.equal(warned.mock.callCount(), 1);
+  assert.match(
+    String(warned.mock.calls[0].arguments[0]),
+    /mount: the saved copy of the models' facts was not written/,
+  );
 });

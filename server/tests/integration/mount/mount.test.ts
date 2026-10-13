@@ -322,6 +322,12 @@ test("stops, naming the model, the fact, the reason and the field, when a model 
       return true;
     },
   );
+  // What a source gave before mount stopped is still kept: the sources are told mount is done.
+  const half = sources({ window: 200_000 });
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("models-bare"), {}, half),
+  );
+  assert.equal(half.done_, 1);
   // A window from the source that maxTokens does not fit in stops mount too.
   await assert.rejects(
     fromDeployment.mountDeployment(

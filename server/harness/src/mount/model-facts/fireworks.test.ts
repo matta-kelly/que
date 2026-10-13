@@ -52,6 +52,16 @@ test("fireworksWindow gives a reason for an error status, a record with no windo
     await reasonOf(answering(() => new Response('{"contextLength":0}')).fetch),
     /no contextLength/,
   );
+  // A window that is not a whole number is no window: a share of it is a count of tokens.
+  for (const contextLength of ["1.5", "1e400", '"big"'])
+    assert.match(
+      await reasonOf(
+        answering(() => new Response(`{"contextLength":${contextLength}}`))
+          .fetch,
+      ),
+      /no contextLength/,
+      contextLength,
+    );
   assert.match(
     await reasonOf(answering(() => new Response("<html>")).fetch),
     /Fireworks did not answer/,
