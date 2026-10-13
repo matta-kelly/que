@@ -3,8 +3,8 @@
  *
  * Chat factory: buildAgent(userId) assembles an agent for one user from the
  * packages they have access to, as the deployment's `agent` says: which of
- * those packages, the model and the instructions. How those packages are put
- * in front of the model is one config from src/assemble. Packages the user can't use are
+ * those packages, the model, the instructions and the loop policy. How those
+ * packages are put in front of the model is one config from src/assemble. Packages the user can't use are
  * never loaded. The user is fixed when the agent is built, so every tool call
  * runs as them.
  */
@@ -12,6 +12,7 @@
 import { createAgent } from "langchain";
 import { assemble } from "../assemble/assemble.js";
 import { onDemand } from "../assemble/on-demand/index.js";
+import { policyFor } from "../assemble/loop/index.js";
 import { catalogFor } from "../access/catalog.js";
 import { narrow } from "../access/narrow.js";
 import { getConnection } from "../access/connections.js";
@@ -37,6 +38,7 @@ export async function buildAgent(userId: string) {
       catalog,
       connect: (pkg) => getConnection(pkg, userId),
       instructions: mounted.agent.instructions,
+      loop: policyFor(mounted.agent.loop),
     }),
   });
 }

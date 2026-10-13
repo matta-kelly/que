@@ -73,37 +73,44 @@ test("validateDeployment rejects a package folder of only spaces", () => {
   );
 });
 
-test("validateDeployment accepts a deployment with no agent", () => {
+test("validateDeployment accepts a deployment with no agents", () => {
   validateDeployment(defineDeployment({ name: "shop", packages: [] }));
 });
 
-test("validateDeployment accepts a deployment with an empty agent", () => {
+test("validateDeployment accepts a deployment that lists agent files", () => {
   validateDeployment(
-    defineDeployment({ name: "shop", packages: [], agent: {} }),
+    defineDeployment({
+      name: "shop",
+      packages: [],
+      agents: ["./agents/chat.ts", "/abs/agents/lean.ts"],
+    }),
   );
 });
 
-test("validateDeployment rejects an agent that breaks its shape", () => {
+test("validateDeployment rejects agents that are not a list, and an agent that is not a file path", () => {
   assert.throws(
     () =>
-      validateDeployment({ name: "shop", packages: [], agent: { model: "" } }),
-    /model/,
+      validateDeployment({ name: "shop", packages: [], agents: "./chat.ts" }),
+    /agents of deployment shop must be an array/,
+  );
+  assert.throws(
+    () => validateDeployment({ name: "shop", packages: [], agents: [7, " "] }),
+    (error: Error) => {
+      assert.match(error.message, /must each be a file path, got 7/);
+      assert.match(error.message, /must each be a file path, got " "/);
+      return true;
+    },
   );
 });
 
-test("validateDeployment names the agent's faults beside its own, in one error", () => {
+test("validateDeployment rejects an agent block, and says a config is now a file", () => {
   assert.throws(
     () =>
       validateDeployment({
-        name: "two words",
+        name: "shop",
         packages: [],
-        agent: { model: "", instructions: "" },
+        agent: { model: "provider:model" },
       }),
-    (error: Error) => {
-      assert.match(error.message, /name/);
-      assert.match(error.message, /model/);
-      assert.match(error.message, /instructions/);
-      return true;
-    },
+    /deployment shop has an `agent` block: an agent config is a file of its own, listed in `agents`/,
   );
 });

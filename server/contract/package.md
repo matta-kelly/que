@@ -67,6 +67,7 @@ export default defineDeployment({
     packages: ["orders"],
     model: "provider:model-name",
     instructions: "You help the sales team.",
+    loop: "compact",
   },
 });
 ```
@@ -74,7 +75,10 @@ export default defineDeployment({
 - `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
 - `model`: as `provider:model`. Left out: `MODEL` from the environment, and with no `MODEL`, the one named in que
 - `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
-- `validateAgent` in `@que/core`; `validateDeployment` runs it, and its faults are listed in the deployment's one error: a field that is not one of the three, a `packages` that is not a list of names, a `model` or an `instructions` that is empty or only spaces
+- `loop`: the name of a loop policy. Left out: `keep-all`
+	- `keep-all`: the model is sent the whole chat with every request
+	- `compact`: past a size, the model is sent a placeholder in place of an old operation result. The call and its arguments stay, and so do the results of `open_package`, `load_operation` and `read_skill`. The chat keeps every result
+- `validateAgent` in `@que/core`; `validateDeployment` runs it, and its faults are listed in the deployment's one error: a field that is not one of the four, a `packages` that is not a list of names, a `model` or an `instructions` that is empty or only spaces, a `loop` that is not the name of a policy
 - mount stops when `packages` names a package the deployment does not mount, and the error names it
 - a package is written with no knowledge of this block
 

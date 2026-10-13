@@ -31,7 +31,8 @@ test("agent.ts takes only assemble, a config and a loop policy from assemble", (
 });
 
 test("only a loop policy names a framework's context middleware", () => {
-  const named = /contextEditingMiddleware|ClearToolUsesEdit|summarizationMiddleware/;
+  const named =
+    /contextEditingMiddleware|ClearToolUsesEdit|summarizationMiddleware/;
   const harness = join(here, "..");
   const files = readdirSync(harness, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))

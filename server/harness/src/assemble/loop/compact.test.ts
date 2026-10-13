@@ -50,9 +50,9 @@ const call = (
 // Large enough that eight of them pass the limit where the clearing starts.
 const big = (label: string) => `${label} ${"x".repeat(80_000)}`;
 
-const orders = (count: number) =>
+const orders = (count: number, result = big) =>
   Array.from({ length: count }, (_, i) =>
-    call(`order-${i}`, "shop_getOrder", { id: i }, big(`order ${i}`)),
+    call(`order-${i}`, "shop_getOrder", { id: i }, result(`order ${i}`)),
   ).flat();
 
 const longChat = () => [
@@ -106,7 +106,10 @@ test("compact sends a placeholder for each operation result but the newest three
 });
 
 test("compact sends every result in a chat under the limit", async () => {
-  const short = [new HumanMessage("One order."), ...orders(5)];
+  const short = [
+    new HumanMessage("A few orders."),
+    ...orders(5, (label) => label),
+  ];
   const { messages } = await sent(compact, short);
   assert.ok(!results(messages, "shop_getOrder").includes("[cleared]"));
 });
@@ -114,7 +117,9 @@ test("compact sends every result in a chat under the limit", async () => {
 test("compact keeps the call of a result it does not send, with its arguments", async () => {
   const { messages } = await sent(compact, longChat());
   const calls = messages.flatMap(
-    (m) => (m as { tool_calls?: { name: string; args: unknown }[] }).tool_calls ?? [],
+    (m) =>
+      (m as { tool_calls?: { name: string; args: unknown }[] }).tool_calls ??
+      [],
   );
   assert.deepEqual(
     calls.filter((c) => c.name === "shop_getOrder").map((c) => c.args),

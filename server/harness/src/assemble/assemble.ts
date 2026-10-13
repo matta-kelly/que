@@ -1,6 +1,7 @@
 /**
- * Puts one config on the shared base: the system prompt, the tools, and the
- * rule for which tools go out with each model request. Every operation is
+ * Puts one config and one loop policy on the shared base: the system prompt,
+ * the tools, the rule for which tools go out with each model request, and
+ * what the policy does to the chat on its way to the model. Every operation is
  * registered with the agent so it can run; the config decides which ones the
  * model is shown.
  */
@@ -9,6 +10,8 @@ import { createMiddleware } from "langchain";
 import type { PackageDefinition } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
+import { keepAll } from "./loop/keep-all.js";
+import type { Policy } from "./loop/policy.js";
 import { operationTools } from "./operations.js";
 import { systemPrompt } from "./prompt.js";
 import { skillTools } from "./skills.js";
@@ -33,11 +36,13 @@ export function assemble(
     catalog,
     connect,
     instructions,
+    loop = keepAll,
   }: {
     user?: { name: string; email: string };
     catalog: Catalog;
     connect: (pkg: PackageDefinition) => Promise<unknown>;
     instructions?: string;
+    loop?: Policy;
   },
 ) {
   const base = [...config.tools(catalog), ...skillTools(catalog)];
@@ -66,6 +71,9 @@ export function assemble(
             ),
           }),
       }),
+      // After the rule above, so which operations are loaded is read from the
+      // whole chat, and not from what a policy leaves of it.
+      ...loop.middleware(baseNames),
     ],
   };
 }
