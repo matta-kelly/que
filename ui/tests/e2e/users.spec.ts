@@ -64,3 +64,21 @@ test("users: upload and remove a profile picture", async ({ page }) => {
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(navUser.locator("img")).toHaveCount(0);
 });
+
+// Needs a deployment with no DEV_USER_INSTRUCTIONS, so the text can be saved.
+test("users: the list of users carries the instructions of nobody", async ({
+  page,
+}) => {
+  await openApp(page);
+  try {
+    const saved = await page.request.patch("/api/que/me", {
+      data: { instructions: "Only I read this." },
+    });
+    expect(saved.ok()).toBe(true);
+    const list = await page.request.get("/api/que/users");
+    expect(list.ok()).toBe(true);
+    expect(await list.text()).not.toContain("Only I read this.");
+  } finally {
+    await page.request.patch("/api/que/me", { data: { instructions: "" } });
+  }
+});

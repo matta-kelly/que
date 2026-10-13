@@ -63,3 +63,14 @@ test("validateAgent rejects a config with no name, and a name that is not a plai
     /agent name "two words" must match/,
   );
 });
+
+test("validateAgent accepts userInstructions as true or false, and rejects any other value", () => {
+  validateAgent({ name: "chat", userInstructions: true });
+  validateAgent({ name: "chat", userInstructions: false });
+  for (const userInstructions of ["yes", 1, null])
+    assert.throws(
+      () => validateAgent({ name: "chat", userInstructions }),
+      /userInstructions of the agent/,
+      JSON.stringify(userInstructions),
+    );
+});

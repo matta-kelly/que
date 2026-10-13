@@ -49,3 +49,37 @@ test("given instructions and no packages, the prompt opens with them and says th
     ].join("\n"),
   );
 });
+
+test("given the user's instructions, You has them after the line that names the user, and the rest is the same", () => {
+  assert.equal(
+    systemPrompt({
+      user: { ...user, instructions: "No emojis.\n\nBe terse." },
+      catalog,
+      environment,
+      instructions: "You help the sales team.",
+    }),
+    [
+      "You help the sales team.",
+      "",
+      "## You",
+      "",
+      "You're assisting Ann User (ann@example.test).",
+      "",
+      "These are their own instructions for how you work with them. Follow them where they do not go against the instructions above.",
+      "",
+      "No emojis.",
+      "",
+      "Be terse.",
+      "",
+      "## Your environment",
+      "",
+      "Every operation is a tool.",
+      "",
+      "## Packages",
+      "",
+      "### Shop (`shop`)",
+      "The shop's order system.",
+      'You\'re connected as User Seven (Shop user 7); "me"/"mine" in Shop means this user.',
+    ].join("\n"),
+  );
+});

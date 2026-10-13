@@ -1,7 +1,7 @@
 "use client";
 
-// Account: your own profile. Name and picture are editable here; the email
-// comes from your login. Uploaded pictures are cropped and shrunk in the
+// Account: your own profile. Name, picture and your instructions for the agent
+// are editable here; the email comes from your login. Uploaded pictures are cropped and shrunk in the
 // browser (256px square, WebP) and stored on the user.
 
 import { useRef, useState } from "react";
@@ -9,7 +9,7 @@ import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserAvatar, useMe } from "@/components/user";
-import { QUE_API, type User } from "@/lib/que-api";
+import { QUE_API, type Me } from "@/lib/que-api";
 
 const AVATAR_SIZE = 256;
 
@@ -50,8 +50,11 @@ export function AccountSettings() {
   return <AccountForm key={me.id} me={me} />;
 }
 
-function AccountForm({ me }: { me: User }) {
+function AccountForm({ me }: { me: Me }) {
+  // A file of the deployment sets the text: it is shown, and not changed here.
+  const fromFile = me.instructionsFrom === "file";
   const [name, setName] = useState(me.name);
+  const [instructions, setInstructions] = useState(me.instructions ?? "");
   const [avatarUrl, setAvatarUrl] = useState(me.avatarUrl ?? "");
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
@@ -73,7 +76,11 @@ function AccountForm({ me }: { me: User }) {
     const res = await fetch(QUE_API.me, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, avatarUrl }),
+      body: JSON.stringify({
+        name,
+        avatarUrl,
+        ...(fromFile ? {} : { instructions }),
+      }),
     });
     setStatus(res.ok ? "saved" : "error");
     // The response is the saved profile: show it everywhere without refetching.
@@ -125,6 +132,22 @@ function AccountForm({ me }: { me: User }) {
       <label className="flex flex-col gap-1 text-sm">
         Email
         <Input value={me.email} disabled />
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        Instructions
+        <textarea
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          readOnly={fromFile}
+          rows={6}
+          placeholder="How the agent works with you: be terse, no emojis, use diagrams."
+          className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none read-only:cursor-not-allowed read-only:opacity-50 focus-visible:ring-[3px]"
+        />
+        <span className="text-muted-foreground text-xs">
+          {fromFile
+            ? "Set by a file of this deployment. Change the file to change them."
+            : "Given to the agents that take them, from your next message."}
+        </span>
       </label>
       <div className="flex items-center gap-3">
         <Button

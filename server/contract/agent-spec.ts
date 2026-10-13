@@ -2,7 +2,7 @@
  * The contract for an agent config: one way a deployment's packages are run.
  * It has a name, and says which packages the agent gets, the model it runs
  * on, its instructions, how it is shown the environment, and the loop it
- * runs in. A config is a
+ * runs in, and if it takes the user's own instructions. A config is a
  * file of its own, and a deployment lists it. Framework-free, as the package
  * contract is.
  */
@@ -27,6 +27,8 @@ export type AgentDefinition = {
   legibility?: Legibility;
   /** The name of a loop config the deployment lists: how the agent's loop is run. */
   loop?: string;
+  /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
+  userInstructions?: boolean;
 };
 
 export function defineAgent(definition: AgentDefinition): AgentDefinition {
@@ -40,6 +42,7 @@ const FIELDS = [
   "instructions",
   "legibility",
   "loop",
+  "userInstructions",
 ];
 
 /**
@@ -49,8 +52,15 @@ const FIELDS = [
 export function validateAgent(def: unknown): asserts def is AgentDefinition {
   if (!def || typeof def !== "object" || Array.isArray(def))
     throw new Error("agent must be an object");
-  const { name, packages, model, instructions, legibility, loop } =
-    def as Record<string, unknown>;
+  const {
+    name,
+    packages,
+    model,
+    instructions,
+    legibility,
+    loop,
+    userInstructions,
+  } = def as Record<string, unknown>;
   const problems: string[] = [];
   const text = (value: unknown, what: string) => {
     if (value !== undefined && (typeof value !== "string" || !value.trim()))
@@ -94,6 +104,10 @@ export function validateAgent(def: unknown): asserts def is AgentDefinition {
   if (loop !== undefined && (typeof loop !== "string" || !NAME.test(loop)))
     problems.push(
       `loop of the agent must be the name of a loop, got ${JSON.stringify(loop)}`,
+    );
+  if (userInstructions !== undefined && typeof userInstructions !== "boolean")
+    problems.push(
+      `userInstructions of the agent must be true or false, got ${JSON.stringify(userInstructions)}`,
     );
 
   if (problems.length)

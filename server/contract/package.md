@@ -68,6 +68,7 @@ export default defineAgent({
   instructions: "You help the sales team.",
   legibility: "on-demand",
   loop: "nightly",
+  userInstructions: true,
 });
 ```
 ```ts
@@ -88,11 +89,15 @@ export default defineDeployment({
 - `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
 - `legibility`: the name of the way the model is shown its packages. One exists, `on-demand`, and it is the one a config gets when it names none
 - `loop`: the name of a loop config the deployment lists: how the agent's loop is run. Left out: the agent runs on the `plain` engine, as it does with no loop. See [the deployment's loops](#the-deployments-loops)
+- `userInstructions`: `true`, and the agent's system prompt gets the user's own instructions, in `## You`, after the line that names the user. `false` or left out: it gets none. The agent's `instructions` come first, and the prompt says they stand where the two do not agree
+	- where the text is from is not in the agent config. The deployment's `.env` can name a file with `DEV_USER_INSTRUCTIONS`: absolute, or taken from the deployment's own folder. It is read for each run, and que stops at startup when it cannot be read. With no file named, the text is the one the user saved in Settings, in Account, of at most 16,000 characters
+	- a named file is the text of every user of the deployment, and the text of an account is then not used and cannot be changed
+	- que's own `chat` and `deep-chat` say `true`
 - which config a run gets
 	- a run names one with `agent` in its `configurable`: `{ configurable: { agent: "lean" } }`
 	- a run that names none gets the first one the deployment lists. So the chat is the first file
 	- a name the deployment does not have fails the run, and the error lists the names it has
-- `validateAgent` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a `packages` that is not a list of names, an `instructions` that is empty or only spaces, a `model` that is not a plain name (one written as `provider:model` gets a fault that says a model is now a file), a `legibility` que does not have
+- `validateAgent` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a `packages` that is not a list of names, an `instructions` that is empty or only spaces, a `model` that is not a plain name (one written as `provider:model` gets a fault that says a model is now a file), a `legibility` que does not have, a `userInstructions` that is not `true` or `false`
 - mount stops when a listed file does not exist, when two configs have one name, when `packages` names a package the deployment does not mount, and when `loop` or `model` names one the deployment does not list. The error names the file, the name, or the config and what it names
 - a deployment that still writes an `agent` block stops at startup, and the error says a config is now a file
 - a package is written with no knowledge of a config

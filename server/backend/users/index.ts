@@ -20,10 +20,17 @@ export type Users = {
   ensure(identity: { email: string; name: string }): Promise<User>;
   get(id: string): Promise<User | undefined>;
   list(): Promise<User[]>;
+  /** `instructions`: text to save, `null` to remove it. Left out, it stays as it is. */
   update(
     id: string,
-    changes: { name?: string; avatarUrl?: string | null },
+    changes: {
+      name?: string;
+      avatarUrl?: string | null;
+      instructions?: string | null;
+    },
   ): Promise<User | undefined>;
+  /** The user's own instructions. Not part of `User`, so no list of users carries them. */
+  instructionsOf(id: string): Promise<string | null>;
 };
 
 type Row = {
@@ -33,6 +40,7 @@ type Row = {
   avatar_url: string | null;
   role: User["role"];
   created_at: Date;
+  instructions: string | null;
 };
 const toUser = (r: Row): User => ({
   id: r.id,
@@ -46,7 +54,9 @@ const toUser = (r: Row): User => ({
 export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
   const pool = new pg.Pool({ connectionString: databaseUrl });
-  const ready = pool.query(`
+  const ready = pool
+    .query(
+      `
     CREATE TABLE IF NOT EXISTS users (
       id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
       email      text        NOT NULL UNIQUE,
@@ -54,7 +64,14 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
       avatar_url text,
       role       text        NOT NULL DEFAULT 'member',
       created_at timestamptz NOT NULL DEFAULT now()
-    )`);
+    )`,
+    )
+    // A table made before the column was.
+    .then(() =>
+      pool.query(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS instructions text",
+      ),
+    );
 
   return {
     async ensure({ email, name }) {
@@ -83,21 +100,32 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
       );
       return rows.map(toUser);
     },
-    async update(id, { name, avatarUrl }) {
+    async update(id, { name, avatarUrl, instructions }) {
       await ready;
       const { rows } = await pool.query<Row>(
         `UPDATE users SET
-           name       = COALESCE($2, name),
-           avatar_url = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END
+           name         = COALESCE($2, name),
+           avatar_url   = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END,
+           instructions = CASE WHEN $5::boolean THEN $6 ELSE instructions END
          WHERE id = $1 RETURNING *`,
         [
           id,
           name?.trim() || null,
           avatarUrl !== undefined,
           avatarUrl?.trim() || null,
+          instructions !== undefined,
+          instructions ?? null,
         ],
       );
       return rows[0] && toUser(rows[0]);
+    },
+    async instructionsOf(id) {
+      await ready;
+      const { rows } = await pool.query<Pick<Row, "instructions">>(
+        "SELECT instructions FROM users WHERE id = $1",
+        [id],
+      );
+      return rows[0]?.instructions ?? null;
     },
   };
 }

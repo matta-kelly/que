@@ -34,7 +34,7 @@ export function assemble(
     connect,
     instructions,
   }: {
-    user?: { name: string; email: string };
+    user?: { name: string; email: string; instructions?: string };
     catalog: Catalog;
     connect: (pkg: PackageDefinition) => Promise<unknown>;
     instructions?: string;

@@ -1,6 +1,7 @@
 /**
  * The system prompt every config shares: the role (or the instructions given
- * in its place), who the user is, and the packages this user can use. The config supplies the text about the
+ * in its place), who the user is and what they ask of the agent, and the
+ * packages this user can use. The config supplies the text about the
  * environment. Everything about a package comes from what the package says
  * about itself through the package spec.
  */
@@ -11,6 +12,10 @@ const ROLE = `You are a helpful assistant.
 
 - Be concise and accurate.
 - If you're unsure about something, say so rather than guessing.`;
+
+// The agent's instructions come first in the prompt, and stay first where the two do not agree.
+const OWN =
+  "These are their own instructions for how you work with them. Follow them where they do not go against the instructions above.";
 
 const packages = (catalog: Catalog) =>
   [
@@ -34,7 +39,7 @@ export function systemPrompt({
   environment,
   instructions,
 }: {
-  user?: { name: string; email: string };
+  user?: { name: string; email: string; instructions?: string };
   catalog: Catalog;
   environment: (catalog: Catalog) => string;
   instructions?: string;
@@ -42,7 +47,10 @@ export function systemPrompt({
   return [
     instructions ?? ROLE,
     ...(user
-      ? [`## You\n\nYou're assisting ${user.name} (${user.email}).`]
+      ? [
+          `## You\n\nYou're assisting ${user.name} (${user.email}).`,
+          ...(user.instructions ? [OWN, user.instructions] : []),
+        ]
       : []),
     ...(catalog.length
       ? [environment(catalog), packages(catalog)]

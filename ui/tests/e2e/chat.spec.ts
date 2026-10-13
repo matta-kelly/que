@@ -99,3 +99,27 @@ test("chat: a message gets a reply", async ({ page }) => {
     );
   }
 });
+
+// Needs a deployment whose first agent takes the user's instructions, and no
+// DEV_USER_INSTRUCTIONS.
+test("chat: a reply follows the instructions saved in Account", async ({
+  page,
+}) => {
+  await openApp(page);
+  try {
+    const saved = await page.request.patch("/api/que/me", {
+      data: { instructions: "End every reply with the word KUMQUAT." },
+    });
+    expect(saved.ok()).toBe(true);
+
+    const input = page.getByPlaceholder("Send a message...");
+    await input.fill("Say hello.");
+    await input.press("Enter");
+    await expect(page.locator('[data-role="assistant"]').last()).toContainText(
+      /kumquat/i,
+      { timeout: 60_000 },
+    );
+  } finally {
+    await page.request.patch("/api/que/me", { data: { instructions: "" } });
+  }
+});

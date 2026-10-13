@@ -30,3 +30,30 @@ test("settings: home tiles and search into sections", async ({ page }) => {
     .fill("zzz-nothing");
   await expect(dialog.getByText(/No settings match/)).toBeVisible();
 });
+
+// Needs a deployment with no DEV_USER_INSTRUCTIONS: the box is the account's.
+test("settings: instructions saved in Account are in the box after a reload", async ({
+  page,
+}) => {
+  const account = async () => {
+    await openApp(page);
+    await page.locator('[data-slot="nav-user"]').click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Account", exact: true }).click();
+    return dialog;
+  };
+  let dialog = await account();
+  try {
+    await dialog.getByLabel("Instructions").fill("No emojis.\nBe terse.");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByText("Saved")).toBeVisible();
+
+    dialog = await account();
+    await expect(dialog.getByLabel("Instructions")).toHaveValue(
+      "No emojis.\nBe terse.",
+    );
+  } finally {
+    // No other test's chat runs with this text.
+    await page.request.patch("/api/que/me", { data: { instructions: "" } });
+  }
+});

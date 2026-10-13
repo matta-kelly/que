@@ -5,10 +5,10 @@
 
 import useSWR from "swr";
 import { cn } from "@/lib/utils";
-import { fetcher, QUE_API, type User } from "@/lib/que-api";
+import { fetcher, QUE_API, type Me, type User } from "@/lib/que-api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export const useMe = () => useSWR<User>(QUE_API.me, fetcher);
+export const useMe = () => useSWR<Me>(QUE_API.me, fetcher);
 
 const initials = (name: string) =>
   name

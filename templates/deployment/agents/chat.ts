@@ -9,4 +9,5 @@ export default defineAgent({
   // instructions: "...",     opens the system prompt, in place of que's own role text
   // legibility: "on-demand", how the model is shown its packages
   // loop: "long-chat",       the name of a loop config the deployment lists
+  // userInstructions: true,  the prompt gets the user's own instructions
 });
