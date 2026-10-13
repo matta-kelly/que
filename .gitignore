@@ -5,4 +5,3 @@ dist
 .langgraph_api
 *.tsbuildinfo
 next-env.d.ts
-harness/evals/results/
