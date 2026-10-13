@@ -1,8 +1,8 @@
 /**
  * Langfuse, where the runs are kept: the cases mirrored into one dataset, and
- * each experiment sent as one run on it. The one file that knows the Langfuse
- * SDK and OpenTelemetry. What it takes and hands back is in the runner's own
- * form.
+ * each experiment sent as one run on it, with the verdict of a judged run as
+ * a score on its trace. The one file that knows the Langfuse SDK and
+ * OpenTelemetry. What it takes and hands back is in the runner's own form.
  */
 
 import { LangfuseClient } from "@langfuse/client";
@@ -12,6 +12,7 @@ import { context, propagation, trace } from "@opentelemetry/api";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { isDeepStrictEqual } from "node:util";
 import type { Experiment, Item, Sending, Sent } from "./experiment.js";
+import type { Verdict } from "./judge.js";
 
 export type Settings = {
   url: string;
@@ -124,9 +125,10 @@ export function langfuse({
     items: Held,
     experiment: Experiment,
   ): Promise<Sent> {
-    const outputs = new Map(
-      experiment.outputs.map(({ item, output }) => [item, output]),
-    );
+    const outputs = new Map(experiment.outputs.map((o) => [o.item, o]));
+    // An evaluator is given the output of the task and not its item, so the
+    // task gives each item an output of its own, and its verdict is kept by it.
+    const verdicts = new Map<unknown, Verdict>();
     const { datasetRunUrl } = await client.experiment.run({
       name: experiment.name,
       runName: experiment.run,
@@ -136,14 +138,36 @@ export function langfuse({
       // The run is made already. A task that throws loses its trace, so the
       // error of a run that did not finish goes on the trace, and is given back.
       task: async (item) => {
-        const output = "id" in item ? outputs.get(item.id) : undefined;
-        if (output && "error" in output)
+        const made = "id" in item ? outputs.get(item.id) : undefined;
+        if (!made) return undefined;
+        const output = { ...made.output };
+        if ("error" in output)
           updateActiveObservation({
             level: "ERROR",
             statusMessage: output.error,
           });
+        if (made.verdict) verdicts.set(output, made.verdict);
         return output;
       },
+      // The run is judged already: this calls nothing. A run with no verdict
+      // has no score.
+      evaluators: [
+        ({ output }) => {
+          const verdict = verdicts.get(output);
+          return Promise.resolve(
+            verdict && "pass" in verdict
+              ? [
+                  {
+                    name: "good",
+                    dataType: "BOOLEAN" as const,
+                    value: verdict.pass ? 1 : 0,
+                    comment: verdict.reason,
+                  },
+                ]
+              : [],
+          );
+        },
+      ],
     });
     return {
       agent: experiment.agent,

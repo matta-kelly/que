@@ -11,6 +11,15 @@ const byCustomer = {
   good: "The answer gives the state of the order of Ada.",
 };
 
+const notAsked = {
+  package: "shop",
+  name: "find-order-not-asked",
+  capability: "find-order",
+  input: "What can you do?",
+  start: "Any.",
+  good: "No operation is called.",
+};
+
 test("the report has each case with its input, start and good, and each run under its agent", () => {
   assert.equal(
     report([
@@ -54,6 +63,63 @@ test("the report has each case with its input, start and good, and each run unde
     error    no agent "lean". Agents: chat
 
 2 runs, 1 did not finish, 0 skipped`,
+  );
+});
+
+test("the report has the verdict of each judged run, and how many passed under each agent", () => {
+  assert.equal(
+    report([
+      {
+        case: byCustomer,
+        agent: "chat",
+        record: { steps: [], answer: "Order 12 of Ada is open." },
+        verdict: { pass: true, reason: "The answer gives the state." },
+      },
+      {
+        case: byCustomer,
+        agent: "deep-chat",
+        record: { steps: [], answer: "Ada has an order." },
+        verdict: {
+          pass: false,
+          reason: "The answer names an order.\nIt does not give its state.",
+        },
+      },
+      {
+        case: notAsked,
+        agent: "chat",
+        record: { steps: [], answer: "I can find the shop's orders." },
+        verdict: { none: "the reply has no VERDICT line" },
+      },
+      { case: notAsked, agent: "deep-chat", error: "it stopped" },
+    ]),
+    `shop / find-order / find-order-by-customer
+  input  Where is the order of Ada?
+  start  Ada has one open order.
+  good   The answer gives the state of the order of Ada.
+
+  [chat]
+    answer   Order 12 of Ada is open.
+    verdict  pass  The answer gives the state.
+
+  [deep-chat]
+    answer   Ada has an order.
+    verdict  fail  The answer names an order. It does not give its state.
+
+shop / find-order / find-order-not-asked
+  input  What can you do?
+  start  Any.
+  good   No operation is called.
+
+  [chat]
+    answer   I can find the shop's orders.
+    verdict  none  the reply has no VERDICT line
+
+  [deep-chat]
+    error    it stopped
+
+4 runs, 1 did not finish, 0 skipped
+  [chat]       1 of 2 passed
+  [deep-chat]  0 of 1 passed`,
   );
 });
 

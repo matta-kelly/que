@@ -4,6 +4,7 @@
  * runner's own form: nothing here knows Langfuse.
  */
 
+import type { Verdict } from "./judge.js";
 import type { Agent, LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
 import type { Outcome } from "./report.js";
@@ -20,8 +21,12 @@ export type Item = {
     start: string;
   };
 };
-/** What a run gave: its record, or the error of a run that did not finish. */
-export type Output = { item: string; output: RunRecord | { error: string } };
+/** What a run gave: its record, or the error of a run that did not finish. `verdict` is on a run that was judged. */
+export type Output = {
+  item: string;
+  output: RunRecord | { error: string };
+  verdict?: Verdict;
+};
 /** The runs made under one agent config. `run` names this pass of them. */
 export type Experiment = {
   agent: string;
@@ -32,6 +37,8 @@ export type Experiment = {
     config?: Agent;
     commit: string;
     deployment: string;
+    /** The name of the judge's model config, when the runs were judged. */
+    judge?: string;
   };
   outputs: Output[];
 };
@@ -56,6 +63,7 @@ export function experiments({
   cases,
   agents,
   outcomes,
+  judge,
 }: {
   deployment: string;
   commit: string;
@@ -64,6 +72,8 @@ export function experiments({
   cases: LoadedCase[];
   agents: Agent[];
   outcomes: Outcome[];
+  /** The name of the judge's model config, with a judge. */
+  judge?: string;
 }): Sending {
   const items = cases.map((c) => ({
     id: idOf(deployment, c),
@@ -80,13 +90,11 @@ export function experiments({
   const made = [...agents, undefined].flatMap((config): Experiment[] => {
     const outputs = outcomes.flatMap((outcome): Output[] => {
       if (outcome.agent !== config?.name || "skipped" in outcome) return [];
-      return [
-        {
-          item: idOf(deployment, outcome.case),
-          output:
-            "error" in outcome ? { error: outcome.error } : outcome.record,
-        },
-      ];
+      const item = idOf(deployment, outcome.case);
+      if ("error" in outcome)
+        return [{ item, output: { error: outcome.error } }];
+      const { record, verdict } = outcome;
+      return [{ item, output: record, ...(verdict && { verdict }) }];
     });
     if (!outputs.length) return [];
     const agent = config?.name ?? DEFAULT;
@@ -96,7 +104,13 @@ export function experiments({
         agent,
         name,
         run: `${name} ${at}`,
-        metadata: { agent, ...(config && { config }), commit, deployment },
+        metadata: {
+          agent,
+          ...(config && { config }),
+          commit,
+          deployment,
+          ...(judge && { judge }),
+        },
         outputs,
       },
     ];

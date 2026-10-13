@@ -4,7 +4,8 @@
  *
  * Its answers are not taken from a live Langfuse: there was none to take them
  * from. Their shapes are the types of `@langfuse/core` 5.13.1 (`Dataset`,
- * `DatasetItem`, `PaginatedDatasetItems`, `DatasetRunItem`, `Projects`).
+ * `DatasetItem`, `PaginatedDatasetItems`, `DatasetRunItem`, `Projects`,
+ * `IngestionResponse`).
  */
 
 import { createServer } from "node:http";
@@ -40,10 +41,22 @@ export type Trace = {
   status?: string;
 };
 
+/** One score Langfuse was sent, with the experiment and the item of the trace it is on. */
+export type Score = {
+  experiment: string;
+  item: string;
+  name: string;
+  dataType?: string;
+  value: unknown;
+  comment?: string;
+};
+
 type Attribute = { key: string; value: { stringValue?: string } };
 type Otlp = {
   resourceSpans?: {
-    scopeSpans?: { spans?: { attributes?: Attribute[] }[] }[];
+    scopeSpans?: {
+      spans?: { traceId?: string; attributes?: Attribute[] }[];
+    }[];
   }[];
 };
 
@@ -165,12 +178,32 @@ export async function standIn(
           ],
         });
       if (to === "POST /api/public/otel/v1/traces") return send(200, {});
+      // The SDK sends a score as one event of a batch.
+      if (to === "POST /api/public/ingestion")
+        return send(207, {
+          successes: (body?.batch as { id: string }[]).map(({ id }) => ({
+            id,
+            status: 201,
+          })),
+          errors: [],
+        });
       return send(404, { message: "Not Found" });
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
   const url = `http://127.0.0.1:${port}`;
+
+  const spans = () =>
+    sent
+      .filter(({ path }) => path === "/api/public/otel/v1/traces")
+      .flatMap(({ body }) => (body as Otlp).resourceSpans ?? [])
+      .flatMap((resource) => resource.scopeSpans ?? [])
+      .flatMap((scope) => scope.spans ?? []);
+  const attribute = (
+    span: { attributes?: Attribute[] } | undefined,
+    key: string,
+  ) => span?.attributes?.find((a) => a.key === key)?.value.stringValue;
 
   return {
     url,
@@ -189,15 +222,9 @@ export async function standIn(
         .sort((a, b) => a.id.localeCompare(b.id)),
     /** The traces sent, by experiment and then by item. */
     traces: (): Trace[] =>
-      sent
-        .filter(({ path }) => path === "/api/public/otel/v1/traces")
-        .flatMap(({ body }) => (body as Otlp).resourceSpans ?? [])
-        .flatMap((resource) => resource.scopeSpans ?? [])
-        .flatMap((scope) => scope.spans ?? [])
+      spans()
         .map((span) => {
-          const of = (key: string) =>
-            span.attributes?.find((attribute) => attribute.key === key)?.value
-              .stringValue;
+          const of = (key: string) => attribute(span, key);
           const level = of("langfuse.observation.level");
           const status = of("langfuse.observation.status_message");
           return {
@@ -213,6 +240,35 @@ export async function standIn(
             },
             ...(level === undefined ? {} : { level }),
             ...(status === undefined ? {} : { status }),
+          };
+        })
+        .sort((a, b) =>
+          `${a.experiment} ${a.item}`.localeCompare(
+            `${b.experiment} ${b.item}`,
+          ),
+        ),
+    /** The scores sent, by the experiment and then the item of their trace. */
+    scores: (): Score[] =>
+      sent
+        .filter(({ path }) => path === "/api/public/ingestion")
+        .flatMap(
+          ({ body }) =>
+            (
+              body as {
+                batch: { type: string; body: Score & { traceId: string } }[];
+              }
+            ).batch,
+        )
+        .filter(({ type }) => type === "score-create")
+        .map(({ body: { traceId, name, dataType, value, comment } }) => {
+          const trace = spans().find((span) => span.traceId === traceId);
+          return {
+            experiment: attribute(trace, "langfuse.experiment.name") ?? "",
+            item: attribute(trace, "langfuse.experiment.item.id") ?? "",
+            name,
+            dataType,
+            value,
+            comment,
           };
         })
         .sort((a, b) =>

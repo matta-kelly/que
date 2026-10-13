@@ -4,14 +4,16 @@
  *
  *   tsx src/cli.ts <deployment folder> [--agent <name>]...
  *
- * que is at QUE_URL, or on this machine. Nothing is graded: a person reads
- * the runs. With the Langfuse settings of the deployment and QUE_COMMIT, the
- * runs are sent to Langfuse after the report, so a fault of Langfuse cannot
- * lose a report.
+ * que is at QUE_URL, or on this machine. With QUE_JUDGE, the name of a model
+ * config of the deployment, that model judges each finished run on the `good`
+ * of its case. With none, nothing is graded: a person reads the runs. With
+ * the Langfuse settings of the deployment and QUE_COMMIT, the runs are sent
+ * to Langfuse after the report, so a fault of Langfuse cannot lose a report.
  */
 
 import { resolve } from "node:path";
 import { experiments } from "./experiment.js";
+import { judge, judged, modelNamed } from "./judge.js";
 import { langfuse, settings } from "./langfuse.js";
 import { load } from "./load.js";
 import { plan } from "./plan.js";
@@ -40,8 +42,11 @@ async function main(): Promise<number> {
   const server = que(url);
   const at = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const store = settings(process.env);
-  const { deployment, cases, agents } = await load(folder);
+  const { deployment, cases, agents, models } = await load(folder);
   const planned = plan(cases, agents, named);
+  // An empty QUE_JUDGE is no judge.
+  const judging = process.env.QUE_JUDGE || undefined;
+  const ask = judging && judge(modelNamed(models, judging));
   if (!(await server.up()))
     throw new Error(
       `eval: que is not up at ${url}. Start the deployment first: <its folder>/start`,
@@ -52,17 +57,18 @@ async function main(): Promise<number> {
   if (keeper && !(await keeper.up()))
     throw new Error(`eval: Langfuse is not up at ${store.url}`);
 
-  const outcomes: Outcome[] = [];
+  const made: Outcome[] = [];
   for (const { case: c, agent, skipped } of planned) {
-    if (skipped) outcomes.push({ case: c, agent, skipped });
+    if (skipped) made.push({ case: c, agent, skipped });
     else
-      outcomes.push(
+      made.push(
         await server.run(c.input, agent).then(
           (messages) => ({ case: c, agent, record: record(messages) }),
           (error: Error) => ({ case: c, agent, error: error.message }),
         ),
       );
   }
+  const outcomes = ask ? await judged(made, ask) : made;
   console.log(report(outcomes));
   if (keeper) {
     const sent = await keeper
@@ -74,6 +80,7 @@ async function main(): Promise<number> {
           cases,
           agents,
           outcomes,
+          judge: judging,
         }),
       )
       .catch((error: Error) => {

@@ -360,6 +360,62 @@ test("an experiment has a trace for the items of its own runs only", async () =>
   }
 });
 
+test("sends one score for each run with a pass or a fail, on its trace, and none for a run with no verdict", async () => {
+  const server = await standIn();
+  try {
+    await to(server.url).send({
+      dataset,
+      experiments: [
+        {
+          ...chat,
+          outputs: [
+            {
+              item: byCustomer.id,
+              output: open,
+              verdict: { pass: true, reason: "The answer gives the state." },
+            },
+            {
+              item: notAsked.id,
+              output: { steps: [], answer: "I can find the shop's orders." },
+              verdict: { pass: false, reason: "The answer names no order." },
+            },
+          ],
+        },
+        {
+          ...lean,
+          outputs: [
+            {
+              item: byCustomer.id,
+              output: open,
+              verdict: { none: "the reply has no VERDICT line" },
+            },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(server.scores(), [
+      {
+        experiment: "chat@abc1234 2026-10-13T07:47:11Z",
+        item: "shop.shop.find-order-by-customer",
+        name: "good",
+        dataType: "BOOLEAN",
+        value: 1,
+        comment: "The answer gives the state.",
+      },
+      {
+        experiment: "chat@abc1234 2026-10-13T07:47:11Z",
+        item: "shop.shop.find-order-not-asked",
+        name: "good",
+        dataType: "BOOLEAN",
+        value: 0,
+        comment: "The answer names no order.",
+      },
+    ]);
+  } finally {
+    await server.close();
+  }
+});
+
 test("gives back, for each experiment, the link Langfuse gives to its run", async () => {
   const server = await standIn();
   try {

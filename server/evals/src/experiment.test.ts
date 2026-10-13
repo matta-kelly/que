@@ -117,6 +117,21 @@ test("the metadata of an experiment has the agent's name, its config as written,
   });
 });
 
+test("the metadata of an experiment names the judge", () => {
+  const { experiments: made } = experiments({
+    ...run,
+    judge: "small",
+    outcomes: [{ case: byCustomer, agent: "lean", record: open }],
+  });
+  assert.deepEqual(made[0].metadata, {
+    agent: "lean",
+    config: { name: "lean", model: "provider:small-model" },
+    commit: "abc1234",
+    deployment: "shop",
+    judge: "small",
+  });
+});
+
 test("the output of a run is its record, and the output of a run that did not finish is its error", () => {
   const { experiments: made } = experiments({
     ...run,
