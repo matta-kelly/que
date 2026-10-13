@@ -6,4 +6,6 @@ export default defineDeployment({
   packages: [],
   // One file per agent config. A run names the one it wants, and a chat gets the first.
   agents: ["./agents/chat.ts"],
+  // One file per loop config: how a chat is handled as it grows.
+  loops: ["./loops/long-chat.ts"],
 });

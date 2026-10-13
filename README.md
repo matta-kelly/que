@@ -9,6 +9,7 @@ It knows nothing about any one service or any one company: everything it can do 
 - **Deployments**: one folder per way to start que, kept outside this repo, written against one small contract (`server/contract/deployment-spec.ts`): its name, the package folders it uses, and the agent configs it can run. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`server/contract/package.md`).
 - **Packages**: one folder per service, kept in the deployment that uses it, written against one small contract (`server/contract/package-spec.ts`, and `server/contract/skill-spec.ts` for a skill): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `server/contract/package.md`.
 - **Validation**: the harness checks the deployment's definition, each agent config, and every package and skill when it mounts them (names, schemas, a description on every field). It stops at startup on the first thing that is wrong, and the error lists each fault in it.
+- **Loop**: a deployment can say how a chat is handled as it grows, and how far one run can go, in a loop config: a file of its own, made with `defineLoop` and listed in `loops` in the deployment's `index.ts` (`server/contract/loop-spec.ts`). A loop has a `name` and settings; what is left out has que's own value. A loop is checked and mounted. No setting has an effect yet, and no agent names a loop yet.
 - **Agent**: a deployment can say how its agent runs, in an agent config: a file of its own, made with `defineAgent` and listed in `agents` in the deployment's `index.ts` (`server/contract/agent-spec.ts`). A deployment can list several. A run names the one it wants, with `agent` in its `configurable`, and a run that names none gets the first. A deployment that lists none runs on que's own choices. A config has a `name`; each other field is optional, and what is left out has que's own value.
     - `packages`: the names of the packages the agent gets, out of the ones the deployment mounts. Left out, it gets every one. A name the deployment does not mount stops que at startup
     - `model`: the model the agent is built with, as `provider:model`. Left out, it is `MODEL` from the deployment's `.env`, and with no `MODEL`, the one named in `server/harness/src/run/model.ts`
@@ -31,10 +32,11 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
         - `access/`: the packages one user can use, their connections, and the users
         - `assemble/`: puts those packages in front of the model, as one config
         - `run/`: builds the agent per user, serves the graph and the `/que/*` API, and the CLI
+    - `loops/`: que's own loop configs, which any deployment can list by its path. `long-chat.ts` holds que's own value for each setting, and `short-run.ts` is for a run with one job and no person
     - `agents/`: que's own agent configs. Each one names no package, so any deployment can list it by its path. `chat.ts` is the agent a chat gets, with que's own choices written out
     - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
-- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
+- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder
 

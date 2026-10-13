@@ -1,6 +1,6 @@
 /**
  * The contract every deployment is written against: its name, the packages
- * it uses, and the agent configs it can run. Framework-free, as the package
+ * it uses, the agent configs it can run, and its loop configs. Framework-free, as the package
  * contract is.
  */
 
@@ -13,6 +13,8 @@ export type DeploymentDefinition = {
   packages: string[];
   /** One file per agent config: an absolute path, or one taken from the deployment's own folder. With none, the agent runs on que's own choices. */
   agents?: string[];
+  /** One file per loop config: an absolute path, or one taken from the deployment's own folder. */
+  loops?: string[];
 };
 
 export function defineDeployment(
@@ -30,7 +32,10 @@ export function validateDeployment(
 ): asserts def is DeploymentDefinition {
   if (!def || typeof def !== "object")
     throw new Error("deployment: no definition (default export)");
-  const { name, packages, agents, agent } = def as Record<string, unknown>;
+  const { name, packages, agents, agent, loops } = def as Record<
+    string,
+    unknown
+  >;
   const problems: string[] = [];
   const deployment = name || "(unnamed)";
 
@@ -48,13 +53,15 @@ export function validateDeployment(
       );
   }
 
-  if (agents !== undefined && !Array.isArray(agents))
-    problems.push(`agents of deployment ${deployment} must be an array`);
-  for (const file of Array.isArray(agents) ? agents : []) {
-    if (typeof file !== "string" || !file.trim())
-      problems.push(
-        `agents of deployment ${deployment} must each be a file path, got ${JSON.stringify(file)}`,
-      );
+  for (const [list, files] of Object.entries({ agents, loops })) {
+    if (files !== undefined && !Array.isArray(files))
+      problems.push(`${list} of deployment ${deployment} must be an array`);
+    for (const file of Array.isArray(files) ? files : []) {
+      if (typeof file !== "string" || !file.trim())
+        problems.push(
+          `${list} of deployment ${deployment} must each be a file path, got ${JSON.stringify(file)}`,
+        );
+    }
   }
   if (agent !== undefined)
     problems.push(
