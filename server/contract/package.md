@@ -11,7 +11,7 @@ One package = one concern. No Pi or LangChain imports inside; each harness gets 
 	- domain: logic across connectors
 - a capability lives in one package: an outcome the package gives, made from its ops and skills
 - an op is shown to be right by its tests. A capability is shown to work by its cases ([[evals]])
-- the contract knows ops and skills. It does not know a kind, a capability or a case: see Not yet
+- the contract knows ops, skills, capabilities and cases. It does not know a kind
 
 ## Anatomy
 ```
@@ -21,8 +21,9 @@ packages/<name>/
   client.ts      ← optional: only if it talks to a service
   ontology.ts    ← optional: the domain types its ops return (zod schemas + row mappers), defined once
   ops/index.ts   ← optional: exports ops[]
-  index.test.ts  ← optional: node:test, no network: validatePackage + each op against a fake connection
-  skills/<skill>/SKILL.md  ← optional
+  cases.ts       ← optional: the cases of its capabilities, made with defineCases
+  index.test.ts  ← optional: node:test, no network: validatePackage, validateCases + each op against a fake connection
+  skills/<skill>/SKILL.md  ← optional: one for each skill the definition lists
 ```
 
 ## Where it sits
@@ -38,6 +39,9 @@ packages/<name>/
 - `connect`: optional
 - `whoami`: optional. Who the connection is logged in as
 - `ops`: optional
+- `skills`: optional. The names of its skills
+- `capabilities`: optional. Each one `{ name, title, description }`
+- the definition lists all that a package gives to an agent. What it does not list, the harness does not read
 
 ## Operation
 - `{ name, title, description, schema (zod), run(ctx, params) }`
@@ -49,7 +53,9 @@ packages/<name>/
 - `validatePackage` in `@que/core`; mount runs it on every folder a deployment lists, and fails loudly
 - package and op names match `^[a-zA-Z0-9_-]{1,64}$`; `<package>_<op>` is ≤ 64 chars; op names unique
 - package and ops carry a title and description; `schema` is a `z.object` and every field has `.describe()`
-- `parseSkill` in `@que/core` checks each skill; mount runs it on every `SKILL.md`, and a skill with no title or no description stops the mount
+- skill names and capability names match the same pattern, and are unique in the package; a capability carries a title and description
+- `parseSkill` in `@que/core` checks each skill; mount runs it on the `SKILL.md` of each skill the definition lists, and a skill with no title or no description stops the mount
+- `validateCases` in `@que/core` checks the cases of a package against its definition. The package's own test runs it. Mount does not: a bad case never stops que
 
 ## The deployment's agent
 - a deployment can write an `agent` block beside `name` and `packages`, to say how its agent runs. The contract is `AgentDefinition` in `server/contract/agent-spec.ts`
@@ -83,9 +89,20 @@ export default defineDeployment({
 - real failure = one thrown `OperationFailed`
 
 ## Skills
-- `SKILL.md` with `title` + `description` frontmatter; read on demand
+- the definition lists them by name: `skills: ["lookup-company"]`
+- each one is a `skills/<name>/SKILL.md`, with `title` + `description` frontmatter; read on demand
+- mount reads the ones listed, and no other. A folder in `skills/` that is not listed is not read. A listed skill with no file stops the mount
 - the contract defines a skill (`Skill` and `parseSkill`, in `server/contract/skill-spec.ts`); mount reads the file and hands it the text
 
+## Capabilities and cases
+- a capability is an outcome the package gives. The definition names each one: `{ name, title, description }`
+- a case is one behaviour of one capability: `{ name, capability, input, start, good }`. All five are text
+	- `capability`: the name of a capability the package has
+	- `input`: what the user says
+	- `start`: what is true before the run
+	- `good`: one statement that is true or false after the run
+- the cases of a package are in `cases.ts`, made with `defineCases`. A capability can have many
+- cases are not in the definition, and no agent is given one. Nothing runs a case yet
+
 ## Not yet
-- capabilities and their cases: a package names the capabilities it gives, and holds their cases
 - `context/`, `bin/`, code mode, npm distribution
