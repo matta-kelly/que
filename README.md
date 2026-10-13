@@ -6,13 +6,14 @@ It knows nothing about any one service or any one company: everything it can do 
 
 ## How it works
 
-- **Deployments**: one folder per way to start que, kept outside this repo, written against one small contract (`server/contract/deployment-spec.ts`): its name, the package folders it uses, and the agent it runs. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`server/contract/package.md`).
+- **Deployments**: one folder per way to start que, kept outside this repo, written against one small contract (`server/contract/deployment-spec.ts`): its name, the package folders it uses, and the agent configs it can run. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`server/contract/package.md`).
 - **Packages**: one folder per service, kept in the deployment that uses it, written against one small contract (`server/contract/package-spec.ts`, and `server/contract/skill-spec.ts` for a skill): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `server/contract/package.md`.
-- **Validation**: the harness checks the deployment's definition, its `agent` block, and every package and skill when it mounts them (names, schemas, a description on every field). It stops at startup on the first thing that is wrong, and the error lists each fault in it.
-- **Agent**: a deployment can say how its agent runs, in an `agent` block in its `index.ts` (`server/contract/agent-spec.ts`). The block is optional, and so is each field; what is left out has que's own value.
+- **Validation**: the harness checks the deployment's definition, each agent config, and every package and skill when it mounts them (names, schemas, a description on every field). It stops at startup on the first thing that is wrong, and the error lists each fault in it.
+- **Agent**: a deployment can say how its agent runs, in an agent config: a file of its own, made with `defineAgent` and listed in `agents` in the deployment's `index.ts` (`server/contract/agent-spec.ts`). A deployment can list several. A run names the one it wants, with `agent` in its `configurable`, and a run that names none gets the first. A deployment that lists none runs on que's own choices. A config has a `name`; each other field is optional, and what is left out has que's own value.
     - `packages`: the names of the packages the agent gets, out of the ones the deployment mounts. Left out, it gets every one. A name the deployment does not mount stops que at startup
     - `model`: the model the agent is built with, as `provider:model`. Left out, it is `MODEL` from the deployment's `.env`, and with no `MODEL`, the one named in `server/harness/src/run/model.ts`
     - `instructions`: the text that opens the system prompt, in place of que's own role text
+    - `legibility`: the name of the way the model is shown its packages (see Environment legibility). One exists, `on-demand`
 - **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the packages that user has connected. The `packages` of the `agent` block can take packages out of that set, and can add none.
 - **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a package is and lists the ones the user can use; it opens a package to see what is inside and loads the operations it needs (`server/harness/src/assemble/on-demand/`, one config on the shared base in `server/harness/src/assemble/`). The harness knows the package contract, never a specific package.
 
@@ -32,7 +33,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
         - `run/`: builds the agent per user, serves the graph and the `/que/*` API, and the CLI
     - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
-- `templates/deployment/`: an empty deployment to copy: its definition, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
+- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder
 

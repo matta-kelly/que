@@ -1,5 +1,5 @@
 /**
- * The model the agent is built with: the one the deployment's `agent` names,
+ * The model the agent is built with: the one the config of the run names,
  * then MODEL from the environment, then the one named here.
  */
 
@@ -9,7 +9,7 @@ export const DEFAULT_MODEL =
   "fireworks:accounts/fireworks/models/deepseek-v4p1-flash";
 
 export function modelFor(
-  agent: AgentDefinition,
+  agent: Pick<AgentDefinition, "model">,
   env: { MODEL?: string },
 ): string {
   return agent.model ?? env.MODEL ?? DEFAULT_MODEL;

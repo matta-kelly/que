@@ -1,9 +1,9 @@
 /**
  * The contract every deployment is written against: its name, the packages
- * it uses, and the agent it runs. Framework-free, as the package contract is.
+ * it uses, and the agent configs it can run. Framework-free, as the package
+ * contract is.
  */
 
-import { validateAgent, type AgentDefinition } from "./agent-spec.js";
 import { NAME } from "./package-spec.js";
 
 /** What `defineDeployment` returns, and a deployment exports as its default. */
@@ -11,8 +11,8 @@ export type DeploymentDefinition = {
   name: string;
   /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
   packages: string[];
-  /** How the agent runs. Left out, the agent runs on que's own choices. */
-  agent?: AgentDefinition;
+  /** One file per agent config: an absolute path, or one taken from the deployment's own folder. With none, the agent runs on que's own choices. */
+  agents?: string[];
 };
 
 export function defineDeployment(
@@ -30,7 +30,7 @@ export function validateDeployment(
 ): asserts def is DeploymentDefinition {
   if (!def || typeof def !== "object")
     throw new Error("deployment: no definition (default export)");
-  const { name, packages, agent } = def as Record<string, unknown>;
+  const { name, packages, agents, agent } = def as Record<string, unknown>;
   const problems: string[] = [];
   const deployment = name || "(unnamed)";
 
@@ -48,14 +48,18 @@ export function validateDeployment(
       );
   }
 
-  if (agent !== undefined) {
-    try {
-      validateAgent(agent);
-    } catch (error) {
-      // The agent's own list, set one level in under this one.
-      problems.push((error as Error).message.replaceAll("\n", "\n  "));
-    }
+  if (agents !== undefined && !Array.isArray(agents))
+    problems.push(`agents of deployment ${deployment} must be an array`);
+  for (const file of Array.isArray(agents) ? agents : []) {
+    if (typeof file !== "string" || !file.trim())
+      problems.push(
+        `agents of deployment ${deployment} must each be a file path, got ${JSON.stringify(file)}`,
+      );
   }
+  if (agent !== undefined)
+    problems.push(
+      `deployment ${deployment} has an \`agent\` block: an agent config is a file of its own, listed in \`agents\``,
+    );
 
   if (problems.length)
     throw new Error(

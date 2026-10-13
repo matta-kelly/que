@@ -4,7 +4,6 @@ export default defineDeployment({
   name: "my-deployment",
   // Folders of the packages this deployment uses, taken from this folder.
   packages: [],
-  // How the agent runs: `packages` (names, out of the ones above), `model` and
-  // `instructions`. Each is optional, and what is left out has que's own value.
-  agent: {},
+  // One file per agent config. A run names the one it wants, and a chat gets the first.
+  agents: ["./agents/chat.ts"],
 });

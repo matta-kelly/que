@@ -127,47 +127,6 @@ test("the error for a deployment that breaks its contract has the contract's own
   });
 });
 
-test("stops, naming the package, when the agent names a package the deployment does not mount", async () => {
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-names-unmounted")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /delta/);
-      return true;
-    },
-  );
-});
-
-test("mounts a deployment whose agent names a package it mounts, and hands back its packages and its agent", async () => {
-  const mounted = await fromDeployment.mountDeployment(
-    deployment("agent-names-mounted"),
-  );
-  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
-  assert.deepEqual(mounted.agent, {
-    packages: ["alpha"],
-    instructions: "You help the sales team.",
-  });
-});
-
-test("a deployment with no agent is mounted with an empty one", async () => {
-  const mounted = await fromDeployment.mountDeployment(deployment("two"));
-  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
-  assert.deepEqual(mounted.agent, {});
-});
-
-test("a deployment is loaded with the agent it declares", async () => {
-  const loaded = await loadDeployment(deployment("agent-names-mounted"));
-  assert.deepEqual(loaded.agent, {
-    packages: ["alpha"],
-    instructions: "You help the sales team.",
-  });
-});
-
-test("a deployment with no agent is loaded with an empty one", async () => {
-  const loaded = await loadDeployment(deployment("two"));
-  assert.deepEqual(loaded.agent, {});
-});
-
 test("stops, naming the skill, when a listed package has a skill that breaks the contract", async () => {
   await assert.rejects(mount("untitled-skill"), (error: Error) => {
     assert.match(error.message, /^mount:/);
@@ -193,4 +152,72 @@ test("stops, naming the skill, when a listed skill has no file", async () => {
 
 test("a package with a bad cases file still mounts", async () => {
   assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
+});
+
+test("a deployment is mounted with its agents, in the order it lists them", async () => {
+  const mounted = await fromDeployment.mountDeployment(
+    deployment("agents-two"),
+  );
+  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
+  assert.deepEqual(mounted.agents, [
+    {
+      name: "chat",
+      packages: ["alpha"],
+      instructions: "You help the sales team.",
+    },
+    { name: "lean", model: "provider:small-model" },
+  ]);
+});
+
+test("a deployment that lists no agents is mounted with none", async () => {
+  const mounted = await fromDeployment.mountDeployment(deployment("two"));
+  assert.deepEqual(names(mounted.packages), ["gamma", "alpha"]);
+  assert.deepEqual(mounted.agents, []);
+});
+
+test("stops, naming the file, when a listed agent file does not exist", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-file-missing")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /agents\/nope\.ts/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the file, when an agent breaks the contract, with the contract's own error as its cause", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-bad")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /agents\/modelless\.ts/);
+      assert.ok(error.cause instanceof Error);
+      assert.match(error.cause.message, /^agent modelless is invalid/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the name, when two agents have one name", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agents-one-name")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /two agents are named "chat"/);
+      return true;
+    },
+  );
+});
+
+test("stops, naming the agent and the package, when an agent names a package the deployment does not mount", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("agent-names-unmounted")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /wants-delta/);
+      assert.match(error.message, /delta/);
+      return true;
+    },
+  );
 });
