@@ -22,8 +22,9 @@ export async function fireworksWindow(
     });
     if (!res.ok) return { reason: `Fireworks answered ${res.status}` };
     const { contextLength } = (await res.json()) as { contextLength?: unknown };
-    return typeof contextLength === "number" && contextLength > 0
-      ? { window: contextLength }
+    // A whole number: a share of the window is a count of tokens.
+    return Number.isInteger(contextLength) && (contextLength as number) > 0
+      ? { window: contextLength as number }
       : { reason: "the model record of Fireworks has no contextLength" };
   } catch (error) {
     return { reason: `Fireworks did not answer: ${(error as Error).message}` };

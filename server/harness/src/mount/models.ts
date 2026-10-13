@@ -54,29 +54,33 @@ export async function mountModels(
       );
   }
   const mounted: MountedModel[] = [];
-  for (const model of models) {
-    // A source is asked only for what the file does not write.
-    const facts: ModelFacts = {};
-    const none = (fact: "window" | "price", reason: string) =>
-      new Error(
-        `mount: the model "${model.name}" has no ${fact}: ${reason}, and none is in its file or in the saved copy. Write \`${fact}\` in the model file`,
-      );
-    if (model.window === undefined) {
-      const answer = await sources.window(model);
-      if ("reason" in answer) throw none("window", answer.reason);
-      facts.window = answer.window;
+  try {
+    for (const model of models) {
+      // A source is asked only for what the file does not write.
+      const facts: ModelFacts = {};
+      const none = (fact: "window" | "price", reason: string) =>
+        new Error(
+          `mount: the model "${model.name}" has no ${fact}: ${reason}, and none is in its file or in the saved copy. Write \`${fact}\` in the model file`,
+        );
+      if (model.window === undefined) {
+        const answer = await sources.window(model);
+        if ("reason" in answer) throw none("window", answer.reason);
+        facts.window = answer.window;
+      }
+      if (model.price === undefined) {
+        const answer = await sources.price(model);
+        if ("reason" in answer) throw none("price", answer.reason);
+        facts.price = answer.price;
+      }
+      try {
+        mounted.push(mountedModel(model, facts));
+      } catch (error) {
+        throw new Error(`mount: ${(error as Error).message}`, { cause: error });
+      }
     }
-    if (model.price === undefined) {
-      const answer = await sources.price(model);
-      if ("reason" in answer) throw none("price", answer.reason);
-      facts.price = answer.price;
-    }
-    try {
-      mounted.push(mountedModel(model, facts));
-    } catch (error) {
-      throw new Error(`mount: ${(error as Error).message}`, { cause: error });
-    }
+  } finally {
+    // Also when a model stops mount: what a source gave before that is kept for the next start.
+    await sources.done();
   }
-  await sources.done();
   return mounted;
 }

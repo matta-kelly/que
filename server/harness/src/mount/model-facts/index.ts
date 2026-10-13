@@ -74,7 +74,14 @@ export function factSources(
       const all = { ...(await saved.read()) };
       for (const [id, facts] of Object.entries(fresh))
         all[id] = { ...all[id], ...facts };
-      await saved.write(all);
+      // The saved copy is a fallback: a folder that cannot be written does not stop a mount that has its facts.
+      try {
+        await saved.write(all);
+      } catch (error) {
+        console.warn(
+          `mount: the saved copy of the models' facts was not written: ${(error as Error).message}`,
+        );
+      }
     },
   };
 }
