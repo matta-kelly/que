@@ -1,3 +1,5 @@
 .vercel
 test-results
 playwright-report
+# Build output of the dev server.
+.next

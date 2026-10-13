@@ -13,11 +13,14 @@ through the proxy at `app/api/[..._path]`.
   - the pick is kept in the thread's metadata, as `agent` and `model`, beside its title. A chat with no pick follows the deployment
   - the model can change at any message. The agent is fixed after the first
 - `lib/usage.ts`: what a chat used, counted from the usage on each reply of the model
-  - the meter, in the composer: the tokens of the chat's last model call, in plus out, over the window of the model the chat is on. Not a sum over the chat: each call sends the chat again
+  - the meter, in the composer: a ring that fills as the chat grows, with what the chat cost beside it. It is of the chat's last model call, tokens in plus tokens out, over the window of the model the chat is on. Not a sum over the chat: each call sends the chat again
+    - its panel, on hover or focus: the three parts of that call as the provider counts them (cached tokens in, the rest of tokens in, tokens out), the exact total over the window, the model, and the cost of the chat
+    - it warns past the share the chat's agent summarizes at (`summarizeAt` on the agent in `/api/que/deployment`), and for an agent that does not summarize, past 85 percent
+    - the ring is `components/assistant-ui/elements/composer-context.tsx`: a copy of assistant-ui's `ComposerContext`, edited. What was changed is at the top of the file. `surfaces.tsx` and `utils/range.ts` beside it are the library's own, as shipped, and its other elements use them too
   - the line under a reply: the model that gave it (que's stamp, `response_metadata.que.model`), tokens in and tokens out. A reply is a turn: tokens out is the sum over its model calls, tokens in is from the last one. Cached and reasoning are in the tooltip
   - a reply's own messages come from the library's `getExternalStoreMessages`, which it marks experimental
 - `lib/cost.ts`: what a chat cost, counted in the browser and stored in no place: the usage of each model call times the price of the model its stamp names. The price of a model is on `/api/que/deployment`
-  - it shows in three places: the price beside each model in the picker, the cost at the end of the line under a reply, and the cost of the chat at the end of the meter
+  - it shows in three places: the price beside each model in the picker, the cost at the end of the line under a reply, and the cost of the chat beside the meter's ring, and in its panel
   - a model call with no stamp, or of a model with no price, has no cost, and is not counted as zero. The chat's cost says how many replies it could not count
   - a cost is an estimate, at the price of today. The tokens of a subagent are in no count
 - `lib/*.test.ts` run on Node's own test runner, in `just check`

@@ -17,17 +17,49 @@ export type UsageMessage = {
 const usageOf = (message: UsageMessage) =>
   message.type === "ai" ? message.usage_metadata : undefined;
 
+export type ContextParts = {
+  /** Tokens in that the provider read from its cache. */
+  cached: number;
+  /** The rest of tokens in. */
+  fresh: number;
+  /** Tokens out. */
+  reply: number;
+};
+
 /**
- * How full the model's window is: tokens in plus out of the last model call.
- * Not a sum over the chat: each call sends the chat again, so the last call is
- * the size of the chat.
+ * Where the model's window went: the parts of the chat's last model call, as
+ * the provider counts them. The provider counts cached tokens as a part of
+ * tokens in. The last call is the size of the chat: each call sends the chat
+ * again, so a sum over the chat would count it many times.
  */
-export function contextUsed(messages: UsageMessage[]): number | undefined {
+export function contextParts(
+  messages: UsageMessage[],
+): ContextParts | undefined {
   const last = messages.findLast((message) => usageOf(message));
   if (!last) return undefined;
   const usage = usageOf(last)!;
-  return (usage.input_tokens ?? 0) + (usage.output_tokens ?? 0);
+  const cached = usage.input_token_details?.cache_read ?? 0;
+  return {
+    cached,
+    fresh: Math.max(0, (usage.input_tokens ?? 0) - cached),
+    reply: usage.output_tokens ?? 0,
+  };
 }
+
+/** How full the model's window is: the sum of the parts of the chat's last model call. */
+export function contextUsed(messages: UsageMessage[]): number | undefined {
+  const parts = contextParts(messages);
+  return parts && parts.cached + parts.fresh + parts.reply;
+}
+
+/**
+ * The share of the window past which the meter warns: the one the agent sends
+ * the old part of a chat as a summary at, and for an agent that does not
+ * summarize, the share at which a window is nearly full.
+ */
+export const NEARLY_FULL = 0.85;
+export const warnShare = (summarizeAt: number | undefined) =>
+  summarizeAt ?? NEARLY_FULL;
 
 export type ReplyUsage = {
   /** Of the last model call of the turn. */
@@ -64,4 +96,16 @@ export function short(count: number): string {
     count < 999_500 ? [count / 1_000, "k"] : [count / 1_000_000, "M"];
   const text = value < 9.95 ? value.toFixed(1) : String(Math.round(value));
   return text.replace(/\.0$/, "") + unit;
+}
+
+/**
+ * A share of the window, as a percent. A chat that has started is not at zero,
+ * and a window that is not full is not at 100: a share is written with one
+ * decimal while it is small, and is not rounded up to the end.
+ */
+export function percent(share: number): string {
+  const value = share * 100;
+  if (value > 0 && value < 0.05) return "<0.1%";
+  if (value < 9.95) return `${value.toFixed(1).replace(/\.0$/, "")}%`;
+  return `${value < 100 ? Math.min(99, Math.round(value)) : Math.round(value)}%`;
 }

@@ -186,7 +186,7 @@ export default defineModel({
 	- que's own: `glm-flash`
 - a name the deployment does not have fails the run, and the error lists the names it has
 - each reply of the model in a run has the name of the model config that gave it, in `response_metadata.que.model`. que adds it on both engines, and it is in the saved chat. A reply of a subagent of the deep agent is not in the chat, and has none
-- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none, and its models, each with its `window`, `maxTokens` and `price`. In the order listed, and with no provider id. The chat UI makes its pickers from it
+- `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none and, for an agent that summarizes, the share of the window it does so at (`summarizeAt`), and its models, each with its `window`, `maxTokens` and `price`. In the order listed, and with no provider id. The chat UI makes its pickers from it
 - que keeps model configs of its own in `server/models/`, and a deployment lists one by its path: `glm-flash`, `deepseek-flash`, `minimax-m3`. A deployment that lists one of que's agents lists the model it names: `chat` and `deep-chat` name `minimax-m3`
 - the provider of a model is one que has the package for. Today: `fireworks`. Another one is a package added to `server/harness`, an entry in `PROVIDERS` in `server/harness/src/mount/models.ts` (how the window of one of its models is read, and its name in the model database), and its key in the deployment's `.env`
 - the `MODEL` setting is gone. A deployment that still sets it stops at startup, and the error says to list a model file

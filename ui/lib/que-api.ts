@@ -46,7 +46,7 @@ export type ModelPrice = {
 /** What the deployment lists: the agents and models a run can name. */
 export type Deployment = {
   /** In the order listed. A chat with no pick gets the first. `model` is the one the agent runs on when no model is picked. */
-  agents: { name: string; model: string }[];
+  agents: { name: string; model: string; summarizeAt?: number }[];
   /** An older server sends no `price`. */
   models: {
     name: string;

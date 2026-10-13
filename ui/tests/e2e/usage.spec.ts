@@ -1,6 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
 import { nameNewestChat, openApp, openChat } from "./helpers";
-import { short } from "../../lib/usage.ts";
 
 // Needs a deployment that lists two models or more, with two windows.
 
@@ -36,7 +35,7 @@ async function pickModel(page: Page, name: string) {
   await page.getByRole("menuitemradio", { name, exact: true }).click();
 }
 
-test("usage: a new chat has no meter, and a chat with a reply has one", async ({
+test("usage: a new chat has no ring, and a chat with a reply has one, with a panel that adds up", async ({
   page,
 }) => {
   await openApp(page);
@@ -46,17 +45,26 @@ test("usage: a new chat has no meter, and a chat with a reply has one", async ({
   await expect(meter(page)).toHaveCount(0);
 
   await send(page, "Say hi in one word.");
-  await expect(meter(page)).toHaveText(
-    // The tokens over the window, and then what the chat cost.
-    new RegExp(`^[\\d.]+[kM]? / ${short(model.window)} · \\S+$`),
-  );
+  await expect(
+    meter(page).getByRole("button", { name: "Context usage" }),
+  ).toBeVisible();
+  // The panel is in the page while it is closed. Its three parts are the chat's last
+  // model call, and add up to the total, which is over the exact window of the model.
+  const panel = (await meter(page).textContent())!.replaceAll(",", "");
+  const count = (label: string) =>
+    Number(panel.match(new RegExp(`${label}(\\d+)`))![1]);
+  const [, used, window] = panel.match(/Window(\d+) \/ (\d+)/)!.map(Number);
+  expect(count("Cached") + count("New") + count("Reply")).toBe(used);
+  expect(used).toBeGreaterThan(0);
+  expect(window).toBe(model.window);
+  expect(panel).toContain(`Model${model.name}`);
   // The reply says what it took, and the model that gave it.
   await expect(replyUsage(page)).toHaveText(
     new RegExp(`^${model.name} · [\\d.]+[kM]? in · [\\d.]+[kM]? out · \\S+$`),
   );
 });
 
-test("usage: a reply on another model shows that model, and the meter its window", async ({
+test("usage: a reply on another model shows that model, and the ring its window", async ({
   page,
 }) => {
   await openApp(page);
@@ -67,7 +75,10 @@ test("usage: a reply on another model shows that model, and the meter its window
   await send(page, "Say hi in one word.");
   await pickModel(page, other.name);
   // The same tokens, over the window of the model picked.
-  await expect(meter(page)).toContainText(`/ ${short(other.window)}`);
+  await expect(meter(page)).toContainText(
+    `/ ${other.window.toLocaleString("en-US")}`,
+  );
+  await expect(meter(page)).toContainText(`Model${other.name}`);
 
   await send(page, "Say bye in one word.");
   await expect(replyUsage(page)).toHaveCount(2);
@@ -75,7 +86,7 @@ test("usage: a reply on another model shows that model, and the meter its window
   await expect(replyUsage(page).last()).toContainText(other.name);
 });
 
-test("usage: a chat opened again shows the same meter and reply info", async ({
+test("usage: a chat opened again shows the same ring and reply info", async ({
   page,
 }) => {
   await openApp(page);
