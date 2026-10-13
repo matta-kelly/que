@@ -32,10 +32,12 @@ export function assemble(
     user,
     catalog,
     connect,
+    instructions,
   }: {
     user?: { name: string; email: string };
     catalog: Catalog;
     connect: (pkg: PackageDefinition) => Promise<unknown>;
+    instructions?: string;
   },
 ) {
   const base = [...config.tools(catalog), ...skillTools(catalog)];
@@ -44,7 +46,12 @@ export function assemble(
   const operationNames = operations.map((t) => t.name);
 
   return {
-    systemPrompt: systemPrompt({ user, catalog, environment: config.prompt }),
+    systemPrompt: systemPrompt({
+      user,
+      catalog,
+      environment: config.prompt,
+      instructions,
+    }),
     tools: [...base, ...operations],
     middleware: [
       createMiddleware({
