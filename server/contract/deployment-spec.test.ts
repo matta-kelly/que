@@ -72,3 +72,38 @@ test("validateDeployment rejects a package folder of only spaces", () => {
     /packages/,
   );
 });
+
+test("validateDeployment accepts a deployment with no agent", () => {
+  validateDeployment(defineDeployment({ name: "shop", packages: [] }));
+});
+
+test("validateDeployment accepts a deployment with an empty agent", () => {
+  validateDeployment(
+    defineDeployment({ name: "shop", packages: [], agent: {} }),
+  );
+});
+
+test("validateDeployment rejects an agent that breaks its shape", () => {
+  assert.throws(
+    () =>
+      validateDeployment({ name: "shop", packages: [], agent: { model: "" } }),
+    /model/,
+  );
+});
+
+test("validateDeployment names the agent's faults beside its own, in one error", () => {
+  assert.throws(
+    () =>
+      validateDeployment({
+        name: "two words",
+        packages: [],
+        agent: { model: "", instructions: "" },
+      }),
+    (error: Error) => {
+      assert.match(error.message, /name/);
+      assert.match(error.message, /model/);
+      assert.match(error.message, /instructions/);
+      return true;
+    },
+  );
+});
