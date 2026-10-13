@@ -26,7 +26,7 @@ import { instructionsFile, userInstructions, users } from "../access/users.js";
 import * as mounted from "../mount/mounted.js";
 import { configFor } from "./config.js";
 import { build } from "./engine/index.js";
-import { legibilityFor } from "./legibility.js";
+import { loadingFor } from "./loading.js";
 import { loopFor } from "./loop.js";
 import { chatModel, modelFor } from "./model.js";
 import { stamp } from "./stamp.js";
@@ -51,7 +51,7 @@ export async function buildAgent(
   // A call with no user has no text of theirs.
   const own = user && (await userInstructions(userId)).text;
 
-  const parts = assemble(legibilityFor(config), {
+  const parts = assemble(loadingFor(config), {
     user: user && { ...user, instructions: taken(config, own) },
     catalog,
     connect: (pkg) => getConnection(pkg, userId),

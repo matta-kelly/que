@@ -9,7 +9,7 @@ export default defineAgent({
 
 - Be concise and accurate.
 - If you're unsure about something, say so rather than guessing.`,
-  legibility: "on-demand",
+  loading: "on-demand",
   loop: "long-chat",
   userInstructions: true,
 });

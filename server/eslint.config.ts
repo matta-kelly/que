@@ -91,13 +91,13 @@ const langfuse: Rule = {
   path: /^@langfuse\/|^@opentelemetry\//,
   why: "Only run/trace.ts names Langfuse or OpenTelemetry.",
 };
-const legibility: Rule = {
+const loading: Rule = {
   path: /assemble\/on-demand/,
-  why: "run/legibility.ts is the one file in run that names a legibility.",
+  why: "run/loading.ts is the one file in run that names a way of loading.",
 };
 const credentials: Rule = {
   path: /credentials|access\/connections/,
-  why: "A legibility does not reach for credentials.",
+  why: "A way of loading does not reach for credentials.",
 };
 const framework: Rule = {
   path: /langchain|langgraph/,
@@ -226,26 +226,17 @@ export default defineConfig([
     [otherApp, direction("assemble"), deepagents, langfuse, credentials],
     [...tests, `${src}/assemble/fixture.ts`],
   ),
+  hold([`${src}/run/*.ts`], [otherApp, deepagents, langfuse, loading], tests),
   hold(
-    [`${src}/run/*.ts`],
-    [otherApp, deepagents, langfuse, legibility],
-    tests,
-  ),
-  hold(
-    [`${src}/run/legibility.ts`],
-    [
-      otherApp,
-      deepagents,
-      langfuse,
-      mustImport(legibility.path, legibility.why),
-    ],
+    [`${src}/run/loading.ts`],
+    [otherApp, deepagents, langfuse, mustImport(loading.path, loading.why)],
   ),
   hold(
     [`${src}/run/trace.ts`],
     [
       otherApp,
       deepagents,
-      legibility,
+      loading,
       {
         path: /^@langfuse\/(?!langchain$|otel$)|^@opentelemetry\/(?!sdk-node$)/,
         why: "run/trace.ts names three packages: @langfuse/langchain, @langfuse/otel and @opentelemetry/sdk-node.",
@@ -257,7 +248,7 @@ export default defineConfig([
   ),
   hold(
     [`${src}/run/agent.ts`],
-    [otherApp, deepagents, langfuse, legibility, ...tracedByTrace],
+    [otherApp, deepagents, langfuse, loading, ...tracedByTrace],
   ),
   hold([`${src}/run/engine/**/*.ts`], [otherApp, langfuse], tests),
   hold(

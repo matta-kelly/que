@@ -41,13 +41,13 @@ test("validateAgent names every fault in one error", () => {
   assert.throws(
     () =>
       validateAgent({
-        legibility: "eager",
+        loading: "eager",
         packages: "odoo",
         model: "",
         instructions: "",
       }),
     (error: Error) => {
-      assert.match(error.message, /legibility/);
+      assert.match(error.message, /loading/);
       assert.match(error.message, /packages/);
       assert.match(error.message, /model/);
       assert.match(error.message, /instructions/);
@@ -73,4 +73,12 @@ test("validateAgent accepts userInstructions as true or false, and rejects any o
       /userInstructions of the agent/,
       JSON.stringify(userInstructions),
     );
+});
+
+test("validateAgent rejects the field legibility, and says it is now loading", () => {
+  validateAgent({ name: "chat", loading: "on-demand" });
+  assert.throws(
+    () => validateAgent({ name: "chat", legibility: "on-demand" }),
+    /"legibility" is now named `loading`/,
+  );
 });

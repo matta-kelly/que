@@ -7,7 +7,7 @@ export default defineAgent({
   // packages: [],            names, out of the ones the deployment lists
   // model: "glm-flash",      the name of a model config the deployment lists
   // instructions: "...",     opens the system prompt, in place of que's own role text
-  // legibility: "on-demand", how the model is shown its packages
+  // loading: "on-demand",    how the model is shown its packages
   // loop: "long-chat",       the name of a loop config the deployment lists
   // userInstructions: true,  the prompt gets the user's own instructions
 });
