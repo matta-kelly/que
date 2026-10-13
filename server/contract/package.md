@@ -165,7 +165,9 @@ export default defineDeployment({
 	- `start`: what is true before the run
 	- `good`: one statement that is true or false after the run
 - the cases of a package are in `cases.ts`, made with `defineCases`. A capability can have many
-- cases are not in the definition, and no agent is given one. Nothing runs a case yet
+- cases are not in the definition, and no agent is given one
+- `./eval`, in a deployment, runs each case against que, under each agent config the deployment lists, and prints what the agent did: the calls, the results and the answer. Nothing grades a run: a person reads it against `good`
+	- `start` is not set up. The run acts on the real service, so a case that changes data changes real data
 
 ## Not yet
 - `context/`, `bin/`, code mode, npm distribution

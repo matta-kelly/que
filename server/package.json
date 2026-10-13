@@ -5,7 +5,8 @@
   "workspaces": [
     "contract",
     "backend/*",
-    "harness"
+    "harness",
+    "evals"
   ],
   "scripts": {
     "start": "npm start -w harness",
