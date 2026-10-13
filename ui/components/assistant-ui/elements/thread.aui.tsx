@@ -11,6 +11,10 @@ import { ThinkingStep } from "@/components/thread/activity/thinking-step";
 import { ToolStep } from "@/components/thread/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
 import { RunPickers } from "@/components/assistant-ui/elements/run-pickers";
+import {
+  ContextMeter,
+  ReplyUsage,
+} from "@/components/assistant-ui/elements/usage";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
@@ -303,6 +307,7 @@ const ComposerAction: FC = () => {
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <RunPickers />
       <div className="flex items-center gap-1.5">
+        <ContextMeter />
         <AuiIf condition={(s) => !s.thread.isRunning}>
           <ComposerPrimitive.Send asChild>
             <TooltipIconButton
@@ -421,6 +426,9 @@ const AssistantMessage: FC = () => {
       >
         <BranchPicker />
         <AssistantActionBar />
+        <AuiIf condition={(s) => s.message.status?.type !== "running"}>
+          <ReplyUsage />
+        </AuiIf>
       </div>
     </MessagePrimitive.Root>
   );

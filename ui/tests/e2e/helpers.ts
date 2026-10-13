@@ -17,3 +17,26 @@ export async function openChats(page: Page) {
     await page.getByRole("button", { name: "Toggle chats" }).click();
   await expect(list).toBeVisible();
 }
+
+// Give the chat just made a title no other chat has, so a test can open it
+// again by name: its place in the list is not its own when another session
+// makes chats on the same server.
+export async function nameNewestChat(page: Page, title: string) {
+  await openChats(page);
+  const items = page.locator('[data-slot="aui_thread-list-items"]');
+  await items.getByRole("button", { name: "More options" }).first().click();
+  await page.getByRole("menuitem", { name: /rename/i }).click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type(title);
+  await page.keyboard.press("Enter");
+  await expect(items).toContainText(title);
+}
+
+export async function openChat(page: Page, title: string) {
+  await openChats(page);
+  await page
+    .locator('[data-slot="aui_thread-list-item"]', { hasText: title })
+    .locator('[data-slot="aui_thread-list-item-trigger"]')
+    .click();
+  await expect(page.locator('[data-slot="page-title"]')).toHaveText(title);
+}

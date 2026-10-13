@@ -26,6 +26,7 @@ import { build } from "./engine/index.js";
 import { legibilityFor } from "./legibility.js";
 import { loopFor } from "./loop.js";
 import { chatModel, modelFor } from "./model.js";
+import { stamp } from "./stamp.js";
 import { runOf, settingsFor, startTracing } from "./trace.js";
 
 const traced = startTracing(settingsFor(process.env));
@@ -44,15 +45,18 @@ export async function buildAgent(
   ]);
   const catalog = narrow(reachable, config.packages);
 
+  const parts = assemble(legibilityFor(config), {
+    user,
+    catalog,
+    connect: (pkg) => getConnection(pkg, userId),
+    instructions: config.instructions,
+  });
   return build(loopFor(mounted.loops, config), {
     model: await chatModel(model),
     window: model.window,
-    ...assemble(legibilityFor(config), {
-      user,
-      catalog,
-      connect: (pkg) => getConnection(pkg, userId),
-      instructions: config.instructions,
-    }),
+    ...parts,
+    // Each reply says which model config gave it.
+    middleware: [...parts.middleware, stamp(model.name)],
   });
 }
 
