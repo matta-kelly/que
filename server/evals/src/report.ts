@@ -4,17 +4,22 @@
  */
 
 import type { Sent } from "./experiment.js";
+import type { Verdict } from "./judge.js";
 import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
 
-/** One planned run, and how it ended: with a record, with the error of a run that did not finish, or not made. */
+/** One planned run, and how it ended: with a record, with the error of a run that did not finish, or not made. `verdict` is on a run that was judged. */
 export type Outcome = { case: LoadedCase; agent?: string } & (
-  { record: RunRecord } | { error: string } | { skipped: string }
+  | { record: RunRecord; verdict?: Verdict }
+  | { error: string }
+  | { skipped: string }
 );
 
 const RESULT = 200;
 const LABEL = 9;
 const INDENT = "    ";
+// The report shows a run that names no config under this name.
+const DEFAULT = "default";
 
 const line = (label: string, value: string) =>
   `${INDENT}${label.padEnd(LABEL)}${value}`;
@@ -26,7 +31,7 @@ const whole = (text: string) =>
   text.split("\n").join(`\n${INDENT}${" ".repeat(LABEL)}`);
 
 function run(outcome: Outcome): string {
-  const lines = [`  [${outcome.agent ?? "default"}]`];
+  const lines = [`  [${outcome.agent ?? DEFAULT}]`];
   if ("skipped" in outcome) lines.push(line("skipped", outcome.skipped));
   else if ("error" in outcome) lines.push(line("error", outcome.error));
   else {
@@ -37,8 +42,33 @@ function run(outcome: Outcome): string {
           : line("result", cut(onOneLine(step.text))),
       );
     lines.push(line("answer", whole(outcome.record.answer)));
+    if (outcome.verdict) lines.push(line("verdict", said(outcome.verdict)));
   }
   return lines.join("\n");
+}
+
+const said = (verdict: Verdict) =>
+  ("none" in verdict
+    ? `none  ${onOneLine(verdict.none)}`
+    : `${verdict.pass ? "pass" : "fail"}  ${onOneLine(verdict.reason)}`
+  ).trimEnd();
+
+/** For each agent config with a judged run, how many of them passed. A run with no verdict is not a pass. */
+function passes(outcomes: Outcome[]): string[] {
+  const counts = new Map<string, { passed: number; judged: number }>();
+  for (const outcome of outcomes) {
+    if (!("record" in outcome) || !outcome.verdict) continue;
+    const name = `[${outcome.agent ?? DEFAULT}]`;
+    const count = counts.get(name) ?? { passed: 0, judged: 0 };
+    count.judged += 1;
+    if ("pass" in outcome.verdict && outcome.verdict.pass) count.passed += 1;
+    counts.set(name, count);
+  }
+  const width = Math.max(...[...counts.keys()].map((name) => name.length)) + 2;
+  return [...counts].map(
+    ([name, { passed, judged }]) =>
+      `  ${name.padEnd(width)}${passed} of ${judged} passed`,
+  );
 }
 
 const heading = (c: LoadedCase) =>
@@ -62,7 +92,10 @@ export function report(outcomes: Outcome[]): string {
   const skipped = outcomes.filter((o) => "skipped" in o).length;
   const unfinished = outcomes.filter((o) => "error" in o).length;
   blocks.push(
-    `${outcomes.length - skipped} runs, ${unfinished} did not finish, ${skipped} skipped`,
+    [
+      `${outcomes.length - skipped} runs, ${unfinished} did not finish, ${skipped} skipped`,
+      ...passes(outcomes),
+    ].join("\n"),
   );
   return blocks.join("\n\n");
 }
