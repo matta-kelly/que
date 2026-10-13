@@ -125,6 +125,7 @@ export default defineDeployment({
 - an agent config names a loop with `loop`, and a run of that agent is built with it. A loop no agent names is mounted and not used
 - `engine`: what builds and runs the loop. Left out: `plain`
 	- `plain`: the framework's own agent (`createAgent`), with que's prompt, tools and tool rule. No setting acts on it
+	- both engines repair a chat that has a tool call with no result, which a run stopped between a call and its result leaves: the call gets a result that says it was cancelled, in the saved chat and in what the model is sent. It is the framework's own middleware (`createPatchToolCallsMiddleware` of `deepagents`), and no setting turns it off
 	- `deepagents`: a LangChain deep agent (`createDeepAgent`), handed the same prompt, tools and tool rule
 		- `result` acts: a tool result over `result.max` goes to a file store kept in the thread's state, and the chat gets its head, its tail and its path. `result: false` turns that off
 		- the model gets the engine's own tools beside que's: `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, and `task` (a subagent). It reads a stored result with `read_file`, by offset and limit
