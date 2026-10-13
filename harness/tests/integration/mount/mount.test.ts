@@ -1,6 +1,6 @@
 /**
- * Mount, against real folders: the deployments and packages in fixtures/, and
- * the deployment in harness/deployments/. No network: mounting reads
+ * Mount, against real folders: the deployments and packages in fixtures/.
+ * No network: mounting reads
  * definitions and skills and opens no connection.
  */
 
@@ -29,9 +29,11 @@ test("mounts the deployment QUE_DEPLOYMENT names, by an absolute path", async ()
   assert.deepEqual(names(mounted), ["gamma", "alpha"]);
 });
 
-test("takes a QUE_DEPLOYMENT that is not absolute from harness/", async () => {
-  const mounted = await mountFromEnv({ QUE_DEPLOYMENT: "deployments/landl" });
-  assert.deepEqual(names(mounted), ["odoo"]);
+test("stops when QUE_DEPLOYMENT is not an absolute path", async () => {
+  await assert.rejects(
+    mountFromEnv({ QUE_DEPLOYMENT: "deployments/two" }),
+    /absolute path/,
+  );
 });
 
 test("stops, naming QUE_DEPLOYMENT, when it is not set", async () => {

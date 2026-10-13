@@ -5,7 +5,6 @@
   "graphs": {
     "agent": "./src/agent.ts:agent"
   },
-  "env": ".env",
   "http": {
     "app": "./src/http/api.ts:app"
   },

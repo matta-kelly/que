@@ -17,12 +17,6 @@
     "strict": true,
     "resolveJsonModule": true
   },
-  "include": [
-    "**/*.ts",
-    "../platform/**/*.ts",
-    "../packages/**/*.ts",
-    "../deployments/**/*.ts",
-    "../tests/**/*.ts"
-  ],
+  "include": ["**/*.ts", "../platform/**/*.ts", "../tests/**/*.ts"],
   "exclude": ["node_modules"]
 }

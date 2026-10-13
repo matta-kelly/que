@@ -4,8 +4,7 @@
   "type": "module",
   "workspaces": [
     "agent",
-    "platform/*",
-    "packages/*"
+    "platform/*"
   ],
   "scripts": {
     "start": "npm start -w agent",

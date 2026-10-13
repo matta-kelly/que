@@ -1,18 +1,16 @@
 # que
 
-An internal agent for Lotus and Luna. A user asks a question in chat; the agent answers it with the services that user has connected (Odoo first).
+que is a generic agent harness. A user asks a question in chat; the agent answers it with the services that user has connected.
 
-que is a generic harness. It knows nothing about any one service: everything it can do comes from packages. It starts from one deployment, the folder `QUE_DEPLOYMENT` names, and mounts the packages that deployment lists.
+It knows nothing about any one service or any one company: everything it can do comes from packages, and which packages is decided by a deployment. A deployment is a folder of its own, outside this repo. It starts que, and que mounts the packages that deployment lists. This repo holds no package and no deployment.
 
 ## How it works
 
-- **Deployments**: one folder per way to start que (`harness/deployments/`), written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. `just up` with no folder falls back to `QUE_DEPLOYMENT` in `harness/agent/.env`: an absolute path, or one taken from `harness/`. que stops at startup when neither names one. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`harness/packages/package.md`).
-- **Packages**: one folder per service, written against one small contract (`harness/platform/core/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `harness/packages/package.md`.
+- **Deployments**: one folder per way to start que, kept outside this repo, written against one small contract (`harness/platform/core/deployment-spec.ts`): its name and the package folders it uses. A deployment starts que: its `start` script runs `just up` with its own folder, so the deployment names que and que does not name it. Nothing in que's own folder picks a deployment, and que stops at startup when it is handed none. A deployment and its packages can sit outside que: que gives them `@que/core` and `zod` (`harness/packages/package.md`).
+- **Packages**: one folder per service, kept in the deployment that uses it, written against one small contract (`harness/platform/core/package-spec.ts`): what the service is, the credential it needs, its operations and its skills. To add a capability, add a folder and list it in the deployment. The harness code does not change. Packages import no agent framework, so another harness can load the same folder through a thin adapter. The contract is in `harness/packages/package.md`.
 - **Validation**: the harness checks every package when it mounts it (names, schemas, a description on every field) and stops on the first one that is wrong.
 - **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the packages that user has connected.
 - **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a package is and lists the ones the user can use; it opens a package to see what is inside and loads the operations it needs (`harness/agent/src/legibility/on-demand/`, one config on the shared base in `harness/agent/src/legibility/`). The harness knows the package contract, never a specific package.
-- **Shared domain types**: Company, Address and Buyer are each defined once (`harness/packages/odoo/ontology.ts`) and every operation returns them.
-- **Eval cases**: real user requests, each with the operation the agent should pick and a check on the arguments it sends. They are kept with the package they are about (`harness/packages/odoo/evals/cases.ts`). Nothing runs them today.
 
 Built with LangChain `createAgent` on the LangGraph dev server, Next.js with assistant-ui, and Postgres.
 
@@ -22,27 +20,37 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 
 - `harness/`: the agent and everything it loads
     - `agent/`: mounts the packages its deployment lists, builds the agent per user, serves the graph and the `/que/*` API
-    - `deployments/`: one folder per deployment, each a list of the packages it uses
-    - `packages/`: capability packages only, one folder per service. A deployment mounts the ones it lists
+    - `packages/package.md`: the package contract, in words. The packages themselves are in deployments
     - `platform/`: the package and deployment contracts (`@que/core`) and platform services (identity, users, credentials)
 - `ui/`: the chat UI (see `ui/README.md`)
+- `templates/deployment/`: an empty deployment to copy: its definition, its `.env.example`, and its `start`, `stop`, `logs` and `check` scripts
 - `scripts/db.sh`: the Postgres container
+- `scripts/container.sh`: the dev container, made so it can see a deployment's folder
 
 ## Setup
 
 Needs podman and [just](https://just.systems). Node runs only inside the dev container, so `node_modules` never lands in this folder: never run npm on the host.
 
-1. Copy `harness/agent/.env.example` to `harness/agent/.env` and `ui/.env.example` to `ui/.env.local`, and fill them in
-2. `harness/deployments/landl/start`. The first run builds the dev container and installs each app's packages
-3. Open http://localhost:3000 and connect Odoo in Settings > Connections
+1. Copy `templates/deployment/` to a folder of your own, outside this repo. That folder is your deployment
+2. In it, copy `.env.example` to `.env` and fill it in. A deployment's settings and secrets are kept there, and none in this repo
+3. Put its packages in it and list their folders in its `index.ts`. A package folder outside que needs a `package.json` with `"type": "module"`, or one above it
+4. Copy `ui/.env.example` to `ui/.env.local` in this repo and fill it in
+5. Set `QUE_HOME` to this repo's folder, and run the deployment's `start`. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder
+6. Open http://localhost:3000 and connect the deployment's services in Settings > Connections
 
 ## Commands
 
-- `<deployment folder>/start`: start everything, from that deployment. It runs `just up <deployment folder>`
-- `just up` / `just down`: start everything from the deployment `QUE_DEPLOYMENT` names, or stop everything
-- `just logs`: follow the agent server and UI logs
+From a deployment's folder:
+
+- `./start`: start everything, from that deployment. It runs `just up <deployment folder>`
+- `./stop`: stop everything. It runs `just down`
+- `./logs`: follow the agent server and UI logs. It runs `just logs`
+- `./check`: type check the deployment's own code and run its tests, with que's contract handed to both. It runs `just check-deployment <deployment folder>`
+
+From this repo, for que's own code:
+
 - `just check`: typecheck, lint, format check, and the unit and integration tests, for each app. On a pull request the same checks run only for the app that changed; a change to a root file runs both (`.github/workflows/checks.yml`)
 - `just format`: format every file in both apps with Prettier
-- `just test`: end to end tests in a browser (`ui/tests/e2e`) (needs `just up`; some need Odoo connected)
+- `just test`: end to end tests in a browser (`ui/tests/e2e`). They need a deployment started, and most were written against one deployment's services and name
 
 Anything else runs in the container: `podman exec -u node -w "$PWD/harness" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.

@@ -1,0 +1,5 @@
+{
+  "name": "my-deployment",
+  "private": true,
+  "type": "module"
+}

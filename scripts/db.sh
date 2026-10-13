@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # que's Postgres: a dedicated container on 127.0.0.1:5433, data in the
-# que-pgdata volume. Run on the host. Reads the password from harness/agent/.env.
+# que-pgdata volume. Run on the host, with the deployment's .env file, which
+# holds the password.
 set -euo pipefail
-cd "$(dirname "$0")/.."
-PW=$(grep '^POSTGRES_PASSWORD=' harness/agent/.env | cut -d= -f2-)
+env_file=${1:?give the .env file of the deployment}
+PW=$(grep '^POSTGRES_PASSWORD=' "$env_file" | cut -d= -f2-)
 if podman container exists que-postgres; then
   podman start que-postgres >/dev/null
 else

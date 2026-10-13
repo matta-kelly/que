@@ -60,7 +60,7 @@ jobs:
           cache: npm
           cache-dependency-path: harness/package-lock.json
       - run: npm ci
-      - name: types (agent, platform, packages)
+      - name: types (agent, platform, tests)
         run: npx tsc --noEmit
         working-directory: harness/agent
       - name: lint
@@ -68,7 +68,7 @@ jobs:
       - name: format
         run: npx prettier --check .
       - name: unit and integration tests
-        run: npx tsx --test "packages/**/*.test.ts" "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
+        run: npx tsx --test "platform/**/*.test.ts" "agent/src/**/*.test.ts" "tests/integration/**/*.test.ts"
 
   ui:
     needs: [changes]
