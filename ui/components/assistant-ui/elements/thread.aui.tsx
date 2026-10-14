@@ -53,7 +53,7 @@ export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 /**
  * Optional component overrides for the thread. `AssistantMessage` and
  * `Welcome` replace whole sections. Tool calls render as activity steps
- * (components/thread/activity) unless a tool UI is registered by name
+ * (components/chat/activity) unless a tool UI is registered by name
  * (toolkit `render`). When `TaskGroup` is set, tool calls that carry a nested
  * conversation render through it.
  */

@@ -8,7 +8,7 @@ import {
 
 // Thread list backed by the LangGraph server, so chats, titles, and archive
 // state survive reloads. Thread metadata carries `title` and `archived`, and
-// the chat's pick of agent and model (elements/run-pickers/pick); the proxy scopes threads
+// the chat's pick of agent and model (chat/run-pickers/pick); the proxy scopes threads
 // to the current user.
 type ThreadMeta = { title?: string; archived?: boolean };
 export const createThreadListAdapter = (
