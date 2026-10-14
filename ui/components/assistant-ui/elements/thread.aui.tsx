@@ -10,6 +10,7 @@ import { ThinkingStep } from "@/components/thread/activity/thinking-step";
 import { ToolStep } from "@/components/thread/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
+import { MessageQueue } from "@/components/assistant-ui/elements/message-queue/message-queue";
 import { RunStates } from "@/components/assistant-ui/elements/run-states/run-states";
 import { RunPickers } from "@/components/assistant-ui/elements/run-pickers/run-pickers";
 import {
@@ -203,6 +204,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
             <RunStates />
+            <MessageQueue />
             <Composer autoFocus={autoFocus} />
             <AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
@@ -310,7 +312,8 @@ const ComposerAction: FC = () => {
       <RunPickers />
       <div className="flex items-center gap-1.5">
         <ContextMeter />
-        <AuiIf condition={(s) => !s.thread.isRunning}>
+        {/* While a run is going, send is there only for a message that is written: it then waits its turn. */}
+        <AuiIf condition={(s) => !s.thread.isRunning || !s.composer.isEmpty}>
           <ComposerPrimitive.Send asChild>
             <TooltipIconButton
               tooltip="Send message"

@@ -55,12 +55,22 @@ async function wholeOnce(page: Page) {
     expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
 }
 
-test("survive: stop cancels the run on the server, the chat says so, and Continue goes on @live", async ({
+test("survive: stop cancels the run, the chat says so, Continue goes on, and a message sent in a run waits its turn @live", async ({
   page,
 }) => {
   await openApp(page);
   const { thread } = await start(page, LONG);
   await partWay(page);
+
+  // A message sent while the run is going waits above the composer, and can be taken back.
+  const input = page.getByPlaceholder("Send a message...");
+  const queue = page.locator('[data-slot="message-queue"]');
+  await input.fill("Say only: taken back");
+  await input.press("Enter");
+  await expect(queue).toContainText("Say only: taken back");
+  await queue.getByRole("button", { name: "Take back" }).click();
+  await expect(queue).toHaveCount(0);
+
   await stop(page).click();
   await expect(sendButton(page)).toBeVisible();
 
@@ -75,13 +85,25 @@ test("survive: stop cancels the run on the server, the chat says so, and Continu
   await expect(mark).toContainText("Stopped");
   await mark.getByRole("button", { name: "Continue" }).click();
   await expect(mark).toHaveCount(0);
-  // The reply is written again from the saved step, and the part that came in before the stop is not above it.
-  await wholeOnce(page);
+  // A message sent while that run is going is sent when it ends.
+  await expect(stop(page)).toBeVisible({ timeout: 15_000 });
+  await input.fill("Say only: after");
+  await input.press("Enter");
+  await expect(queue).toContainText("Say only: after");
+  const replies = page.locator('[data-role="assistant"]');
+  await expect(replies).toHaveCount(2, { timeout: 180_000 });
+  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  await expect(queue).toHaveCount(0);
   await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
-  await expect(page.locator('[data-role="user"]')).toHaveCount(1);
-  // The run that was stopped, and the one that went on.
+  await expect(page.locator('[data-role="user"]')).toHaveCount(2);
+  // The reply was written again from the saved step, and the part that came in before the stop is not above it.
+  const text = (await replies.first().textContent())!;
+  for (const n of [57, 777, 1234, 2999])
+    expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
+  // The run that was stopped, the one that went on, and the one of the message that waited.
   expect((await runsOf(page, thread)).map((run) => run.status).sort()).toEqual([
     "interrupted",
+    "success",
     "success",
   ]);
 });
