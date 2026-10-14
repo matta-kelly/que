@@ -10,9 +10,9 @@ import {
 } from "@assistant-ui/react";
 import { MessageSquareText } from "lucide-react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
-import { PageHeader } from "@/components/page-header";
-import { CHAT_SUGGESTIONS } from "@/components/thread/suggestions";
-import toolkit from "@/components/thread/toolkit";
+import { PageHeader } from "@/components/shell/page-header";
+import { CHAT_SUGGESTIONS } from "@/components/chat/suggestions";
+import toolkit from "@/components/chat/toolkit";
 
 // The chat. Its header shows the current chat's title.
 export default function ChatPage() {

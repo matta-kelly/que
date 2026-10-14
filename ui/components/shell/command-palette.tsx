@@ -31,7 +31,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { NAV } from "@/components/nav";
+import { NAV } from "@/components/shell/nav";
 import { SECTIONS, useSettings } from "@/components/settings/settings-dialog";
 import { useNewChat } from "@/hooks/use-new-chat";
 import { useOpenChat } from "@/hooks/use-open-chat";

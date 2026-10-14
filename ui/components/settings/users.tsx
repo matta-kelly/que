@@ -4,7 +4,7 @@
 // they sign in; the first user is an admin.
 
 import useSWR from "swr";
-import { UserAvatar } from "@/components/user";
+import { UserAvatar } from "@/components/shell/user";
 import { fetcher, QUE_API, type User } from "@/lib/que-api";
 
 export function UsersList() {

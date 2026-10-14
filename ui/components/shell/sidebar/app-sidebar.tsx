@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Eclipse, MessageSquareText } from "lucide-react";
 import { brandFont } from "@/lib/fonts";
-import { NAV } from "@/components/nav";
-import { NavUser } from "@/components/sidebar/nav-user";
+import { NAV } from "@/components/shell/nav";
+import { NavUser } from "@/components/shell/sidebar/nav-user";
 import { useNewChat } from "@/hooks/use-new-chat";
 import {
   Sidebar,

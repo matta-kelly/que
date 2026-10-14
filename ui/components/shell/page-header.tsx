@@ -4,7 +4,7 @@
 // the theme toggle on the right.
 
 import { titleFont } from "@/lib/fonts";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 
 export function PageHeader({
   title,

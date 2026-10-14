@@ -13,7 +13,7 @@ import {
 import { XIcon } from "lucide-react";
 import type { FC } from "react";
 import { cn } from "@/lib/utils";
-import { field, ghostButton, mono } from "../surfaces";
+import { field, ghostButton, mono } from "../../assistant-ui/elements/surfaces";
 
 /**
  * Above the composer, the messages sent while a run is going: each waits its

@@ -86,4 +86,27 @@ export default defineConfig([
       ],
     },
   },
+  // `components/assistant-ui/` holds the library's files only. que's own chat code goes in `components/chat/`.
+  {
+    files: ["components/assistant-ui/elements/**"],
+    ignores: [
+      "components/assistant-ui/elements/thread.aui.tsx",
+      "components/assistant-ui/elements/thread-list.aui.tsx",
+      "components/assistant-ui/elements/markdown-text.tsx",
+      "components/assistant-ui/elements/follow-up-suggestions.aui.tsx",
+      "components/assistant-ui/elements/tooltip-icon-button.tsx",
+      "components/assistant-ui/elements/surfaces.tsx",
+      "components/assistant-ui/elements/thinking-indicator.tsx",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Program",
+          message:
+            "components/assistant-ui/ holds the library's files only. que's own code goes in components/chat/.",
+        },
+      ],
+    },
+  },
 ]);

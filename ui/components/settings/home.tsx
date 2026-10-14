@@ -7,7 +7,7 @@
 import { useState, type ComponentType } from "react";
 import useSWR from "swr";
 import { Cable, Search } from "lucide-react";
-import { UserAvatar } from "@/components/user";
+import { UserAvatar } from "@/components/shell/user";
 import { fetcher, QUE_API, type Connection, type User } from "@/lib/que-api";
 
 type Section<Id extends string> = {

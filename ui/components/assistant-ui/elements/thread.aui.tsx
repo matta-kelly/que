@@ -5,18 +5,15 @@
 // dictation or feedback UI, since the runtime configures none of those
 // adapters. Upgrades are diffed by hand, not re-added via the registry.
 
-import { Activity } from "@/components/thread/activity/activity";
-import { ThinkingStep } from "@/components/thread/activity/thinking-step";
-import { ToolStep } from "@/components/thread/activity/tool-step";
+import { Activity } from "@/components/chat/activity/activity";
+import { ThinkingStep } from "@/components/chat/activity/thinking-step";
+import { ToolStep } from "@/components/chat/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
-import { MessageQueue } from "@/components/assistant-ui/elements/message-queue/message-queue";
-import { RunStates } from "@/components/assistant-ui/elements/run-states/run-states";
-import { RunPickers } from "@/components/assistant-ui/elements/run-pickers/run-pickers";
-import {
-  ContextMeter,
-  ReplyUsage,
-} from "@/components/assistant-ui/elements/usage/usage";
+import { MessageQueue } from "@/components/chat/message-queue/message-queue";
+import { RunStates } from "@/components/chat/run-states/run-states";
+import { RunPickers } from "@/components/chat/run-pickers/run-pickers";
+import { ContextMeter, ReplyUsage } from "@/components/chat/usage/usage";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
@@ -56,7 +53,7 @@ export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 /**
  * Optional component overrides for the thread. `AssistantMessage` and
  * `Welcome` replace whole sections. Tool calls render as activity steps
- * (components/thread/activity) unless a tool UI is registered by name
+ * (components/chat/activity) unless a tool UI is registered by name
  * (toolkit `render`). When `TaskGroup` is set, tool calls that carry a nested
  * conversation render through it.
  */

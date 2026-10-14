@@ -5,7 +5,7 @@
 
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { useSettings } from "@/components/settings/settings-dialog";
-import { UserAvatar, useMe } from "@/components/user";
+import { UserAvatar, useMe } from "@/components/shell/user";
 
 export function NavUser() {
   const { data: me } = useMe();

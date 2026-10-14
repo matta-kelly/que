@@ -2,7 +2,7 @@
 // thread's metadata, beside its title. A field that is not set follows the
 // deployment.
 
-import type { Deployment } from "../../../../lib/que-api.ts";
+import type { Deployment } from "../../../lib/que-api.ts";
 
 export type RunPick = { agent?: string | null; model?: string | null };
 

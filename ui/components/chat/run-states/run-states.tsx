@@ -3,7 +3,7 @@
 import { useAuiState } from "@assistant-ui/react";
 import { useLangGraphSend } from "@assistant-ui/react-langgraph";
 import type { FC } from "react";
-import { runs } from "@/components/runtime/run-of-thread";
+import { runs } from "@/components/runtime/runs/run-of-thread";
 import { ConnectionState } from "./connection-state";
 import { StoppedRun } from "./stopped-run";
 import { useRunStates } from "./store";

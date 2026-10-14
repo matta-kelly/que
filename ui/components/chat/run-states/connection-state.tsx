@@ -14,7 +14,7 @@
 import type { ComponentProps } from "react";
 import { CloudOffIcon, Loader2Icon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { paper } from "../surfaces";
+import { paper } from "../../assistant-ui/elements/surfaces";
 
 export type ConnectionPhase = "online" | "dropped" | "reconnecting";
 
