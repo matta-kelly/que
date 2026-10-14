@@ -14,7 +14,10 @@ import {
 import { useChatPick } from "@/components/assistant-ui/elements/run-pickers/use-chat-pick";
 import { createClient } from "@/components/runtime/langgraph-client";
 import { priced } from "@/components/assistant-ui/elements/usage/cost";
-import type { RunPick } from "@/components/assistant-ui/elements/run-pickers/pick";
+import {
+  agentPick,
+  type RunPick,
+} from "@/components/assistant-ui/elements/run-pickers/pick";
 import { changePick } from "@/components/assistant-ui/elements/run-pickers/pick-store";
 
 /**
@@ -44,8 +47,7 @@ export const RunPickers: FC = () => {
           value={shown.agent}
           names={deployment.agents.map((agent) => agent.name)}
           disabled={started}
-          // The model follows the agent picked.
-          onPick={(agent) => change({ agent, model: null })}
+          onPick={(agent) => change(agentPick(agent))}
         />
       )}
       {deployment.models.length > 1 && (

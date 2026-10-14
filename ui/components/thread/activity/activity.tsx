@@ -11,6 +11,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Marker, MarkerContent, MarkerIcon } from "@/components/ui/marker";
+import { summaryLabel } from "./summary-label";
 
 export function Activity({
   steps,
@@ -35,7 +36,7 @@ export function Activity({
             {running ? <Loader2 className="animate-spin" /> : <ListTree />}
           </MarkerIcon>
           <MarkerContent className={cn(running && "animate-pulse")}>
-            {running ? "Working…" : `${steps} step${steps === 1 ? "" : "s"}`}
+            {summaryLabel(steps, running)}
           </MarkerContent>
           <ChevronRight className="size-3.5 transition-transform group-data-[state=open]/activity:rotate-90" />
         </CollapsibleTrigger>
