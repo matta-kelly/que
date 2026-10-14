@@ -243,6 +243,8 @@ export function RuntimeProvider({
 
   const runtime = useLangGraphRuntime({
     unstable_allowCancellation: true,
+    // A message sent while a run is going waits, and is sent when that run ends.
+    unstable_enableMessageQueue: true,
     stream,
     unstable_threadListAdapter: threadListAdapter,
     // With this, a reply can be made again and a sent message edited: the run
