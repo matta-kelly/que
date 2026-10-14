@@ -2,7 +2,8 @@ import { defineDeployment } from "@que/core";
 
 export default defineDeployment({
   name: "my-deployment",
-  // Folders of the packages this deployment uses, taken from this folder.
+  // Folders of the packages this deployment uses, taken from this folder. A package can sit
+  // outside it, as in a repo with its own packages/: "../packages/odoo".
   packages: [],
   // One file per agent config. A run names the one it wants, and a chat gets the first.
   agents: ["./agents/chat.ts"],
