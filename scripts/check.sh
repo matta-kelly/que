@@ -78,7 +78,11 @@ step() {
 
 # A pipeline log is read after the run, so it names each test. A terminal gets one dot per test.
 reporter=dot
-[ -z "${CI:-}" ] || reporter=spec
+vitest_reporter=dot
+if [ -n "${CI:-}" ]; then
+  reporter=spec
+  vitest_reporter=verbose
+fi
 
 check_server() {
   step "server: install" server install
@@ -99,7 +103,7 @@ browser_budget() {
   if [ "$have" -gt "$all" ] || [ "$sending" -gt "$live" ]; then
     echo "ui/tests/e2e has $have browser tests ($sending marked @live). The budget is $all ($live marked @live)."
     echo "A browser test is for what only the whole running app can show."
-    echo "Put the decision in a function beside its component, and test that with node --test."
+    echo "Put the decision in a function beside its component, and test that with Vitest."
     echo "Or replace a browser test that is there. Do not raise the budget: that is the owner's call."
     return 1
   fi
@@ -110,7 +114,7 @@ check_ui() {
   step "ui: types" ui npx tsc --noEmit
   step "ui: lint" ui npx eslint
   step "ui: format" ui npx prettier --check .
-  step "ui: unit tests" ui node --test --test-reporter="$reporter" "components/**/*.test.ts"
+  step "ui: unit tests" ui npx vitest run --reporter="$vitest_reporter"
   step "ui: browser test budget" ui browser_budget
 }
 
