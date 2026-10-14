@@ -14,6 +14,9 @@ export type ResolvedPick = {
   send: { agent?: string; model?: string };
 };
 
+/** The pick of an agent. It clears the picked model, so the model follows the agent. */
+export const agentPick = (agent: string): RunPick => ({ agent, model: null });
+
 /**
  * What a pick comes to on a deployment. A name the deployment does not list is
  * dropped, so the run is sent nothing for it and follows the deployment. While

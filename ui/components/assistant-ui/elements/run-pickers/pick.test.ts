@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolve } from "./pick.ts";
+import { agentPick, resolve } from "./pick.ts";
 
 const deployment = {
   agents: [
@@ -55,5 +55,14 @@ test("resolve shows nothing on a deployment that lists no agents and no models",
     agent: undefined,
     model: undefined,
     send: {},
+  });
+});
+
+test("agentPick clears the picked model, so the chat shows and sends the model of the agent", () => {
+  const pick = { agent: "chat", model: "big", ...agentPick("lean") };
+  assert.deepEqual(resolve(pick, deployment), {
+    agent: "lean",
+    model: "small",
+    send: { agent: "lean" },
   });
 });
