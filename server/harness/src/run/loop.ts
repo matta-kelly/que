@@ -1,7 +1,7 @@
 /**
  * The loop a run is built with: the one its config names, out of the ones the
  * deployment lists, with que's own value for each setting it leaves out. A
- * config that names none runs as que does with no loop: on the plain engine.
+ * config that names none gets que's own value for each setting.
  */
 
 import {

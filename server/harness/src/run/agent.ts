@@ -6,7 +6,7 @@
  * says: which of those packages, the model, the instructions, how the
  * packages are put in front of the model, the loop it runs in, and if it
  * takes the user's own instructions. The loop
- * names the engine that builds the agent. The model is the one the run names,
+ * says which settings act on the agent. The model is the one the run names,
  * then the config's, then the first the deployment lists. The config is the one the run names,
  * or the first the deployment lists. Packages the user can't use are never
  * loaded. The user is fixed when the agent is built, so every tool call runs
@@ -25,7 +25,7 @@ import { fromFile, taken } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
 import * as mounted from "../mount/mounted.js";
 import { configFor } from "./config.js";
-import { build } from "./engine/index.js";
+import { build } from "./build/build.js";
 import { loadingFor } from "./loading.js";
 import { loopFor } from "./loop.js";
 import { chatModel, modelFor } from "./model.js";
