@@ -9,11 +9,11 @@ through the proxy at `app/api/[..._path]`.
 - `hooks/`: React hooks that more than one feature uses
 - `lib/`: three things many features share, and no more: the que API's types (`que-api.ts`), the fonts, and shadcn's `cn`. A lint rule stops a new file there
 - `components/runtime/runtime-provider.tsx`: connects to the LangGraph server
-  - a run outlives its connection. que makes the stream call itself, and sends each run to go on when its stream ends (`onDisconnect: "continue"`), with its events kept (`streamResumable`)
+  - a run outlives its connection. que makes the stream call itself, and sends each run to go on when its stream ends (`onDisconnect: "continue"`), with its events kept (`streamResumable`). What a run is sent is `components/runtime/run-options.ts`
   - a stream that is cut is picked up by the SDK from the last event it got. The proxy hands on the header it does that with, `Last-Event-ID`
   - the run a thread is on is kept in session storage, from when the run is made to when its stream comes to its end (`components/runtime/run-of-thread.ts`)
   - stop is a call: `runs.cancel` with `interrupt`, for the run the open thread is on. The end of a stream cancels nothing, so a reload leaves the run going. A stop that comes before the chat has the id of its run finds the run on the server
-  - a chat that is opened while its run is going joins it: when the saved chat is loaded and the server says the run is going, a run with no message is started in the library, and the stream call answers it with the events of that run from its first. Each event holds a message whole so far, so none is doubled
+  - a chat that is opened while its run is going joins it: when the saved chat is loaded and the server says the run is going, a run with no message is started in the library, and the stream call answers it with the events of that run from its first. Each event holds a message whole so far, so none is doubled. What the chat does by the server's answer is `components/runtime/kept-run.ts`: a run that has ended, or that the server does not have, is let go of
   - `components/assistant-ui/elements/run-states/`: what the chat shows for a run that did not go the plain way, above the composer. A `Stopped` mark with `Continue` after a stop, and a `Reconnecting` line while the chat joins a run. That a thread was stopped is kept in its metadata (`stopped`), and a new run takes it away. `Continue` is a run with no message, from the last saved step: the chat is first set to what is saved, since the part of a reply that came in before the stop is not
 - `components/thread/toolkit.tsx`: custom UIs for agent tools, keyed by tool name
 - `lib/que-api.ts`: the que API's response types and the fetcher for `useSWR`
