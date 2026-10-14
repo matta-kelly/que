@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { nameNewestChat, openApp, openChat } from "./helpers";
-import { money } from "../../components/assistant-ui/elements/usage/cost.ts";
+import { money } from "../../components/chat/usage/cost.ts";
 
 // Needs a deployment that lists two models of two prices, on a server that
 // gives each model's price.

@@ -6,8 +6,8 @@
 
 import { notFound, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { NAV, type NavName } from "@/components/nav";
-import { PageHeader } from "@/components/page-header";
+import { NAV, type NavName } from "@/components/shell/nav";
+import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import {
   Empty,

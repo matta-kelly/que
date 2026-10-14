@@ -14,10 +14,14 @@
 // It counts nothing, and knows no model and no cost.
 
 import { useId, type ComponentProps, type ReactNode } from "react";
-import { percent } from "@/components/assistant-ui/elements/usage/counts";
+import { percent } from "@/components/chat/usage/counts";
 import { cn } from "@/lib/utils";
-import { clamp, pct } from "../../utils/range";
-import { floating, ghostButton, mono } from "../surfaces";
+import { clamp, pct } from "../../assistant-ui/utils/range";
+import {
+  floating,
+  ghostButton,
+  mono,
+} from "../../assistant-ui/elements/surfaces";
 
 export type ContextPart = { label: string; value: number };
 

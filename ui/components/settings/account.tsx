@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { mutate } from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { UserAvatar, useMe } from "@/components/user";
+import { UserAvatar, useMe } from "@/components/shell/user";
 import { QUE_API, type Me } from "@/lib/que-api";
 
 const AVATAR_SIZE = 256;

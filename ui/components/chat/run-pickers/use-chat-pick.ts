@@ -1,11 +1,8 @@
 "use client";
 
 import { useAuiState } from "@assistant-ui/react";
-import { resolve } from "@/components/assistant-ui/elements/run-pickers/pick";
-import {
-  pickOf,
-  useRunPicks,
-} from "@/components/assistant-ui/elements/run-pickers/pick-store";
+import { resolve } from "@/components/chat/run-pickers/pick";
+import { pickOf, useRunPicks } from "@/components/chat/run-pickers/pick-store";
 
 /** What the open chat runs on: the deployment, the chat's pick, and what the pick comes to. */
 export function useChatPick() {

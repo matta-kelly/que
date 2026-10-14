@@ -2,7 +2,7 @@
 // connection: it is sent to go on when its stream ends, with its events kept,
 // so a cut stream is picked up again.
 
-import type { ResolvedPick } from "../assistant-ui/elements/run-pickers/pick.ts";
+import type { ResolvedPick } from "../../chat/run-pickers/pick.ts";
 
 // As the library's own stream call asks for.
 export const STREAM_MODE: ("messages" | "updates" | "custom")[] = [

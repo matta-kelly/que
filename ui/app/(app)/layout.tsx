@@ -4,12 +4,12 @@
 // Pages (chat, Reports, …) render in the main area with their own PageHeader.
 
 import { useSyncExternalStore } from "react";
-import { AppSidebar } from "@/components/sidebar/app-sidebar";
+import { AppSidebar } from "@/components/shell/sidebar/app-sidebar";
 import {
   SIDEBAR_WIDTH_KEY,
   SIDEBAR_WIDTH_MAX,
   SIDEBAR_WIDTH_MIN,
-} from "@/components/sidebar/sidebar-resize-handle";
+} from "@/components/shell/sidebar/sidebar-resize-handle";
 import {
   SidebarInset,
   SidebarProvider,
@@ -17,7 +17,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { SettingsProvider } from "@/components/settings/settings-dialog";
-import { CommandPalette } from "@/components/command-palette";
+import { CommandPalette } from "@/components/shell/command-palette";
 
 // The sidebar collapses to an icon rail with its toggle inside, so it's always
 // reachable. On mobile it's a drawer; this floating toggle opens it there.

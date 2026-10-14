@@ -4,7 +4,7 @@
 
 import { create } from "zustand";
 import { QUE_API, fetcher, type Deployment } from "@/lib/que-api";
-import type { RunPick } from "@/components/assistant-ui/elements/run-pickers/pick";
+import type { RunPick } from "@/components/chat/run-pickers/pick";
 
 type State = {
   deployment: Deployment | undefined;

@@ -12,7 +12,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { ArrowRightIcon, SquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { field, mono } from "../surfaces";
+import { field, mono } from "../../assistant-ui/elements/surfaces";
 
 export function StoppedRun({
   reason,

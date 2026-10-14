@@ -11,14 +11,11 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useChatPick } from "@/components/assistant-ui/elements/run-pickers/use-chat-pick";
+import { useChatPick } from "@/components/chat/run-pickers/use-chat-pick";
 import { createClient } from "@/components/runtime/langgraph-client";
-import { priced } from "@/components/assistant-ui/elements/usage/cost";
-import {
-  agentPick,
-  type RunPick,
-} from "@/components/assistant-ui/elements/run-pickers/pick";
-import { changePick } from "@/components/assistant-ui/elements/run-pickers/pick-store";
+import { priced } from "@/components/chat/usage/cost";
+import { agentPick, type RunPick } from "@/components/chat/run-pickers/pick";
+import { changePick } from "@/components/chat/run-pickers/pick-store";
 
 /**
  * The agent and the model the open chat runs on, each with a menu to pick
