@@ -5,9 +5,14 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
+import type { Skill } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 
 export const READ_SKILL = "read_skill";
+
+/** A skill in one line, the way a list of skills shows it. */
+export const skillLine = (s: Skill) =>
+  `- ${s.id}: ${s.title}. ${s.description}`;
 
 function readSkill(catalog: Catalog): StructuredTool {
   const skills = new Map(
@@ -18,7 +23,7 @@ function readSkill(catalog: Catalog): StructuredTool {
     {
       name: READ_SKILL,
       description:
-        "Read Skill: returns the full text of a skill, by the id open_package lists it under.",
+        "Read Skill: returns the full text of a skill, by its id, as the prompt or open_package lists it.",
       schema: z.object({
         id: z.string().describe("Skill id, e.g. odoo/lookup-company"),
       }),
