@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateAgent } from "./agent-spec.js";
+import { LOADING, validateAgent } from "./agent-spec.js";
 
 test("validateAgent rejects a model that is not a plain name, and says where a model goes for one written as provider:model", () => {
   for (const model of ["two words", 7, null])
@@ -41,7 +41,7 @@ test("validateAgent names every fault in one error", () => {
   assert.throws(
     () =>
       validateAgent({
-        loading: "eager",
+        loading: "lazy",
         packages: "odoo",
         model: "",
         instructions: "",
@@ -73,6 +73,10 @@ test("validateAgent accepts userInstructions as true or false, and rejects any o
       /userInstructions of the agent/,
       JSON.stringify(userInstructions),
     );
+});
+
+test("validateAgent accepts each way of loading", () => {
+  for (const loading of LOADING) validateAgent({ name: "chat", loading });
 });
 
 test("validateAgent rejects the field legibility, and says it is now loading", () => {
