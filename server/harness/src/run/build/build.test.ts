@@ -15,7 +15,7 @@ import { resolveLoop, type LoopDefinition } from "@que/core";
 import { assemble } from "../../assemble/assemble.js";
 import { catalog } from "../../assemble/fixture.js";
 import { onDemand } from "../../assemble/on-demand/index.js";
-import { build } from "./index.js";
+import { build } from "./build.js";
 
 const INSTRUCTIONS = "You help the sales team.";
 
@@ -41,7 +41,7 @@ type Run = {
   files?: Record<string, unknown>;
 };
 
-/** One run of the agent an engine builds, with what the model was sent on each call. */
+/** One run of the agent build makes, with what the model was sent on each call. */
 async function run(
   loop: LoopDefinition,
   replies: BaseMessage[],
@@ -50,7 +50,7 @@ async function run(
   },
   window = WINDOW,
 ) {
-  // The engine asks the same model for a summary: it gets one, and each other call gets the next reply.
+  // The summary is asked of the same model: it gets one, and each other call gets the next reply.
   const model = fakeModel();
   let next = 0;
   const reply = (messages: BaseMessage[]) =>
@@ -110,9 +110,9 @@ const everySetting: LoopDefinition = {
   limits: { modelCalls: 1, toolCalls: 1 },
 };
 
-test("plain builds the agent with the parts it is handed, and the repair as its one middleware, for a loop with every setting", async () => {
+test("with result and summarize off, the agent has the parts it is handed, and the repair as its one middleware", async () => {
   const { result, sent, graph } = await run(
-    { ...everySetting, engine: "plain" },
+    { ...everySetting, result: false, summarize: false },
     [calling("big", "shop_report", { rows: 200 }), new AIMessage("Well.")],
   );
   assert.deepEqual(middlewareOf(graph), ["patchToolCallsMiddleware", "Seen"]);
@@ -122,14 +122,7 @@ test("plain builds the agent with the parts it is handed, and the repair as its 
   assert.equal(result.files, undefined);
 });
 
-test("deepagents gives the model que's instructions", async () => {
-  const { sent } = await run({ name: "deep", engine: "deepagents" }, [
-    new AIMessage("Well."),
-  ]);
-  assert.match(sent[0].system, /You help the sales team\./);
-});
-
-test("on deepagents, an operation that is not loaded does not go out, and the engine's own tools do", async () => {
+test("with result on, an operation that is not loaded does not go out, and read_file does", async () => {
   const connected: string[] = [];
   const { tools, middleware } = assemble(onDemand, {
     catalog,
@@ -138,7 +131,7 @@ test("on deepagents, an operation that is not loaded does not go out, and the en
     },
   });
   const { sent, result } = await run(
-    { name: "deep", engine: "deepagents" },
+    { name: "long-chat" },
     [
       calling("load", "load_operation", {
         package: "shop",
@@ -168,11 +161,12 @@ test("on deepagents, an operation that is not loaded does not go out, and the en
   assert.equal(text(resultOf(result.messages, "order")), "{}");
 });
 
-test("on deepagents, a result over result.max is stored, and the chat has its head, its tail and its path", async () => {
-  const { result } = await run(
-    { name: "deep", engine: "deepagents", result: { max: 100 } },
+test("a result over result.max is stored, the chat has its head, its tail and its path, and the model gets read_file and no other tool of files", async () => {
+  const { result, sent } = await run(
+    { name: "big-results", result: { max: 100 } },
     [calling("big", "shop_report", { rows: 200 }), new AIMessage("Well.")],
   );
+  assert.deepEqual(sent[0].tools.sort(), ["read_file", "shop_report"]);
   const inChat = text(resultOf(result.messages, "big"));
   assert.ok(inChat.length < rows(200).length / 2);
   assert.match(inChat, /\/large_tool_results\/big/);
@@ -187,14 +181,14 @@ test("on deepagents, a result over result.max is stored, and the chat has its he
   );
 });
 
-test("on deepagents, a result under result.max, and any result with result off, is in the chat whole", async () => {
-  const under = await run(
-    { name: "deep", engine: "deepagents", result: { max: 100 } },
-    [calling("small", "shop_report", { rows: 5 }), new AIMessage("Well.")],
-  );
+test("a result under result.max, and any result with result off, is in the chat whole", async () => {
+  const under = await run({ name: "big-results", result: { max: 100 } }, [
+    calling("small", "shop_report", { rows: 5 }),
+    new AIMessage("Well."),
+  ]);
   assert.equal(text(resultOf(under.result.messages, "small")), rows(5));
 
-  const off = await run({ name: "deep", engine: "deepagents", result: false }, [
+  const off = await run({ name: "whole", result: false }, [
     calling("big", "shop_report", { rows: 5000 }),
     new AIMessage("Well."),
   ]);
@@ -212,11 +206,10 @@ const threeReports = () => [
 ];
 const kinds = (messages: BaseMessage[]) => messages.map((m) => m.getType());
 
-test("on deepagents, a chat past summarize.at of the window is sent as a summary and what is kept, and its own messages stay", async () => {
+test("a chat past summarize.at of the window is sent as a summary and what is kept, and its own messages stay", async () => {
   const { sent, result } = await run(
     {
-      name: "deep",
-      engine: "deepagents",
+      name: "early",
       result: false,
       summarize: { at: 0.5, keep: 0.25 },
     },

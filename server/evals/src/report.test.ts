@@ -77,7 +77,7 @@ test("the report has the verdict of each judged run, and how many passed under e
       },
       {
         case: byCustomer,
-        agent: "deep-chat",
+        agent: "lean-chat",
         record: { steps: [], answer: "Ada has an order." },
         verdict: {
           pass: false,
@@ -90,7 +90,7 @@ test("the report has the verdict of each judged run, and how many passed under e
         record: { steps: [], answer: "I can find the shop's orders." },
         verdict: { none: "the reply has no VERDICT line" },
       },
-      { case: notAsked, agent: "deep-chat", error: "it stopped" },
+      { case: notAsked, agent: "lean-chat", error: "it stopped" },
     ]),
     `shop / find-order / find-order-by-customer
   input  Where is the order of Ada?
@@ -101,7 +101,7 @@ test("the report has the verdict of each judged run, and how many passed under e
     answer   Order 12 of Ada is open.
     verdict  pass  The answer gives the state.
 
-  [deep-chat]
+  [lean-chat]
     answer   Ada has an order.
     verdict  fail  The answer names an order. It does not give its state.
 
@@ -114,12 +114,12 @@ shop / find-order / find-order-not-asked
     answer   I can find the shop's orders.
     verdict  none  the reply has no VERDICT line
 
-  [deep-chat]
+  [lean-chat]
     error    it stopped
 
 4 runs, 1 did not finish, 0 skipped
   [chat]       1 of 2 passed
-  [deep-chat]  0 of 1 passed`,
+  [lean-chat]  0 of 1 passed`,
   );
 });
 

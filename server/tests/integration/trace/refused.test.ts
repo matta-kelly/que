@@ -6,7 +6,7 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { startTracing } from "../../../harness/src/run/trace.js";
-import { agentOn, runAsTheServer, standIn } from "./stand-in.js";
+import { reportingAgent, runAsTheServer, standIn } from "./stand-in.js";
 
 // The Langfuse SDK sends what it holds on a timer. Its own setting, in seconds.
 process.env.LANGFUSE_FLUSH_INTERVAL = "0.1";
@@ -21,10 +21,10 @@ const traced = startTracing({
 });
 
 test("a run ends with its answer when Langfuse refuses the trace, and the next run does too", async () => {
-  const first = traced(agentOn("plain"), { thread: "thread-a", agent: "chat" });
+  const first = traced(reportingAgent(), { thread: "thread-a", agent: "chat" });
   assert.equal(await runAsTheServer(first, "thread-a"), "Well.");
   await langfuse.askedFor(1);
-  const second = traced(agentOn("plain"), {
+  const second = traced(reportingAgent(), {
     thread: "thread-b",
     agent: "chat",
   });

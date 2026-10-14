@@ -11,15 +11,9 @@ const faults = (def: unknown) => {
   return "";
 };
 
-test("validateLoop accepts each engine que has, and rejects another, listing the ones it has", () => {
-  validateLoop({ name: "a", engine: "plain" });
-  validateLoop({ name: "b", engine: "deepagents" });
-  for (const engine of ["deep", "", 7, null]) {
-    const message = faults({ name: "odd", engine });
-    assert.match(message, /engine of the loop must be one of/);
-    assert.match(message, /plain/);
-    assert.match(message, /deepagents/);
-  }
+test("validateLoop rejects the field engine, and says it is gone", () => {
+  for (const engine of ["plain", "deepagents"])
+    assert.match(faults({ name: "odd", engine }), /"engine" is gone/);
 });
 
 test("validateLoop rejects a loop with no name, and a name that is not a plain name", () => {

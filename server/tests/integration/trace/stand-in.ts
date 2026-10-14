@@ -8,8 +8,8 @@ import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { AIMessage, HumanMessage, fakeModel, tool } from "langchain";
 import * as z from "zod";
-import { resolveLoop, type Engine } from "@que/core";
-import { build } from "../../../harness/src/run/engine/index.js";
+import { resolveLoop } from "@que/core";
+import { build } from "../../../harness/src/run/build/build.js";
 
 /** The path the Langfuse SDK posts spans to, under the base URL. */
 export const TRACES = "/api/public/otel/v1/traces";
@@ -141,7 +141,7 @@ const report = tool(async ({ rows }) => `${rows} rows of the report`, {
 });
 
 /** An agent that calls `shop_report` one time, then answers "Well.". */
-export function agentOn(engine: Engine) {
+export function reportingAgent() {
   const model = fakeModel();
   model.respond(
     new AIMessage({
@@ -150,7 +150,7 @@ export function agentOn(engine: Engine) {
     }),
   );
   model.respond(new AIMessage("Well."));
-  return build(resolveLoop({ name: "test", engine }), {
+  return build(resolveLoop({ name: "test" }), {
     model,
     window: 100_000,
     systemPrompt: "You help the sales team.",
