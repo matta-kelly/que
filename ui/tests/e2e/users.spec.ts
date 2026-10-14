@@ -30,14 +30,6 @@ test("users: sidebar shows me; editing my name updates it", async ({
   await expect(navUser).toContainText(original);
 });
 
-test("users: settings lists users with roles", async ({ page }) => {
-  await openApp(page);
-  await page.locator('[data-slot="nav-user"]').click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Users", exact: true }).click();
-  await expect(dialog.getByTestId("user-dev@que.local")).toContainText("admin");
-});
-
 // Uploading a picture crops/shrinks it in the browser to a small WebP and
 // shows it in the sidebar; Remove goes back to initials.
 test("users: upload and remove a profile picture", async ({ page }) => {

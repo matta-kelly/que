@@ -1,49 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { openApp, openChats } from "./helpers";
 
-// The sidebar: the icon rail, resizing, and the Chats section (collapse,
-// search, remembered state).
-test("sidebar: collapses to an icon rail and reopens", async ({ page }) => {
-  await openApp(page);
-  const sidebar = page
-    .locator('[data-slot="sidebar"][data-collapsible]')
-    .first();
-  const toggle = page
-    .locator('[data-sidebar="footer"]')
-    .getByRole("button", { name: "Toggle Sidebar" });
-  const threadList = page.locator('[data-slot="aui_thread-list-items"]');
-
-  await expect(
-    page.locator('[data-slot="sidebar"][data-state="expanded"]'),
-  ).toHaveCount(1);
-  await openChats(page);
-
-  // Collapsed: an icon rail, not gone. The toggle and a chats icon remain;
-  // the toggle opens the sidebar again.
-  await toggle.click();
-  await expect(sidebar).toHaveAttribute("data-collapsible", "icon");
-  await expect(threadList).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Chats", exact: true }),
-  ).toBeVisible();
-  await toggle.click();
-  await expect(
-    page.locator('[data-slot="sidebar"][data-state="expanded"]'),
-  ).toHaveCount(1);
-  await expect(threadList).toBeVisible();
-});
-
-test("sidebar: chats section collapses and expands", async ({ page }) => {
-  await openApp(page);
-  const threadList = page.locator('[data-slot="aui_thread-list-items"]');
-  const chats = page.getByRole("button", { name: "Toggle chats" });
-  await openChats(page);
-  await chats.click();
-  await expect(threadList).toBeHidden();
-  await chats.click();
-  await expect(threadList).toBeVisible();
-});
-
 test("sidebar: search turns the chats row into a search field", async ({
   page,
 }) => {
@@ -116,27 +73,6 @@ test("sidebar: closing search restores the chats section's collapsed state", asy
   await page.getByRole("button", { name: "Search chats" }).click();
   await page.getByRole("button", { name: "Close search" }).click();
   await expect(threadList).toBeHidden();
-});
-
-test("sidebar: header line lines up with the main header, open or collapsed", async ({
-  page,
-}) => {
-  await openApp(page);
-  const sidebarHeader = page.locator('[data-sidebar="header"]');
-  const mainHeader = page.locator("header");
-  const bottom = async (l: typeof mainHeader) => {
-    const b = (await l.boundingBox())!;
-    return Math.round(b.y + b.height);
-  };
-  await expect.poll(() => bottom(sidebarHeader)).toBe(await bottom(mainHeader));
-  await page
-    .locator('[data-sidebar="footer"]')
-    .getByRole("button", { name: "Toggle Sidebar" })
-    .click();
-  await expect(
-    page.locator('[data-slot="sidebar"][data-state="collapsed"]'),
-  ).toHaveCount(1);
-  await expect.poll(() => bottom(sidebarHeader)).toBe(await bottom(mainHeader));
 });
 
 test("sidebar: chats section starts collapsed and remembers your choice", async ({

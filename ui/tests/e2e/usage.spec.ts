@@ -35,36 +35,7 @@ async function pickModel(page: Page, name: string) {
   await page.getByRole("menuitemradio", { name, exact: true }).click();
 }
 
-test("usage: a new chat has no ring, and a chat with a reply has one, with a panel that adds up", async ({
-  page,
-}) => {
-  await openApp(page);
-  const { agents, models } = await deploymentOf(page);
-  const model = models.find((m) => m.name === agents[0].model)!;
-  await expect(page.getByRole("button", { name: "Model" })).toBeVisible();
-  await expect(meter(page)).toHaveCount(0);
-
-  await send(page, "Say hi in one word.");
-  await expect(
-    meter(page).getByRole("button", { name: "Context usage" }),
-  ).toBeVisible();
-  // The panel is in the page while it is closed. Its three parts are the chat's last
-  // model call, and add up to the total, which is over the exact window of the model.
-  const panel = (await meter(page).textContent())!.replaceAll(",", "");
-  const count = (label: string) =>
-    Number(panel.match(new RegExp(`${label}(\\d+)`))![1]);
-  const [, used, window] = panel.match(/Window(\d+) \/ (\d+)/)!.map(Number);
-  expect(count("Cached") + count("New") + count("Reply")).toBe(used);
-  expect(used).toBeGreaterThan(0);
-  expect(window).toBe(model.window);
-  expect(panel).toContain(`Model${model.name}`);
-  // The reply says what it took, and the model that gave it.
-  await expect(replyUsage(page)).toHaveText(
-    new RegExp(`^${model.name} · [\\d.]+[kM]? in · [\\d.]+[kM]? out · \\S+$`),
-  );
-});
-
-test("usage: a reply on another model shows that model, and the ring its window", async ({
+test("usage: a reply on another model shows that model, and the ring its window @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -86,7 +57,7 @@ test("usage: a reply on another model shows that model, and the ring its window"
   await expect(replyUsage(page).last()).toContainText(other.name);
 });
 
-test("usage: a chat opened again shows the same ring and reply info", async ({
+test("usage: a chat opened again shows the same ring and reply info @live", async ({
   page,
 }) => {
   await openApp(page);

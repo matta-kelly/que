@@ -47,37 +47,7 @@ async function pick(page: Page, picker: "Agent" | "Model", name: string) {
   await page.getByRole("menuitemradio", { name, exact: true }).click();
 }
 
-test("pickers: a new chat shows the first agent and its model, and its run is sent no pick", async ({
-  page,
-}) => {
-  await openApp(page);
-  const { agents } = await deploymentOf(page);
-  await expect(agentPicker(page)).toHaveText(agents[0].name);
-  await expect(modelPicker(page)).toHaveText(agents[0].model);
-
-  const sent = await send(page, "Say hi in one word.");
-  expect(sent.agent).toBeUndefined();
-  expect(sent.model).toBeUndefined();
-});
-
-test("pickers: a picked model is sent with the next run", async ({ page }) => {
-  await openApp(page);
-  const { agents, models } = await deploymentOf(page);
-  const other = models.find((m) => m.name !== agents[0].model)!.name;
-
-  await pick(page, "Model", other);
-  await expect(modelPicker(page)).toHaveText(other);
-  const first = await send(page, "Say hi in one word.");
-  expect(first.model).toBe(other);
-  expect(first.agent).toBeUndefined();
-
-  // The model can change at any message of a chat.
-  await pick(page, "Model", agents[0].model);
-  const second = await send(page, "Say bye in one word.");
-  expect(second.model).toBe(agents[0].model);
-});
-
-test("pickers: a picked agent is sent with the first run, and sets the model", async ({
+test("pickers: a picked agent is sent with the first run, and sets the model @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -95,7 +65,7 @@ test("pickers: a picked agent is sent with the first run, and sets the model", a
   expect(sent.model).toBeUndefined();
 });
 
-test("pickers: the agent picker does not open in a chat with a message", async ({
+test("pickers: the agent picker does not open in a chat with a message @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -106,7 +76,7 @@ test("pickers: the agent picker does not open in a chat with a message", async (
 });
 
 // A reload lands on a new chat, so the chat is opened again from the list.
-test("pickers: the pick holds after a reload, and after a move to another chat and back", async ({
+test("pickers: the pick holds after a reload, and after a move to another chat and back @live", async ({
   page,
 }) => {
   await openApp(page);

@@ -5,7 +5,9 @@ import { openApp } from "./helpers";
 
 // A turn's thinking/tool steps fold into one summary row, collapsed by
 // default; clicking it shows the steps.
-test("activity: steps are collapsed under a summary row", async ({ page }) => {
+test("activity: steps are collapsed under a summary row @live", async ({
+  page,
+}) => {
   await openApp(page);
   const input = page.getByPlaceholder("Send a message...");
   await input.fill(

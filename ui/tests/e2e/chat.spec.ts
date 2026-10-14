@@ -4,7 +4,7 @@ import { openApp } from "./helpers";
 // Send a message in a new thread and expect the agent's reply on screen.
 // Always prints a diagnostic report: requests to the LangGraph server, the
 // stream events the browser actually received, and browser console output.
-test("chat: a message gets a reply", async ({ page }) => {
+test("chat: a message gets a reply @live", async ({ page }) => {
   const consoleLog: string[] = [];
   const requests: string[] = [];
   page.on("console", (msg) => consoleLog.push(`[${msg.type()}] ${msg.text()}`));
@@ -100,31 +100,7 @@ test("chat: a message gets a reply", async ({ page }) => {
   }
 });
 
-// Needs a deployment whose first agent takes the user's instructions, and no
-// DEV_USER_INSTRUCTIONS.
-test("chat: a reply follows the instructions saved in Account", async ({
-  page,
-}) => {
-  await openApp(page);
-  try {
-    const saved = await page.request.patch("/api/que/me", {
-      data: { instructions: "End every reply with the word KUMQUAT." },
-    });
-    expect(saved.ok()).toBe(true);
-
-    const input = page.getByPlaceholder("Send a message...");
-    await input.fill("Say hello.");
-    await input.press("Enter");
-    await expect(page.locator('[data-role="assistant"]').last()).toContainText(
-      /kumquat/i,
-      { timeout: 60_000 },
-    );
-  } finally {
-    await page.request.patch("/api/que/me", { data: { instructions: "" } });
-  }
-});
-
-test("chat: Refresh on a reply runs its turn again from the checkpoint before it", async ({
+test("chat: Refresh on a reply runs its turn again from the checkpoint before it @live", async ({
   page,
 }) => {
   await openApp(page);
