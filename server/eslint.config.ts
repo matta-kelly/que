@@ -85,7 +85,7 @@ function direction(folder: string, { inTest = false } = {}): Rule {
 
 const deepagents: Rule = {
   path: /^deepagents$/,
-  why: "Only run/engine names deepagents.",
+  why: "Only run/build names deepagents.",
 };
 const langfuse: Rule = {
   path: /^@langfuse\/|^@opentelemetry\//,
@@ -250,9 +250,9 @@ export default defineConfig([
     [`${src}/run/agent.ts`],
     [otherApp, deepagents, langfuse, loading, ...tracedByTrace],
   ),
-  hold([`${src}/run/engine/**/*.ts`], [otherApp, langfuse], tests),
+  hold([`${src}/run/build/**/*.ts`], [otherApp, langfuse], tests),
   hold(
-    [`${src}/run/engine/deepagents.ts`],
+    [`${src}/run/build/build.ts`],
     [otherApp, langfuse, mustImport(deepagents.path, deepagents.why)],
   ),
 
