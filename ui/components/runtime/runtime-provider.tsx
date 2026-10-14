@@ -17,6 +17,11 @@ import {
 import type { Client } from "@langchain/langgraph-sdk";
 import { checkpointFor } from "@/components/runtime/checkpoint";
 import { createClient } from "@/components/runtime/langgraph-client";
+import {
+  setReconnecting,
+  setStopped,
+  useRunStates,
+} from "@/components/assistant-ui/elements/run-states/store";
 import { runs } from "@/components/runtime/run-of-thread";
 import { resolve } from "@/components/assistant-ui/elements/run-pickers/pick";
 import {
@@ -28,6 +33,8 @@ import {
 } from "@/components/assistant-ui/elements/run-pickers/pick-store";
 
 const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
+// The id that takes every message out, as LangGraph has it.
+const REMOVE_ALL_MESSAGES = "__remove_all__";
 // A stop was asked for while the chat did not have the id of its run yet.
 let stopAsked = false;
 // As the library's own stream call asks for.
@@ -149,6 +156,9 @@ export function RuntimeProvider({
       let run = joins ? going : undefined;
       try {
         if (joins) {
+          // The chat says it is picking the run up, for a second at the least, so it can be read.
+          setReconnecting(thread, true);
+          setTimeout(() => setReconnecting(thread, false), 1_000);
           yield* client.runs.joinStream(thread, going, {
             signal: config.abortSignal,
             lastEventId: "-1",
@@ -158,6 +168,28 @@ export function RuntimeProvider({
           // Each run names what its chat picked. The runtime hands in a config of
           // its own (empty for a message; for a resume after an interrupt, the one
           // of the run it resumes), and what that one names is kept.
+          // A new run takes the mark of a stop away, here and with the thread.
+          if (useRunStates.getState().stopped[thread]) {
+            setStopped(thread, false);
+            client.threads
+              .update(thread, { metadata: { stopped: false } })
+              .catch(() => {});
+          }
+          // A run with no message goes on from the last saved step (Continue, after a
+          // stop). The chat is first set to what is saved: the part of a reply that
+          // came in before the stop is not saved, and would stay above the new one.
+          if (!messages.length && config.command == null) {
+            const saved = await client.threads.getState<{
+              messages?: LangChainMessage[];
+            }>(thread);
+            yield {
+              event: "messages/complete",
+              data: [
+                { type: "remove", id: REMOVE_ALL_MESSAGES },
+                ...(saved.values?.messages ?? []).map(withReasoning),
+              ],
+            };
+          }
           const state = useRunPicks.getState();
           const { send } = resolve(pickOf(state, thread), state.deployment);
           const given = (config.runConfig ?? {}) as {
@@ -247,6 +279,10 @@ export function RuntimeProvider({
         client.threads.get(externalId),
       ]);
       rememberPick(externalId, pickIn(thread.metadata));
+      setStopped(
+        externalId,
+        (thread.metadata as { stopped?: unknown } | null)?.stopped === true,
+      );
       return {
         messages: (state.values?.messages ?? []).map(withReasoning),
         interrupts: state.tasks[0]?.interrupts,
@@ -287,6 +323,11 @@ function StopsRuns({ client }: Readonly<{ client: Client }>) {
       return;
     }
     runs.clear(thread, run);
+    // The mark of a stop is kept with the thread, so a reload and another tab show it.
+    setStopped(thread, true);
+    client.threads
+      .update(thread, { metadata: { stopped: true } })
+      .catch(() => {});
     // A run that has just ended cannot be cancelled, and the chat is as it should be.
     client.runs.cancel(thread, run, false, "interrupt").catch(() => {});
   };
