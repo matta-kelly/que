@@ -22,6 +22,8 @@ import {
   setStopped,
   useRunStates,
 } from "@/components/assistant-ui/elements/run-states/store";
+import { keptRun } from "@/components/runtime/kept-run";
+import { STREAM_MODE, runOptions } from "@/components/runtime/run-options";
 import { runs } from "@/components/runtime/run-of-thread";
 import { resolve } from "@/components/assistant-ui/elements/run-pickers/pick";
 import {
@@ -37,12 +39,6 @@ const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
 const REMOVE_ALL_MESSAGES = "__remove_all__";
 // A stop was asked for while the chat did not have the id of its run yet.
 let stopAsked = false;
-// As the library's own stream call asks for.
-const STREAM_MODE: ("messages" | "updates" | "custom")[] = [
-  "messages",
-  "updates",
-  "custom",
-];
 
 // How far back in a thread a checkpoint is looked for. A turn is one state for
 // each step of it, so this is ten turns or more.
@@ -132,10 +128,10 @@ export function RuntimeProvider({
   const client = useMemo(() => createClient(), []);
   const stream = useMemo(() => {
     // que makes the stream call itself: the library's helper cannot send a run that
-    // outlives its connection. A run is sent to go on when its stream ends
-    // (`onDisconnect`), with its events kept (`streamResumable`), so a cut stream
-    // is picked up again, by the SDK from the last event it got, and by the chat
-    // when it is opened again. Stop is then a call of its own: see `StopsRuns`.
+    // outlives its connection. A run is sent to go on when its stream ends, with
+    // its events kept (`runOptions`), so a cut stream is picked up again, by the
+    // SDK from the last event it got, and by the chat when it is opened again.
+    // Stop is then a call of its own: see `StopsRuns`.
     const call: LangGraphStreamCallback<LangChainMessage> = async function* (
       messages,
       config,
@@ -165,9 +161,6 @@ export function RuntimeProvider({
             streamMode: STREAM_MODE,
           }) as AsyncGenerator<LangGraphMessagesEvent<LangChainMessage>>;
         } else {
-          // Each run names what its chat picked. The runtime hands in a config of
-          // its own (empty for a message; for a resume after an interrupt, the one
-          // of the run it resumes), and what that one names is kept.
           // A new run takes the mark of a stop away, here and with the thread.
           if (useRunStates.getState().stopped[thread]) {
             setStopped(thread, false);
@@ -192,24 +185,10 @@ export function RuntimeProvider({
           }
           const state = useRunPicks.getState();
           const { send } = resolve(pickOf(state, thread), state.deployment);
-          const given = (config.runConfig ?? {}) as {
-            configurable?: Record<string, unknown>;
-          };
+          // Each run names what its chat picked.
           yield* client.runs.stream(thread, ASSISTANT_ID, {
-            input: messages.length ? { messages } : null,
-            streamMode: STREAM_MODE,
+            ...runOptions(messages, config, send),
             signal: config.abortSignal,
-            onDisconnect: "continue",
-            streamResumable: true,
-            ...(config.command != null && { command: config.command }),
-            ...(config.checkpointId != null && {
-              // The id alone, as the library's own stream call sends it.
-              checkpoint: { checkpoint_id: config.checkpointId } as never,
-            }),
-            config: {
-              ...given,
-              configurable: { ...send, ...given.configurable },
-            },
             onRunCreated: ({ run_id }) => {
               run = run_id;
               runs.set(thread, run_id);
@@ -367,13 +346,11 @@ function JoinsRuns({ client }: Readonly<{ client: Client }>) {
       .get(thread, run)
       .then(({ status }) => {
         if (left) return;
-        if (status === "pending" || status === "running") return send([], {});
+        if (keptRun({ status }) === "join") return send([], {});
         runs.clear(thread, run);
       })
-      // A run the server does not have is no run to join. A server that does not
-      // answer says nothing of the run: what is kept stays, for the next visit.
-      .catch((error: { status?: number }) => {
-        if (error?.status === 404) runs.clear(thread, run);
+      .catch((error: unknown) => {
+        if (keptRun({ error }) === "forget") runs.clear(thread, run);
       });
     return () => {
       left = true;

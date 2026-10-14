@@ -93,7 +93,7 @@ check_server() {
 # marked @live sends a message to a real model, which is paid for and leaves a trace.
 # The count goes down when a test is replaced by a smaller one. It goes up on the owner's word.
 browser_budget() {
-  local all=32 live=16 have sending
+  local all=30 live=14 have sending
   have=$(cat tests/e2e/*.spec.ts | grep -cE '^[[:space:]]*test\(')
   sending=$(cat tests/e2e/*.spec.ts | grep -E -A1 '^[[:space:]]*test\(' | grep -c '@live')
   if [ "$have" -gt "$all" ] || [ "$sending" -gt "$live" ]; then
