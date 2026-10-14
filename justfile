@@ -66,7 +66,8 @@ eval deployment *args: _require-up
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
-# Type check a deployment's own code and run its tests, with que's contract handed to both
+# Type check a deployment's own code and the packages it lists, and run their tests, with que's contract handed to all of them.
+# A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -74,8 +75,27 @@ check-deployment deployment:
     cd "{{root}}"
     c=$(./scripts/container.sh "$dep")
     h="{{root}}/server"
-    # The deployment has no install of its own: the compiler is told where que keeps what it imports.
-    podman exec -i -u node "$c" sh -c 'mkdir -p /tmp/que-check && cat > /tmp/que-check/tsconfig.json' <<EOF
+    mapfile -t pkgs < <(podman exec -u node -w "$h" "$c" npx tsx harness/src/mount/list-packages.ts "$dep")
+    just --justfile "{{root}}/justfile" _check-folders "$c" "$dep" "${pkgs[@]}"
+
+# Type check any folder of TypeScript and run its tests, with que's contract handed to it: a package, or code that sits beside a deployment
+check-folder folder:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir=$(cd "{{invocation_directory()}}" && cd "{{folder}}" && pwd)
+    cd "{{root}}"
+    c=$(./scripts/container.sh "$dir")
+    just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
+
+# The folders have no install of their own: the compiler is told where que keeps what they import.
+_check-folders container +folders:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    h="{{root}}/server"
+    folders=({{folders}})
+    include=$(printf '"%s/**/*.ts",' "${folders[@]}"); include=${include%,}
+    exclude=$(printf '"%s/**/node_modules",' "${folders[@]}"); exclude=${exclude%,}
+    podman exec -i -u node "{{container}}" sh -c 'mkdir -p /tmp/que-check && cat > /tmp/que-check/tsconfig.json' <<EOF
     {
       "extends": "$h/harness/tsconfig.json",
       "compilerOptions": {
@@ -83,12 +103,17 @@ check-deployment deployment:
         "typeRoots": ["$h/node_modules/@types"],
         "paths": { "@que/core": ["$h/contract/index.ts"], "zod": ["$h/node_modules/zod"] }
       },
-      "include": ["$dep/**/*.ts"],
-      "exclude": ["$dep/**/node_modules"]
+      "include": [$include],
+      "exclude": [$exclude]
     }
     EOF
-    podman exec -u node -w "$h" "$c" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
-    podman exec -u node -w "$dep" "$c" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
+    podman exec -u node -w "$h" "{{container}}" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
+    for f in "${folders[@]}"; do
+        # A folder with no tests has nothing to run.
+        [ -n "$(find "$f" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit)" ] || continue
+        echo "tests: $f"
+        podman exec -u node -w "$f" "{{container}}" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
+    done
     echo "check passed"
 
 # Check que's own code: the sets of the apps the change touched. `just check server` or `just check ui` runs one app's set, whatever changed

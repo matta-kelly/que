@@ -3,7 +3,7 @@ type: component
 description: the package contract for que. Framework-free folders + plain TS; the harness loads what they declare
 status: running
 ---
-One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder kept in the deployment that uses it; que holds none. The contract (`@que/core`, in `server/contract/package-spec.ts`) and the backend services (identity, users, credentials, in `server/backend/`) are in que. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
+One package = one concern. No Pi or LangChain imports inside; each harness gets a thin adapter. A package is a folder of the deployment's own: inside its folder, or beside it in the same repo (a repo's `packages/`). que holds none. The contract (`@que/core`, in `server/contract/package-spec.ts`) and the backend services (identity, users, credentials, in `server/backend/`) are in que. A deployment (a folder with an `index.ts`, made with `defineDeployment` from `@que/core`) lists the folders of the packages it uses, and que mounts those and no other.
 
 ## What it is for
 - two kinds, by what it touches ([[capability]])
@@ -219,7 +219,7 @@ export default defineModel({
 	- `good`: one statement that is true or false after the run
 - the cases of a package are in `cases.ts`, made with `defineCases`. A capability can have many
 - cases are not in the definition, and no agent is given one
-- `./eval`, in a deployment, runs each case against que, under each agent config the deployment lists, and prints what the agent did: the calls, the results and the answer. Nothing grades a run: a person reads it against `good`
+- `just eval`, in a deployment, runs each case against que, under each agent config the deployment lists, and prints what the agent did: the calls, the results and the answer. Nothing grades a run: a person reads it against `good`
 	- `start` is not set up. The run acts on the real service, so a case that changes data changes real data
 
 ## Not yet

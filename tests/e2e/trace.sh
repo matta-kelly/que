@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks, against the real Langfuse, that que sends the trace of a run. Run on
-# the host, with que started for the deployment given (`./start` in it), and
+# the host, with que started for the deployment given (`just start` in it), and
 # the three Langfuse settings in its .env. It makes one model call, and the
 # trace it leaves in Langfuse holds what the agent read.
 #

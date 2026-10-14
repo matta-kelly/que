@@ -41,9 +41,9 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
     - `evals/`: the eval runner (`@que/evals`). It reads a deployment's cases and agent configs, runs each case against a running que over HTTP, and prints the runs. When the deployment's `.env` has `QUE_JUDGE`, the name of one of its model configs, that model judges each finished run on the `good` of its case (`evals/src/judge.ts`). When the deployment's `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, it also sends the runs to that Langfuse: the cases as one dataset, and the runs under each agent config as one experiment run (`evals/src/langfuse.ts`). It imports the contract, and nothing from the harness or the backend
     - `tests/integration/`: the tests that mount folders from disk
 - `ui/`: the chat UI (see `ui/README.md`)
-- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config, its `.env.example`, and its `start`, `stop`, `logs`, `check` and `eval` scripts
+- `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config, its `.env.example`, and its `justfile`: `start`, `stop`, `logs`, `check` and `eval`
 - `scripts/db.sh`: the Postgres container
-- `scripts/container.sh`: the dev container, made so it can see a deployment's folder
+- `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in
 - `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
 
 ## Setup
@@ -53,20 +53,20 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 1. Copy `templates/deployment/` to a folder of your own, outside this repo. That folder is your deployment
 2. In it, copy `.env.example` to `.env` and fill it in. A deployment's settings and secrets are kept there, and none in this repo
    - que makes a `.que/` folder in it when a start learns a fact of a model: the saved copy of what it learned of the deployment's models (window and price). It is run state, and the template leaves it out of git
-3. Put its packages in it and list their folders in its `index.ts`. A package folder outside que needs a `package.json` with `"type": "module"`, or one above it
+3. List the folders of its packages in its `index.ts`. A package can sit in the deployment's folder, or beside it in the same repo (a repo's own `packages/`). A package folder outside que needs a `package.json` with `"type": "module"`, or one above it
 4. Copy `ui/.env.example` to `ui/.env.local` in this repo and fill it in
-5. Set `QUE_HOME` to this repo's folder, and run the deployment's `start`. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder
+5. Set `QUE_HOME` to this repo's folder, and run `just start` in the deployment. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder and its repo
 6. Open http://localhost:3000 and connect the deployment's services in Settings > Connections
 
 ## Commands
 
 From a deployment's folder:
 
-- `./start`: start everything, from that deployment. It runs `just up <deployment folder>`
-- `./stop`: stop everything. It runs `just down`
-- `./logs`: follow the agent server and UI logs. It runs `just logs`
-- `./check`: type check the deployment's own code and run its tests, with que's contract handed to both. It runs `just check-deployment <deployment folder>`
-- `./eval`: run each case of the deployment's packages against que, under each of its agent configs, and print what the agent did. que has to be up. `--agent <name>`, one or more times, runs only those configs. The runs act on the real services. When the `.env` sets `QUE_JUDGE` to the name of a model config the deployment lists, that model judges each run that finished: it is asked if the `good` of the case is true of the run, and the report has its verdict (pass, fail or none) and its reason under the run, and how many runs passed under each agent config. A verdict of fail stops nothing. A name the deployment does not list stops `./eval` before any run. With no `QUE_JUDGE`, nothing grades a run. When the `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, the runs also go to the deployment's Langfuse, as one experiment run for each agent config, named by the config and the commit of que, with each verdict of pass or fail as the score `good` on its run, and a link to each is printed under the report. With none of the three it only prints the runs, and with one or two it stops before any run. It runs `just eval <deployment folder>`
+- `just start`: start everything, from that deployment. It runs que's `just up <deployment folder>`
+- `just stop`: stop everything. It runs que's `just down`
+- `just logs`: follow the agent server and UI logs. It runs que's `just logs`
+- `just check`: type check the deployment's own code and each package it lists, wherever the package sits, and run their tests, with que's contract handed to all of them. It runs que's `just check-deployment <deployment folder>`. que's `just check-folder <folder>` does the same for any one folder of TypeScript
+- `just eval`: run each case of the deployment's packages against que, under each of its agent configs, and print what the agent did. que has to be up. `--agent <name>`, one or more times, runs only those configs. The runs act on the real services. When the `.env` sets `QUE_JUDGE` to the name of a model config the deployment lists, that model judges each run that finished: it is asked if the `good` of the case is true of the run, and the report has its verdict (pass, fail or none) and its reason under the run, and how many runs passed under each agent config. A verdict of fail stops nothing. A name the deployment does not list stops `just eval` before any run. With no `QUE_JUDGE`, nothing grades a run. When the `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, the runs also go to the deployment's Langfuse, as one experiment run for each agent config, named by the config and the commit of que, with each verdict of pass or fail as the score `good` on its run, and a link to each is printed under the report. With none of the three it only prints the runs, and with one or two it stops before any run. It runs que's `just eval <deployment folder>`
 
 From this repo, for que's own code:
 
