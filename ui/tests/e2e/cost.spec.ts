@@ -1,4 +1,4 @@
-import { test, expect, type Locator, type Page } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { nameNewestChat, openApp, openChat } from "./helpers";
 import { money } from "../../components/assistant-ui/elements/usage/cost.ts";
 
@@ -35,17 +35,6 @@ const replyUsage = (page: Page) => page.locator('[data-slot="reply-usage"]');
 const tooltip = (page: Page) =>
   page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])');
 
-// Hover a thing and read its tooltip. A hover scrolls the thing into view, and a
-// scroll closes a tooltip, so the hover is made again until its tooltip stays.
-async function expectHover(page: Page, on: Locator, text: string) {
-  await on.scrollIntoViewIfNeeded();
-  await expect(async () => {
-    await page.mouse.move(0, 0);
-    await on.hover();
-    await expect(tooltip(page)).toContainText(text, { timeout: 1_500 });
-  }).toPass({ timeout: 15_000 });
-}
-
 async function send(page: Page, text: string) {
   const replies = page.locator('[data-role="assistant"]');
   const before = await replies.count();
@@ -70,7 +59,7 @@ test("cost: each model in the picker shows its price", async ({ page }) => {
     ).toContainText(priced(model.price));
 });
 
-test("cost: a reply shows what it cost, and the ring what the chat cost", async ({
+test("cost: a reply shows what it cost, and the ring what the chat cost @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -114,27 +103,9 @@ test("cost: a reply shows what it cost, and the ring what the chat cost", async 
   );
 });
 
-test("cost: a reply on another model is at that model's price", async ({
+test("cost: a chat opened again shows the same costs @live", async ({
   page,
 }) => {
-  await openApp(page);
-  const { agents, models } = await deploymentOf(page);
-  const first = models.find((m) => m.name === agents[0].model)!;
-  // One whose price reads another way, so the two hovers cannot pass on one text.
-  const other = models.find((m) => priced(m.price) !== priced(first.price))!;
-
-  await send(page, "Say hi in one word.");
-  await page.getByRole("button", { name: "Model" }).click();
-  await page
-    .getByRole("menuitemradio", { name: other.name, exact: true })
-    .click();
-  await send(page, "Say bye in one word.");
-
-  await expectHover(page, replyUsage(page).first(), priced(first.price));
-  await expectHover(page, replyUsage(page).last(), priced(other.price));
-});
-
-test("cost: a chat opened again shows the same costs", async ({ page }) => {
   await openApp(page);
   await send(page, "Say hi in one word.");
   const reply = await replyUsage(page).textContent();

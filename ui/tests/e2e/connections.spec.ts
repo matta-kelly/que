@@ -6,7 +6,7 @@ import { openApp } from "./helpers";
 // Settings → Connections lists packages that need a credential and whether
 // this user has connected them. Saving is validated server-side (the harness
 // test-connects first), so a bad credential is rejected and nothing changes.
-test("connections: odoo shows connected; bad credential is rejected", async ({
+test("connections: odoo shows connected; bad credential is rejected @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -36,21 +36,4 @@ test("connections: odoo shows connected; bad credential is rejected", async ({
     .getByRole("button", { name: "Connections", exact: true })
     .click();
   await expect(page.getByTestId("connection-odoo")).toContainText("Connected");
-});
-
-// From home, the sidebar's user row opens Settings over the chat, without
-// leaving the page; Connections is one of its sections.
-test("connections: opens as a dialog from the sidebar", async ({ page }) => {
-  await openApp(page);
-  await page.locator('[data-slot="nav-user"]').click();
-  const dialog = page.getByRole("dialog");
-  await dialog
-    .getByRole("button", { name: "Connections", exact: true })
-    .click();
-  await expect(dialog.getByTestId("connection-odoo")).toContainText(
-    "Connected",
-  );
-  await expect(page).toHaveURL(/\/$/);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
 });

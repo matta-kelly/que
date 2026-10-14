@@ -107,9 +107,14 @@ format:
     podman exec -u node -w "{{root}}/server" "$c" npx prettier --write .
     podman exec -u node -w "{{root}}/ui" "$c" npx prettier --write .
 
-# Run the end to end tests in a browser (needs a deployment started; some need its services connected)
+# Run the browser tests that send no message to the model (needs a deployment started)
 test: _require-up
-    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test
+    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep-invert @live
+
+# Run the browser tests marked @live: each sends a message to the real model, or needs a real service connected.
+# Each message is a model call that is paid for, and a trace when the deployment has a Langfuse.
+test-live: _require-up
+    podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep @live
 
 # The dev container for this repo, found by its dev-container label
 _container:

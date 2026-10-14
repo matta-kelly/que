@@ -3,7 +3,7 @@ import { openApp, openChats } from "./helpers";
 
 // Chats live on the LangGraph server: a renamed chat keeps its title after a
 // reload.
-test("threads: rename persists across reload", async ({ page }) => {
+test("threads: rename persists across reload @live", async ({ page }) => {
   const title = `Renamed ${Date.now()}`;
   await openApp(page);
   const input = page.getByPlaceholder("Send a message...");
@@ -54,7 +54,7 @@ async function createChat(page: Page, title: string) {
 }
 
 for (const action of ["archive", "delete"] as const) {
-  test(`chats: select several and ${action} them`, async ({ page }) => {
+  test(`chats: select several and ${action} them @live`, async ({ page }) => {
     page.on("dialog", (d) => d.accept());
     const stamp = Date.now();
     const a = `Bulk ${action} A ${stamp}`;

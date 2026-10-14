@@ -89,12 +89,29 @@ check_server() {
     "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
 }
 
+# The browser tests have a budget. A browser test needs the whole app up, and one
+# marked @live sends a message to a real model, which is paid for and leaves a trace.
+# The count goes down when a test is replaced by a smaller one. It goes up on the owner's word.
+browser_budget() {
+  local all=33 live=17 have sending
+  have=$(cat tests/e2e/*.spec.ts | grep -cE '^[[:space:]]*test\(')
+  sending=$(cat tests/e2e/*.spec.ts | grep -E -A1 '^[[:space:]]*test\(' | grep -c '@live')
+  if [ "$have" -gt "$all" ] || [ "$sending" -gt "$live" ]; then
+    echo "ui/tests/e2e has $have browser tests ($sending marked @live). The budget is $all ($live marked @live)."
+    echo "A browser test is for what only the whole running app can show."
+    echo "Put the decision in a function beside its component, and test that with node --test."
+    echo "Or replace a browser test that is there. Do not raise the budget: that is the owner's call."
+    return 1
+  fi
+}
+
 check_ui() {
   step "ui: install" ui install
   step "ui: types" ui npx tsc --noEmit
   step "ui: lint" ui npx eslint
   step "ui: format" ui npx prettier --check .
   step "ui: unit tests" ui node --test --test-reporter="$reporter" "components/**/*.test.ts"
+  step "ui: browser test budget" ui browser_budget
 }
 
 case "${1:-}" in

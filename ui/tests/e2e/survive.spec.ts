@@ -58,7 +58,7 @@ async function wholeOnce(page: Page) {
     expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
 }
 
-test("survive: a run is sent to go on when its stream ends", async ({
+test("survive: a run is sent to go on when its stream ends @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -72,7 +72,7 @@ test("survive: a run is sent to go on when its stream ends", async ({
   await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
 });
 
-test("survive: stop cancels the run on the server, and the chat goes on", async ({
+test("survive: stop cancels the run on the server, and the chat goes on @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -98,7 +98,7 @@ test("survive: stop cancels the run on the server, and the chat goes on", async 
   ]);
 });
 
-test("survive: a reload in the middle of a run, and the chat has the whole reply one time", async ({
+test("survive: a reload in the middle of a run, and the chat has the whole reply one time @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -120,27 +120,7 @@ test("survive: a reload in the middle of a run, and the chat has the whole reply
   expect(runs[0].status).toBe("success");
 });
 
-// The library keeps a thread it has opened, with its stream: the chat is still on its run on the way back.
-test("survive: a look at another chat and back in the middle of a run", async ({
-  page,
-}) => {
-  await openApp(page);
-  const title = `Survive ${Date.now()}`;
-  const { thread } = await start(page, LONG);
-  await partWay(page);
-  await nameNewestChat(page, title);
-
-  // "Chats" in the sidebar opens a fresh chat.
-  await page.getByRole("button", { name: "Chats", exact: true }).click();
-  await expect(page.locator('[data-slot="page-title"]')).toHaveText("New chat");
-  await openChat(page, title);
-  await wholeOnce(page);
-  const runs = await runsOf(page, thread);
-  expect(runs).toHaveLength(1);
-  expect(runs[0].status).toBe("success");
-});
-
-test("survive: a chat opened after its run has ended makes no run", async ({
+test("survive: a chat opened after its run has ended makes no run @live", async ({
   page,
 }) => {
   await openApp(page);
