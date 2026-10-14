@@ -15,12 +15,3 @@ test("que's long-chat loop writes out que's own value for each setting", async (
   const [longChat] = await mountLoops([join(loops, "long-chat.ts")]);
   assert.deepEqual(longChat, { name: "long-chat", ...LOOP_DEFAULTS });
 });
-
-test("que's deep loop is on deepagents, and holds que's own value for result", async () => {
-  const [deep] = await mountLoops([join(loops, "deep.ts")]);
-  assert.deepEqual(deep, {
-    name: "deep",
-    engine: "deepagents",
-    result: LOOP_DEFAULTS.result,
-  });
-});

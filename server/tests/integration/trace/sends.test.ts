@@ -6,7 +6,7 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { startTracing } from "../../../harness/src/run/trace.js";
-import { TRACES, agentOn, runAsTheServer, standIn } from "./stand-in.js";
+import { TRACES, reportingAgent, runAsTheServer, standIn } from "./stand-in.js";
 
 // The Langfuse SDK sends what it holds on a timer. Its own setting, in seconds.
 process.env.LANGFUSE_FLUSH_INTERVAL = "0.1";
@@ -22,7 +22,7 @@ const traced = startTracing({
 });
 
 test("a run is sent to the deployment's Langfuse, with its keys", async () => {
-  const agent = traced(agentOn("plain"), {
+  const agent = traced(reportingAgent(), {
     thread: "thread-keys",
     agent: "chat",
   });
@@ -37,7 +37,7 @@ test("a run is sent to the deployment's Langfuse, with its keys", async () => {
 });
 
 test("the trace says who the run was for, its thread, its agent config and the commit of que", async () => {
-  const agent = traced(agentOn("plain"), {
+  const agent = traced(reportingAgent(), {
     user: "user-7",
     thread: "thread-says",
     agent: "lean",
@@ -54,7 +54,7 @@ test("the trace says who the run was for, its thread, its agent config and the c
 });
 
 test("the trace holds each model call and each tool call, with its input, its output and its times", async () => {
-  const agent = traced(agentOn("plain"), {
+  const agent = traced(reportingAgent(), {
     thread: "thread-steps",
     agent: "chat",
   });
@@ -92,24 +92,14 @@ test("the trace holds each model call and each tool call, with its input, its ou
 
 test("each run is a trace of its own", async () => {
   await runAsTheServer(
-    traced(agentOn("plain"), { thread: "thread-one", agent: "chat" }),
+    traced(reportingAgent(), { thread: "thread-one", agent: "chat" }),
     "thread-one",
   );
   await runAsTheServer(
-    traced(agentOn("plain"), { thread: "thread-two", agent: "chat" }),
+    traced(reportingAgent(), { thread: "thread-two", agent: "chat" }),
     "thread-two",
   );
   const one = await langfuse.traceOf("thread-one");
   const two = await langfuse.traceOf("thread-two");
   assert.notEqual(one[0].trace, two[0].trace);
-});
-
-test("a run on the deepagents engine is sent too", async () => {
-  const agent = traced(agentOn("deepagents"), {
-    thread: "thread-deep",
-    agent: "deep-chat",
-  });
-  assert.equal(await runAsTheServer(agent, "thread-deep"), "Well.");
-  const spans = await langfuse.traceOf("thread-deep");
-  assert.ok(spans.some((span) => span.name === "shop_report"));
 });

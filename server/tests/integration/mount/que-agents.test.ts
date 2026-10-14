@@ -24,15 +24,6 @@ test("que's agents and the loops they name mount as one deployment", async () =>
   );
   assert.deepEqual(
     mounted.agents.map((agent) => [agent.name, agent.loop]),
-    [
-      ["chat", "long-chat"],
-      ["deep-chat", "deep"],
-    ],
-  );
-  const [chat, deepChat] = mounted.agents;
-  assert.deepEqual(
-    { ...deepChat, name: chat.name, loop: chat.loop },
-    chat,
-    "deep-chat is the chat agent, but for its name and its loop",
+    [["chat", "long-chat"]],
   );
 });
