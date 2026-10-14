@@ -33,12 +33,21 @@ export default defineConfig([
     rules: { "sonarjs/no-commented-code": "error" },
   },
   // Neither app imports from the other: the UI takes nothing from server/, by path or by package name.
+  // And the UI's unit tests use Vitest, not node's runner.
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
-        { patterns: [{ regex: fromServer.source, message: fromServerWhy }] },
+        {
+          paths: [
+            {
+              name: "node:test",
+              message: "UI unit tests run under Vitest: import from 'vitest'.",
+            },
+          ],
+          patterns: [{ regex: fromServer.source, message: fromServerWhy }],
+        },
       ],
       "no-restricted-syntax": [
         "error",
