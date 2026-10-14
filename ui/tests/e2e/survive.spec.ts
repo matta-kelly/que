@@ -72,7 +72,7 @@ test("survive: a run is sent to go on when its stream ends @live", async ({
   await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
 });
 
-test("survive: stop cancels the run on the server, and the chat goes on @live", async ({
+test("survive: stop cancels the run on the server, the chat says so, and Continue goes on @live", async ({
   page,
 }) => {
   await openApp(page);
@@ -87,11 +87,16 @@ test("survive: stop cancels the run on the server, and the chat goes on @live", 
     .toEqual(["interrupted"]);
   expect((await threadOf(page, thread)).status).not.toBe("error");
 
-  await start(page, "Say hi in one word.");
-  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  // The chat says the reply was stopped, and gives the way on.
+  const mark = page.locator('[data-slot="stopped-run"]');
+  await expect(mark).toContainText("Stopped");
+  await mark.getByRole("button", { name: "Continue" }).click();
+  await expect(mark).toHaveCount(0);
+  // The reply is written again from the saved step, and the part that came in before the stop is not above it.
+  await wholeOnce(page);
   await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
-  await expect(reply(page)).not.toBeEmpty();
-  // The run that was stopped, and the one after it.
+  await expect(page.locator('[data-role="user"]')).toHaveCount(1);
+  // The run that was stopped, and the one that went on.
   expect((await runsOf(page, thread)).map((run) => run.status).sort()).toEqual([
     "interrupted",
     "success",
@@ -114,6 +119,11 @@ test("survive: a reload in the middle of a run, and the chat has the whole reply
     (await runsOf(page, thread))[0].status,
   );
   await openChat(page, title);
+  // The chat says it is picking its run up.
+  await expect(page.locator('[data-slot="connection-state"]')).toContainText(
+    "Reconnecting",
+    { timeout: 15_000 },
+  );
   await wholeOnce(page);
   const runs = await runsOf(page, thread);
   expect(runs).toHaveLength(1);

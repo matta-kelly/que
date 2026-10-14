@@ -10,6 +10,7 @@ import { ThinkingStep } from "@/components/thread/activity/thinking-step";
 import { ToolStep } from "@/components/thread/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
+import { RunStates } from "@/components/assistant-ui/elements/run-states/run-states";
 import { RunPickers } from "@/components/assistant-ui/elements/run-pickers/run-pickers";
 import {
   ContextMeter,
@@ -201,6 +202,7 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
           >
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
+            <RunStates />
             <Composer autoFocus={autoFocus} />
             <AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
