@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { bodyFont } from "@/lib/fonts";
 
 import { cn } from "@/lib/utils";
-import { RuntimeProvider } from "@/components/runtime-provider";
+import { RuntimeProvider } from "@/components/runtime/runtime-provider";
 import { Suspense } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";

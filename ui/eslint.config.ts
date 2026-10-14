@@ -54,4 +54,27 @@ export default defineConfig([
     files: ["components/assistant-ui/elements/markdown-text.tsx"],
     rules: { "react-hooks/refs": "off" },
   },
+  // What a feature needs is in one folder: its logic and its tests are beside
+  // the component that uses them, so one listing shows all of a feature. So no
+  // new file in `lib/`, and no `utils/` folder. What is left in `lib/` is shared
+  // by many features, and `components/assistant-ui/utils/` is the library's own.
+  {
+    files: ["lib/**", "**/utils/**"],
+    ignores: [
+      "lib/que-api.ts",
+      "lib/fonts.ts",
+      "lib/utils.ts",
+      "components/assistant-ui/utils/**",
+    ],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Program",
+          message:
+            "No new file in lib/ or utils/. Put it in the folder of the feature that uses it, beside its component.",
+        },
+      ],
+    },
+  },
 ]);

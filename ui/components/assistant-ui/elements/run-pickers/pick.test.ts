@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolve } from "./run-pick.ts";
+import { resolve } from "./pick.ts";
 
 const deployment = {
   agents: [

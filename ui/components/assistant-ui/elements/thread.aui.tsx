@@ -10,11 +10,11 @@ import { ThinkingStep } from "@/components/thread/activity/thinking-step";
 import { ToolStep } from "@/components/thread/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
-import { RunPickers } from "@/components/assistant-ui/elements/run-pickers";
+import { RunPickers } from "@/components/assistant-ui/elements/run-pickers/run-pickers";
 import {
   ContextMeter,
   ReplyUsage,
-} from "@/components/assistant-ui/elements/usage";
+} from "@/components/assistant-ui/elements/usage/usage";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { Button } from "@/components/ui/button";

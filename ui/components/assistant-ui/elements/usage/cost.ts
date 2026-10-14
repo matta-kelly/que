@@ -2,8 +2,8 @@
 // price of the model. An estimate: the price is the one of today, and no cost
 // is stored in any place.
 
-import type { ModelPrice } from "./que-api.ts";
-import type { UsageMessage } from "./usage.ts";
+import type { ModelPrice } from "../../../../lib/que-api.ts";
+import type { UsageMessage } from "./counts.ts";
 
 type Usage = NonNullable<UsageMessage["usage_metadata"]>;
 

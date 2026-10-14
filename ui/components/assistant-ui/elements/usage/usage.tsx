@@ -7,8 +7,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ComposerContext } from "@/components/assistant-ui/elements/composer-context";
-import { useChatPick } from "@/hooks/use-chat-pick";
+import { ComposerContext } from "@/components/assistant-ui/elements/usage/composer-context";
+import { useChatPick } from "@/components/assistant-ui/elements/run-pickers/use-chat-pick";
 import {
   about,
   chatCost,
@@ -17,16 +17,16 @@ import {
   rate,
   replyCost,
   type Prices,
-} from "@/lib/cost";
+} from "@/components/assistant-ui/elements/usage/cost";
 import type { Deployment } from "@/lib/que-api";
-import { useRunPicks } from "@/lib/run-pick-store";
+import { useRunPicks } from "@/components/assistant-ui/elements/run-pickers/pick-store";
 import {
   contextParts,
   replyUsage,
   short,
   warnShare,
   type UsageMessage,
-} from "@/lib/usage";
+} from "@/components/assistant-ui/elements/usage/counts";
 
 const exact = (count: number) => count.toLocaleString("en-US");
 
