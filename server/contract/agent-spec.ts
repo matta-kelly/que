@@ -10,7 +10,7 @@
 import { NAME } from "./package-spec.js";
 
 /** The ways que has of loading the environment for the model: what it is shown, and when. A config names one. */
-export const LOADING = ["on-demand"] as const;
+export const LOADING = ["on-demand", "eager"] as const;
 export type Loading = (typeof LOADING)[number];
 
 /** What `defineAgent` returns, and an agent file exports as its default. A field left out keeps que's own value. */

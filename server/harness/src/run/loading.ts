@@ -5,9 +5,10 @@
 
 import type { AgentDefinition, Loading } from "@que/core";
 import type { Config } from "../assemble/config.js";
+import { eager } from "../assemble/eager/index.js";
 import { onDemand } from "../assemble/on-demand/index.js";
 
-const WAYS: Record<Loading, Config> = { "on-demand": onDemand };
+const WAYS: Record<Loading, Config> = { "on-demand": onDemand, eager };
 
 export function loadingFor(agent: AgentDefinition): Config {
   return WAYS[agent.loading ?? "on-demand"];

@@ -8,6 +8,7 @@ import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
 import type { Catalog } from "../../access/catalog.js";
 import { toolName } from "../operations.js";
+import { skillLine } from "../skills.js";
 
 export const OPEN_PACKAGE = "open_package";
 export const LOAD_OPERATION = "load_operation";
@@ -39,12 +40,7 @@ function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
               ),
             ]
           : []),
-        ...(skills.length
-          ? [
-              "## Skills",
-              ...skills.map((s) => `- ${s.id}: ${s.title}. ${s.description}`),
-            ]
-          : []),
+        ...(skills.length ? ["## Skills", ...skills.map(skillLine)] : []),
       ].join("\n");
     },
     {

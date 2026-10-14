@@ -92,7 +92,7 @@ const langfuse: Rule = {
   why: "Only run/trace.ts names Langfuse or OpenTelemetry.",
 };
 const loading: Rule = {
-  path: /assemble\/on-demand/,
+  path: /assemble\/(on-demand|eager)/,
   why: "run/loading.ts is the one file in run that names a way of loading.",
 };
 const credentials: Rule = {
