@@ -9,7 +9,7 @@ default:
     @just --list
 
 # Start the database, the dev container, the agent server and the UI, from one deployment folder.
-# Nothing in que picks the deployment: a deployment starts que this way from its own `start` script.
+# Nothing in que picks the deployment: a deployment starts que this way from its own `just start`.
 up deployment:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -66,7 +66,8 @@ eval deployment *args: _require-up
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
-# Type check a deployment's own code and the packages it lists, and run their tests, with que's contract handed to all of them.
+# Type check a deployment's own code and the packages it lists, and run their tests, with que's contract handed to all of them,
+# and check its cases against the capabilities of their packages.
 # A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
     #!/usr/bin/env bash
@@ -77,6 +78,8 @@ check-deployment deployment:
     h="{{root}}/server"
     mapfile -t pkgs < <(podman exec -u node -w "$h" "$c" npx tsx harness/src/mount/list-packages.ts "$dep")
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dep" "${pkgs[@]}"
+    # The cases, and the agent and model configs, read as `just eval` reads them.
+    podman exec -u node -w "$h/evals" "$c" npx tsx --import "$h/harness/src/mount/supply.ts" src/check.ts "$dep"
 
 # Type check any folder of TypeScript and run its tests, with que's contract handed to it: a package, or code that sits beside a deployment
 check-folder folder:
@@ -148,8 +151,8 @@ _container:
 _require-container:
     #!/usr/bin/env bash
     c=$(just _container)
-    [ -n "$c" ] && [ "$(podman inspect -f '{{{{.State.Running}}' "$c")" = "true" ] || { echo "The dev container isn't running. Start a deployment: <its folder>/start"; exit 1; }
+    [ -n "$c" ] && [ "$(podman inspect -f '{{{{.State.Running}}' "$c")" = "true" ] || { echo "The dev container isn't running. Start a deployment: just start, in its folder"; exit 1; }
 
 _require-up: _require-container
     #!/usr/bin/env bash
-    curl -s -m 3 -o /dev/null localhost:3000 || { echo "que isn't running. Start a deployment: <its folder>/start"; exit 1; }
+    curl -s -m 3 -o /dev/null localhost:3000 || { echo "que isn't running. Start a deployment: just start, in its folder"; exit 1; }
