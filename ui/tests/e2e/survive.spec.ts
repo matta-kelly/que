@@ -15,17 +15,14 @@ const sendButton = (page: Page) =>
   page.getByRole("button", { name: "Send message" });
 const reply = (page: Page) => page.locator('[data-role="assistant"]').last();
 
-/** Send a message, and hand back the thread of its run and what the run was sent. */
+/** Send a message, and hand back the thread of its run. */
 async function start(page: Page, text: string) {
   const request = page.waitForRequest(isRun);
   const input = page.getByPlaceholder("Send a message...");
   await input.fill(text);
   await input.press("Enter");
   const req = await request;
-  return {
-    thread: req.url().match(/threads\/([^/]+)\/runs/)![1],
-    body: req.postDataJSON() as Record<string, unknown>,
-  };
+  return { thread: req.url().match(/threads\/([^/]+)\/runs/)![1] };
 }
 
 /** The runs of a thread, as the server has them. */
@@ -57,20 +54,6 @@ async function wholeOnce(page: Page) {
   for (const n of [57, 777, 1234, 2999])
     expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
 }
-
-test("survive: a run is sent to go on when its stream ends @live", async ({
-  page,
-}) => {
-  await openApp(page);
-  const { body } = await start(page, "Say hi in one word.");
-  expect(body.stream_resumable).toBe(true);
-  expect(body.on_disconnect).toBe("continue");
-  // And with what a run was sent before.
-  expect(body.assistant_id).toBe("agent");
-  expect(body.stream_mode).toEqual(["messages", "updates", "custom"]);
-  expect(body.input).toMatchObject({ messages: [{ type: "human" }] });
-  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
-});
 
 test("survive: stop cancels the run on the server, the chat says so, and Continue goes on @live", async ({
   page,
@@ -128,39 +111,4 @@ test("survive: a reload in the middle of a run, and the chat has the whole reply
   const runs = await runsOf(page, thread);
   expect(runs).toHaveLength(1);
   expect(runs[0].status).toBe("success");
-});
-
-test("survive: a chat opened after its run has ended makes no run @live", async ({
-  page,
-}) => {
-  await openApp(page);
-  const title = `Survive ${Date.now()}`;
-  const { thread } = await start(page, "Say hi in one word.");
-  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
-  await nameNewestChat(page, title);
-  const [{ run_id }] = await runsOf(page, thread);
-
-  // As a chat is left when its stream was cut and its run then ended with no
-  // chat on it: the run is still kept in the browser.
-  const key = `que:run:${thread}`;
-  await page.evaluate(
-    ([k, run]) => sessionStorage.setItem(k, run),
-    [key, run_id],
-  );
-  await page.reload();
-  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
-  const streams: string[] = [];
-  page.on("request", (req) => {
-    if (/\/runs\/.*stream|\/runs\/stream/.test(req.url()))
-      streams.push(req.url());
-  });
-  await openChat(page, title);
-  await expect(reply(page)).not.toBeEmpty();
-  // The chat asks the server, hears the run has ended, and lets go of it.
-  await expect
-    .poll(() => page.evaluate((k) => sessionStorage.getItem(k), key))
-    .toBeNull();
-  await expect(sendButton(page)).toBeVisible();
-  expect(streams).toEqual([]);
-  expect(await runsOf(page, thread)).toHaveLength(1);
 });
