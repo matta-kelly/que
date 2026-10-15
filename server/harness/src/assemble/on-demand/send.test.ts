@@ -10,11 +10,14 @@ const load = (id: string, pkg: string, operation: string) =>
       { id, name: "load_operation", args: { package: pkg, operation } },
     ],
   });
-const result = (id: string, content: string) =>
-  new ToolMessage({ tool_call_id: id, content });
+const result = (id: string, content: string, status?: "error") =>
+  new ToolMessage({ tool_call_id: id, content, status });
 
 test("a failed load_operation loads nothing", () => {
-  const messages = [load("1", "shop", "nope"), result("1", "Error: no such")];
+  const messages = [
+    load("1", "shop", "nope"),
+    result("1", "Error: no such", "error"),
+  ];
   assert.deepEqual([...loadedOperations(messages)], []);
 });
 

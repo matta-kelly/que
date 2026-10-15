@@ -5,7 +5,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import type { Skill } from "@que/core";
+import { OperationFailed, type Skill } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 
 export const READ_SKILL = "read_skill";
@@ -19,7 +19,11 @@ function readSkill(catalog: Catalog): StructuredTool {
     catalog.flatMap(({ pkg }) => pkg.skills.map((s) => [s.id, s] as const)),
   );
   return tool(
-    async ({ id }) => skills.get(id)?.body ?? `Error: no skill "${id}"`,
+    async ({ id }) => {
+      const skill = skills.get(id);
+      if (!skill) throw new OperationFailed(`no skill "${id}"`);
+      return skill.body;
+    },
     {
       name: READ_SKILL,
       description:

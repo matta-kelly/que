@@ -5,8 +5,8 @@
  * model is shown.
  */
 
-import { createMiddleware } from "langchain";
-import type { PackageDefinition } from "@que/core";
+import { createMiddleware, toolErrorMiddleware } from "langchain";
+import { OperationFailed, type PackageDefinition } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
 import { operationTools } from "./operations.js";
@@ -61,6 +61,14 @@ export function assemble(
     }),
     tools: [...base, ...operations],
     middleware: [
+      // A tool that fails throws an OperationFailed. The model reads its message, and the call is marked as failed.
+      // Any other error is a bug, and is thrown on.
+      toolErrorMiddleware({
+        onError: (error) =>
+          error instanceof OperationFailed
+            ? `Error: ${error.message}`
+            : undefined,
+      }),
       createMiddleware({
         name: "OperationsInReach",
         wrapModelCall: (request, handler) =>
