@@ -69,3 +69,14 @@ test("validateCases lists a case with a field that is not one of the five, and o
     },
   );
 });
+
+test("validateCases lists a case that names a capability its package does not have", () => {
+  assert.throws(
+    () =>
+      validateCases(
+        notes,
+        defineCases([{ ...asked, capability: "summarize" }]),
+      ),
+    /case write-up-asked names the capability "summarize", which package notes does not have/,
+  );
+});
