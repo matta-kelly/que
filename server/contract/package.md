@@ -81,18 +81,18 @@ export default defineDeployment({
 });
 ```
 - an agent file, as a package, has a `package.json` with `"type": "module"` in its folder or one above. A deployment's own has the deployment's, and que's have `server/package.json`
-- que keeps agent configs of its own in `server/agents/`. Each names no package, so any deployment can list it by its path. `chat` is the chat agent, and `deep-chat` is the same agent run as a LangChain deep agent
+- que keeps agent configs of its own in `server/agents/`. Each names no package, so any deployment can list it by its path. `chat` is the chat agent
 - `agents` is optional. A deployment that lists none runs on que's own choices. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
 - `name`: required. What a run names to get this config. Each other field is optional, and what is left out has que's own value
 - `packages`: names of packages, not folders. The agent gets these and no other, and of these, only the ones the user can reach. Left out: every package the deployment mounts. `[]`: none
 - `model`: the name of a model config the deployment lists. Left out: the first model the deployment lists, and with none listed, que's own. See [the deployment's models](#the-deployments-models)
 - `instructions`: opens the system prompt, in place of que's own role text. The rest of the prompt does not change
 - `loading`: the name of the way the model is shown its packages, and when it gets their operations. One exists, `on-demand`, and it is the one a config gets when it names none
-- `loop`: the name of a loop config the deployment lists: how the agent's loop is run. Left out: the agent runs on the `plain` engine, as it does with no loop. See [the deployment's loops](#the-deployments-loops)
+- `loop`: the name of a loop config the deployment lists: how the agent's loop is run. Left out: que's own value for each setting. See [the deployment's loops](#the-deployments-loops)
 - `userInstructions`: `true`, and the agent's system prompt gets the user's own instructions, in `## You`, after the line that names the user. `false` or left out: it gets none. The agent's `instructions` come first, and the prompt says they stand where the two do not agree
 	- where the text is from is not in the agent config. The deployment's `.env` can name a file with `DEV_USER_INSTRUCTIONS`: absolute, or taken from the deployment's own folder. It is read for each run, and que stops at startup when it cannot be read. With no file named, the text is the one the user saved in Settings, in Account, of at most 16,000 characters
 	- a named file is the text of every user of the deployment, and the text of an account is then not used and cannot be changed
-	- que's own `chat` and `deep-chat` say `true`
+	- que's own `chat` says `true`
 - which config a run gets
 	- a run names one with `agent` in its `configurable`: `{ configurable: { agent: "lean" } }`
 	- a run that names none gets the first one the deployment lists. So the chat is the first file
@@ -123,20 +123,16 @@ export default defineDeployment({
 });
 ```
 - an agent config names a loop with `loop`, and a run of that agent is built with it. A loop no agent names is mounted and not used
-- `engine`: what builds and runs the loop. Left out: `plain`
-	- `plain`: the framework's own agent (`createAgent`), with que's prompt, tools and tool rule. No setting acts on it
-	- both engines repair a chat that has a tool call with no result, which a run stopped between a call and its result leaves: the call gets a result that says it was cancelled, in the saved chat and in what the model is sent. It is the framework's own middleware (`createPatchToolCallsMiddleware` of `deepagents`), and no setting turns it off
-	- `deepagents`: a LangChain deep agent (`createDeepAgent`), handed the same prompt, tools and tool rule
-		- `result` acts: a tool result over `result.max` goes to a file store kept in the thread's state, and the chat gets its head, its tail and its path. `result: false` turns that off
-		- the model gets the engine's own tools beside que's: `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, and `task` (a subagent). It reads a stored result with `read_file`, by offset and limit
-		- `summarize` acts: past `summarize.at` of the model's window, the old part of the chat is sent as a summary, and `summarize.keep` of the window is sent as it is. que hands the engine counts of tokens, each share times the `window` of the run's model. The chat's own messages are not removed. `summarize: false` turns that off; the engine still summarizes when the provider says a chat is too long
-		- `args` does not act: the engine cuts long arguments of its own `write_file` and `edit_file` calls by its own defaults, and no argument of an operation
-	- `limits` acts on neither engine yet
+- every agent is the framework's own agent (`createAgent`), with que's prompt, tools and tool rule, and one middleware for each setting that acts. Nothing else is added: two agents differ only where their configs do. The repair and the file store are middlewares of a LangChain deep agent (`deepagents`), each taken alone; the summary is LangChain's own
+	- every agent repairs a chat that has a tool call with no result, which a run stopped between a call and its result leaves: the call gets a result that says it was cancelled, in the saved chat and in what the model is sent. It is the framework's own middleware (`createPatchToolCallsMiddleware` of `deepagents`), and no setting turns it off
+	- `result` acts: a tool result over `result.max` goes to a file store kept in the thread's state, and the chat gets its head, its tail and its path. The model gets one tool more, `read_file`, and reads a stored result with it, by offset and limit. `result: false` turns that off, and the model has no `read_file`
+	- `summarize` acts: past `summarize.at` of the model's window, the old part of the chat is sent as a summary, and `summarize.keep` of the window is sent as it is. que hands the middleware counts of tokens, each share times the `window` of the run's model. The summary takes the place of the old part in the thread, so the chat keeps the summary and not the old messages. It is LangChain's own middleware (`summarizationMiddleware`). `summarize: false` turns it off
+	- `args` and `limits` do not act yet
+- an agent config that names no loop gets one where neither setting acts: the chat is sent whole, and no result is moved out
 - a loop file, as an agent file, has a `package.json` with `"type": "module"` in its folder or one above
-- que keeps loop configs of its own in `server/loops/`, and a deployment can list one by its path. A deployment that lists one of que's agents lists the loop that agent names: `chat` names `long-chat`, and `deep-chat` names `deep`
+- que keeps loop configs of its own in `server/loops/`, and a deployment can list one by its path. A deployment that lists one of que's agents lists the loop that agent names: `chat` names `long-chat`
 	- `long-chat`: que's own value for each setting, written out
 	- `short-run`: for a run with one job and no person
-	- `deep`: on `deepagents`, with que's own value for `result`
 - `loops` is optional. An entry is the path of the file: absolute, or taken from the deployment's own folder. A file that is not listed is not read
 - `name`: required. Each setting is optional, and so is each part of one. What is left out has que's own value, and a setting can be `false`: off
 - `result.max`: in tokens. A tool result over it is not put in the chat whole. que's own: 20,000
@@ -145,7 +141,7 @@ export default defineDeployment({
 - `args.max`: in characters. In the old part of a chat, a longer argument of a tool call is cut. que's own: 2,000
 - `limits.modelCalls`, `limits.toolCalls`: the most of each that one run can make. que's own: 50 and 100
 - `resolveLoop` in `@que/core` hands back every setting of a loop: its own value, que's where it has none, and `false` where it says so. `LOOP_DEFAULTS` holds que's own values
-- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, an `engine` que does not have, a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
+- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
 - mount stops when a listed file does not exist, and when two loops have one name. The error names the file or the name
 
 ## The deployment's models
@@ -185,9 +181,9 @@ export default defineModel({
 	- the first one the deployment lists
 	- que's own: `glm-flash`
 - a name the deployment does not have fails the run, and the error lists the names it has
-- each reply of the model in a run has the name of the model config that gave it, in `response_metadata.que.model`. que adds it on both engines, and it is in the saved chat. A reply of a subagent of the deep agent is not in the chat, and has none
+- each reply of the model in a run has the name of the model config that gave it, in `response_metadata.que.model`. que adds it on every run, and it is in the saved chat
 - `GET /que/deployment` on the server says what a run can name: the deployment's agents, each with the model it gets when the run names none and, for an agent that summarizes, the share of the window it does so at (`summarizeAt`), and its models, each with its `window`, `maxTokens` and `price`. In the order listed, and with no provider id. The chat UI makes its pickers from it
-- que keeps model configs of its own in `server/models/`, and a deployment lists one by its path: `glm-flash`, `deepseek-flash`, `minimax-m3`. A deployment that lists one of que's agents lists the model it names: `chat` and `deep-chat` name `minimax-m3`
+- que keeps model configs of its own in `server/models/`, and a deployment lists one by its path: `glm-flash`, `deepseek-flash`, `minimax-m3`. A deployment that lists one of que's agents lists the model it names: `chat` names `minimax-m3`
 - the provider of a model is one que has the package for. Today: `fireworks`. Another one is a package added to `server/harness`, an entry in `PROVIDERS` in `server/harness/src/mount/models.ts` (how the window of one of its models is read, and its name in the model database), and its key in the deployment's `.env`
 - the `MODEL` setting is gone. A deployment that still sets it stops at startup, and the error says to list a model file
 - a model file, as an agent file, has a `package.json` with `"type": "module"` in its folder or one above

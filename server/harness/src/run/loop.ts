@@ -1,7 +1,7 @@
 /**
  * The loop a run is built with: the one its config names, out of the ones the
  * deployment lists, with que's own value for each setting it leaves out. A
- * config that names none runs as que does with no loop: on the plain engine.
+ * config that names none gets a loop that does nothing to the chat.
  */
 
 import {
@@ -11,8 +11,12 @@ import {
   type ResolvedLoop,
 } from "@que/core";
 
-/** What a run is built with when its config names no loop. */
-export const OWN_LOOP: LoopDefinition = { name: "default" };
+/** What a run is built with when its config names no loop: the chat is sent whole, and nothing is moved out. */
+export const OWN_LOOP: LoopDefinition = {
+  name: "default",
+  result: false,
+  summarize: false,
+};
 
 export function loopFor(
   loops: LoopDefinition[],

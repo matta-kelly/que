@@ -20,7 +20,7 @@ import { changePick } from "@/components/chat/run-pickers/pick-store";
 /**
  * The agent and the model the open chat runs on, each with a menu to pick
  * another. The model can change at any message. The agent is fixed after the
- * first: the engines keep different state in a thread. A picker with fewer
+ * first: the loops of two agents keep different state in a thread. A picker with fewer
  * than two entries is not shown.
  */
 export const RunPickers: FC = () => {

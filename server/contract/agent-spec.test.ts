@@ -20,7 +20,7 @@ test("validateAgent rejects a model that is not a plain name, and says where a m
 });
 
 test("validateAgent accepts a loop, and rejects one that is not a plain name", () => {
-  validateAgent({ name: "chat", loop: "deep" });
+  validateAgent({ name: "chat", loop: "long-chat" });
   for (const loop of ["two words", "", 7, null])
     assert.throws(
       () => validateAgent({ name: "chat", loop }),
