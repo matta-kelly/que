@@ -49,7 +49,7 @@ async function main(): Promise<number> {
   const ask = judging && judge(modelNamed(models, judging));
   if (!(await server.up()))
     throw new Error(
-      `eval: que is not up at ${url}. Start the deployment first: <its folder>/start`,
+      `eval: que is not up at ${url}. Start the deployment first: just start, in its folder`,
     );
   // A request of the SDK waits long and is tried again: a Langfuse that is
   // down is found here, before a model call is paid for.

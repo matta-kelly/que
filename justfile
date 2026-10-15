@@ -9,7 +9,7 @@ default:
     @just --list
 
 # Start the database, the dev container, the agent server and the UI, from one deployment folder.
-# Nothing in que picks the deployment: a deployment starts que this way from its own `start` script.
+# Nothing in que picks the deployment: a deployment starts que this way from its own `just start`.
 up deployment:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -148,8 +148,8 @@ _container:
 _require-container:
     #!/usr/bin/env bash
     c=$(just _container)
-    [ -n "$c" ] && [ "$(podman inspect -f '{{{{.State.Running}}' "$c")" = "true" ] || { echo "The dev container isn't running. Start a deployment: <its folder>/start"; exit 1; }
+    [ -n "$c" ] && [ "$(podman inspect -f '{{{{.State.Running}}' "$c")" = "true" ] || { echo "The dev container isn't running. Start a deployment: just start, in its folder"; exit 1; }
 
 _require-up: _require-container
     #!/usr/bin/env bash
-    curl -s -m 3 -o /dev/null localhost:3000 || { echo "que isn't running. Start a deployment: <its folder>/start"; exit 1; }
+    curl -s -m 3 -o /dev/null localhost:3000 || { echo "que isn't running. Start a deployment: just start, in its folder"; exit 1; }
