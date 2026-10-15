@@ -16,8 +16,11 @@ type ToolCall = { id?: string; name: string; args: Record<string, unknown> };
 export function loadedOperations(messages: BaseMessage[]): Set<string> {
   const succeeded = new Set(
     messages.flatMap((m) => {
-      const id = (m as { tool_call_id?: string }).tool_call_id;
-      return id && !String(m.content).startsWith("Error:") ? [id] : [];
+      const { tool_call_id: id, status } = m as {
+        tool_call_id?: string;
+        status?: string;
+      };
+      return id && status !== "error" ? [id] : [];
     }),
   );
   return new Set(

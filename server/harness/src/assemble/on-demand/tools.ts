@@ -6,6 +6,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
+import { OperationFailed } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
 import { toolName } from "../operations.js";
 import { skillLine } from "../skills.js";
@@ -20,13 +21,15 @@ const find = (catalog: Catalog, name: string) =>
   catalog.find(({ pkg }) => pkg.definition.name === name)?.pkg;
 
 const noPackage = (catalog: Catalog, name: string) =>
-  `Error: no package "${name}". Packages: ${catalog.map(({ pkg }) => pkg.definition.name).join(", ")}`;
+  new OperationFailed(
+    `no package "${name}". Packages: ${catalog.map(({ pkg }) => pkg.definition.name).join(", ")}`,
+  );
 
 function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
   return tool(
     async ({ package: name }) => {
       const pkg = find(catalog, name);
-      if (!pkg) return noPackage(catalog, name);
+      if (!pkg) throw noPackage(catalog, name);
       const { definition, skills } = pkg;
       return [
         `# ${definition.title} (\`${definition.name}\`)`,
@@ -60,11 +63,14 @@ function loadOperation(catalog: Catalog): StructuredTool {
   return tool(
     async ({ package: name, operation }) => {
       const pkg = find(catalog, name);
-      if (!pkg) return noPackage(catalog, name);
+      if (!pkg) throw noPackage(catalog, name);
       const ops = pkg.definition.ops.map((op) => op.name);
-      if (!ops.length) return `Error: package "${name}" has no operations.`;
+      if (!ops.length)
+        throw new OperationFailed(`package "${name}" has no operations.`);
       if (!ops.includes(operation))
-        return `Error: no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`;
+        throw new OperationFailed(
+          `no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`,
+        );
       return `Loaded. Call it as the tool \`${toolName(name, operation)}\`; its arguments are in that tool's definition.`;
     },
     {

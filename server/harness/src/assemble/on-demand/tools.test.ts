@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { OperationFailed } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
 import {
   besideNothing,
@@ -35,10 +36,12 @@ test("open_package lists each operation and skill with one line, and no argument
   assert.doesNotMatch(text, /Customer name/);
 });
 
-test("open_package names the packages that exist when asked for one that does not", async () => {
-  const text = await call("open_package", { package: "nope" });
-  assert.match(text, /^Error: /);
-  assert.match(text, /shop/);
+test("open_package fails, naming the packages that exist, when asked for one that does not", async () => {
+  await assert.rejects(
+    () => call("open_package", { package: "nope" }),
+    (error: Error) =>
+      error instanceof OperationFailed && /shop/.test(error.message),
+  );
 });
 
 test("load_operation says which tool the operation became", async () => {
@@ -46,17 +49,15 @@ test("load_operation says which tool the operation became", async () => {
     package: "shop",
     operation: "findOrders",
   });
-  assert.doesNotMatch(text, /^Error: /);
   assert.ok(text.includes(toolName("shop", "findOrders")));
 });
 
-test("load_operation names the operations that exist when asked for one that does not", async () => {
-  const text = await call("load_operation", {
-    package: "shop",
-    operation: "nope",
-  });
-  assert.match(text, /^Error: /);
-  assert.match(text, /findOrders/);
+test("load_operation fails, naming the operations that exist, when asked for one that does not", async () => {
+  await assert.rejects(
+    () => call("load_operation", { package: "shop", operation: "nope" }),
+    (error: Error) =>
+      error instanceof OperationFailed && /findOrders/.test(error.message),
+  );
 });
 
 test("read_skill returns the skill's text", async () => {

@@ -41,8 +41,12 @@ test("it runs with the connection it is given, and returns the result as JSON", 
   );
 });
 
-test("an OperationFailed comes back as text the model can read", async () => {
-  assert.equal(await getOrder.invoke({ id: -1 }), "Error: no such order");
+test("an OperationFailed is thrown on, for the agent to mark as a failed call", async () => {
+  await assert.rejects(
+    () => getOrder.invoke({ id: -1 }),
+    (error: Error) =>
+      error instanceof OperationFailed && error.message === "no such order",
+  );
 });
 
 test("any other error is a bug, and is thrown", async () => {
