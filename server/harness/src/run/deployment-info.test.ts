@@ -60,10 +60,10 @@ test("an agent has the share its loop summarizes at, and none when it does not s
     loops,
   );
   assert.deepEqual(agents, [
-    // que's own share, when the loop leaves it out, or the config names no loop.
+    // que's own share, when the loop leaves it out. A config that names no loop does not summarize.
     { name: "long-chat", model: "big", summarizeAt: 0.85 },
     { name: "early", model: "big", summarizeAt: 0.5 },
     { name: "whole", model: "big" },
-    { name: "bare", model: "big", summarizeAt: 0.85 },
+    { name: "bare", model: "big" },
   ]);
 });

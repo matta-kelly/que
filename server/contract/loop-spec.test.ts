@@ -11,11 +11,6 @@ const faults = (def: unknown) => {
   return "";
 };
 
-test("validateLoop rejects the field engine, and says it is gone", () => {
-  for (const engine of ["plain", "deepagents"])
-    assert.match(faults({ name: "odd", engine }), /"engine" is gone/);
-});
-
 test("validateLoop rejects a loop with no name, and a name that is not a plain name", () => {
   assert.match(faults({}), /name of the loop is missing/);
   assert.match(faults({ name: " " }), /name of the loop is missing/);

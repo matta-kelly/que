@@ -3,16 +3,15 @@
  * of a chat, and a middleware for each setting of the loop that acts. Each
  * difference between two agents comes from their configs, so a result of an
  * eval can be put down to a config. The middlewares are the ones a LangChain
- * deep agent is made of, each taken alone.
+ * deep agent is made of, each taken alone, and LangChain's own summary.
  */
 
 import {
   StateBackend,
   createFilesystemMiddleware,
   createPatchToolCallsMiddleware,
-  createSummarizationMiddleware,
 } from "deepagents";
-import { createAgent } from "langchain";
+import { createAgent, summarizationMiddleware } from "langchain";
 import type { ResolvedLoop } from "@que/core";
 import type { Parts } from "./parts.js";
 
@@ -29,10 +28,7 @@ export function build(
   { model, window, systemPrompt, tools, middleware }: Parts,
 ) {
   // The framework does not know the window of every model, so a share is handed over as a count.
-  const tokens = (share: number) => ({
-    type: "tokens" as const,
-    value: Math.floor(share * window),
-  });
+  const tokens = (share: number) => Math.floor(share * window);
 
   return createAgent({
     model,
@@ -56,10 +52,11 @@ export function build(
         : []),
       ...(loop.summarize
         ? [
-            createSummarizationMiddleware({
-              backend,
-              trigger: tokens(loop.summarize.at),
-              keep: tokens(loop.summarize.keep),
+            // The old part of the chat is replaced by the summary in the thread, so the chat keeps the summary and not the old messages.
+            summarizationMiddleware({
+              model,
+              trigger: { tokens: tokens(loop.summarize.at) },
+              keep: { tokens: tokens(loop.summarize.keep) },
             }),
           ]
         : []),

@@ -54,7 +54,7 @@ async function run(
   const model = fakeModel();
   let next = 0;
   const reply = (messages: BaseMessage[]) =>
-    messages.some((m) => /conversation summarizer/.test(text(m)))
+    messages.some((m) => /Context Extraction Assistant/.test(text(m)))
       ? new AIMessage("SUMMARY OF THE OLD PART")
       : (replies[next++] ?? new AIMessage("No reply left."));
   for (let i = 0; i < 20; i++) model.respond(reply);
@@ -206,7 +206,7 @@ const threeReports = () => [
 ];
 const kinds = (messages: BaseMessage[]) => messages.map((m) => m.getType());
 
-test("a chat past summarize.at of the window is sent as a summary and what is kept, and its own messages stay", async () => {
+test("a chat past summarize.at of the window is replaced by a summary and what is kept", async () => {
   const { sent, result } = await run(
     {
       name: "early",
@@ -232,17 +232,8 @@ test("a chat past summarize.at of the window is sent as a summary and what is ke
   assert.equal(text(last[2]), rows(REPORT));
   assert.equal((last[2] as { tool_call_id?: string }).tool_call_id, "c");
 
-  // The chat itself holds every message.
-  assert.deepEqual(kinds(result.messages), [
-    "human",
-    "ai",
-    "tool",
-    "ai",
-    "tool",
-    "ai",
-    "tool",
-    "ai",
-  ]);
-  for (const id of ["a", "b", "c"])
-    assert.equal(text(resultOf(result.messages, id)), rows(REPORT));
+  // The thread keeps the summary in place of the old part.
+  assert.match(text(result.messages[0]), /SUMMARY OF THE OLD PART/);
+  assert.equal(resultOf(result.messages, "a"), undefined);
+  assert.equal(text(resultOf(result.messages, "c")), rows(REPORT));
 });

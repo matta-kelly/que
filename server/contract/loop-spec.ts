@@ -66,11 +66,7 @@ export function validateLoop(def: unknown): asserts def is LoopDefinition {
     problems.push("name of the loop is missing");
   else if (!named) problems.push(`loop name "${name}" must match ${NAME}`);
   for (const field of Object.keys(loop))
-    if (field === "engine")
-      problems.push(
-        'the field "engine" is gone: every loop runs on the one agent que builds',
-      );
-    else if (!["name", ...SETTINGS].includes(field))
+    if (!["name", ...SETTINGS].includes(field))
       problems.push(`the loop has no field "${field}"`);
 
   for (const setting of SETTINGS) {

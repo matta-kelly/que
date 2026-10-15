@@ -123,12 +123,12 @@ export default defineDeployment({
 });
 ```
 - an agent config names a loop with `loop`, and a run of that agent is built with it. A loop no agent names is mounted and not used
-- every agent is the framework's own agent (`createAgent`), with que's prompt, tools and tool rule, and one middleware for each setting that acts. Nothing else is added: two agents differ only where their configs do. The middlewares are the ones a LangChain deep agent is made of (`deepagents`), each taken alone
+- every agent is the framework's own agent (`createAgent`), with que's prompt, tools and tool rule, and one middleware for each setting that acts. Nothing else is added: two agents differ only where their configs do. The repair and the file store are middlewares of a LangChain deep agent (`deepagents`), each taken alone; the summary is LangChain's own
 	- every agent repairs a chat that has a tool call with no result, which a run stopped between a call and its result leaves: the call gets a result that says it was cancelled, in the saved chat and in what the model is sent. It is the framework's own middleware (`createPatchToolCallsMiddleware` of `deepagents`), and no setting turns it off
 	- `result` acts: a tool result over `result.max` goes to a file store kept in the thread's state, and the chat gets its head, its tail and its path. The model gets one tool more, `read_file`, and reads a stored result with it, by offset and limit. `result: false` turns that off, and the model has no `read_file`
-	- `summarize` acts: past `summarize.at` of the model's window, the old part of the chat is sent as a summary, and `summarize.keep` of the window is sent as it is. que hands the middleware counts of tokens, each share times the `window` of the run's model. The chat's own messages are not removed. It also summarizes when the provider says a chat is too long. `summarize: false` turns all of that off
+	- `summarize` acts: past `summarize.at` of the model's window, the old part of the chat is sent as a summary, and `summarize.keep` of the window is sent as it is. que hands the middleware counts of tokens, each share times the `window` of the run's model. The summary takes the place of the old part in the thread, so the chat keeps the summary and not the old messages. It is LangChain's own middleware (`summarizationMiddleware`). `summarize: false` turns it off
 	- `args` and `limits` do not act yet
-- the field `engine` is gone. A loop that still has it fails validation, and the fault says so
+- an agent config that names no loop gets one where neither setting acts: the chat is sent whole, and no result is moved out
 - a loop file, as an agent file, has a `package.json` with `"type": "module"` in its folder or one above
 - que keeps loop configs of its own in `server/loops/`, and a deployment can list one by its path. A deployment that lists one of que's agents lists the loop that agent names: `chat` names `long-chat`
 	- `long-chat`: que's own value for each setting, written out
@@ -141,7 +141,7 @@ export default defineDeployment({
 - `args.max`: in characters. In the old part of a chat, a longer argument of a tool call is cut. que's own: 2,000
 - `limits.modelCalls`, `limits.toolCalls`: the most of each that one run can make. que's own: 50 and 100
 - `resolveLoop` in `@que/core` hands back every setting of a loop: its own value, que's where it has none, and `false` where it says so. `LOOP_DEFAULTS` holds que's own values
-- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a field named `engine` (the fault says it is gone), a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
+- `validateLoop` in `@que/core`; mount runs it on each file a deployment lists, and its faults are in one error: a name that is missing or is not a plain name, a field that is not in the shape, a setting that is not an object or `false`, a count that is not a whole number above zero, a share that is not above zero and below one, a `keep` that is not below `at`
 - mount stops when a listed file does not exist, and when two loops have one name. The error names the file or the name
 
 ## The deployment's models
