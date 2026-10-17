@@ -1,10 +1,10 @@
 /**
  * The model maker: the framework's model for a model config. A run of the
- * harness makes its model here, and so can the eval runner.
+ * harness makes its model here, and so does the judge of the eval runner.
  */
 
 import { initChatModel } from "langchain";
-import { providerModelOf, providerOf, type MountedModel } from "@que/core";
+import { providerModelOf, providerOf, type ModelDefinition } from "@que/core";
 import { ChatBeam } from "./beam.js";
 
 export { ChatBeam };
@@ -15,7 +15,7 @@ export { ChatBeam };
  * the name of a model config, as the provider's model. Beam has no package of the framework's:
  * its model is que's own (./beam.ts). The config's effort goes out as `reasoning_effort`.
  */
-export const chatModel = async (model: MountedModel) =>
+export const chatModel = async (model: ModelDefinition) =>
   providerOf(model) === "beam"
     ? new ChatBeam({
         model: providerModelOf(model),

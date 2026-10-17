@@ -152,8 +152,12 @@ const langfuseSdk: Rule = {
   why: "Only evals/src/langfuse.ts imports the Langfuse SDK, or OpenTelemetry.",
 };
 const judgeModel: Rule = {
+  path: /^@que\/models$/,
+  why: "Only evals/src/judge.ts imports @que/models, the maker of the judge's model.",
+};
+const evalsFramework: Rule = {
   path: /^langchain$|^@langchain\/(?!langgraph)/,
-  why: "Only evals/src/judge.ts imports langchain, the framework of the judge's model.",
+  why: "The eval runner names no model framework: the judge's model comes from @que/models.",
 };
 
 // One lint setup for the server: core, backend, models, harness, evals and tests.
@@ -181,7 +185,15 @@ export default defineConfig([
   // The eval runner. Its tests can use what they need.
   hold(
     [`${evals}/*.ts`],
-    [otherApp, providers, evalsAlone, langGraphSdk, langfuseSdk, judgeModel],
+    [
+      otherApp,
+      providers,
+      evalsAlone,
+      langGraphSdk,
+      langfuseSdk,
+      judgeModel,
+      evalsFramework,
+    ],
     tests,
   ),
   hold(
@@ -192,6 +204,7 @@ export default defineConfig([
       evalsAlone,
       langfuseSdk,
       judgeModel,
+      evalsFramework,
       mustImport(langGraphSdk.path, langGraphSdk.why),
     ],
   ),
@@ -203,6 +216,7 @@ export default defineConfig([
       evalsAlone,
       langGraphSdk,
       judgeModel,
+      evalsFramework,
       mustImport(langfuseSdk.path, langfuseSdk.why),
     ],
   ),
@@ -214,6 +228,7 @@ export default defineConfig([
       evalsAlone,
       langGraphSdk,
       langfuseSdk,
+      evalsFramework,
       mustImport(judgeModel.path, judgeModel.why),
     ],
   ),

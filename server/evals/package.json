@@ -5,13 +5,13 @@
   "type": "module",
   "description": "The eval runner: runs a deployment's cases against a running que, and prints what the agent did.",
   "dependencies": {
-    "@langchain/fireworks": "^0.2.13",
     "@langchain/langgraph-sdk": "^1.11.2",
     "@langfuse/client": "5.13.1",
     "@langfuse/otel": "5.13.1",
     "@langfuse/tracing": "5.13.1",
     "@opentelemetry/sdk-node": "0.223.0",
     "@que/core": "*",
+    "@que/models": "*",
     "langchain": "^1.5.10"
   }
 }
