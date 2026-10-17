@@ -41,5 +41,4 @@ try {
   console.error((error as Error).message);
   process.exit(1);
 }
-for (const folder of (await loadDeployment(dir)).packages)
-  console.log(folder);
+for (const folder of (await loadDeployment(dir)).packages) console.log(folder);
