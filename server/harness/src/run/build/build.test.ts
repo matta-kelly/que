@@ -108,11 +108,12 @@ const everySetting: LoopDefinition = {
   summarize: { at: 0.5, keep: 0.1 },
   args: { max: 10 },
   limits: { modelCalls: 1, toolCalls: 1 },
+  repeat: { max: 3 },
 };
 
-test("with result and summarize off, the agent has the parts it is handed, and the repair as its one middleware", async () => {
+test("with result, summarize and repeat off, the agent has the parts it is handed, and the repair as its one middleware", async () => {
   const { result, sent, graph } = await run(
-    { ...everySetting, result: false, summarize: false },
+    { ...everySetting, result: false, summarize: false, repeat: false },
     [calling("big", "shop_report", { rows: 200 }), new AIMessage("Well.")],
   );
   assert.deepEqual(middlewareOf(graph), ["patchToolCallsMiddleware", "Seen"]);

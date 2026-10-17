@@ -30,10 +30,14 @@ test("validateLoop rejects a field that is not in the shape, at the top and insi
     faults({ name: "odd", limits: { seconds: 30 } }),
     /limits of the loop has no field "seconds"/,
   );
+  assert.match(
+    faults({ name: "odd", repeat: { times: 3 } }),
+    /repeat of the loop has no field "times"/,
+  );
 });
 
 test("validateLoop rejects a setting that is not an object or false", () => {
-  for (const setting of ["result", "summarize", "args", "limits"])
+  for (const setting of ["result", "summarize", "args", "limits", "repeat"])
     for (const value of [true, 20_000, "off", null, []])
       assert.match(
         faults({ name: "odd", [setting]: value }),
@@ -73,12 +77,14 @@ test("validateLoop names every fault in one error", () => {
     summarize: { at: 2 },
     args: "none",
     limits: { toolCalls: 1.5 },
+    repeat: { max: 0 },
   });
   assert.match(message, /no field "compact"/);
   assert.match(message, /result\.max/);
   assert.match(message, /summarize\.at/);
   assert.match(message, /args of the loop/);
   assert.match(message, /limits\.toolCalls/);
+  assert.match(message, /repeat\.max/);
 });
 
 test("validateLoop rejects what is not an object", () => {
@@ -94,4 +100,9 @@ test("resolveLoop fills the part of a setting a loop leaves out", () => {
   });
   assert.deepEqual(loop.summarize, { at: 0.6, keep: 0.1 });
   assert.deepEqual(loop.limits, { modelCalls: 15, toolCalls: 100 });
+});
+
+test("resolveLoop gives repeat que's own max, and keeps a repeat that is off", () => {
+  assert.deepEqual(resolveLoop({ name: "own" }).repeat, { max: 3 });
+  assert.equal(resolveLoop({ name: "off", repeat: false }).repeat, false);
 });

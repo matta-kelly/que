@@ -86,6 +86,7 @@ const specs: { [Name in keyof typeof que.types]: Record<string, Target> } = {
     summarize: null,
     args: null,
     limits: null,
+    repeat: null,
   } satisfies Fields<LoopDefinition>,
   deployment: {
     name: null,
