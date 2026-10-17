@@ -68,7 +68,6 @@ export class ChatBeam extends ChatOpenAICompletions<BeamCallOptions> {
       model: fields.model,
       apiKey,
       maxTokens: fields.maxTokens,
-      // The framework sends `reasoning` only for the names of OpenAI's reasoning models.
       ...(fields.effort && {
         modelKwargs: { reasoning_effort: fields.effort },
       }),
