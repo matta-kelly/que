@@ -32,7 +32,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
     - `core/`: the package and deployment contracts (`@que/core`), and `package.md`, the package contract in words. The packages themselves are in deployments
     - `backend/`: the services the harness stands on (`identity/`, `users/`, `credentials/`)
     - `models/`: the model maker (`@que/models`): the framework's model for a model config, and que's own model for Beam (`models/beam.ts`). The harness makes each run's model with it
-    - `harness/`: the agent (`@que/harness`). In `src/`, in the order the work flows, and the only way an import points:
+    - `harness/`: the harness (`@que/harness`). In `src/`, in the order the work flows, and the only way an import points:
         - `mount/`: reads the deployment and the packages it lists
         - `access/`: the packages one user can use, their connections, and the users
         - `assemble/`: puts those packages in front of the model, as one config
