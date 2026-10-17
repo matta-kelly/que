@@ -13,8 +13,8 @@ export type DeploymentDefinition = {
   packages: string[];
   /** One file per agent config: an absolute path, or one taken from the deployment's own folder. At least one: que has no agent of its own. */
   agents: string[];
-  /** One file per loop config: an absolute path, or one taken from the deployment's own folder. */
-  loops?: string[];
+  /** One file per loop config: an absolute path, or one taken from the deployment's own folder. At least one: que has no loop of its own. */
+  loops: string[];
   /** One file per model config: an absolute path, or one taken from the deployment's own folder. At least one: que has no model of its own. */
   models: string[];
 };
@@ -65,8 +65,8 @@ export function validateDeployment(
         );
     }
   }
-  // que has no agent or model of its own to fall back on.
-  for (const [list, files] of Object.entries({ agents, models }))
+  // que has no agent, loop or model of its own to fall back on.
+  for (const [list, files] of Object.entries({ agents, loops, models }))
     if (files === undefined || (Array.isArray(files) && !files.length))
       problems.push(
         `deployment ${deployment} lists no ${list.slice(0, -1)}: list at least one ${list.slice(0, -1)} config in \`${list}\``,

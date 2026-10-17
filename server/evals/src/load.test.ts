@@ -31,9 +31,24 @@ test("loads the name of a deployment, the cases of each package it lists, each w
         },
       ],
       agents: [
-        { name: "chat", packages: ["shop", "notes"] },
-        { name: "lean", packages: ["shop", "notes"], model: "small" },
-        { name: "notes-only", packages: ["notes"] },
+        {
+          name: "chat",
+          packages: ["shop", "notes"],
+          model: "small",
+          loop: "long-chat",
+        },
+        {
+          name: "lean",
+          packages: ["shop", "notes"],
+          model: "small",
+          loop: "long-chat",
+        },
+        {
+          name: "notes-only",
+          packages: ["notes"],
+          model: "small",
+          loop: "long-chat",
+        },
       ],
     },
   );
@@ -54,6 +69,14 @@ test("loads the model configs of a deployment, as written, in order", async () =
       maxTokens: 64_000,
     },
   ]);
+});
+
+test("stops on an agent that leaves out its packages, so no run is planned under every package", async () => {
+  await assert.rejects(load(deployment("packageless")), (error: Error) => {
+    assert.match(error.message, /^eval:/);
+    assert.match(error.message, /packages of the agent is missing/);
+    return true;
+  });
 });
 
 test("stops, naming the package, on cases that break the contract", async () => {

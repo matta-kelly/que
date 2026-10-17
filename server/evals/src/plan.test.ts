@@ -18,10 +18,25 @@ const notAsked = {
   start: "Any.",
   good: "No operation is called.",
 };
-const chat = { name: "chat", packages: ["shop", "notes"] };
-const lean = { name: "lean", packages: ["shop"] };
-const bare = { name: "bare", packages: [] };
-const notesOnly = { name: "notes-only", packages: ["notes"] };
+const chat = {
+  name: "chat",
+  packages: ["shop", "notes"],
+  model: "small",
+  loop: "long-chat",
+};
+const lean = {
+  name: "lean",
+  packages: ["shop"],
+  model: "small",
+  loop: "long-chat",
+};
+const bare = { name: "bare", packages: [], model: "small", loop: "long-chat" };
+const notesOnly = {
+  name: "notes-only",
+  packages: ["notes"],
+  model: "small",
+  loop: "long-chat",
+};
 
 test("plans each case under each agent, grouped by case, in the order the deployment lists them", () => {
   assert.deepEqual(plan([byCustomer, notAsked], [chat, lean], []), [

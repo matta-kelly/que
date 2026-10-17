@@ -1,14 +1,16 @@
 import { defineAgent } from "@que/core";
 
-// One way this deployment's packages are run. `name` and `packages` are
-// needed: each other field is optional, and what is left out has que's own value.
+// One way this deployment's packages are run. `name`, `packages`, `model` and
+// `loop` are needed. Each other field is optional, and says below what it is when left out.
 export default defineAgent({
   name: "chat",
   // names, out of the ones the deployment lists. `[]` is none: list each one the agent gets
   packages: [],
-  // model: "glm-flash",      the name of a model config the deployment lists
-  // instructions: "...",     opens the system prompt, in place of que's own role text
-  // loading: "on-demand",    how the model is shown its packages
-  // loop: "long-chat",       the name of a loop config the deployment lists
-  // userInstructions: true,  the prompt gets the user's own instructions
+  // the name of a model config the deployment lists. A run can name another
+  model: "glm-flash",
+  // the name of a loop config the deployment lists
+  loop: "long-chat",
+  // instructions: "...",     opens the system prompt. Left out: que's role text
+  // loading: "eager",        how the model is shown its packages. Left out: on-demand
+  // userInstructions: true,  the prompt gets the user's own instructions. Left out: none
 });

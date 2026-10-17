@@ -50,7 +50,7 @@ export async function loadDeployment(dir: string): Promise<{
     name: definition.name,
     packages: definition.packages.map((folder) => resolve(dir, folder)),
     agents: definition.agents.map((file) => resolve(dir, file)),
-    loops: (definition.loops ?? []).map((file) => resolve(dir, file)),
+    loops: definition.loops.map((file) => resolve(dir, file)),
     models: definition.models.map((file) => resolve(dir, file)),
   };
 }
@@ -96,13 +96,9 @@ export async function mountDeployment(
     const listed = configs.map((config) => config.name);
     for (const agent of agents) {
       const named = agent[kind];
-      if (named !== undefined && !listed.includes(named))
+      if (!listed.includes(named))
         throw new Error(
-          `mount: deployment ${dir}: the agent "${agent.name}" names the ${kind} "${named}", which the deployment does not list. ${
-            listed.length
-              ? `${kind === "loop" ? "Loops" : "Models"}: ${listed.join(", ")}`
-              : `This deployment lists no ${kind}s`
-          }`,
+          `mount: deployment ${dir}: the agent "${agent.name}" names the ${kind} "${named}", which the deployment does not list. ${kind === "loop" ? "Loops" : "Models"}: ${listed.join(", ")}`,
         );
     }
   }

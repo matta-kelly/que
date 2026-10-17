@@ -35,7 +35,7 @@ export function deploymentInfo(
   loops: LoopDefinition[],
 ): DeploymentInfo {
   return {
-    // `model` is the one a run of the agent gets when the run names none.
+    // `model` is the one the agent names: a run of it gets that one when the run names none.
     agents: agents.map((agent) => {
       const { summarize } = loopFor(loops, agent);
       return {

@@ -18,13 +18,24 @@ const notAsked = {
   start: "Any.",
   good: "No operation is called.",
 };
-const chat = { name: "chat", packages: ["shop", "notes"] };
+const chat = {
+  name: "chat",
+  packages: ["shop", "notes"],
+  model: "small",
+  loop: "long-chat",
+};
 const lean = {
   name: "lean",
   packages: ["shop"],
-  model: "provider:small-model",
+  model: "small",
+  loop: "long-chat",
 };
-const notesOnly = { name: "notes-only", packages: ["notes"] };
+const notesOnly = {
+  name: "notes-only",
+  packages: ["notes"],
+  model: "small",
+  loop: "long-chat",
+};
 
 const open = {
   steps: [

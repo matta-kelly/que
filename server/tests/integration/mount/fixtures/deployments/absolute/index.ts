@@ -5,5 +5,6 @@ export default defineDeployment({
   name: "absolute",
   packages: [join(import.meta.dirname, "../../packages/beta")],
   agents: ["../../agents/bare.ts"],
+  loops: ["../../loops/long-chat.ts"],
   models: ["../../models/small.ts"],
 });

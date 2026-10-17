@@ -126,7 +126,6 @@ export const que = definePackage({
       from: agent,
       to: model,
       cardinality: "one",
-      required: false,
     }),
     defineLink({
       name: "loop",
@@ -134,7 +133,6 @@ export const que = definePackage({
       from: agent,
       to: loop,
       cardinality: "one",
-      required: false,
     }),
     defineLink({
       name: "packages",
@@ -155,11 +153,10 @@ export const que = definePackage({
     defineLink({
       name: "loops",
       description:
-        "The loops a deployment lists. `DeploymentDefinition.loops`.",
+        "The loops a deployment lists: at least one, since que has no loop of its own. `DeploymentDefinition.loops`.",
       from: deployment,
       to: loop,
       cardinality: "many",
-      required: false,
     }),
     defineLink({
       name: "models",

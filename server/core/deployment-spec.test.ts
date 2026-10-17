@@ -45,32 +45,26 @@ test("validateDeployment rejects an agent block, and says a config is now a file
   );
 });
 
-test("validateDeployment rejects a deployment that lists no agent or no model, left out or empty", () => {
-  const agents = ["./chat.ts"];
-  const models = ["./small.ts"];
-  for (const none of [undefined, []]) {
-    assert.throws(
-      () =>
-        validateDeployment({
-          name: "shop",
-          packages: [],
-          agents,
-          models: none,
-        }),
-      /deployment shop lists no model: list at least one model config in `models`/,
-      JSON.stringify(none),
-    );
-    assert.throws(
-      () =>
-        validateDeployment({
-          name: "shop",
-          packages: [],
-          agents: none,
-          models,
-        }),
-      /deployment shop lists no agent: list at least one agent config in `agents`/,
-      JSON.stringify(none),
-    );
-  }
-  validateDeployment({ name: "shop", packages: [], agents, models });
+test("validateDeployment rejects a deployment that lists no agent, no loop or no model, left out or empty", () => {
+  const full = {
+    name: "shop",
+    packages: [],
+    agents: ["./chat.ts"],
+    loops: ["./long-chat.ts"],
+    models: ["./small.ts"],
+  };
+  for (const [list, one] of [
+    ["agents", "agent"],
+    ["loops", "loop"],
+    ["models", "model"],
+  ])
+    for (const none of [undefined, []])
+      assert.throws(
+        () => validateDeployment({ ...full, [list]: none }),
+        new RegExp(
+          `deployment shop lists no ${one}: list at least one ${one} config in \`${list}\``,
+        ),
+        `${list}: ${JSON.stringify(none)}`,
+      );
+  validateDeployment(full);
 });

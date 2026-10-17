@@ -239,10 +239,19 @@ test("an agent, model, loop or deployment type has no property", () => {
   }
 });
 
-test("an agent note with no packages, model or loop parses", () => {
-  // Left out: the agent gets no package, the first model the deployment lists, and a loop where no setting acts.
-  const node = without(chat, "packages", "model", "loop");
-  assert.deepEqual(que.parse("agent", node), node);
+test("an agent note with no packages parses, and one with no model or no loop fails, on that link", () => {
+  // Left out, packages is none. que has no model or loop of its own, so an agent names each.
+  const node = without(chat, "packages");
+  assert.deepEqual(que.parse("agent", node), {
+    ...node,
+    model: "glm-flash",
+    loop: "long-chat",
+  });
+  for (const link of ["model", "loop"]) {
+    const issue = issueOf("agent", without(chat, link));
+    assert.equal(issue.code, "invalid_type", link);
+    assert.deepEqual(issue.path, [link]);
+  }
 });
 
 test("an agent note that writes its packages as [] fails, on its packages", () => {
@@ -251,18 +260,8 @@ test("an agent note that writes its packages as [] fails, on its packages", () =
   assert.deepEqual(issue.path, ["packages"]);
 });
 
-test("a deployment note with no loops parses", () => {
-  const node = without(landl, "loops");
-  assert.deepEqual(que.parse("deployment", node), {
-    ...node,
-    packages: ["odoo"],
-    agents: ["chat"],
-    models: ["glm-flash"],
-  });
-});
-
-test("a deployment note with no agents or no models fails, on that link", () => {
-  for (const link of ["agents", "models"]) {
+test("a deployment note with no agents, no loops or no models fails, on that link", () => {
+  for (const link of ["agents", "loops", "models"]) {
     const missing = issueOf("deployment", without(landl, link));
     assert.equal(missing.code, "invalid_type", link);
     assert.deepEqual(missing.path, [link]);

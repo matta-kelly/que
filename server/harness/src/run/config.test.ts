@@ -5,9 +5,16 @@ import { configFor } from "./config.js";
 const chat = {
   name: "chat",
   packages: ["odoo"],
+  model: "big",
+  loop: "long-chat",
   instructions: "You help the sales team.",
 };
-const lean = { name: "lean", packages: [], model: "provider:small-model" };
+const lean = {
+  name: "lean",
+  packages: [],
+  model: "small",
+  loop: "short-run",
+};
 
 test("a run that names no agent gets the first one the deployment lists", () => {
   assert.equal(configFor([chat, lean], undefined), chat);
@@ -21,12 +28,5 @@ test("a run that names an agent the deployment does not have fails, and the erro
   assert.throws(
     () => configFor([chat, lean], "bold"),
     /no agent "bold"\. Agents: chat, lean/,
-  );
-});
-
-test("on a deployment with no agents, a run fails, and gets no config of que's own", () => {
-  assert.throws(
-    () => configFor([], undefined),
-    /^Error: no agent\. This deployment lists no agents$/,
   );
 });

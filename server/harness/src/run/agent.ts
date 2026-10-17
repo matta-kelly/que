@@ -7,7 +7,7 @@
  * packages are put in front of the model, the loop it runs in, and if it
  * takes the user's own instructions. The loop
  * says which settings act on the agent. The model is the one the run names,
- * then the config's, then the first the deployment lists. The config is the one the run names,
+ * then the config's. The config is the one the run names,
  * or the first the deployment lists. Packages the user can't use are never
  * loaded. The user is fixed when the agent is built, so every tool call runs
  * as them.

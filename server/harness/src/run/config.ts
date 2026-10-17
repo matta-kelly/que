@@ -10,17 +10,12 @@ export function configFor(
   agents: AgentDefinition[],
   name: unknown,
 ): AgentDefinition {
-  const named =
-    name === undefined
-      ? agents[0]
-      : agents.find((agent) => agent.name === name);
+  // A deployment lists at least one agent.
+  if (name === undefined) return agents[0];
+  const named = agents.find((agent) => agent.name === name);
   if (named) return named;
   // No fall back to the first: a run under the wrong config would look like a run under the right one.
   throw new Error(
-    `no agent${name === undefined ? "" : ` ${JSON.stringify(name)}`}. ${
-      agents.length
-        ? `Agents: ${agents.map((agent) => agent.name).join(", ")}`
-        : "This deployment lists no agents"
-    }`,
+    `no agent ${JSON.stringify(name)}. Agents: ${agents.map((agent) => agent.name).join(", ")}`,
   );
 }

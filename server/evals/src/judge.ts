@@ -25,11 +25,7 @@ export function modelNamed(models: Model[], name: string): Model {
   const model = models.find((m) => m.name === name);
   if (model) return model;
   throw new Error(
-    `eval: no model ${JSON.stringify(name)}. ${
-      models.length
-        ? `Models: ${models.map((m) => m.name).join(", ")}`
-        : "This deployment lists no models"
-    }`,
+    `eval: no model ${JSON.stringify(name)}. Models: ${models.map((m) => m.name).join(", ")}`,
   );
 }
 

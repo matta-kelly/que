@@ -4,4 +4,5 @@ export default defineAgent({
   name: "lean",
   packages: ["shop", "notes"],
   model: "small",
+  loop: "long-chat",
 });

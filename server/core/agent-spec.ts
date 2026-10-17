@@ -13,20 +13,20 @@ import { NAME } from "./package-spec.js";
 export const LOADING = ["on-demand", "eager"] as const;
 export type Loading = (typeof LOADING)[number];
 
-/** What `defineAgent` returns, and an agent file exports as its default. `name` and `packages` are needed; another field left out keeps que's own value. */
+/** What `defineAgent` returns, and an agent file exports as its default. `name`, `packages`, `model` and `loop` are needed; each other field says what it is when left out. */
 export type AgentDefinition = {
   /** What a run names to get this config. */
   name: string;
   /** Names of the packages the agent gets, out of the ones the deployment mounts. `[]` is none. */
   packages: string[];
-  /** The name of a model config the deployment lists. */
-  model?: string;
-  /** Opens the system prompt, in place of que's own role text. */
+  /** The name of a model config the deployment lists. A run can name another. */
+  model: string;
+  /** Opens the system prompt, in place of que's own role text. Left out: que's role text. */
   instructions?: string;
-  /** How the model is shown the environment, and when. */
+  /** How the model is shown the environment, and when. Left out: `on-demand`. */
   loading?: Loading;
   /** The name of a loop config the deployment lists: how the agent's loop is run. */
-  loop?: string;
+  loop: string;
   /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
   userInstructions?: boolean;
 };
@@ -88,14 +88,15 @@ export function validateAgent(def: unknown): asserts def is AgentDefinition {
         `packages of the agent must each be a package name, got ${JSON.stringify(pkg)}`,
       );
   }
-  if (typeof model === "string" && model.includes(":"))
+  if (model === undefined)
+    problems.push(
+      "model of the agent is missing: name a model config the deployment lists",
+    );
+  else if (typeof model === "string" && model.includes(":"))
     problems.push(
       `model of the agent is written as "provider:model": a model is a file of its own, listed in \`models\` in the deployment, and the agent names it`,
     );
-  else if (
-    model !== undefined &&
-    (typeof model !== "string" || !NAME.test(model))
-  )
+  else if (typeof model !== "string" || !NAME.test(model))
     problems.push(
       `model of the agent must be the name of a model, got ${JSON.stringify(model)}`,
     );
@@ -107,7 +108,11 @@ export function validateAgent(def: unknown): asserts def is AgentDefinition {
     problems.push(
       `loading of the agent must be one of: ${LOADING.join(", ")}, got ${JSON.stringify(loading)}`,
     );
-  if (loop !== undefined && (typeof loop !== "string" || !NAME.test(loop)))
+  if (loop === undefined)
+    problems.push(
+      "loop of the agent is missing: name a loop config the deployment lists",
+    );
+  else if (typeof loop !== "string" || !NAME.test(loop))
     problems.push(
       `loop of the agent must be the name of a loop, got ${JSON.stringify(loop)}`,
     );

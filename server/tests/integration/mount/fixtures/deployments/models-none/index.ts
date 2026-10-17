@@ -3,4 +3,5 @@ export default {
   name: "models-none",
   packages: ["../../packages/alpha"],
   agents: ["../../agents/bare.ts"],
+  loops: ["../../loops/long-chat.ts"],
 };

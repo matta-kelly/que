@@ -11,6 +11,7 @@ test("a config that names a loop gets it, with que's own value for what the loop
     loopFor([shortRun, bigResults], {
       name: "chat",
       packages: [],
+      model: "small",
       loop: "big-results",
     }),
     {
@@ -23,6 +24,7 @@ test("a config that names a loop gets it, with que's own value for what the loop
     loopFor([shortRun, bigResults], {
       name: "nightly",
       packages: [],
+      model: "small",
       loop: "short-run",
     }),
     {
@@ -33,14 +35,15 @@ test("a config that names a loop gets it, with que's own value for what the loop
   );
 });
 
-test("a config that names no loop gets one that does nothing to the chat", () => {
-  assert.deepEqual(
-    loopFor([shortRun, bigResults], { name: "chat", packages: [] }),
-    {
-      name: "default",
-      ...LOOP_DEFAULTS,
-      result: false,
-      summarize: false,
-    },
+test("a config that names a loop the deployment does not list fails", () => {
+  assert.throws(
+    () =>
+      loopFor([shortRun], {
+        name: "chat",
+        packages: [],
+        model: "small",
+        loop: "big-results",
+      }),
+    /^Error: no loop "big-results"$/,
   );
 });

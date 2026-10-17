@@ -8,5 +8,6 @@ export default defineDeployment({
     "../../agents/lean.ts",
     "../../agents/notes-only.ts",
   ],
+  loops: ["../../loops/long-chat.ts"],
   models: ["../../models/small.ts", "../../models/big.ts"],
 });

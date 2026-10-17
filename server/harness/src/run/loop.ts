@@ -1,7 +1,6 @@
 /**
  * The loop a run is built with: the one its config names, out of the ones the
- * deployment lists, with que's own value for each setting it leaves out. A
- * config that names none gets a loop that does nothing to the chat.
+ * deployment lists, with que's own value for each setting it leaves out.
  */
 
 import {
@@ -11,18 +10,10 @@ import {
   type ResolvedLoop,
 } from "@que/core";
 
-/** What a run is built with when its config names no loop: the chat is sent whole, and nothing is moved out. */
-export const OWN_LOOP: LoopDefinition = {
-  name: "default",
-  result: false,
-  summarize: false,
-};
-
 export function loopFor(
   loops: LoopDefinition[],
   config: AgentDefinition,
 ): ResolvedLoop {
-  if (config.loop === undefined) return resolveLoop(OWN_LOOP);
   const named = loops.find((loop) => loop.name === config.loop);
   // Mount stops on a loop that is not listed, so this is a config that did not come through mount.
   if (!named) throw new Error(`no loop ${JSON.stringify(config.loop)}`);

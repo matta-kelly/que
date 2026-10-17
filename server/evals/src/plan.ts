@@ -18,11 +18,7 @@ export function plan(
   for (const name of named) {
     if (!listed.includes(name))
       throw new Error(
-        `eval: no agent ${JSON.stringify(name)}. ${
-          listed.length
-            ? `Agents: ${listed.join(", ")}`
-            : "This deployment lists no agents"
-        }`,
+        `eval: no agent ${JSON.stringify(name)}. Agents: ${listed.join(", ")}`,
       );
   }
   const chosen = named.length
