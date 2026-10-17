@@ -62,11 +62,11 @@ eval deployment *args: _require-up
     # The commit of que, for the name of a run in Langfuse. Code that is not committed does not carry the name of a commit.
     commit=$(git -C "{{root}}" rev-parse --short HEAD)
     if [ -n "$(git -C "{{root}}" status --porcelain --untracked-files=no)" ]; then commit="$commit-dirty"; fi
-    # The deployment imports the contract by name, and has no copy of its own: it is handed que's, as mount hands it.
+    # The deployment imports the core by name, and has no copy of its own: it is handed que's, as mount hands it.
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
-# Type check a deployment's own code and the packages it lists, and run their tests, with que's contract handed to all of them.
+# Type check a deployment's own code and the packages it lists, and run their tests, with que's core handed to all of them.
 # A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
     #!/usr/bin/env bash
@@ -78,7 +78,7 @@ check-deployment deployment:
     mapfile -t pkgs < <(podman exec -u node -w "$h" "$c" npx tsx harness/src/mount/list-packages.ts "$dep")
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dep" "${pkgs[@]}"
 
-# Type check any folder of TypeScript and run its tests, with que's contract handed to it: a package, or code that sits beside a deployment
+# Type check any folder of TypeScript and run its tests, with que's core handed to it: a package, or code that sits beside a deployment
 check-folder folder:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -101,7 +101,7 @@ _check-folders container +folders:
       "compilerOptions": {
         "rootDir": "/",
         "typeRoots": ["$h/node_modules/@types"],
-        "paths": { "@que/core": ["$h/contract/index.ts"], "zod": ["$h/node_modules/zod"] }
+        "paths": { "@que/core": ["$h/core/index.ts"], "zod": ["$h/node_modules/zod"] }
       },
       "include": [$include],
       "exclude": [$exclude]

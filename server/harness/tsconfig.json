@@ -19,7 +19,7 @@
   },
   "include": [
     "**/*.ts",
-    "../contract/**/*.ts",
+    "../core/**/*.ts",
     "../backend/**/*.ts",
     "../evals/**/*.ts",
     "../tests/**/*.ts"

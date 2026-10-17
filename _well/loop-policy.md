@@ -9,7 +9,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 - [[#Practice]] where it acts, and what is built
 
 - [[que]]: the harness this is a unit of
-- [[daworks/que/server/contract/package|package]]: what a package declares. The loop can show only that
+- [[daworks/que/server/core/package|package]]: what a package declares. The loop can show only that
 - [[evals]]: what reads a run after it ends
 
 ---
@@ -61,7 +61,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 	- small results with a reference, the line that says what is open, the text of an error
 - harness side: what is shown and dropped. Works only where que runs the loop
 	- rendering, retention, compaction. Under another harness it does nothing, and cheap to lose does the work
-- in que: a loop is a file of settings with a name, and an agent names one. `server/contract/loop-spec.ts` says which settings act
+- in que: a loop is a file of settings with a name, and an agent names one. `server/core/loop-spec.ts` says which settings act
 	- open: limits. The framework's own middleware leaves a thread that cannot go on, or ends a run with no answer. que's own would count from the saved chat
 - outside a loop
 	- cheap to lose: a rule of the harness and of how a package answers. No agent opts out
