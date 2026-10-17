@@ -20,8 +20,7 @@ const dir = process.argv[2];
 // The sources ask no one: a fact the deployment's saved copy does not hold is unknown, and mount says how to write it.
 const saved = savedFacts(dir).read();
 const unknown = {
-  reason:
-    "the check reads no network (`just start` once saves it in .que/)",
+  reason: "the check reads no network (`just start` once saves it in .que/)",
 };
 const offline: FactSources = {
   window: async (model) => {
