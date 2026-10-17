@@ -5,7 +5,11 @@
  * model is shown.
  */
 
-import { createMiddleware, toolErrorMiddleware } from "langchain";
+import {
+  ToolInvocationError,
+  createMiddleware,
+  toolErrorMiddleware,
+} from "langchain";
 import { OperationFailed, type PackageDefinition } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
@@ -62,12 +66,16 @@ export function assemble(
     tools: [...base, ...operations],
     middleware: [
       // A tool that fails throws an OperationFailed. The model reads its message, and the call is marked as failed.
+      // Arguments that fail a tool's schema throw a ToolInvocationError, marked as failed too. Its message holds a stack:
+      // the model reads the schema's own text, on one line.
       // Any other error is a bug, and is thrown on.
       toolErrorMiddleware({
         onError: (error) =>
           error instanceof OperationFailed
             ? `Error: ${error.message}`
-            : undefined,
+            : ToolInvocationError.isInstance(error)
+              ? `Error: ${error.toolError.message.replace(/\s*\n\s*/g, " ")}`
+              : undefined,
       }),
       createMiddleware({
         name: "OperationsInReach",

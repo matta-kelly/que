@@ -75,6 +75,20 @@ test("an operation that answers is not a failed call", async () => {
   assert.equal(answered.content, JSON.stringify({ id: 4 }));
 });
 
+test("a call whose arguments fail the operation's schema is a failed call, with the schema's text on one line and no stack", async () => {
+  const [failed] = await results(eager, [
+    { name: "shop_getOrder", args: { id: "a" } },
+  ]);
+  assert.equal(failed.status, "error");
+  const content = String(failed.content);
+  assert.match(
+    content,
+    /^Error: Received tool input did not match expected schema .*expected number.*at id$/,
+  );
+  assert.doesNotMatch(content, /\n/);
+  assert.doesNotMatch(content, /node_modules|\bat .*:\d+:\d+/);
+});
+
 test("a call to a package, an operation or a skill that is not there is a failed call", async () => {
   const failed = await results(onDemand, [
     { name: "open_package", args: { package: "crm" } },
