@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
-import { linksOf } from "basis";
+import { base, linksOf } from "basis";
 import { que } from "@que/core/ontology";
 
 /**
@@ -238,7 +238,7 @@ test("an agent, model, loop or deployment type has no field but its links", () =
   for (const name of ["agent", "model", "loop", "deployment"] as const) {
     const type = que.types[name];
     const fields = Object.keys(type.schema.shape).filter(
-      (field) => !["name", "type", "description"].includes(field),
+      (field) => !Object.hasOwn(base, field),
     );
     assert.deepEqual(
       fields,

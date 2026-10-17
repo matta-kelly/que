@@ -1,8 +1,9 @@
 /**
  * `@que/core/ontology`: que's words, as one basis package.
- * A node carries its identity and its links, and no more: its fields and their values
- * stay in the specs and the code. Each link is a field named after the spec field it mirrors,
- * and its comment says what it holds.
+ * A node carries its identity, its links, and a title where the spec has one (package, op,
+ * skill, capability), and no more: its other fields and their values stay in the specs and
+ * the code. Each link is a field named after the spec field it mirrors, and its comment says
+ * what it holds.
  * It sits apart from `@que/core`, so code that imports the core does not load basis.
  */
 
