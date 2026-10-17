@@ -34,7 +34,7 @@ A better way to deliver que to a deployment, ideally as an image.
 
 - delivery does not change how que and a deployment fit together. que starts, pointed at a deployment folder; an image is the box both folders are shipped in
 - so the code is the same with or without an image
-- que loads a package from a folder outside its own, and hands it the contract. So a deployment needs no copy of que's code, only a que to run on
+- que loads a package from a folder outside its own, and hands it `@que/core`. So a deployment needs no copy of que's code, only a que to run on
 - making que fit for production (a real login, a server that is not the dev server) is a separate piece of work. An image can hold que as it runs today
 
 ## Open

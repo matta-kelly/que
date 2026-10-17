@@ -1,5 +1,5 @@
 /**
- * Mount: hand the contract to a folder outside que. A package or a deployment
+ * Mount: hand `@que/core` to a folder outside que. A package or a deployment
  * there imports `@que/core` and `zod` by name, and has no copy of its own.
  * It gets que's copy, so an `OperationFailed` it throws is the one que knows.
  */
