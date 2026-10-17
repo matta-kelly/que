@@ -1,7 +1,7 @@
 /**
  * Mount: hand `@que/core` to a folder outside que. A package or a deployment
- * there imports `@que/core`, `zod` and `basis` by name, and their subpaths such as
- * `@que/core/ontology`, and has no copy of its own.
+ * there imports `@que/core`, `zod` and `basis`, or a subpath of `@que/core`
+ * (`@que/core/ontology`), by name. It has no copy of its own.
  * It gets que's copy, so an `OperationFailed` it throws is the one que knows.
  */
 
@@ -10,13 +10,12 @@ import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HARNESS = join(import.meta.dirname, "../../..");
-const SUPPLIED = new Set(["@que/core", "zod", "basis"]);
+const SUPPLIED = ["@que/core", "zod", "basis"];
 
-// A subpath is the package's own: `@que/core/ontology` is supplied, `@que/core-old` is not.
+// A subpath of `@que/core` is supplied, as its `exports` allow; `@que/core-old` is not.
+// zod and basis go by their bare names only, the names the type check maps.
 function isSupplied(specifier: string): boolean {
-  return [...SUPPLIED].some(
-    (name) => specifier === name || specifier.startsWith(name + "/"),
-  );
+  return SUPPLIED.includes(specifier) || specifier.startsWith("@que/core/");
 }
 
 function isOutsideQue(parentURL: string | undefined): boolean {
