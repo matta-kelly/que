@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
+import { linksOf } from "basis";
 import { que } from "@que/core/ontology";
 
 /**
@@ -67,7 +68,7 @@ const without = (node: Record<string, unknown>, ...fields: string[]) =>
   );
 
 /** The one issue a parse that fails gives, so a test can say why it failed. */
-const issueOf = (type: string, node: unknown) => {
+const issueOf = (type: keyof typeof que.types, node: unknown) => {
   try {
     que.parse(type, node);
   } catch (error) {
@@ -88,7 +89,7 @@ test("an odoo package note with its ops, a skill and find-company parses", () =>
 });
 
 test("an op, a skill and a capability note each parse with a title", () => {
-  for (const type of ["op", "skill", "capability"]) {
+  for (const type of ["op", "skill", "capability"] as const) {
     const node = {
       name: "find-company",
       type,
@@ -113,12 +114,14 @@ test("a note with no description fails, on its description", () => {
 });
 
 /** A note of each type that has a title: package, op, skill and capability. */
-const titled = ["package", "op", "skill", "capability"].map((type) => ({
-  name: "find-company",
-  type,
-  description: "Finds a company.",
-  title: "Find a company",
-}));
+const titled = (["package", "op", "skill", "capability"] as const).map(
+  (type) => ({
+    name: "find-company",
+    type,
+    description: "Finds a company.",
+    title: "Find a company",
+  }),
+);
 
 test("a package, op, skill or capability note with no title fails, on its title", () => {
   for (const node of titled) {
@@ -230,12 +233,18 @@ test("a deployment with no packages fails, on its packages", () => {
   assert.deepEqual(empty.path, ["packages"]);
 });
 
-test("an agent, model, loop or deployment type has no property", () => {
+test("an agent, model, loop or deployment type has no field but its links", () => {
   // Each value stays in the config file, so a note of these types carries its links and no field.
-  for (const name of ["agent", "model", "loop", "deployment"]) {
-    const type = que.types.find((type) => type.name === name);
-    assert.ok(type, `que has no type ${name}`);
-    assert.deepEqual(type.properties, {});
+  for (const name of ["agent", "model", "loop", "deployment"] as const) {
+    const type = que.types[name];
+    const fields = Object.keys(type.schema.shape).filter(
+      (field) => !["name", "type", "description"].includes(field),
+    );
+    assert.deepEqual(
+      fields,
+      linksOf(type).map((link) => link.name),
+      name,
+    );
   }
 });
 
@@ -254,10 +263,14 @@ test("an agent note with no packages parses, and one with no model or no loop fa
   }
 });
 
-test("an agent note that writes its packages as [] fails, on its packages", () => {
-  // The config writes none as `[]`, and the note leaves the link out: basis 0.1.0 refuses an empty optional link (#91).
-  const issue = issueOf("agent", { ...chat, packages: [] });
-  assert.deepEqual(issue.path, ["packages"]);
+test("an agent note that writes its packages as [] parses", () => {
+  // The config writes none as `[]`, and basis 0.2.0 takes `[]` on an optional many link.
+  assert.deepEqual(que.parse("agent", { ...chat, packages: [] }), {
+    ...chat,
+    packages: [],
+    model: "glm-flash",
+    loop: "long-chat",
+  });
 });
 
 test("a deployment note with no agents, no loops or no models fails, on that link", () => {
@@ -272,7 +285,7 @@ test("a deployment note with no agents, no loops or no models fails, on that lin
 });
 
 test("a model and a loop note each parse with no field beyond the base", () => {
-  for (const type of ["model", "loop"]) {
+  for (const type of ["model", "loop"] as const) {
     const node = { name: "glm-flash", type, description: "A config." };
     assert.deepEqual(que.parse(type, node), node);
   }
