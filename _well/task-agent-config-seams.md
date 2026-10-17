@@ -4,20 +4,21 @@ description: "Find and hold the seams of an agent config, so a deployment can sw
 status: planned
 belongs_to: "[[que]]"
 ---
-que is an agent factory. A deployment is where agents are built: it picks parts from que, runs them against its environment (packages and ontology), and iterates with evals. That works only if the parts of an agent config have clean seams.
+que is an agent factory. A deployment is where agents are built: it picks blocks from que and holds its own configs, runs them against its environment (packages and ontology), and iterates with evals. That works only if the parts of an agent config have clean seams.
 - [[#What is wanted]] the outcome
 - [[#Pains]] where it does not hold today
 - [[#What is known]] what is settled
 - [[#Done means]] how to tell it is finished
 
 - [[que]]: the harness this belongs to. Its Agent part says what a unit is
-- [[task-agent-spec]]: the second loading variant, `eager`. The first real swap
+- [[task-agent-configs-in-deployment]]: the configs move into the deployment, so que holds the blocks and the deployment holds the picks
 
 ---
 ## What is wanted
 
 - each part que offers is a block that can be swapped
-- a config is a pick of blocks, and the settings of each
+- a config is a pick of blocks, and the settings of each. 
+	- The pick sits in the deployment, not in que: [[task-agent-configs-in-deployment]]
 - a deployment can change one pick and keep the rest
 - an eval of two configs can say which pick made the difference
 
@@ -31,7 +32,6 @@ que is an agent factory. A deployment is where agents are built: it picks parts 
 - the middleware list is filled by more than one part
 - a big tool result moved out of the chat needs a read tool, so a loop setting depends on a tool
 - some blocks take settings in a file of their own (loop, model), and one takes only a name (loading)
-- a deployment lists que's own configs by an absolute path, so it is tied to one checkout of que
 
 ## What is known
 
