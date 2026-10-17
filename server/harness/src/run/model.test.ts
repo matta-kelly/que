@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { ChatBeam } from "./beam.js";
 import { chatModel, modelFor } from "./model.js";
 
 const big = {
@@ -41,6 +42,21 @@ test("the model made for a run has the id and the maxTokens of its config", asyn
   assert.equal(made._defaultConfig.modelProvider, "fireworks");
   assert.equal(made._defaultConfig.model, "small-model");
   assert.equal(made._defaultConfig.maxTokens, 8_000);
+});
+
+test("the model made for a beam config is Beam's, with the id and the maxTokens of its config", async () => {
+  // The model is made with a key, and none is used: no call goes out.
+  process.env.BEAM_API_KEY ??= "none";
+  const made = await chatModel({
+    name: "beam",
+    id: "beam:Beam-1.0-501B-A23B",
+    window: 1_048_576,
+    maxTokens: 131_072,
+    price: { input: 0, output: 0 },
+  });
+  assert.ok(made instanceof ChatBeam);
+  assert.equal(made.model, "Beam-1.0-501B-A23B");
+  assert.equal(made.maxTokens, 131_072);
 });
 
 test("the model made for a run is not changed by what the run names", async () => {

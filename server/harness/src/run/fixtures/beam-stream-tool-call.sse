@@ -1,0 +1,16 @@
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"o8j00xdhf7EaUQ1gMxx1"}
+
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{"reasoning_content":"The user wants to"},"finish_reason":null}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"Omb01eoQPU_H1seNbDN3KucmtT21X8U9JfNOw4h_Jtx1b5FZpk-iZKboijUWagZ"}
+
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{"reasoning_content":" know the current time in Paris, and explicitly asks to use the tool. I"},"finish_reason":null}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"WTjNZm1dp"}
+
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{"reasoning_content":"'ll call get_time with city \"Paris\"."},"finish_reason":null}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"U4GQ9YHfWcISWPtEnBO-R6vWZ7jfmiu41eQgRb8I4q"}
+
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-59c0967c-fd81-4aab-b928-38b6f222a548","type":"function","function":{"name":"get_time","arguments":""}}]},"finish_reason":null}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"CNQAEcAroj9Z52GLq0y07K5PwVr69Ciss1hnXmazfL5puZLwLox3kM8JfRDLwzQawmhLBuq4Cz0McRRAJ7C6Zvc3r6x"}
+
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\": \"Paris\"}"}}]},"finish_reason":null}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"jhPC2dqFaiwWE0TJDbHdJ53xgt8"}
+
+data: {"id":"chatcmpl-f61dfe0c-c986-4554-b541-575300fede55","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"created":1792223112,"model":"Beam-1.0-501B-A23B","object":"chat.completion.chunk","obfuscation":"bStmUg47uCozmi_okK121OXsgp4tuHl_U9-2czQWj1vLS23sncA64EQp7FvQqbY9KUP0aEdmqxBUVgTgz6m2_kRd4vsGma"}
+
+data: [DONE]
+

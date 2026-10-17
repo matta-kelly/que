@@ -4,7 +4,7 @@
  * window and price is asked of the sources (the provider, and a model
  * database). A model that breaks the contract (validateModel in @que/core)
  * fails mounting, and so do two of one name, a model of a provider que has no
- * package for, and a model with no window or no price from any place.
+ * chat model for, and a model with no window or no price from any place.
  */
 
 import {
@@ -15,14 +15,16 @@ import {
   type MountedModel,
 } from "@que/core";
 import { mountFiles } from "./files.js";
+import { beamWindow } from "./model-facts/beam.js";
 import { fireworksWindow, type WindowAnswer } from "./model-facts/fireworks.js";
 import type { FactSources } from "./model-facts/index.js";
 
 /**
- * The providers que has the framework's package for, and for each one where
- * its facts are: how the window of one of its models is read, and its name in
- * the model database. Another provider is a package added to the harness, and
- * an entry here.
+ * The providers que has a chat model for, and for each one where its facts
+ * are: how the window of one of its models is read, and its name in the model
+ * database. Another provider is a chat model added to the harness (the
+ * framework's package, or one of que's own in `run/`, as Beam's is), and an
+ * entry here.
  */
 export const PROVIDERS: Record<
   string,
@@ -39,6 +41,10 @@ export const PROVIDERS: Record<
     window: (model, env, fetch) =>
       fireworksWindow(model, env.FIREWORKS_API_KEY, fetch),
     modelsDev: "fireworks-ai",
+  },
+  beam: {
+    window: (model, env, fetch) => beamWindow(model, env.BEAM_API_KEY, fetch),
+    modelsDev: "reflection",
   },
 };
 

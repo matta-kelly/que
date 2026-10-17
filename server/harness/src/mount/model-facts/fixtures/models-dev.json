@@ -51,5 +51,24 @@
         }
       }
     }
+  },
+  "reflection": {
+    "id": "reflection",
+    "name": "Reflection",
+    "models": {
+      "Beam-1.0-501B-A23B": {
+        "id": "Beam-1.0-501B-A23B",
+        "name": "Beam 1.0 501B A23B",
+        "limit": {
+          "context": 1048576,
+          "output": 131072
+        },
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cache_read": 0
+        }
+      }
+    }
   }
 }
