@@ -75,6 +75,17 @@ test("an operation that answers is not a failed call", async () => {
   assert.equal(answered.content, JSON.stringify({ id: 4 }));
 });
 
+test("a call whose arguments fail the operation's schema is a failed call, with the text LangChain gives it", async () => {
+  const [failed] = await results(eager, [
+    { name: "shop_getOrder", args: { id: "a" } },
+  ]);
+  assert.equal(failed.status, "error");
+  assert.match(
+    String(failed.content),
+    /^Error invoking tool 'shop_getOrder' .*did not match expected schema/s,
+  );
+});
+
 test("a call to a package, an operation or a skill that is not there is a failed call", async () => {
   const failed = await results(onDemand, [
     { name: "open_package", args: { package: "crm" } },

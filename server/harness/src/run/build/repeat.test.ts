@@ -39,11 +39,23 @@ const shop = definePackage({
 });
 const catalog: Catalog = [{ pkg: { definition: shop, skills: [] } }];
 
+const failing = { id: -1 };
+
 const asking = (id: string, args: Record<string, unknown>) =>
   new AIMessage({
     content: "",
     tool_calls: [{ id, name: "shop_getOrder", args }],
   });
+
+/** A call of a saved chat that failed with no such order, and its result. */
+const failedCall = (id: string) => [
+  asking(id, failing),
+  new ToolMessage({
+    content: "Error: no such order",
+    tool_call_id: id,
+    status: "error",
+  }),
+];
 
 /** A turn of a saved chat: the user asks, the agent calls getOrder, and the call has the result given. */
 const savedTurn = (
@@ -110,7 +122,6 @@ async function run(
   };
 }
 
-const failing = { id: -1 };
 const text = (message: BaseMessage) => String(message.content);
 
 test("after max calls with the same tool, arguments and error, the run ends with a message that names the call and the error, and makes no further call", async () => {
@@ -194,21 +205,52 @@ test("after a run that was stopped, the next turn calls the model", async () => 
     [],
     [
       new HumanMessage("Get order -1."),
-      asking("s0", failing),
-      new ToolMessage({
-        content: "Error: no such order",
-        tool_call_id: "s0",
-        status: "error",
-      }),
-      asking("s1", failing),
-      new ToolMessage({
-        content: "Error: no such order",
-        tool_call_id: "s1",
-        status: "error",
-      }),
+      ...failedCall("s0"),
+      ...failedCall("s1"),
       new AIMessage("I stopped."),
     ],
   );
   assert.equal(modelCalls, 1);
   assert.equal(text(last), "Done.");
+});
+
+test("a saved chat that ends in the result that reached max calls the model for the user's new message", async () => {
+  // A run stopped between the last result and the model's reply.
+  const { last, modelCalls } = await run(
+    { name: "guarded", repeat: { max: 3 } },
+    [],
+    [
+      new HumanMessage("Get order -1."),
+      ...failedCall("s0"),
+      ...failedCall("s1"),
+      ...failedCall("s2"),
+    ],
+  );
+  assert.equal(modelCalls, 1);
+  assert.equal(text(last), "Done.");
+});
+
+test("the stop message names how many times in a row the call failed, past max too", async () => {
+  const { last } = await run(
+    { name: "guarded", repeat: { max: 2 } },
+    [failing],
+    [
+      new HumanMessage("Get order -1."),
+      ...failedCall("s0"),
+      ...failedCall("s1"),
+      new AIMessage("I stopped."),
+    ],
+  );
+  assert.match(text(last), /failed 3 times in a row/);
+});
+
+test("a call whose arguments fail the operation's schema counts as a failed call", async () => {
+  const wrong = { id: "a" };
+  const { results, last, modelCalls } = await run(
+    { name: "guarded", repeat: { max: 3 } },
+    [wrong, wrong, wrong, wrong, wrong],
+  );
+  assert.equal(results.length, 3);
+  assert.equal(modelCalls, 3);
+  assert.match(text(last), /shop_getOrder\(\{"id":"a"\}\)/);
 });
