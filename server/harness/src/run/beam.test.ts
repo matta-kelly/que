@@ -129,6 +129,33 @@ test("ChatBeam sends each assistant message back with its reasoning_content, and
   assert.deepEqual(sentThinking(evented.sent[0].body), EACH_ASSISTANT_TURN);
 });
 
+test("ChatBeam sends back the thinking of a turn it streamed as events, the way it came", async () => {
+  const toolTurn = replaying("beam-stream-tool-call.sse");
+  const call = await new ChatBeam({
+    model: MODEL,
+    apiKey: "a-key",
+    fetch: toolTurn.fetch,
+  }).streamEvents("What time is it in Paris? Use the tool.");
+  const next = replaying("beam-text.json");
+  await new ChatBeam({
+    model: MODEL,
+    apiKey: "a-key",
+    fetch: next.fetch,
+  }).invoke([
+    new HumanMessage("What time is it in Paris? Use the tool."),
+    call,
+    new ToolMessage({
+      content: "14:05",
+      tool_call_id: call.tool_calls?.[0]?.id ?? "",
+    }),
+  ]);
+  assert.deepEqual(sentThinking(next.sent[0].body), [
+    undefined,
+    'The user wants to know the current time in Paris, and explicitly asks to use the tool. I\'ll call get_time with city "Paris".',
+    undefined,
+  ]);
+});
+
 test("ChatBeam sends the effort it is made with as reasoning_effort, and none when it is made with none", async () => {
   const most = replaying("beam-text.json");
   await new ChatBeam({
