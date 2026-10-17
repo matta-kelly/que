@@ -18,6 +18,8 @@ import { mountDeployment } from "../../../harness/src/mount/deployment.js";
 const server = join(import.meta.dirname, "../../..");
 const fixtures = mkdtempSync(join(tmpdir(), "que-check-deployment-"));
 cpSync(join(import.meta.dirname, "fixtures"), fixtures, { recursive: true });
+// As a deployment's own folder is: out of que's, its files are modules only by this.
+writeFileSync(join(fixtures, "package.json"), '{ "type": "module" }\n');
 after(() => rmSync(fixtures, { recursive: true, force: true }));
 const deployment = (name: string) => join(fixtures, "deployments", name);
 
