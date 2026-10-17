@@ -31,7 +31,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `server/`: the core, the backend and the harness
     - `core/`: the package and deployment contracts (`@que/core`), and `package.md`, the package contract in words. The packages themselves are in deployments
     - `backend/`: the services the harness stands on (`identity/`, `users/`, `credentials/`)
-    - `harness/`: the agent (`@que/agent`). In `src/`, in the order the work flows, and the only way an import points:
+    - `harness/`: the agent (`@que/harness`). In `src/`, in the order the work flows, and the only way an import points:
         - `mount/`: reads the deployment and the packages it lists
         - `access/`: the packages one user can use, their connections, and the users
         - `assemble/`: puts those packages in front of the model, as one config
