@@ -36,7 +36,17 @@ function thinkingOf(messages: BaseMessage[]): string[] {
   return messages
     .filter((message) => message.type === "ai")
     .map((message) => {
-      const thinking = message.additional_kwargs.reasoning_content;
+      // A turn streamed as events keeps its thinking in reasoning blocks of its content.
+      const blocks = Array.isArray(message.content)
+        ? message.content
+            .map((block) =>
+              block.type === "reasoning" && typeof block.reasoning === "string"
+                ? block.reasoning
+                : "",
+            )
+            .join("")
+        : "";
+      const thinking = message.additional_kwargs.reasoning_content || blocks;
       return typeof thinking === "string" && thinking.trim()
         ? thinking
         : NO_THINKING;
