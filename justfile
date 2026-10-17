@@ -48,6 +48,7 @@ down:
 
 # Follow the agent server and UI logs
 logs: _require-up
+    @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log
 
 # Run the cases of a deployment's packages against que, under each of its agent configs, and print what the agent did.
@@ -61,7 +62,8 @@ eval deployment *args: _require-up
     c=$(./scripts/container.sh "$dep")
     # The commit of que, for the name of a run in Langfuse. Code that is not committed does not carry the name of a commit.
     commit=$(git -C "{{root}}" rev-parse --short HEAD)
-    if [ -n "$(git -C "{{root}}" status --porcelain --untracked-files=no)" ]; then commit="$commit-dirty"; fi
+    dirty=$(git -C "{{root}}" status --porcelain --untracked-files=no)
+    if [ -n "$dirty" ]; then commit="$commit-dirty"; fi
     # The deployment imports the core by name, and has no copy of its own: it is handed que's, as mount hands it.
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
@@ -101,13 +103,14 @@ _check-folders container +folders:
     podman exec -u node -w "$h" "{{container}}" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
     for f in "${folders[@]}"; do
         # A folder with no tests has nothing to run.
-        [ -n "$(find "$f" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit)" ] || continue
+        tests=$(find "$f" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit)
+        [ -n "$tests" ] || continue
         echo "tests: $f"
         podman exec -u node -w "$f" "{{container}}" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
     done
     echo "check passed"
 
-# Check que's own code: the sets of the apps the change touched. `just check server` or `just check ui` runs one app's set, whatever changed
+# Check que's own code: the sets that read a file the change touched. `just check server`, `just check ui` or `just check shell` runs one set, whatever changed
 check *set:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -125,11 +128,13 @@ format:
 
 # Run the browser tests that send no message to the model (needs a deployment started)
 test: _require-up
+    @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep-invert @live
 
 # Run the browser tests marked @live: each sends a message to the real model, or needs a real service connected.
 # Each message is a model call that is paid for, and a trace when the deployment has a Langfuse.
 test-live: _require-up
+    @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep @live
 
 # The dev container for this repo, found by its dev-container label
@@ -139,6 +144,7 @@ _container:
 _require-container:
     #!/usr/bin/env bash
     c=$(just _container)
+    # shellcheck disable=SC2312 # An inspect that fails reads as a container that is not running, and the recipe stops.
     [ -n "$c" ] && [ "$(podman inspect -f '{{{{.State.Running}}' "$c")" = "true" ] || { echo "The dev container isn't running. Start a deployment: just start, in its folder"; exit 1; }
 
 _require-up: _require-container

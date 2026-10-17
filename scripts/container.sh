@@ -13,11 +13,12 @@ name() {
 }
 
 sees() {
-  local at
+  local at mounts
+  mounts=$(podman inspect "$1" --format '{{range .Mounts}}{{.Destination}}{{"\n"}}{{end}}') || return 1
   while read -r at; do
     [ -n "$at" ] || continue
     case "$folder/" in "$at"/*) return 0 ;; esac
-  done < <(podman inspect "$1" --format '{{range .Mounts}}{{.Destination}}{{"\n"}}{{end}}')
+  done <<<"$mounts"
   return 1
 }
 
