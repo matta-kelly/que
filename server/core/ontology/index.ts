@@ -3,7 +3,7 @@
  * A node carries its identity, its links, and a title where the spec has one (package, op,
  * skill, capability), and no more: its other fields and their values stay in the specs and
  * the code. Each link is a field named after the spec field it mirrors, and its comment says
- * what it holds.
+ * what it holds. specs.test.ts holds the links and the specs to each other.
  * It sits apart from `@que/core`, so code that imports the core does not load basis.
  */
 
@@ -78,6 +78,7 @@ const agent = defineType({
     "One way a deployment's packages are run. `AgentDefinition` in agent-spec.ts.",
   fields: {
     // The packages an agent gets: `[]` is none. `AgentDefinition.packages`.
+    // The spec needs the field, and a note can leave it out: basis has no link that is needed and can be empty.
     packages: manyOrNone(() => pkg),
     // The model an agent runs on. `AgentDefinition.model`.
     model: one(() => model),
@@ -92,6 +93,7 @@ const deployment = defineType({
     "The packages, agents, loops and models one deployment runs. `DeploymentDefinition` in deployment-spec.ts.",
   fields: {
     // The packages a deployment uses. `DeploymentDefinition.packages`.
+    // The spec takes `[]`, and a note refuses it: basis has no link that is needed and can be empty.
     packages: many(() => pkg),
     // The agents a deployment can run: at least one, since que has no agent of its own. `DeploymentDefinition.agents`.
     agents: many(() => agent),
