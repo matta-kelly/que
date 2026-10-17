@@ -87,26 +87,13 @@ check-folder folder:
     c=$(./scripts/container.sh "$dir")
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
-# The folders have no install of their own: the compiler is told where que keeps what they import.
+# The folders have no install of their own: the compiler is told where que keeps what they import (server/harness/src/mount/supplied.ts).
 _check-folders container +folders:
     #!/usr/bin/env bash
     set -euo pipefail
     h="{{root}}/server"
     folders=({{folders}})
-    include=$(printf '"%s/**/*.ts",' "${folders[@]}"); include=${include%,}
-    exclude=$(printf '"%s/**/node_modules",' "${folders[@]}"); exclude=${exclude%,}
-    podman exec -i -u node "{{container}}" sh -c 'mkdir -p /tmp/que-check && cat > /tmp/que-check/tsconfig.json' <<EOF
-    {
-      "extends": "$h/harness/tsconfig.json",
-      "compilerOptions": {
-        "rootDir": "/",
-        "typeRoots": ["$h/node_modules/@types"],
-        "paths": { "@que/core": ["$h/core/index.ts"], "@que/core/ontology": ["$h/core/ontology/index.ts"], "zod": ["$h/node_modules/zod"], "basis": ["$h/node_modules/basis/dist/index.d.ts"] }
-      },
-      "include": [$include],
-      "exclude": [$exclude]
-    }
-    EOF
+    podman exec -u node -w "$h" "{{container}}" sh -c 'mkdir -p /tmp/que-check && npx tsx harness/src/mount/check-config.ts "$@" > /tmp/que-check/tsconfig.json' sh "${folders[@]}"
     podman exec -u node -w "$h" "{{container}}" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
     for f in "${folders[@]}"; do
         # A folder with no tests has nothing to run.

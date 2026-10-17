@@ -45,6 +45,8 @@ plan() {
       # No set reads these: every step runs inside server/ or ui/.
       scripts/* | templates/* | .devcontainer/* | tests/e2e/*) ;;
       */*) need_server=true need_ui=true ;;
+      # The README names what que supplies, and a server test holds it to the list.
+      README.md) need_server=true ;;
       *.md | LICENSE | justfile | .gitignore) ;;
       *) need_server=true need_ui=true ;;
     esac
