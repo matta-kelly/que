@@ -23,10 +23,7 @@ que is an agent factory. A deployment is where agents are built: it picks blocks
 
 ## Pains
 
-- the `deepagents` engine brings tools, a sub agent and a base prompt that no config chose
-	- *think we axed deep agents completely to give us a simple and repeatable surface*
 - two agent configs can differ in more than one part, so an eval result cannot be pinned to one
-- loading has one variant, so no seam of it has been tested by a swap
 - several parts write the system prompt: the agent's instructions, the user's own instructions, and the environment text
 - the middleware list is filled by more than one part
 - a big tool result moved out of the chat needs a read tool, so a loop setting depends on a tool
@@ -34,7 +31,7 @@ que is an agent factory. A deployment is where agents are built: it picks blocks
 
 ## What is known
 
-- one engine, `createAgent`: a deep agent is `createAgent` and middleware, so its parts are taken one by one. In progress on a branch
+- one engine, `createAgent`: each agent is `createAgent` and middleware, so its parts are taken one by one
 - the cut today is loop, loading and semantic (instructions, `agents.md`). It is one cut, and not settled
 - some parts are coupled, for example loading and the shape of the environment. A seam can be "these two go together"
 
