@@ -64,7 +64,7 @@ export function verdictOf(reply: string): Verdict {
   };
 }
 
-// The framework's model for the config's id, with its maxTokens: not the harness's `chatModel`, so no
+// The framework's model for the config's id, with its maxTokens: not the `chatModel` of `@que/models`, so no
 // effort is sent, and a provider with no package of the framework's (Beam) makes no model.
 const chatModel = (model: Model): Promise<Asked> =>
   initChatModel(model.id, {

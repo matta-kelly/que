@@ -21,6 +21,7 @@
     "**/*.ts",
     "../core/**/*.ts",
     "../backend/**/*.ts",
+    "../models/**/*.ts",
     "../evals/**/*.ts",
     "../tests/**/*.ts"
   ],

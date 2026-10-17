@@ -17,6 +17,7 @@
  * and so does a file for the user's instructions that cannot be read.
  */
 
+import { chatModel } from "@que/models";
 import { assemble } from "../assemble/assemble.js";
 import { catalogFor } from "../access/catalog.js";
 import { narrow } from "../access/narrow.js";
@@ -28,7 +29,7 @@ import { configFor } from "./config.js";
 import { build } from "./build/build.js";
 import { loadingFor } from "./loading.js";
 import { loopFor } from "./loop.js";
-import { chatModel, modelFor } from "./model.js";
+import { modelFor } from "./model.js";
 import { stamp } from "./stamp.js";
 import { runOf, settingsFor, startTracing } from "./trace.js";
 
