@@ -118,9 +118,9 @@ test("each type's links are named as its spec's reference fields", () => {
 test("each link points at the type its spec field names", () => {
   for (const name of names)
     for (const link of linksOf(que.types[name]))
-      assert.equal(
-        link.to().name,
-        specs[name][link.name],
+      assert.deepEqual(
+        link.to().map((type) => type.name),
+        [specs[name][link.name]],
         `${name}.${link.name}`,
       );
 });
