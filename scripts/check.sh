@@ -90,7 +90,7 @@ check_server() {
   step "server: lint" server npx eslint
   step "server: format" server npx prettier --check .
   step "server: unit and integration tests" server npx tsx --test --test-reporter="$reporter" \
-    "contract/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
+    "core/**/*.test.ts" "backend/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
 }
 
 # The browser tests have a budget. A browser test needs the whole app up, and one

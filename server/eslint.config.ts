@@ -101,7 +101,7 @@ const credentials: Rule = {
 };
 const framework: Rule = {
   path: /langchain|langgraph/,
-  why: "The contract imports no agent framework.",
+  why: "The core imports no agent framework.",
 };
 
 // Agents, loops and models are mounted by one function, mountFiles in mount/files.ts.
@@ -133,7 +133,7 @@ const tracedByTrace: Rule[] = [
 const evals = "evals/src";
 const evalsAlone: Rule = {
   path: /harness|backend|@que\/(?!core)/,
-  why: "The eval runner imports the contract, and nothing from the harness or the backend.",
+  why: "The eval runner imports the core, and nothing from the harness or the backend.",
 };
 const langGraphSdk: Rule = {
   path: /langgraph/,
@@ -148,7 +148,7 @@ const judgeModel: Rule = {
   why: "Only evals/src/judge.ts imports langchain, the framework of the judge's model.",
 };
 
-// One lint setup for the server: contract, backend, harness and tests.
+// One lint setup for the server: core, backend, harness and tests.
 export default defineConfig([
   globalIgnores(["**/node_modules"]),
   {
@@ -167,7 +167,7 @@ export default defineConfig([
 
   // The import rules. A later entry replaces an earlier one for the files it names.
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp]),
-  hold(["contract/**/*.ts"], [otherApp, framework]),
+  hold(["core/**/*.ts"], [otherApp, framework]),
 
   // The eval runner. Its tests can use what they need.
   hold(
