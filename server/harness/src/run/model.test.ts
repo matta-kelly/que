@@ -59,6 +59,30 @@ test("the model made for a beam config is Beam's, with the id and the maxTokens 
   assert.equal(made.maxTokens, 131_072);
 });
 
+test("the model made for a config sends the config's effort as reasoning_effort", async () => {
+  process.env.FIREWORKS_API_KEY ??= "none";
+  process.env.BEAM_API_KEY ??= "none";
+  const fireworks = (await chatModel({
+    ...small,
+    effort: "low",
+  })) as unknown as {
+    _defaultConfig: Record<string, unknown>;
+  };
+  assert.deepEqual(fireworks._defaultConfig.modelKwargs, {
+    reasoning_effort: "low",
+  });
+  const beam = await chatModel({
+    name: "beam",
+    id: "beam:Beam-1.0-501B-A23B",
+    window: 1_048_576,
+    maxTokens: 131_072,
+    price: { input: 0, output: 0 },
+    effort: "high",
+  });
+  assert.ok(beam instanceof ChatBeam);
+  assert.deepEqual(beam.modelKwargs, { reasoning_effort: "high" });
+});
+
 test("the model made for a run is not changed by what the run names", async () => {
   // A run names a model config in `configurable.model`. The framework's model
   // reads that field too, as the provider's model, unless it is told to read none.

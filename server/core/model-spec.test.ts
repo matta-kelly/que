@@ -94,6 +94,16 @@ test("validateModel rejects a price that is not in the shape, naming each fault"
   assert.match(message, /the price of the model has no field "perCall"/);
 });
 
+test("validateModel accepts an effort, and rejects one that is not a word", () => {
+  assert.equal(faults({ ...lean, effort: "high" }), "");
+  for (const effort of ["", " high", "very high", 7, null])
+    assert.match(
+      faults({ ...lean, effort }),
+      /effort of the model must be one word/,
+      JSON.stringify(effort),
+    );
+});
+
 test("validateModel rejects a maxTokens above a written window", () => {
   assert.match(
     faults({ ...lean, window: 4 }),
