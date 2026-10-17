@@ -187,3 +187,28 @@ test("with repeat false, the same failing call goes on until the model stops", a
   assert.equal(results.length, 5);
   assert.equal(text(last), "Done.");
 });
+
+test("after a run that was stopped, the next turn calls the model", async () => {
+  const { last, modelCalls } = await run(
+    { name: "guarded", repeat: { max: 2 } },
+    [],
+    [
+      new HumanMessage("Get order -1."),
+      asking("s0", failing),
+      new ToolMessage({
+        content: "Error: no such order",
+        tool_call_id: "s0",
+        status: "error",
+      }),
+      asking("s1", failing),
+      new ToolMessage({
+        content: "Error: no such order",
+        tool_call_id: "s1",
+        status: "error",
+      }),
+      new AIMessage("I stopped."),
+    ],
+  );
+  assert.equal(modelCalls, 1);
+  assert.equal(text(last), "Done.");
+});
