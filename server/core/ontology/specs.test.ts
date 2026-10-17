@@ -76,6 +76,7 @@ const specs: { [Name in keyof typeof que.types]: Record<string, Target> } = {
     name: null,
     id: null,
     maxTokens: null,
+    effort: null,
     window: null,
     price: null,
   } satisfies Fields<ModelDefinition>,
