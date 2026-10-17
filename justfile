@@ -101,7 +101,7 @@ _check-folders container +folders:
       "compilerOptions": {
         "rootDir": "/",
         "typeRoots": ["$h/node_modules/@types"],
-        "paths": { "@que/core": ["$h/core/index.ts"], "zod": ["$h/node_modules/zod"], "basis": ["$h/node_modules/basis/dist/index.d.ts"] }
+        "paths": { "@que/core": ["$h/core/index.ts"], "@que/core/ontology": ["$h/core/ontology/index.ts"], "zod": ["$h/node_modules/zod"], "basis": ["$h/node_modules/basis/dist/index.d.ts"] }
       },
       "include": [$include],
       "exclude": [$exclude]
