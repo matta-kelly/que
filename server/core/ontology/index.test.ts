@@ -112,10 +112,30 @@ test("a note with no description fails, on its description", () => {
   assert.deepEqual(issue.path, ["description"]);
 });
 
-test("a package note with no title fails, on its title", () => {
-  const issue = issueOf("package", without(odoo, "title"));
-  assert.equal(issue.code, "invalid_type");
-  assert.deepEqual(issue.path, ["title"]);
+/** A note of each type that has a title: package, op, skill and capability. */
+const titled = ["package", "op", "skill", "capability"].map((type) => ({
+  name: "find-company",
+  type,
+  description: "Finds a company.",
+  title: "Find a company",
+}));
+
+test("a package, op, skill or capability note with no title fails, on its title", () => {
+  for (const node of titled) {
+    const issue = issueOf(node.type, without(node, "title"));
+    assert.equal(issue.code, "invalid_type");
+    assert.deepEqual(issue.path, ["title"]);
+  }
+});
+
+test("a package, op, skill or capability note with a blank title fails, on its title", () => {
+  for (const node of titled) {
+    for (const blank of ["", " "]) {
+      const issue = issueOf(node.type, { ...node, title: blank });
+      assert.equal(issue.code, "invalid_format");
+      assert.deepEqual(issue.path, ["title"]);
+    }
+  }
 });
 
 test("a note with a field not on its type fails, on that field", () => {

@@ -8,7 +8,8 @@
 import { defineLink, definePackage, defineType } from "basis";
 import * as z from "zod";
 
-const title = z.string().min(1);
+// Blank text is no title, as the specs refuse it (`!value.trim()`). The value is kept as written.
+const title = z.string().regex(/\S/, "text that is not blank");
 
 const op = defineType({
   name: "op",
