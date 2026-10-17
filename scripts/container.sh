@@ -14,6 +14,7 @@ name() {
 
 sees() {
   local at
+  # shellcheck disable=SC2312 # An inspect that fails sees no folder, and the container is made again.
   while read -r at; do
     [ -n "$at" ] || continue
     case "$folder/" in "$at"/*) return 0 ;; esac

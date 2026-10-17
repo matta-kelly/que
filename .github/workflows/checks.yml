@@ -23,6 +23,7 @@ jobs:
     outputs:
       server: ${{ steps.plan.outputs.server }}
       ui: ${{ steps.plan.outputs.ui }}
+      shell: ${{ steps.plan.outputs.shell }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -74,10 +75,26 @@ jobs:
           cache-dependency-path: ui/package-lock.json
       - run: scripts/check.sh ui
 
+  shell:
+    needs: [changes]
+    if: needs.changes.outputs.shell == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The scripts and the justfile, at the root, are all the set reads.
+          sparse-checkout: |
+            scripts
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: scripts/check.sh shell
+
   # The one name the ruleset on main requires. It always starts, so it is never left pending:
   # an app job that the change did not need is skipped, and a skipped job passes here.
   checks:
-    needs: [changes, server, ui]
+    needs: [changes, server, ui, shell]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -86,11 +103,12 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           SERVER: ${{ needs.server.result }}
           UI: ${{ needs.ui.result }}
+          SHELL_SET: ${{ needs.shell.result }}
         run: |
-          echo "changes=$CHANGES server=$SERVER ui=$UI"
-          # A failed `changes` skips both apps, which must not read as a pass.
+          echo "changes=$CHANGES server=$SERVER ui=$UI shell=$SHELL_SET"
+          # A failed `changes` skips every set, which must not read as a pass.
           [ "$CHANGES" = success ] || exit 1
-          for result in "$SERVER" "$UI"; do
+          for result in "$SERVER" "$UI" "$SHELL_SET"; do
             case "$result" in
               success | skipped) ;;
               *) exit 1 ;;

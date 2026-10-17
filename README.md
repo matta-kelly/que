@@ -44,6 +44,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in
 - `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
+- `scripts/recipe-shell.mjs`: writes the shell of each justfile recipe to a file of its own, for the shell set of `scripts/check.sh` to lint
 
 ## Setup
 
@@ -69,7 +70,7 @@ From a deployment's folder:
 
 From this repo, for que's own code:
 
-- `just check`: the one way to check que's own code. It runs `scripts/check.sh` in the dev container: types, lint, format, and the unit and integration tests, for each app the change touched, measured against `origin/main` with files not yet committed counted. A change to notes and docs alone runs no set, and the command says so. `just check server` or `just check ui` runs one app's set, whatever changed. It installs an app's packages again, from the lockfile, when its `package.json` or its lockfile has changed. The pipeline runs the same script (`.github/workflows/checks.yml`)
+- `just check`: the one way to check que's own code. It runs `scripts/check.sh` in the dev container: types, lint, format, and the unit and integration tests, for each app the change touched, measured against `origin/main` with files not yet committed counted. A change to the justfile or to `scripts/` runs the shell set: shellcheck over the scripts and the shell of each recipe, with its optional check of a masked return on, so a failure inside `$(...)` in a command's arguments, or inside `< <(...)`, fails the check. An exception is a `# shellcheck disable=` line above the command, with its reason. A change to notes and docs alone runs no set, and the command says so. `just check server`, `just check ui` or `just check shell` runs one set, whatever changed. It installs an app's packages again, from the lockfile, when its `package.json` or its lockfile has changed. The pipeline runs the same script (`.github/workflows/checks.yml`)
 - `just format`: format every file in both apps with Prettier
 - `just test`: the browser tests (`ui/tests/e2e`) that send no message to the model. `just test-live` runs the ones marked `@live` in their title: each sends a message to the real model, which is paid for and leaves a trace, or needs a real service connected. Both are a manual run, and no part of `just check` or of the pipeline. They need a deployment started, and most were written against one deployment's services and name
 - the browser tests have a budget, held by `just check`: a count of tests, and a count of `@live` ones (`scripts/check.sh`). A browser test is for what only the whole running app can show. A decision of the UI's own code goes in a function beside its component, with a Vitest test
