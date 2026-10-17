@@ -1,8 +1,9 @@
 /**
- * The repeat guard: a tool call that fails `max` times in a row, with the same
- * arguments and the same error, ends the run, and the user is told the call
- * and the error. A stuck agent does not keep paying for the same error. The
- * count is read from the saved chat, so a repeat across turns counts.
+ * The repeat guard: a tool call that fails `REPEAT_MAX` times in a row, with
+ * the same arguments and the same error, ends the run, and the user is told the
+ * call and the error. A stuck agent does not keep paying for the same error.
+ * The count is read from the saved chat, so a repeat across turns counts. On
+ * for every agent, and not a setting of a loop.
  */
 
 import {
@@ -12,13 +13,15 @@ import {
   type BaseMessage,
 } from "langchain";
 
+export const REPEAT_MAX = 3;
+
 const text = (message: BaseMessage) =>
   typeof message.content === "string"
     ? message.content
     : JSON.stringify(message.content);
 
-/** The call that has failed `max` times or more in a row the same way, if one of the newest results is one. */
-function repeated(messages: BaseMessage[], max: number) {
+/** The call that has failed `REPEAT_MAX` times or more in a row the same way, if one of the newest results is one. */
+function repeated(messages: BaseMessage[]) {
   const calls = new Map<string, string>();
   const streaks = new Map<string, { error: string; count: number }>();
   let stuck: { call: string; error: string; count: number } | undefined;
@@ -43,18 +46,18 @@ function repeated(messages: BaseMessage[], max: number) {
     const before = streaks.get(call);
     const count = before?.error === error ? before.count + 1 : 1;
     streaks.set(call, { error, count });
-    if (count >= max) stuck = { call, error, count };
+    if (count >= REPEAT_MAX) stuck = { call, error, count };
   }
   return stuck;
 }
 
-export const repeatGuard = (max: number) =>
+export const repeatGuard = () =>
   createMiddleware({
     name: "RepeatGuard",
     beforeModel: {
       canJumpTo: ["end"],
       hook: ({ messages }) => {
-        const stuck = repeated(messages, max);
+        const stuck = repeated(messages);
         if (!stuck) return;
         return {
           messages: [

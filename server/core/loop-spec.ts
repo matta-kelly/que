@@ -19,8 +19,6 @@ export type LoopDefinition = {
   args?: { max?: number } | false;
   /** The most model calls and tool calls one run can make. */
   limits?: { modelCalls?: number; toolCalls?: number } | false;
-  /** `max`: a count. A tool call that fails this many times in a row, with the same arguments and the same error, ends the run. Counted over the saved chat, so across turns. */
-  repeat?: { max?: number } | false;
 };
 
 /** A loop with nothing left out: each setting has every value, or is `false`. */
@@ -30,7 +28,6 @@ export type ResolvedLoop = {
   summarize: { at: number; keep: number } | false;
   args: { max: number } | false;
   limits: { modelCalls: number; toolCalls: number } | false;
-  repeat: { max: number } | false;
 };
 
 /** que's own value for each setting. */
@@ -39,7 +36,6 @@ export const LOOP_DEFAULTS = {
   summarize: { at: 0.85, keep: 0.1 },
   args: { max: 2_000 },
   limits: { modelCalls: 50, toolCalls: 100 },
-  repeat: { max: 3 },
 } as const;
 
 export function defineLoop(definition: LoopDefinition): LoopDefinition {
@@ -118,6 +114,5 @@ export function resolveLoop(loop: LoopDefinition): ResolvedLoop {
     summarize: setting("summarize"),
     args: setting("args"),
     limits: setting("limits"),
-    repeat: setting("repeat"),
   } as ResolvedLoop;
 }

@@ -9,12 +9,7 @@ import {
   type BaseMessage,
 } from "langchain";
 import * as z from "zod";
-import {
-  definePackage,
-  OperationFailed,
-  resolveLoop,
-  type LoopDefinition,
-} from "@que/core";
+import { definePackage, OperationFailed, resolveLoop } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
 import { assemble } from "../../assemble/assemble.js";
 import { eager } from "../../assemble/eager/index.js";
@@ -81,7 +76,6 @@ const savedTurn = (
  * times the model was called.
  */
 async function run(
-  loop: LoopDefinition,
   calls: Record<string, unknown>[],
   saved: BaseMessage[] = [],
 ) {
@@ -94,7 +88,7 @@ async function run(
     connect: async () => undefined,
   });
   const agent = build(
-    resolveLoop({ result: false, summarize: false, ...loop }),
+    resolveLoop({ name: "bare", result: false, summarize: false }),
     {
       model,
       window: 100_000,
@@ -124,11 +118,14 @@ async function run(
 
 const text = (message: BaseMessage) => String(message.content);
 
-test("after max calls with the same tool, arguments and error, the run ends with a message that names the call and the error, and makes no further call", async () => {
-  const { results, last, modelCalls } = await run(
-    { name: "guarded", repeat: { max: 3 } },
-    [failing, failing, failing, failing, failing],
-  );
+test("after REPEAT_MAX calls with the same tool, arguments and error, the run ends with a message that names the call and the error, and makes no further call", async () => {
+  const { results, last, modelCalls } = await run([
+    failing,
+    failing,
+    failing,
+    failing,
+    failing,
+  ]);
   assert.equal(results.length, 3);
   assert.equal(modelCalls, 3);
   assert.ok(AIMessage.isInstance(last));
@@ -139,7 +136,6 @@ test("after max calls with the same tool, arguments and error, the run ends with
 
 test("a repeat across turns counts: the count comes from the saved chat", async () => {
   const { results, last, modelCalls } = await run(
-    { name: "guarded", repeat: { max: 3 } },
     [failing, failing, failing],
     [
       ...savedTurn("s0", failing, { error: "no such order" }),
@@ -151,9 +147,8 @@ test("a repeat across turns counts: the count comes from the saved chat", async 
   assert.match(text(last), /Error: no such order/);
 });
 
-test("a call that failed and then succeeded does not count toward max", async () => {
+test("a call that failed and then succeeded does not count toward the count", async () => {
   const { results, last } = await run(
-    { name: "guarded", repeat: { max: 3 } },
     [failing, failing],
     [
       ...savedTurn("s0", failing, { error: "no such order" }),
@@ -165,9 +160,8 @@ test("a call that failed and then succeeded does not count toward max", async ()
   assert.equal(text(last), "Done.");
 });
 
-test("a call that fails with a new error does not count toward max", async () => {
+test("a call that fails with a new error does not count toward the count", async () => {
   const { results, last } = await run(
-    { name: "guarded", repeat: { max: 3 } },
     [failing, failing],
     [
       ...savedTurn("s0", failing, { error: "the shop is down" }),
@@ -178,35 +172,20 @@ test("a call that fails with a new error does not count toward max", async () =>
   assert.equal(text(last), "Done.");
 });
 
-test("a call with other arguments does not count toward max", async () => {
-  const { results, last } = await run({ name: "guarded", repeat: { max: 2 } }, [
-    failing,
-    { id: -2 },
-  ]);
-  assert.equal(results.length, 2);
-  assert.equal(text(last), "Done.");
-});
-
-test("with repeat false, the same failing call goes on until the model stops", async () => {
-  const { results, last } = await run({ name: "unguarded", repeat: false }, [
-    failing,
-    failing,
-    failing,
-    failing,
-    failing,
-  ]);
-  assert.equal(results.length, 5);
+test("a call with other arguments does not count toward the count", async () => {
+  const { results, last } = await run([failing, failing, { id: -2 }]);
+  assert.equal(results.length, 3);
   assert.equal(text(last), "Done.");
 });
 
 test("after a run that was stopped, the next turn calls the model", async () => {
   const { last, modelCalls } = await run(
-    { name: "guarded", repeat: { max: 2 } },
     [],
     [
       new HumanMessage("Get order -1."),
       ...failedCall("s0"),
       ...failedCall("s1"),
+      ...failedCall("s2"),
       new AIMessage("I stopped."),
     ],
   );
@@ -214,10 +193,9 @@ test("after a run that was stopped, the next turn calls the model", async () => 
   assert.equal(text(last), "Done.");
 });
 
-test("a saved chat that ends in the result that reached max calls the model for the user's new message", async () => {
+test("a saved chat that ends in the result that reached REPEAT_MAX calls the model for the user's new message", async () => {
   // A run stopped between the last result and the model's reply.
   const { last, modelCalls } = await run(
-    { name: "guarded", repeat: { max: 3 } },
     [],
     [
       new HumanMessage("Get order -1."),
@@ -230,26 +208,29 @@ test("a saved chat that ends in the result that reached max calls the model for 
   assert.equal(text(last), "Done.");
 });
 
-test("the stop message names how many times in a row the call failed, past max too", async () => {
+test("the stop message names how many times in a row the call failed, past REPEAT_MAX too", async () => {
   const { last } = await run(
-    { name: "guarded", repeat: { max: 2 } },
     [failing],
     [
       new HumanMessage("Get order -1."),
       ...failedCall("s0"),
       ...failedCall("s1"),
+      ...failedCall("s2"),
       new AIMessage("I stopped."),
     ],
   );
-  assert.match(text(last), /failed 3 times in a row/);
+  assert.match(text(last), /failed 4 times in a row/);
 });
 
 test("a call whose arguments fail the operation's schema counts as a failed call", async () => {
   const wrong = { id: "a" };
-  const { results, last, modelCalls } = await run(
-    { name: "guarded", repeat: { max: 3 } },
-    [wrong, wrong, wrong, wrong, wrong],
-  );
+  const { results, last, modelCalls } = await run([
+    wrong,
+    wrong,
+    wrong,
+    wrong,
+    wrong,
+  ]);
   assert.equal(results.length, 3);
   assert.equal(modelCalls, 3);
   assert.match(text(last), /shop_getOrder\(\{"id":"a"\}\)/);

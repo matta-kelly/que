@@ -1,6 +1,7 @@
 /**
  * Builds a run's agent: the framework's own agent, with the parts, the repair
- * of a chat, and a middleware for each setting of the loop that acts. Each
+ * of a chat, the repeat guard, and a middleware for each setting of the loop
+ * that acts. Each
  * difference between two agents comes from their configs, so a result of an
  * eval can be put down to a config. The middlewares are the ones a LangChain
  * deep agent is made of, each taken alone, LangChain's own summary, and que's
@@ -40,8 +41,8 @@ export function build(
       // A run that was stopped between a tool call and its result leaves a chat a model reads as one where the call ran.
       // First, so que's own middleware sees the repaired chat.
       createPatchToolCallsMiddleware(),
-      // Before the summary, so a run that ends does not pay for one.
-      ...(loop.repeat ? [repeatGuard(loop.repeat.max)] : []),
+      // On for every agent, as the repair is. Before the summary, so a run that ends does not pay for one.
+      repeatGuard(),
       ...(loop.result
         ? [
             createFilesystemMiddleware({
