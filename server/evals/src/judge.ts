@@ -64,7 +64,8 @@ export function verdictOf(reply: string): Verdict {
   };
 }
 
-// As the harness makes the model of a run (`run/model.ts`).
+// The framework's model for the config's id, with its maxTokens: not the harness's `chatModel`, so no
+// effort is sent, and a provider with no package of the framework's (Beam) makes no model.
 const chatModel = (model: Model): Promise<Asked> =>
   initChatModel(model.id, {
     maxTokens: model.maxTokens,

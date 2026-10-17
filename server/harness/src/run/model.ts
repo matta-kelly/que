@@ -41,7 +41,7 @@ export const chatModel = async (model: MountedModel) =>
       })
     : initChatModel(model.id, {
         maxTokens: model.maxTokens,
-        // The framework sends its own `reasoning` only for the names of OpenAI's reasoning models.
+        // As ChatBeam sends it: the framework sends its own `reasoning` only for the names of OpenAI's reasoning models.
         ...(model.effort && {
           modelKwargs: { reasoning_effort: model.effort },
         }),
