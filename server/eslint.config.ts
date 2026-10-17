@@ -104,7 +104,7 @@ const modelsAlone: Rule = {
   why: "The model maker imports the core, and nothing from the harness, the backend or the eval runner: the harness and the eval runner both import it.",
 };
 const providers: Rule = {
-  path: /^@langchain\/(?:openai|fireworks)$/,
+  path: /^@langchain\/(?:openai|fireworks)(?:\/|$)/,
   why: "Only models/ names a provider package.",
 };
 const framework: Rule = {
@@ -140,8 +140,8 @@ const tracedByTrace: Rule[] = [
 
 const evals = "evals/src";
 const evalsAlone: Rule = {
-  path: /harness|backend|@que\/(?!core|models)/,
-  why: "The eval runner imports the core and the model maker, and nothing from the harness or the backend.",
+  path: /harness|backend|@que\/(?!core|models)|^(?:\.\.\/)+models(?:\/|$)/,
+  why: "The eval runner imports the core and the model maker, by its name @que/models, and nothing from the harness or the backend.",
 };
 const langGraphSdk: Rule = {
   path: /langgraph/,
@@ -156,7 +156,7 @@ const judgeModel: Rule = {
   why: "Only evals/src/judge.ts imports @que/models, the maker of the judge's model.",
 };
 const evalsFramework: Rule = {
-  path: /^langchain$|^@langchain\/(?!langgraph)/,
+  path: /^langchain(?:\/|$)|^@langchain\/(?!langgraph)/,
   why: "The eval runner names no model framework: the judge's model comes from @que/models.",
 };
 

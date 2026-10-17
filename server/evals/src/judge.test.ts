@@ -8,6 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIMessage, fakeModel } from "langchain";
+import { completion } from "../fixtures/provider-stand-in.js";
 import { judge, judged, question, verdictOf } from "./judge.js";
 
 const byCustomer = {
@@ -149,20 +150,9 @@ test("a call to the model that fails is no verdict, and the next run is judged",
 function answering(text: string) {
   const sent: { url: string; body: Record<string, unknown> }[] = [];
   const fetch: typeof globalThis.fetch = async (url, init) => {
-    sent.push({ url: String(url), body: JSON.parse(String(init?.body)) });
-    return Response.json({
-      id: "chatcmpl-1",
-      object: "chat.completion",
-      created: 0,
-      model: "any",
-      choices: [
-        {
-          index: 0,
-          message: { role: "assistant", content: text },
-          finish_reason: "stop",
-        },
-      ],
-    });
+    const body = JSON.parse(String(init?.body));
+    sent.push({ url: String(url), body });
+    return Response.json(completion(sent.length, body.model, text));
   };
   return { fetch, sent };
 }
@@ -178,7 +168,13 @@ test("the judge's own model is a run's: a beam config gives verdicts, and each c
     effort: "high",
   };
   const send = globalThis.fetch;
-  for (const model of [beam, { ...small, effort: "low" }]) {
+  for (const [model, url] of [
+    [beam, "https://api.reflection.ai/openai/v1/chat/completions"],
+    [
+      { ...small, effort: "low" },
+      "https://api.fireworks.ai/inference/v1/chat/completions",
+    ],
+  ] as const) {
     const { fetch, sent } = answering(
       "The answer says the order is open.\nVERDICT: yes",
     );
@@ -192,6 +188,7 @@ test("the judge's own model is a run's: a beam config gives verdicts, and each c
       globalThis.fetch = send;
     }
     assert.equal(sent.length, 1);
+    assert.equal(sent[0].url, url);
     assert.equal(sent[0].body.model, model.id.slice(model.id.indexOf(":") + 1));
     assert.equal(sent[0].body.max_tokens, model.maxTokens);
     assert.equal(sent[0].body.reasoning_effort, model.effort);
