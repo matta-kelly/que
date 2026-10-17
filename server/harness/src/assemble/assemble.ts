@@ -66,14 +66,15 @@ export function assemble(
     tools: [...base, ...operations],
     middleware: [
       // A tool that fails throws an OperationFailed. The model reads its message, and the call is marked as failed.
-      // Arguments that fail a tool's schema throw a ToolInvocationError: LangChain's own text, marked as failed too.
+      // Arguments that fail a tool's schema throw a ToolInvocationError, marked as failed too. Its message holds a stack:
+      // the model reads the schema's own text, on one line.
       // Any other error is a bug, and is thrown on.
       toolErrorMiddleware({
         onError: (error) =>
           error instanceof OperationFailed
             ? `Error: ${error.message}`
             : ToolInvocationError.isInstance(error)
-              ? error.message
+              ? `Error: ${error.toolError.message.replace(/\s*\n\s*/g, " ")}`
               : undefined,
       }),
       createMiddleware({
