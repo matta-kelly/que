@@ -1,11 +1,11 @@
 /**
  * The judge: a model that is asked the `good` of a case about the run the
- * agent made, and answers yes or no with a reason. The one file that knows
- * the model framework. What it takes and hands back is in the runner's own
- * form.
+ * agent made, and answers yes or no with a reason. The one file that makes a
+ * model: with `@que/models`, as a run makes its own. What it takes and hands
+ * back is in the runner's own form.
  */
 
-import { initChatModel } from "langchain";
+import { chatModel } from "@que/models";
 import type { LoadedCase, Model } from "./load.js";
 import type { RunRecord } from "./record.js";
 import type { Outcome } from "./report.js";
@@ -64,18 +64,11 @@ export function verdictOf(reply: string): Verdict {
   };
 }
 
-// The framework's model for the config's id, with its maxTokens: not the `chatModel` of `@que/models`, so no
-// effort is sent, and a provider with no package of the framework's (Beam) makes no model.
-const chatModel = (model: Model): Promise<Asked> =>
-  initChatModel(model.id, {
-    maxTokens: model.maxTokens,
-    configurableFields: [],
-  });
-
 /**
- * The judge on one model config. `make` gives the framework's model for it: a
- * test gives its own. A call that fails is no verdict, so the runs after it
- * are judged.
+ * The judge on one model config. `make` gives the model for it: by default
+ * the one a run on that config gets, Beam's and its effort included. A test
+ * gives its own. A call that fails is no verdict, so the runs after it are
+ * judged.
  */
 export function judge(
   model: Model,

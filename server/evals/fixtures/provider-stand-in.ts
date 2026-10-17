@@ -15,6 +15,26 @@ export const KEY = "fw-test";
 
 type Asked = { model?: string; messages?: { content?: unknown }[] };
 
+/** One chat completion of the OpenAI API, the `n`th, that answers `text`. */
+export const completion = (
+  n: number,
+  model: string | undefined,
+  text: string,
+) => ({
+  id: `chatcmpl-${n}`,
+  object: "chat.completion",
+  created: 1_791_878_400,
+  model,
+  choices: [
+    {
+      index: 0,
+      message: { role: "assistant", content: text },
+      finish_reason: "stop",
+    },
+  ],
+  usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+});
+
 /** `reply` gives the text the model answers with, from the text it was sent. */
 export async function provider(reply: (question: string) => string) {
   const asked: string[] = [];
@@ -40,20 +60,7 @@ export async function provider(reply: (question: string) => string) {
         )
         .join("\n");
       asked.push(question);
-      return send(200, {
-        id: `chatcmpl-${asked.length}`,
-        object: "chat.completion",
-        created: 1_791_878_400,
-        model,
-        choices: [
-          {
-            index: 0,
-            message: { role: "assistant", content: reply(question) },
-            finish_reason: "stop",
-          },
-        ],
-        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-      });
+      return send(200, completion(asked.length, model, reply(question)));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
