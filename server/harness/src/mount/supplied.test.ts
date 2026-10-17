@@ -10,20 +10,22 @@ const repo = join(import.meta.dirname, "../../../..");
 const names = Object.keys(SUPPLIED).map((name) => `\`${name}\``);
 const written = `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 
-// Each list of names in code type that holds `@que/core`.
+// Each list of two or more names in code type that holds a supplied name.
+// A name alone, as the README writes `@que/core` in its layout, is not a list.
 const lists = (text: string) =>
-  [
-    ...text.matchAll(
-      /(?:`[^`]+`(?:, | and ))*`@que\/core`(?:(?:, | and )`[^`]+`)*/g,
-    ),
-  ].map(([list]) => list);
+  [...text.matchAll(/`[^`]+`(?:(?:, | and )`[^`]+`)+/g)]
+    .map(([list]) => list)
+    .filter((list) => names.some((name) => list.includes(name)));
 
 for (const doc of ["README.md", "server/core/package.md"]) {
-  test(`${doc} names each package que supplies, and no other`, () => {
+  test(`each list in ${doc} that names a supplied package names all of them, and no other`, () => {
     const found = lists(readFileSync(join(repo, doc), "utf8"));
-    assert.ok(
-      found.includes(written),
-      `${doc} lists ${JSON.stringify(found)}, and que supplies ${written}`,
-    );
+    assert.ok(found.length > 0, `${doc} lists no package que supplies`);
+    for (const list of found)
+      assert.equal(
+        list,
+        written,
+        `${doc} lists ${list}, and que supplies ${written}`,
+      );
   });
 }

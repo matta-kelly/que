@@ -41,6 +41,7 @@ test("a deployment outside que type checks with the tsconfig `just check-folder`
   try {
     execFileSync(tsc, ["--noEmit", "-p", tsconfig], { encoding: "utf8" });
   } catch (error) {
-    assert.fail((error as { stdout: string }).stdout);
+    // No output means tsc did not run: the error says why.
+    assert.fail((error as { stdout?: string }).stdout || String(error));
   }
 });
