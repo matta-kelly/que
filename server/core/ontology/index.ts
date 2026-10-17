@@ -27,7 +27,8 @@ const skill = defineType({
 
 const capability = defineType({
   name: "capability",
-  description: "One outcome a package gives. `Capability` in package-spec.ts.",
+  description:
+    "A capability is an outcome someone wants from a system: the unit of intent, and the unit that is proven. Its meaning is owned by the capability note (capability-model/_well/capability.md); this is that meaning as code. `Capability` in package-spec.ts.",
   properties: { title },
 });
 
@@ -44,11 +45,39 @@ const kase = defineType({
   properties: {},
 });
 
+const agent = defineType({
+  name: "agent",
+  description:
+    "One way a deployment's packages are run. `AgentDefinition` in agent-spec.ts.",
+  properties: {},
+});
+
+const model = defineType({
+  name: "model",
+  description:
+    "One model a deployment's agents can run on. `ModelDefinition` in model-spec.ts.",
+  properties: {},
+});
+
+const loop = defineType({
+  name: "loop",
+  description:
+    "One way an agent handles a chat as it grows. `LoopDefinition` in loop-spec.ts.",
+  properties: {},
+});
+
+const deployment = defineType({
+  name: "deployment",
+  description:
+    "The packages, agents, loops and models one deployment runs. `DeploymentDefinition` in deployment-spec.ts.",
+  properties: {},
+});
+
 export const que = definePackage({
   name: "que",
   description:
     "que's words: the things a deployment, an agent and a package are made of.",
-  types: [pkg, op, skill, capability, kase],
+  types: [pkg, op, skill, capability, kase, agent, model, loop, deployment],
   links: [
     defineLink({
       name: "ops",
@@ -81,6 +110,66 @@ export const que = definePackage({
       from: kase,
       to: capability,
       cardinality: "one",
+    }),
+    defineLink({
+      name: "packages",
+      description:
+        "The packages an agent gets. Left out: every package of the deployment. `AgentDefinition.packages`.",
+      from: agent,
+      to: pkg,
+      cardinality: "many",
+      required: false,
+    }),
+    defineLink({
+      name: "model",
+      description: "The model an agent runs on. `AgentDefinition.model`.",
+      from: agent,
+      to: model,
+      cardinality: "one",
+      required: false,
+    }),
+    defineLink({
+      name: "loop",
+      description: "The loop an agent runs in. `AgentDefinition.loop`.",
+      from: agent,
+      to: loop,
+      cardinality: "one",
+      required: false,
+    }),
+    defineLink({
+      name: "packages",
+      description:
+        "The packages a deployment uses. `DeploymentDefinition.packages`.",
+      from: deployment,
+      to: pkg,
+      cardinality: "many",
+    }),
+    defineLink({
+      name: "agents",
+      description:
+        "The agents a deployment can run. `DeploymentDefinition.agents`.",
+      from: deployment,
+      to: agent,
+      cardinality: "many",
+      required: false,
+    }),
+    defineLink({
+      name: "loops",
+      description:
+        "The loops a deployment lists. `DeploymentDefinition.loops`.",
+      from: deployment,
+      to: loop,
+      cardinality: "many",
+      required: false,
+    }),
+    defineLink({
+      name: "models",
+      description:
+        "The models a deployment lists. `DeploymentDefinition.models`.",
+      from: deployment,
+      to: model,
+      cardinality: "many",
+      required: false,
     }),
   ],
 });
