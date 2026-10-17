@@ -1,13 +1,13 @@
 /**
- * Mounts a deployment as a start does, then prints the folder of each package
- * it lists, one per line. A deployment that would not mount stops here, with
- * mount's error. A package can sit outside the deployment's folder (a repo's
- * own `packages/`), so `just check-deployment` asks for this list rather than
- * looking only inside the deployment.
+ * Mounts a deployment with no `.env` and no network, then prints the folder of
+ * each package it lists, one per line. A deployment that would not mount stops
+ * here, with mount's error. A package can sit outside the deployment's folder
+ * (a repo's own `packages/`), so `just check-deployment` asks for this list
+ * rather than looking only inside the deployment.
  *
- * No network: a model's window and price come from its file or from the
- * deployment's saved copy of facts. One that is in neither is unknown, and
- * mount refuses it.
+ * A model's window and price come from its file or from the deployment's saved
+ * copy of facts, not from a source. One that is in neither is unknown, and
+ * mount refuses it. With no `.env`, a `MODEL` setting is not seen.
  *
  * `tsx check-deployment.ts <deployment folder>`
  */
@@ -21,7 +21,7 @@ const dir = process.argv[2];
 const saved = savedFacts(dir).read();
 const unknown = {
   reason:
-    "the check reads no network, and no start saved it in .que/ (`just start` once saves it)",
+    "the check reads no network (`just start` once saves it in .que/)",
 };
 const offline: FactSources = {
   window: async (model) => {

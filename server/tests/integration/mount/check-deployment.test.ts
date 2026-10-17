@@ -108,6 +108,6 @@ test("a fact that is in neither the model file nor the saved copy is unknown, an
   assert.equal(status, 1);
   assert.match(stderr, /^mount: the model "bare" has no price/);
   // It says the two ways to fix it.
-  assert.match(stderr, /`just start` once saves it/);
+  assert.match(stderr, /`just start` once saves it in \.que\//);
   assert.match(stderr, /Write `price` in the model file/);
 });

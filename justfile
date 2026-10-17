@@ -66,7 +66,7 @@ eval deployment *args: _require-up
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
-# Mount a deployment as a start does, with no network, then type check its own code and the packages it lists,
+# Mount a deployment with no .env and no network, from its saved model facts, then type check its own code and the packages it lists,
 # and run their tests, with que's core handed to all of them. A deployment that would not mount stops here, with mount's error.
 # A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
