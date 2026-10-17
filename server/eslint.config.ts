@@ -103,6 +103,10 @@ const modelsAlone: Rule = {
   path: /harness|backend|evals|@que\/(?!core)/,
   why: "The model maker imports the core, and nothing from the harness, the backend or the eval runner: the harness and the eval runner both import it.",
 };
+const providers: Rule = {
+  path: /^@langchain\/(?:openai|fireworks)$/,
+  why: "Only models/ names a provider package.",
+};
 const framework: Rule = {
   path: /langchain|langgraph/,
   why: "The core imports no agent framework.",
@@ -170,20 +174,21 @@ export default defineConfig([
   },
 
   // The import rules. A later entry replaces an earlier one for the files it names.
-  hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp]),
-  hold(["core/**/*.ts"], [otherApp, framework]),
+  hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp, providers]),
+  hold(["core/**/*.ts"], [otherApp, providers, framework]),
   hold(["models/**/*.ts"], [otherApp, modelsAlone]),
 
   // The eval runner. Its tests can use what they need.
   hold(
     [`${evals}/*.ts`],
-    [otherApp, evalsAlone, langGraphSdk, langfuseSdk, judgeModel],
+    [otherApp, providers, evalsAlone, langGraphSdk, langfuseSdk, judgeModel],
     tests,
   ),
   hold(
     [`${evals}/que.ts`],
     [
       otherApp,
+      providers,
       evalsAlone,
       langfuseSdk,
       judgeModel,
@@ -194,6 +199,7 @@ export default defineConfig([
     [`${evals}/langfuse.ts`],
     [
       otherApp,
+      providers,
       evalsAlone,
       langGraphSdk,
       judgeModel,
@@ -204,6 +210,7 @@ export default defineConfig([
     [`${evals}/judge.ts`],
     [
       otherApp,
+      providers,
       evalsAlone,
       langGraphSdk,
       langfuseSdk,
@@ -214,32 +221,57 @@ export default defineConfig([
   // The harness, a folder at a time.
   hold(
     [`${src}/mount/**/*.ts`],
-    [otherApp, direction("mount"), deepagents, langfuse],
+    [otherApp, providers, direction("mount"), deepagents, langfuse],
     tests,
   ),
   hold(
     [`${src}/mount/{agents,loops,models}.ts`],
-    [otherApp, direction("mount"), deepagents, langfuse, ...oneMount],
+    [
+      otherApp,
+      providers,
+      direction("mount"),
+      deepagents,
+      langfuse,
+      ...oneMount,
+    ],
   ),
   hold(
     [`${src}/access/**/*.ts`],
-    [otherApp, direction("access"), deepagents, langfuse],
+    [otherApp, providers, direction("access"), deepagents, langfuse],
     tests,
   ),
   hold(
     [`${src}/assemble/**/*.ts`],
-    [otherApp, direction("assemble"), deepagents, langfuse, credentials],
+    [
+      otherApp,
+      providers,
+      direction("assemble"),
+      deepagents,
+      langfuse,
+      credentials,
+    ],
     [...tests, `${src}/assemble/fixture.ts`],
   ),
-  hold([`${src}/run/*.ts`], [otherApp, deepagents, langfuse, loading], tests),
+  hold(
+    [`${src}/run/*.ts`],
+    [otherApp, providers, deepagents, langfuse, loading],
+    tests,
+  ),
   hold(
     [`${src}/run/loading.ts`],
-    [otherApp, deepagents, langfuse, mustImport(loading.path, loading.why)],
+    [
+      otherApp,
+      providers,
+      deepagents,
+      langfuse,
+      mustImport(loading.path, loading.why),
+    ],
   ),
   hold(
     [`${src}/run/trace.ts`],
     [
       otherApp,
+      providers,
       deepagents,
       loading,
       {
@@ -253,23 +285,28 @@ export default defineConfig([
   ),
   hold(
     [`${src}/run/agent.ts`],
-    [otherApp, deepagents, langfuse, loading, ...tracedByTrace],
+    [otherApp, providers, deepagents, langfuse, loading, ...tracedByTrace],
   ),
-  hold([`${src}/run/build/**/*.ts`], [otherApp, langfuse], tests),
+  hold([`${src}/run/build/**/*.ts`], [otherApp, providers, langfuse], tests),
   hold(
     [`${src}/run/build/build.ts`],
-    [otherApp, langfuse, mustImport(deepagents.path, deepagents.why)],
+    [
+      otherApp,
+      providers,
+      langfuse,
+      mustImport(deepagents.path, deepagents.why),
+    ],
   ),
 
   // A test obeys the direction too. The one exception: it can take the fixture of assemble, which is a test file itself.
   ...["mount", "access", "assemble"].map((folder) =>
     hold(
       [`${src}/${folder}/**/*.test.ts`],
-      [otherApp, direction(folder, { inTest: true })],
+      [otherApp, providers, direction(folder, { inTest: true })],
     ),
   ),
   hold(
     [`${src}/assemble/fixture.ts`],
-    [otherApp, direction("assemble", { inTest: true })],
+    [otherApp, providers, direction("assemble", { inTest: true })],
   ),
 ]);
