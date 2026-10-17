@@ -6,8 +6,8 @@
 
 import type { Agent, LoadedCase } from "./load.js";
 
-/** One case under one config. With no `agent`, the run names none. With `skipped`, it is not made, and this is why. */
-export type Planned = { case: LoadedCase; agent?: string; skipped?: string };
+/** One case under one config. With `skipped`, it is not made, and this is why. */
+export type Planned = { case: LoadedCase; agent: string; skipped?: string };
 
 export function plan(
   cases: LoadedCase[],
@@ -31,17 +31,15 @@ export function plan(
         .sort((a, b) => named.indexOf(a.name) - named.indexOf(b.name))
     : agents;
 
-  return cases.flatMap((c): Planned[] =>
-    chosen.length
-      ? chosen.map((agent) =>
-          agent.packages && !agent.packages.includes(c.package)
-            ? {
-                case: c,
-                agent: agent.name,
-                skipped: `${agent.name} does not have ${c.package}`,
-              }
-            : { case: c, agent: agent.name },
-        )
-      : [{ case: c }],
+  return cases.flatMap((c) =>
+    chosen.map((agent): Planned =>
+      agent.packages.includes(c.package)
+        ? { case: c, agent: agent.name }
+        : {
+            case: c,
+            agent: agent.name,
+            skipped: `${agent.name} does not have ${c.package}`,
+          },
+    ),
   );
 }

@@ -240,17 +240,36 @@ test("an agent, model, loop or deployment type has no property", () => {
 });
 
 test("an agent note with no packages, model or loop parses", () => {
-  // Left out: the agent gets every package of the deployment, and que's own model and loop.
+  // Left out: the agent gets no package, the first model the deployment lists, and a loop where no setting acts.
   const node = without(chat, "packages", "model", "loop");
   assert.deepEqual(que.parse("agent", node), node);
 });
 
-test("a deployment note with packages and no agents, loops or models parses", () => {
-  const node = without(landl, "agents", "loops", "models");
+test("an agent note that writes its packages as [] fails, on its packages", () => {
+  // The config writes none as `[]`, and the note leaves the link out: basis 0.1.0 refuses an empty optional link (#91).
+  const issue = issueOf("agent", { ...chat, packages: [] });
+  assert.deepEqual(issue.path, ["packages"]);
+});
+
+test("a deployment note with no loops parses", () => {
+  const node = without(landl, "loops");
   assert.deepEqual(que.parse("deployment", node), {
     ...node,
     packages: ["odoo"],
+    agents: ["chat"],
+    models: ["glm-flash"],
   });
+});
+
+test("a deployment note with no agents or no models fails, on that link", () => {
+  for (const link of ["agents", "models"]) {
+    const missing = issueOf("deployment", without(landl, link));
+    assert.equal(missing.code, "invalid_type", link);
+    assert.deepEqual(missing.path, [link]);
+    const empty = issueOf("deployment", { ...landl, [link]: [] });
+    assert.equal(empty.code, "too_small", link);
+    assert.deepEqual(empty.path, [link]);
+  }
 });
 
 test("a model and a loop note each parse with no field beyond the base", () => {

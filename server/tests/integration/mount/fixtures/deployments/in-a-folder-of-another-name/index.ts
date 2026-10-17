@@ -4,4 +4,6 @@ import { defineDeployment } from "@que/core";
 export default defineDeployment({
   name: "declared",
   packages: ["../../packages/alpha"],
+  agents: ["../../agents/bare.ts"],
+  models: ["../../models/small.ts"],
 });

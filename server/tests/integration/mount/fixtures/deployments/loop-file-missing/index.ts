@@ -4,4 +4,6 @@ export default defineDeployment({
   name: "loop-file-missing",
   packages: ["../../packages/gamma", "../../packages/alpha"],
   loops: ["../../loops/nope.ts"],
+  agents: ["../../agents/bare.ts"],
+  models: ["../../models/small.ts"],
 });

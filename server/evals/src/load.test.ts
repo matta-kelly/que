@@ -31,8 +31,8 @@ test("loads the name of a deployment, the cases of each package it lists, each w
         },
       ],
       agents: [
-        { name: "chat" },
-        { name: "lean", model: "small" },
+        { name: "chat", packages: ["shop", "notes"] },
+        { name: "lean", packages: ["shop", "notes"], model: "small" },
         { name: "notes-only", packages: ["notes"] },
       ],
     },
@@ -54,10 +54,6 @@ test("loads the model configs of a deployment, as written, in order", async () =
       maxTokens: 64_000,
     },
   ]);
-});
-
-test("a deployment that lists no agents gives none", async () => {
-  assert.deepEqual((await load(deployment("no-agents"))).agents, []);
 });
 
 test("stops, naming the package, on cases that break the contract", async () => {

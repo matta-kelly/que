@@ -1,6 +1,6 @@
 /**
  * The contract for an agent config: one way a deployment's packages are run.
- * It has a name, and says which packages the agent gets, the model it runs
+ * It has a name and the packages the agent gets, and says the model it runs
  * on, its instructions, how it is shown the environment, and the loop it
  * runs in, and if it takes the user's own instructions. A config is a
  * file of its own, and a deployment lists it. Framework-free, as the package
@@ -13,12 +13,12 @@ import { NAME } from "./package-spec.js";
 export const LOADING = ["on-demand", "eager"] as const;
 export type Loading = (typeof LOADING)[number];
 
-/** What `defineAgent` returns, and an agent file exports as its default. A field left out keeps que's own value. */
+/** What `defineAgent` returns, and an agent file exports as its default. `name` and `packages` are needed; another field left out keeps que's own value. */
 export type AgentDefinition = {
   /** What a run names to get this config. */
   name: string;
-  /** Names of the packages the agent gets, out of the ones the deployment mounts. */
-  packages?: string[];
+  /** Names of the packages the agent gets, out of the ones the deployment mounts. `[]` is none. */
+  packages: string[];
   /** The name of a model config the deployment lists. */
   model?: string;
   /** Opens the system prompt, in place of que's own role text. */
@@ -76,7 +76,11 @@ export function validateAgent(def: unknown): asserts def is AgentDefinition {
       problems.push('the field "legibility" is now named `loading`');
     else if (!FIELDS.includes(field))
       problems.push(`the agent has no field "${field}"`);
-  if (packages !== undefined && !Array.isArray(packages))
+  if (packages === undefined)
+    problems.push(
+      "packages of the agent is missing: list the packages it gets, or `[]` for none",
+    );
+  else if (!Array.isArray(packages))
     problems.push("packages of the agent must be an array");
   for (const pkg of Array.isArray(packages) ? packages : []) {
     if (typeof pkg !== "string" || !pkg.trim())

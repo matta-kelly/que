@@ -16,8 +16,13 @@ const small = {
   maxTokens: 8_000,
   price: { input: 0.5, output: 1, cachedInput: 0.1 },
 };
-const chat = { name: "chat" };
-const lean = { name: "lean", model: "small", instructions: "Be brief." };
+const chat = { name: "chat", packages: [] };
+const lean = {
+  name: "lean",
+  packages: [],
+  model: "small",
+  instructions: "Be brief.",
+};
 
 test("an agent has the model it names, and one that names none has the first model listed", () => {
   const { agents } = deploymentInfo([chat, lean], [big, small], []);
@@ -53,7 +58,7 @@ test("an agent has the share its loop summarizes at, and none when it does not s
     { name: "early", summarize: { at: 0.5, keep: 0.1 } },
     { name: "whole", summarize: false as const },
   ];
-  const on = (loop?: string) => ({ name: loop ?? "bare", loop });
+  const on = (loop?: string) => ({ name: loop ?? "bare", packages: [], loop });
   const { agents } = deploymentInfo(
     [on("long-chat"), on("early"), on("whole"), on()],
     [big],

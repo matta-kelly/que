@@ -5,8 +5,6 @@
 
 import type { Catalog } from "./catalog.js";
 
-export function narrow(catalog: Catalog, names?: string[]): Catalog {
-  return names
-    ? catalog.filter(({ pkg }) => names.includes(pkg.definition.name))
-    : catalog;
+export function narrow(catalog: Catalog, names: string[]): Catalog {
+  return catalog.filter(({ pkg }) => names.includes(pkg.definition.name));
 }

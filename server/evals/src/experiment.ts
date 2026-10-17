@@ -34,7 +34,7 @@ export type Experiment = {
   run: string;
   metadata: {
     agent: string;
-    config?: Agent;
+    config: Agent;
     commit: string;
     deployment: string;
     /** The name of the judge's model config, when the runs were judged. */
@@ -48,9 +48,6 @@ export type Sending = {
 };
 /** An experiment that was sent. `url` opens its run, when Langfuse gave one. */
 export type Sent = { agent: string; run: string; url?: string };
-
-// The report shows a run that names no config under this name too.
-const DEFAULT = "default";
 
 // A name of the contract has no ".", so no two cases share an id.
 const idOf = (deployment: string, c: LoadedCase) =>
@@ -87,9 +84,9 @@ export function experiments({
     },
   }));
 
-  const made = [...agents, undefined].flatMap((config): Experiment[] => {
+  const made = agents.flatMap((config): Experiment[] => {
     const outputs = outcomes.flatMap((outcome): Output[] => {
-      if (outcome.agent !== config?.name || "skipped" in outcome) return [];
+      if (outcome.agent !== config.name || "skipped" in outcome) return [];
       const item = idOf(deployment, outcome.case);
       if ("error" in outcome)
         return [{ item, output: { error: outcome.error } }];
@@ -97,7 +94,7 @@ export function experiments({
       return [{ item, output: record, ...(verdict && { verdict }) }];
     });
     if (!outputs.length) return [];
-    const agent = config?.name ?? DEFAULT;
+    const agent = config.name;
     const name = `${agent}@${commit}`;
     return [
       {
@@ -106,7 +103,7 @@ export function experiments({
         run: `${name} ${at}`,
         metadata: {
           agent,
-          ...(config && { config }),
+          config,
           commit,
           deployment,
           ...(judge && { judge }),

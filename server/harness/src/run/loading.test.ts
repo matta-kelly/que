@@ -5,9 +5,12 @@ import { onDemand } from "../assemble/on-demand/index.js";
 import { loadingFor } from "./loading.js";
 
 test("an agent that names no loading gets on-demand", () => {
-  assert.equal(loadingFor({ name: "chat" }), onDemand);
+  assert.equal(loadingFor({ name: "chat", packages: [] }), onDemand);
 });
 
 test("an agent that names eager gets eager", () => {
-  assert.equal(loadingFor({ name: "chat", loading: "eager" }), eager);
+  assert.equal(
+    loadingFor({ name: "chat", packages: [], loading: "eager" }),
+    eager,
+  );
 });

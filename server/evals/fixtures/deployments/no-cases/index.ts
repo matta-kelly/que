@@ -4,4 +4,5 @@ export default defineDeployment({
   name: "no-cases",
   packages: ["../../packages/notes"],
   agents: ["../../agents/chat.ts"],
+  models: ["../../models/small.ts"],
 });

@@ -20,7 +20,7 @@ test("validateAgent rejects a model that is not a plain name, and says where a m
 });
 
 test("validateAgent accepts a loop, and rejects one that is not a plain name", () => {
-  validateAgent({ name: "chat", loop: "long-chat" });
+  validateAgent({ name: "chat", packages: [], loop: "long-chat" });
   for (const loop of ["two words", "", 7, null])
     assert.throws(
       () => validateAgent({ name: "chat", loop }),
@@ -34,7 +34,10 @@ test("validateAgent rejects a field that is not in the shape, naming it", () => 
 });
 
 test("validateAgent rejects a package that is not a name", () => {
-  assert.throws(() => validateAgent({ packages: [7] }), /packages/);
+  assert.throws(
+    () => validateAgent({ name: "chat", packages: [7] }),
+    /packages of the agent must each be a package name/,
+  );
 });
 
 test("validateAgent names every fault in one error", () => {
@@ -65,8 +68,8 @@ test("validateAgent rejects a config with no name, and a name that is not a plai
 });
 
 test("validateAgent accepts userInstructions as true or false, and rejects any other value", () => {
-  validateAgent({ name: "chat", userInstructions: true });
-  validateAgent({ name: "chat", userInstructions: false });
+  validateAgent({ name: "chat", packages: [], userInstructions: true });
+  validateAgent({ name: "chat", packages: [], userInstructions: false });
   for (const userInstructions of ["yes", 1, null])
     assert.throws(
       () => validateAgent({ name: "chat", userInstructions }),
@@ -76,13 +79,23 @@ test("validateAgent accepts userInstructions as true or false, and rejects any o
 });
 
 test("validateAgent accepts each way of loading", () => {
-  for (const loading of LOADING) validateAgent({ name: "chat", loading });
+  for (const loading of LOADING)
+    validateAgent({ name: "chat", packages: [], loading });
 });
 
 test("validateAgent rejects the field legibility, and says it is now loading", () => {
-  validateAgent({ name: "chat", loading: "on-demand" });
+  validateAgent({ name: "chat", packages: [], loading: "on-demand" });
   assert.throws(
     () => validateAgent({ name: "chat", legibility: "on-demand" }),
     /"legibility" is now named `loading`/,
   );
+});
+
+test("validateAgent rejects an agent that leaves out packages, and takes `[]` as none", () => {
+  assert.throws(
+    () => validateAgent({ name: "chat" }),
+    /packages of the agent is missing: list the packages it gets, or `\[\]` for none/,
+  );
+  validateAgent({ name: "chat", packages: [] });
+  validateAgent({ name: "chat", packages: ["odoo", "notes"] });
 });

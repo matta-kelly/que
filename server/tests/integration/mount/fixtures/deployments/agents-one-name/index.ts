@@ -4,4 +4,5 @@ export default defineDeployment({
   name: "agents-one-name",
   packages: ["../../packages/gamma", "../../packages/alpha"],
   agents: ["../../agents/chat.ts", "../../agents/chat-again.ts"],
+  models: ["../../models/small.ts"],
 });

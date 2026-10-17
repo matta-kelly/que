@@ -11,12 +11,12 @@ export type DeploymentDefinition = {
   name: string;
   /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
   packages: string[];
-  /** One file per agent config: an absolute path, or one taken from the deployment's own folder. With none, the agent runs on que's own choices. */
-  agents?: string[];
+  /** One file per agent config: an absolute path, or one taken from the deployment's own folder. At least one: que has no agent of its own. */
+  agents: string[];
   /** One file per loop config: an absolute path, or one taken from the deployment's own folder. */
   loops?: string[];
-  /** One file per model config: an absolute path, or one taken from the deployment's own folder. With none, an agent runs on que's own model. */
-  models?: string[];
+  /** One file per model config: an absolute path, or one taken from the deployment's own folder. At least one: que has no model of its own. */
+  models: string[];
 };
 
 export function defineDeployment(
@@ -65,6 +65,12 @@ export function validateDeployment(
         );
     }
   }
+  // que has no agent or model of its own to fall back on.
+  for (const [list, files] of Object.entries({ agents, models }))
+    if (files === undefined || (Array.isArray(files) && !files.length))
+      problems.push(
+        `deployment ${deployment} lists no ${list.slice(0, -1)}: list at least one ${list.slice(0, -1)} config in \`${list}\``,
+      );
   if (agent !== undefined)
     problems.push(
       `deployment ${deployment} has an \`agent\` block: an agent config is a file of its own, listed in \`agents\``,

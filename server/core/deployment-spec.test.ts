@@ -44,3 +44,33 @@ test("validateDeployment rejects an agent block, and says a config is now a file
     /deployment shop has an `agent` block: an agent config is a file of its own, listed in `agents`/,
   );
 });
+
+test("validateDeployment rejects a deployment that lists no agent or no model, left out or empty", () => {
+  const agents = ["./chat.ts"];
+  const models = ["./small.ts"];
+  for (const none of [undefined, []]) {
+    assert.throws(
+      () =>
+        validateDeployment({
+          name: "shop",
+          packages: [],
+          agents,
+          models: none,
+        }),
+      /deployment shop lists no model: list at least one model config in `models`/,
+      JSON.stringify(none),
+    );
+    assert.throws(
+      () =>
+        validateDeployment({
+          name: "shop",
+          packages: [],
+          agents: none,
+          models,
+        }),
+      /deployment shop lists no agent: list at least one agent config in `agents`/,
+      JSON.stringify(none),
+    );
+  }
+  validateDeployment({ name: "shop", packages: [], agents, models });
+});
