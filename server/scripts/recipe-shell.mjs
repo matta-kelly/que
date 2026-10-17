@@ -11,9 +11,19 @@ const { recipes } = JSON.parse(readFileSync(0, "utf8"));
 
 for (const recipe of Object.values(recipes)) {
   const lines = recipe.body.map((line) =>
-    line.map((part) => (typeof part === "string" ? part.replaceAll("{{{{", "{{") : "_just_")).join(""),
+    line
+      .map((part) =>
+        typeof part === "string" ? part.replaceAll("{{{{", "{{") : "_just_",
+      )
+      .join(""),
   );
   // A recipe with no shebang runs each line in its own `sh -cu`, after just takes off the @ or - in front.
-  const script = recipe.shebang ? lines : ["#!/bin/sh", "set -u", ...lines.map((line) => line.replace(/^[@-]+/, ""))];
+  const script = recipe.shebang
+    ? lines
+    : [
+        "#!/bin/sh",
+        "set -u",
+        ...lines.map((line) => line.replace(/^[@-]+/, "")),
+      ];
   writeFileSync(`${dir}/${recipe.namepath}`, `${script.join("\n")}\n`);
 }
