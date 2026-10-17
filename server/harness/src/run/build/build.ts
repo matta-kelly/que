@@ -1,11 +1,10 @@
 /**
  * Builds a run's agent: the framework's own agent, with the parts, the repair
  * of a chat, the repeat guard, and a middleware for each setting of the loop
- * that acts. Each
- * difference between two agents comes from their configs, so a result of an
- * eval can be put down to a config. The middlewares are the ones a LangChain
- * deep agent is made of, each taken alone, LangChain's own summary, and que's
- * own repeat guard.
+ * that acts. Each difference between two agents comes from their configs, so a
+ * result of an eval can be put down to a config. The middlewares are the ones
+ * a LangChain deep agent is made of, each taken alone, LangChain's own
+ * summary, and que's own repeat guard.
  */
 
 import {
