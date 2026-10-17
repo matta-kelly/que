@@ -11,14 +11,13 @@ que is an agent factory. A deployment is where agents are built: it picks blocks
 - [[#Done means]] how to tell it is finished
 
 - [[que]]: the harness this belongs to. Its Agent part says what a unit is
-- [[task-agent-configs-in-deployment]]: the configs move into the deployment, so que holds the blocks and the deployment holds the picks
 
 ---
 ## What is wanted
 
 - each part que offers is a block that can be swapped
 - a config is a pick of blocks, and the settings of each. 
-	- The pick sits in the deployment, not in que: [[task-agent-configs-in-deployment]]
+	- The pick sits in the deployment, not in que
 - a deployment can change one pick and keep the rest
 - an eval of two configs can say which pick made the difference
 
