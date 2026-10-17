@@ -62,15 +62,20 @@ test("the model made for a beam config is Beam's, with the id and the maxTokens 
 test("the model made for a config sends the config's effort as reasoning_effort", async () => {
   process.env.FIREWORKS_API_KEY ??= "none";
   process.env.BEAM_API_KEY ??= "none";
+  // What a request is built from: the framework's model, and the request's params.
   const fireworks = (await chatModel({
     ...small,
     effort: "low",
   })) as unknown as {
-    _defaultConfig: Record<string, unknown>;
+    _getModelInstance(config: object): Promise<{
+      invocationParams(options: object): Record<string, unknown>;
+    }>;
   };
-  assert.deepEqual(fireworks._defaultConfig.modelKwargs, {
-    reasoning_effort: "low",
-  });
+  assert.equal(
+    (await fireworks._getModelInstance({})).invocationParams({})
+      .reasoning_effort,
+    "low",
+  );
   const beam = await chatModel({
     name: "beam",
     id: "beam:Beam-1.0-501B-A23B",
@@ -80,7 +85,7 @@ test("the model made for a config sends the config's effort as reasoning_effort"
     effort: "high",
   });
   assert.ok(beam instanceof ChatBeam);
-  assert.deepEqual(beam.modelKwargs, { reasoning_effort: "high" });
+  assert.equal(beam.invocationParams({}).reasoning_effort, "high");
 });
 
 test("the model made for a run is not changed by what the run names", async () => {
