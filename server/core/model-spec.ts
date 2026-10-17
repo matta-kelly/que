@@ -30,6 +30,12 @@ export type ModelDefinition = {
   window?: number;
   /** Left out: read from a model database at mount. */
   price?: ModelPrice;
+  /**
+   * How hard the model thinks before it answers: the provider's own word for
+   * a level, sent as `reasoning_effort` (Beam: low, medium, high, xhigh, max).
+   * A choice. Left out: none is sent, and the model thinks at its provider's default.
+   */
+  effort?: string;
 };
 
 /** What is true of a model, as a source outside the file gives it. */
@@ -45,7 +51,7 @@ export function defineModel(definition: ModelDefinition): ModelDefinition {
   return definition;
 }
 
-const FIELDS = ["name", "id", "window", "maxTokens", "price"];
+const FIELDS = ["name", "id", "window", "maxTokens", "price", "effort"];
 const PRICE_FIELDS = ["input", "output", "cachedInput"];
 
 const isCount = (value: unknown): value is number =>
@@ -93,7 +99,10 @@ export function mountedModel(
 export function validateModel(def: unknown): asserts def is ModelDefinition {
   if (!def || typeof def !== "object" || Array.isArray(def))
     throw new Error("model must be an object");
-  const { name, id, window, maxTokens, price } = def as Record<string, unknown>;
+  const { name, id, window, maxTokens, price, effort } = def as Record<
+    string,
+    unknown
+  >;
   const problems: string[] = [];
   const named = typeof name === "string" && NAME.test(name);
 
@@ -116,6 +125,14 @@ export function validateModel(def: unknown): asserts def is ModelDefinition {
       );
   if (isCount(window) && isCount(maxTokens) && maxTokens > window)
     problems.push(aboveWindow("", maxTokens, window));
+  // Which words a provider takes is the provider's to say: a word it does not take fails the first call.
+  if (
+    effort !== undefined &&
+    !(typeof effort === "string" && /^\S+$/.test(effort))
+  )
+    problems.push(
+      `effort of the model must be one word, got ${JSON.stringify(effort)}`,
+    );
   if (price !== undefined) {
     if (!price || typeof price !== "object" || Array.isArray(price))
       problems.push(

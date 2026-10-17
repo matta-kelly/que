@@ -7,4 +7,6 @@ export default defineModel({
   id: "beam:Beam-1.0-501B-A23B",
   // The most tokens the model may give in one reply: the most Beam gives.
   maxTokens: 131_072,
+  // How hard it thinks: low, medium, high, xhigh or max. Left out, Beam thinks at max, its default, which is slow.
+  effort: "high",
 });

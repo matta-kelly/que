@@ -18,9 +18,6 @@ import {
 import type { BaseMessage } from "@langchain/core/messages";
 import type { CallbackManagerForLLMRun } from "@langchain/core/callbacks/manager";
 
-/** The efforts Beam takes. Left out, Beam thinks at its own default. */
-export type BeamEffort = "low" | "medium" | "high" | "xhigh" | "max";
-
 // The framework builds the request from the messages and drops the thinking,
 // and each way it calls the model builds its params from the call options:
 // the thinking of each assistant message rides there, as a key JSON leaves out.
@@ -60,7 +57,8 @@ export class ChatBeam extends ChatOpenAICompletions<BeamCallOptions> {
     /** Left out: `BEAM_API_KEY`. */
     apiKey?: string;
     maxTokens?: number;
-    effort?: BeamEffort;
+    /** Sent as `reasoning_effort`: low, medium, high, xhigh or max. Left out, Beam thinks at its own default. */
+    effort?: string;
     /** The `fetch` the client calls Beam with. A test hands in its own. */
     fetch?: typeof globalThis.fetch;
   }) {

@@ -5,6 +5,9 @@
  * refuses (400) when an assistant message goes back with no reasoning_content.
  * The chat before them has a plain turn of the assistant with no thinking of
  * its own. Both turns are streamed, as a run of the agent server streams.
+ * The model config is the template's (templates/deployment/models/beam.ts),
+ * effort high, and each request prints the effort and the usage it asks for,
+ * and each answer the usage it gives.
  *
  * Large: it calls the real model, needs BEAM_API_KEY, and is no part of
  * `just check`. From server/, in the dev container:
@@ -24,8 +27,17 @@ import { concat } from "@langchain/core/utils/stream";
 import { ChatBeam } from "../../harness/src/run/beam.js";
 import { chatModel } from "../../harness/src/run/model.js";
 
-// Beam thinks at its own default effort, which is its most: a turn can take a minute.
 const TURN_MS = 180_000;
+
+// The request as it goes out: the client calls the global fetch.
+const send = globalThis.fetch;
+globalThis.fetch = (url, init) => {
+  const body = JSON.parse(String(init?.body ?? "{}"));
+  console.log(
+    `request: reasoning_effort ${body.reasoning_effort}, stream_options ${JSON.stringify(body.stream_options)}`,
+  );
+  return send(url, init);
+};
 
 const getTime = tool(({ city }) => `It is 14:05 in ${city}.`, {
   name: "get_time",
@@ -39,6 +51,7 @@ const model = await chatModel({
   window: 1_048_576,
   maxTokens: 131_072,
   price: { input: 0, output: 0 },
+  effort: "high",
 });
 if (!(model instanceof ChatBeam))
   throw new Error("que's chat model for beam is not ChatBeam");
@@ -51,6 +64,7 @@ async function turn(messages: BaseMessage[]) {
   }))
     answer = answer ? concat(answer, chunk) : chunk;
   if (!answer) throw new Error("Beam gave no answer");
+  console.log(`usage: ${JSON.stringify(answer.usage_metadata)}`);
   return answer;
 }
 
