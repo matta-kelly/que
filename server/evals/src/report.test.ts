@@ -123,13 +123,6 @@ shop / find-order / find-order-not-asked
   );
 });
 
-test("a run with no agent named is shown as default", () => {
-  assert.match(
-    report([{ case: byCustomer, record: { steps: [], answer: "Open." } }]),
-    /\n {2}\[default\]\n {4}answer {3}Open\.\n/,
-  );
-});
-
 test("the report cuts a long result to 200 characters, and marks it", () => {
   const out = report([
     {

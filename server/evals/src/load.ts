@@ -56,13 +56,13 @@ export async function load(folder: string): Promise<{
     for (const path of deployment.packages)
       cases.push(...(await casesOf(resolve(folder, path))));
     const agents: Agent[] = [];
-    for (const path of deployment.agents ?? []) {
+    for (const path of deployment.agents) {
       const agent = await definitionIn(resolve(folder, path));
       validateAgent(agent);
       agents.push(agent);
     }
     const models: Model[] = [];
-    for (const path of deployment.models ?? []) {
+    for (const path of deployment.models) {
       const model = await definitionIn(resolve(folder, path));
       validateModel(model);
       models.push(model);

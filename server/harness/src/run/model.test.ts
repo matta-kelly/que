@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { OWN_MODEL, chatModel, modelFor } from "./model.js";
+import { chatModel, modelFor } from "./model.js";
 
 const big = {
   name: "big",
@@ -17,24 +17,19 @@ const small = {
   price: { input: 0.5, output: 1, cachedInput: 0.1 },
 };
 
-test("the model of a run: the one the run names, then its agent's, then the first listed, then que's own", () => {
-  const lean = { name: "lean", model: "small" };
-  assert.equal(modelFor([big, small], lean, "big"), big);
-  assert.equal(modelFor([big, small], lean, undefined), small);
-  assert.equal(modelFor([big, small], { name: "chat" }, undefined), big);
-  assert.equal(modelFor([], { name: "chat" }, undefined), OWN_MODEL);
+const chat = { name: "chat", packages: [], model: "small", loop: "long-chat" };
+
+test("the model of a run: the one the run names, then its agent's, and never the first listed", () => {
+  assert.equal(modelFor([big, small], chat, "big"), big);
+  assert.equal(modelFor([big, small], chat, undefined), small);
 });
 
 test("a run that names a model the deployment does not have fails, and the error lists the ones it has", () => {
   assert.throws(
-    () => modelFor([big, small], { name: "chat" }, "huge"),
+    () => modelFor([big, small], chat, "huge"),
     /no model "huge"\. Models: big, small/,
   );
-  assert.throws(
-    () => modelFor([], { name: "chat" }, "big"),
-    /no model "big"\. This deployment lists no models/,
-  );
-  assert.throws(() => modelFor([big], { name: "chat" }, 7), /no model 7/);
+  assert.throws(() => modelFor([big], chat, 7), /no model 7/);
 });
 
 test("the model made for a run has the id and the maxTokens of its config", async () => {
@@ -61,10 +56,4 @@ test("the model made for a run is not changed by what the run names", async () =
     }),
     {},
   );
-});
-
-test("que's own model is whole", () => {
-  assert.equal(OWN_MODEL.window, 1_048_576, "the provider's window");
-  assert.ok(OWN_MODEL.maxTokens <= OWN_MODEL.window);
-  assert.ok(OWN_MODEL.price.input > 0 && OWN_MODEL.price.output > 0);
 });

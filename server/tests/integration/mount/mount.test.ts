@@ -122,7 +122,7 @@ test("stops, naming the agent and the loop, when an agent names a loop the deplo
   );
 });
 
-test("a deployment is mounted with its models, in the order it lists them, and with none when it lists none", async () => {
+test("a deployment is mounted with its models, in the order it lists them", async () => {
   const mounted = await fromDeployment.mountDeployment(
     deployment("models-two"),
   );
@@ -142,9 +142,16 @@ test("a deployment is mounted with its models, in the order it lists them, and w
       price: { input: 1, output: 2 },
     },
   ]);
-  assert.deepEqual(
-    (await fromDeployment.mountDeployment(deployment("two"))).models,
-    [],
+});
+
+test("stops at startup, naming the deployment, when it lists no model", async () => {
+  await assert.rejects(
+    fromDeployment.mountDeployment(deployment("models-none")),
+    (error: Error) => {
+      assert.match(error.message, /^mount: .*deployments\/models-none/);
+      assert.match(error.message, /deployment models-none lists no model/);
+      return true;
+    },
   );
 });
 
@@ -171,10 +178,6 @@ test("stops, naming the agent and the model, when an agent names a model the dep
       assert.match(error.message, /Models: big/);
       return true;
     },
-  );
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-model-none")),
-    /This deployment lists no models/,
   );
 });
 

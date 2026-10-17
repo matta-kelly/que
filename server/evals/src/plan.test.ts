@@ -18,9 +18,25 @@ const notAsked = {
   start: "Any.",
   good: "No operation is called.",
 };
-const chat = { name: "chat" };
-const lean = { name: "lean" };
-const notesOnly = { name: "notes-only", packages: ["notes"] };
+const chat = {
+  name: "chat",
+  packages: ["shop", "notes"],
+  model: "small",
+  loop: "long-chat",
+};
+const lean = {
+  name: "lean",
+  packages: ["shop"],
+  model: "small",
+  loop: "long-chat",
+};
+const bare = { name: "bare", packages: [], model: "small", loop: "long-chat" };
+const notesOnly = {
+  name: "notes-only",
+  packages: ["notes"],
+  model: "small",
+  loop: "long-chat",
+};
 
 test("plans each case under each agent, grouped by case, in the order the deployment lists them", () => {
   assert.deepEqual(plan([byCustomer, notAsked], [chat, lean], []), [
@@ -41,6 +57,17 @@ test("with agents named, plans only those, in the order named", () => {
   );
 });
 
+test("skips a case under an agent that does not list its package, and under one with no packages", () => {
+  assert.deepEqual(plan([byCustomer], [notesOnly, bare], []), [
+    {
+      case: byCustomer,
+      agent: "notes-only",
+      skipped: "notes-only does not have shop",
+    },
+    { case: byCustomer, agent: "bare", skipped: "bare does not have shop" },
+  ]);
+});
+
 test("stops on a named agent the deployment does not list, and lists the ones there are", () => {
   assert.throws(
     () => plan([byCustomer], [chat, lean], ["bold"]),
@@ -49,11 +76,4 @@ test("stops on a named agent the deployment does not list, and lists the ones th
       return true;
     },
   );
-});
-
-test("with no agents listed, plans one run for each case, with no agent named", () => {
-  assert.deepEqual(plan([byCustomer, notAsked], [], []), [
-    { case: byCustomer },
-    { case: notAsked },
-  ]);
 });

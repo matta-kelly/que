@@ -18,9 +18,24 @@ const notAsked = {
   start: "Any.",
   good: "No operation is called.",
 };
-const chat = { name: "chat" };
-const lean = { name: "lean", model: "provider:small-model" };
-const notesOnly = { name: "notes-only", packages: ["notes"] };
+const chat = {
+  name: "chat",
+  packages: ["shop", "notes"],
+  model: "small",
+  loop: "long-chat",
+};
+const lean = {
+  name: "lean",
+  packages: ["shop"],
+  model: "small",
+  loop: "long-chat",
+};
+const notesOnly = {
+  name: "notes-only",
+  packages: ["notes"],
+  model: "small",
+  loop: "long-chat",
+};
 
 const open = {
   steps: [
@@ -111,7 +126,7 @@ test("the metadata of an experiment has the agent's name, its config as written,
   });
   assert.deepEqual(made[0].metadata, {
     agent: "lean",
-    config: { name: "lean", model: "provider:small-model" },
+    config: lean,
     commit: "abc1234",
     deployment: "shop",
   });
@@ -125,7 +140,7 @@ test("the metadata of an experiment names the judge", () => {
   });
   assert.deepEqual(made[0].metadata, {
     agent: "lean",
-    config: { name: "lean", model: "provider:small-model" },
+    config: lean,
     commit: "abc1234",
     deployment: "shop",
     judge: "small",
@@ -167,21 +182,4 @@ test("a skipped run is in no experiment, and an agent with no run made has no ex
       },
     ],
   );
-});
-
-test("runs with no agent named are one experiment, named default, with no config", () => {
-  const { experiments: made } = experiments({
-    ...run,
-    agents: [],
-    outcomes: [{ case: byCustomer, record: open }],
-  });
-  assert.deepEqual(made, [
-    {
-      agent: "default",
-      name: "default@abc1234",
-      run: "default@abc1234 2026-10-13T07:47:11Z",
-      metadata: { agent: "default", commit: "abc1234", deployment: "shop" },
-      outputs: [{ item: "shop.shop.find-order-by-customer", output: open }],
-    },
-  ]);
 });

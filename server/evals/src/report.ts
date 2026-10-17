@@ -9,7 +9,7 @@ import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
 
 /** One planned run, and how it ended: with a record, with the error of a run that did not finish, or not made. `verdict` is on a run that was judged. */
-export type Outcome = { case: LoadedCase; agent?: string } & (
+export type Outcome = { case: LoadedCase; agent: string } & (
   | { record: RunRecord; verdict?: Verdict }
   | { error: string }
   | { skipped: string }
@@ -18,8 +18,6 @@ export type Outcome = { case: LoadedCase; agent?: string } & (
 const RESULT = 200;
 const LABEL = 9;
 const INDENT = "    ";
-// The report shows a run that names no config under this name.
-const DEFAULT = "default";
 
 const line = (label: string, value: string) =>
   `${INDENT}${label.padEnd(LABEL)}${value}`;
@@ -31,7 +29,7 @@ const whole = (text: string) =>
   text.split("\n").join(`\n${INDENT}${" ".repeat(LABEL)}`);
 
 function run(outcome: Outcome): string {
-  const lines = [`  [${outcome.agent ?? DEFAULT}]`];
+  const lines = [`  [${outcome.agent}]`];
   if ("skipped" in outcome) lines.push(line("skipped", outcome.skipped));
   else if ("error" in outcome) lines.push(line("error", outcome.error));
   else {
@@ -58,7 +56,7 @@ function passes(outcomes: Outcome[]): string[] {
   const counts = new Map<string, { passed: number; judged: number }>();
   for (const outcome of outcomes) {
     if (!("record" in outcome) || !outcome.verdict) continue;
-    const name = `[${outcome.agent ?? DEFAULT}]`;
+    const name = `[${outcome.agent}]`;
     const count = counts.get(name) ?? { passed: 0, judged: 0 };
     count.judged += 1;
     if ("pass" in outcome.verdict && outcome.verdict.pass) count.passed += 1;

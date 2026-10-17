@@ -8,7 +8,12 @@ const shortRun = { name: "short-run", summarize: false as const };
 
 test("a config that names a loop gets it, with que's own value for what the loop leaves out", () => {
   assert.deepEqual(
-    loopFor([shortRun, bigResults], { name: "chat", loop: "big-results" }),
+    loopFor([shortRun, bigResults], {
+      name: "chat",
+      packages: [],
+      model: "small",
+      loop: "big-results",
+    }),
     {
       name: "big-results",
       ...LOOP_DEFAULTS,
@@ -16,7 +21,12 @@ test("a config that names a loop gets it, with que's own value for what the loop
     },
   );
   assert.deepEqual(
-    loopFor([shortRun, bigResults], { name: "nightly", loop: "short-run" }),
+    loopFor([shortRun, bigResults], {
+      name: "nightly",
+      packages: [],
+      model: "small",
+      loop: "short-run",
+    }),
     {
       name: "short-run",
       ...LOOP_DEFAULTS,
@@ -25,11 +35,15 @@ test("a config that names a loop gets it, with que's own value for what the loop
   );
 });
 
-test("a config that names no loop gets one that does nothing to the chat", () => {
-  assert.deepEqual(loopFor([shortRun, bigResults], { name: "chat" }), {
-    name: "default",
-    ...LOOP_DEFAULTS,
-    result: false,
-    summarize: false,
-  });
+test("a config that names a loop the deployment does not list fails", () => {
+  assert.throws(
+    () =>
+      loopFor([shortRun], {
+        name: "chat",
+        packages: [],
+        model: "small",
+        loop: "big-results",
+      }),
+    /^Error: no loop "big-results"$/,
+  );
 });

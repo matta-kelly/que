@@ -114,7 +114,7 @@ export const que = definePackage({
     defineLink({
       name: "packages",
       description:
-        "The packages an agent gets. Left out: every package of the deployment. `AgentDefinition.packages`.",
+        "The packages an agent gets. Left out: none, which the config writes as `[]`. `AgentDefinition.packages`.",
       from: agent,
       to: pkg,
       cardinality: "many",
@@ -126,7 +126,6 @@ export const que = definePackage({
       from: agent,
       to: model,
       cardinality: "one",
-      required: false,
     }),
     defineLink({
       name: "loop",
@@ -134,7 +133,6 @@ export const que = definePackage({
       from: agent,
       to: loop,
       cardinality: "one",
-      required: false,
     }),
     defineLink({
       name: "packages",
@@ -147,29 +145,26 @@ export const que = definePackage({
     defineLink({
       name: "agents",
       description:
-        "The agents a deployment can run. `DeploymentDefinition.agents`.",
+        "The agents a deployment can run: at least one, since que has no agent of its own. `DeploymentDefinition.agents`.",
       from: deployment,
       to: agent,
       cardinality: "many",
-      required: false,
     }),
     defineLink({
       name: "loops",
       description:
-        "The loops a deployment lists. `DeploymentDefinition.loops`.",
+        "The loops a deployment lists: at least one, since que has no loop of its own. `DeploymentDefinition.loops`.",
       from: deployment,
       to: loop,
       cardinality: "many",
-      required: false,
     }),
     defineLink({
       name: "models",
       description:
-        "The models a deployment lists. `DeploymentDefinition.models`.",
+        "The models a deployment lists: at least one, since que has no model of its own. `DeploymentDefinition.models`.",
       from: deployment,
       to: model,
       cardinality: "many",
-      required: false,
     }),
   ],
 });

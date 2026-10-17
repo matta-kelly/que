@@ -4,18 +4,48 @@ import { accepted, fileNamed, taken } from "./instructions.js";
 
 test("an agent that does not take the user's instructions gets none", () => {
   assert.equal(
-    taken({ name: "chat", userInstructions: true }, "No emojis."),
+    taken(
+      {
+        name: "chat",
+        packages: [],
+        model: "small",
+        loop: "long-chat",
+        userInstructions: true,
+      },
+      "No emojis.",
+    ),
     "No emojis.",
   );
   assert.equal(
-    taken({ name: "chat", userInstructions: false }, "No emojis."),
+    taken(
+      {
+        name: "chat",
+        packages: [],
+        model: "small",
+        loop: "long-chat",
+        userInstructions: false,
+      },
+      "No emojis.",
+    ),
     undefined,
   );
-  assert.equal(taken({ name: "chat" }, "No emojis."), undefined);
+  assert.equal(
+    taken(
+      { name: "chat", packages: [], model: "small", loop: "long-chat" },
+      "No emojis.",
+    ),
+    undefined,
+  );
 });
 
 test("blank text is no text", () => {
-  const takes = { name: "chat", userInstructions: true };
+  const takes = {
+    name: "chat",
+    packages: [],
+    model: "small",
+    loop: "long-chat",
+    userInstructions: true,
+  };
   assert.equal(taken(takes, ""), undefined);
   assert.equal(taken(takes, " \n\t"), undefined);
   assert.equal(taken(takes, null), undefined);
