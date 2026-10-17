@@ -29,7 +29,7 @@ A package is one concern, in one folder. It is everything an agent can get from 
 ## What it never knows
 
 - which agent uses it, or how it is shown to the model
-- any agent framework. It imports only `@que/core` and `zod`, and the harness supplies both
+- any agent framework. It imports only `@que/core`, `@que/core/ontology`, `zod` and `basis`, and the harness supplies them
 - the test: if removing the folder needs a change to the harness, it was not a package
 
 ## Capabilities and cases
