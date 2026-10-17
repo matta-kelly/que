@@ -1,6 +1,6 @@
 /**
  * The live smoke of Beam: does the Reflection API still answer que's chat
- * model for Beam as the recordings in harness/src/run/fixtures say. One
+ * model for Beam as the recordings in models/fixtures say. One
  * tool-call turn, then the turn after it with the tool's result, which Beam
  * refuses (400) when an assistant message goes back with no reasoning_content.
  * The chat before them has a plain turn of the assistant with no thinking of
@@ -24,8 +24,7 @@ import {
   type BaseMessage,
 } from "@langchain/core/messages";
 import { concat } from "@langchain/core/utils/stream";
-import { ChatBeam } from "../../harness/src/run/beam.js";
-import { chatModel } from "../../harness/src/run/model.js";
+import { ChatBeam, chatModel } from "../../models/index.js";
 
 const TURN_MS = 180_000;
 

@@ -99,6 +99,10 @@ const credentials: Rule = {
   path: /credentials|access\/connections/,
   why: "A way of loading does not reach for credentials.",
 };
+const modelsAlone: Rule = {
+  path: /harness|backend|evals|@que\/(?!core)/,
+  why: "The model maker imports the core, and nothing from the harness, the backend or the eval runner: the harness and the eval runner both import it.",
+};
 const framework: Rule = {
   path: /langchain|langgraph/,
   why: "The core imports no agent framework.",
@@ -132,8 +136,8 @@ const tracedByTrace: Rule[] = [
 
 const evals = "evals/src";
 const evalsAlone: Rule = {
-  path: /harness|backend|@que\/(?!core)/,
-  why: "The eval runner imports the core, and nothing from the harness or the backend.",
+  path: /harness|backend|@que\/(?!core|models)/,
+  why: "The eval runner imports the core and the model maker, and nothing from the harness or the backend.",
 };
 const langGraphSdk: Rule = {
   path: /langgraph/,
@@ -148,7 +152,7 @@ const judgeModel: Rule = {
   why: "Only evals/src/judge.ts imports langchain, the framework of the judge's model.",
 };
 
-// One lint setup for the server: core, backend, harness and tests.
+// One lint setup for the server: core, backend, models, harness, evals and tests.
 export default defineConfig([
   globalIgnores(["**/node_modules"]),
   {
@@ -168,6 +172,7 @@ export default defineConfig([
   // The import rules. A later entry replaces an earlier one for the files it names.
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp]),
   hold(["core/**/*.ts"], [otherApp, framework]),
+  hold(["models/**/*.ts"], [otherApp, modelsAlone]),
 
   // The eval runner. Its tests can use what they need.
   hold(

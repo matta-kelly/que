@@ -5,6 +5,7 @@
   "workspaces": [
     "core",
     "backend/*",
+    "models",
     "harness",
     "evals"
   ],
