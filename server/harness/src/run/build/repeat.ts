@@ -17,20 +17,21 @@ const text = (message: BaseMessage) =>
     ? message.content
     : JSON.stringify(message.content);
 
-/** The newest call that has failed `max` times in a row the same way, if one of the newest results is one. */
+/** The call that has failed `max` times or more in a row the same way, if one of the newest results is one. */
 function repeated(messages: BaseMessage[], max: number) {
   const calls = new Map<string, string>();
   const streaks = new Map<string, { error: string; count: number }>();
-  let stuck: { call: string; error: string } | undefined;
+  let stuck: { call: string; error: string; count: number } | undefined;
   for (const message of messages) {
-    // Only a result since the model's last reply can end the run. One from before it ended a run already, or did not.
-    if (AIMessage.isInstance(message)) {
+    // Only a result that no message follows can end the run. After a reply of the model or a new message of the user, the model is called.
+    if (!ToolMessage.isInstance(message)) {
       stuck = undefined;
-      for (const call of message.tool_calls ?? [])
-        if (call.id)
-          calls.set(call.id, `${call.name}(${JSON.stringify(call.args)})`);
+      if (AIMessage.isInstance(message))
+        for (const call of message.tool_calls ?? [])
+          if (call.id)
+            calls.set(call.id, `${call.name}(${JSON.stringify(call.args)})`);
+      continue;
     }
-    if (!ToolMessage.isInstance(message)) continue;
     const call = calls.get(message.tool_call_id);
     if (!call) continue;
     // A call that answers, or fails another way, starts again from zero.
@@ -42,7 +43,7 @@ function repeated(messages: BaseMessage[], max: number) {
     const before = streaks.get(call);
     const count = before?.error === error ? before.count + 1 : 1;
     streaks.set(call, { error, count });
-    if (count >= max) stuck = { call, error };
+    if (count >= max) stuck = { call, error, count };
   }
   return stuck;
 }
@@ -58,7 +59,7 @@ export const repeatGuard = (max: number) =>
         return {
           messages: [
             new AIMessage(
-              `I stopped: the call ${stuck.call} failed ${max} times in a row with the same error: ${stuck.error}`,
+              `I stopped: the call ${stuck.call} failed ${stuck.count} times in a row with the same error: ${stuck.error}`,
             ),
           ],
           jumpTo: "end",
