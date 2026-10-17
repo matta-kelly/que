@@ -230,20 +230,12 @@ test("a deployment with no packages fails, on its packages", () => {
   assert.deepEqual(empty.path, ["packages"]);
 });
 
-test("an agent, model or loop note with a field the code holds fails, on that field", () => {
-  // Each value stays in the config file, so a note does not carry it.
-  const fields = [
-    ["agent", "instructions", "You are a helpful assistant."],
-    ["agent", "loading", "on-demand"],
-    ["model", "id", "zai:glm-4.5-flash"],
-    ["model", "maxTokens", 8192],
-    ["loop", "summarize", { at: 0.85 }],
-  ] as const;
-  for (const [type, field, value] of fields) {
-    const node = { name: "x", type, description: "A config.", [field]: value };
-    const issue = issueOf(type, node);
-    assert.equal(issue.code, "unrecognized_keys");
-    assert.deepEqual(issue.keys, [field]);
+test("an agent, model, loop or deployment type has no property", () => {
+  // Each value stays in the config file, so a note of these types carries its links and no field.
+  for (const name of ["agent", "model", "loop", "deployment"]) {
+    const type = que.types.find((type) => type.name === name);
+    assert.ok(type, `que has no type ${name}`);
+    assert.deepEqual(type.properties, {});
   }
 });
 
