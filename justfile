@@ -66,7 +66,8 @@ eval deployment *args: _require-up
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
-# Type check a deployment's own code and the packages it lists, and run their tests, with que's core handed to all of them.
+# Mount a deployment with no .env and no network, from its saved model facts, then type check its own code and the packages it lists,
+# and run their tests, with que's core handed to all of them. A deployment that would not mount stops here, with mount's error.
 # A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
     #!/usr/bin/env bash
@@ -75,7 +76,10 @@ check-deployment deployment:
     cd "{{root}}"
     c=$(./scripts/container.sh "$dep")
     h="{{root}}/server"
-    mapfile -t pkgs < <(podman exec -u node -w "$h" "$c" npx tsx harness/src/mount/list-packages.ts "$dep")
+    # Into a variable first: a failure inside `< <(...)` would not stop the recipe.
+    listed=$(podman exec -u node -w "$h" "$c" npx tsx harness/src/mount/check-deployment.ts "$dep")
+    pkgs=()
+    [ -z "$listed" ] || mapfile -t pkgs <<<"$listed"
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dep" "${pkgs[@]}"
 
 # Type check any folder of TypeScript and run its tests, with que's core handed to it: a package, or code that sits beside a deployment
