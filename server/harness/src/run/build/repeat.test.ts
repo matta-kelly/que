@@ -147,7 +147,7 @@ test("a repeat across turns counts: the count comes from the saved chat", async 
   assert.match(text(last), /Error: no such order/);
 });
 
-test("a call that failed and then succeeded does not count toward the count", async () => {
+test("a call that failed and then succeeded does not count toward the stop", async () => {
   const { results, last } = await run(
     [failing, failing],
     [
@@ -160,7 +160,7 @@ test("a call that failed and then succeeded does not count toward the count", as
   assert.equal(text(last), "Done.");
 });
 
-test("a call that fails with a new error does not count toward the count", async () => {
+test("a call that fails with a new error does not count toward the stop", async () => {
   const { results, last } = await run(
     [failing, failing],
     [
@@ -172,7 +172,7 @@ test("a call that fails with a new error does not count toward the count", async
   assert.equal(text(last), "Done.");
 });
 
-test("a call with other arguments does not count toward the count", async () => {
+test("a call with other arguments does not count toward the stop", async () => {
   const { results, last } = await run([failing, failing, { id: -2 }]);
   assert.equal(results.length, 3);
   assert.equal(text(last), "Done.");
