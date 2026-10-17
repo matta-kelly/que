@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Which app sets the change needs. The script decides, as it does on a machine.
+  # Which sets the change needs. The script decides, as it does on a machine.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -83,16 +83,17 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # The scripts and the justfile, at the root, are all the set reads.
+          # The scripts, the justfile at the root, and the file that reads the justfile's recipes, are all the set reads.
           sparse-checkout: |
             scripts
+            server/scripts
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - run: scripts/check.sh shell
 
   # The one name the ruleset on main requires. It always starts, so it is never left pending:
-  # an app job that the change did not need is skipped, and a skipped job passes here.
+  # a set's job that the change did not need is skipped, and a skipped job passes here.
   checks:
     needs: [changes, server, ui, shell]
     if: always()

@@ -41,6 +41,8 @@ plan() {
   while read -r path; do
     case "$path" in
       "") ;;
+      # The shell set runs it, and the server set lints and formats it.
+      server/scripts/recipe-shell.mjs) need_server=true need_shell=true ;;
       server/*) need_server=true ;;
       ui/*) need_ui=true ;;
       # The check set itself, and the pipeline that calls it.
@@ -134,18 +136,19 @@ just=$tools/just-1.56.0/just
 # One tool, unless it is there already: its release, unpacked into a folder of its own and moved in whole,
 # so a run beside this one sees all of it or none. `step` runs this on the left of `||`, as it does install.
 fetch() {
-  local bin=$1 url=$2 sum=$3 strip=$4 dir tmp
+  local bin=$1 url=$2 sum=$3 strip=$4 dir tmp failed
   [ ! -x "$bin" ] || return 0
   dir=$(dirname "$bin")
   mkdir -p "$tools" || return 1
   tmp=$(mktemp -d "$tools/.fetch.XXXXXX") || return 1
-  curl -fsSL -o "$tmp/release.tar.gz" "$url" || return 1
-  echo "$sum  $tmp/release.tar.gz" | sha256sum -c --quiet || return 1
-  mkdir "$tmp/tool" || return 1
-  tar -xzf "$tmp/release.tar.gz" -C "$tmp/tool" --strip-components="$strip" || return 1
-  # A run beside this one may have moved its copy in first.
-  mv -T "$tmp/tool" "$dir" 2>/dev/null || [ -x "$bin" ] || return 1
+  # The folder goes, whether the tool came or not. A run beside this one may have moved its copy in first.
+  curl -fsSL -o "$tmp/release.tar.gz" "$url" &&
+    echo "$sum  $tmp/release.tar.gz" | sha256sum -c --quiet &&
+    mkdir "$tmp/tool" &&
+    tar -xzf "$tmp/release.tar.gz" -C "$tmp/tool" --strip-components="$strip" &&
+    { mv -T "$tmp/tool" "$dir" 2>/dev/null || [ -x "$bin" ]; } || failed=1
   rm -rf "$tmp"
+  return "${failed:-0}"
 }
 
 shell_tools() {
@@ -162,16 +165,40 @@ shell_tools() {
   "$shellcheck" --version | grep '^version' && "$just" --version
 }
 
+# The recipes of a justfile, as just dumps them, each written to a file of its own in the folder given.
+recipes() {
+  mkdir -p "$2" && "$just" --justfile "$1" --dump --dump-format json | node server/scripts/recipe-shell.mjs "$2"
+}
+
 # The shell of each script here and of each justfile recipe, with shellcheck's optional check of a masked return on:
 # under `set -e`, a failure inside `$(...)` in a command's arguments, or inside `< <(...)`, does not stop the script.
-# A recipe is read as just dumps it (scripts/recipe-shell.mjs), and is named in the output as justfile/<recipe>.
+# A recipe is named in the output as justfile/<recipe>, and its line counts from the recipe's first line.
+# The lint is first held to scripts/masked-return.just, whose every recipe has a masked return:
+# a lint that passes one of them reads nothing of the recipes, as it would if a new just dumped them in another shape.
+lint() {
+  local out=$1 failed=0 recipe hits
+  recipes scripts/masked-return.just "$out/masked-return.just" || return 1
+  for recipe in "$out"/masked-return.just/*; do
+    hits=$("$shellcheck" --enable=check-extra-masked-returns --include=SC2312 --format=gcc "$recipe" || true)
+    case "$hits" in
+      *SC2312*) ;;
+      *)
+        echo "The lint finds no masked return in $recipe, from scripts/masked-return.just, which has one: it does not read the recipes."
+        failed=1
+        ;;
+    esac
+  done
+  recipes justfile "$out/justfile" || return 1
+  "$shellcheck" --enable=check-extra-masked-returns scripts/*.sh || failed=1
+  (cd "$out" && "$shellcheck" --enable=check-extra-masked-returns justfile/*) || failed=1
+  return "$failed"
+}
+
+# The lint, in a folder that goes when it is done, whether it passed or not.
 shell_lint() {
   local out failed=0
   out=$(mktemp -d) || return 1
-  mkdir "$out/justfile" || return 1
-  "$just" --justfile justfile --dump --dump-format json | node scripts/recipe-shell.mjs "$out/justfile" || return 1
-  "$shellcheck" --enable=check-extra-masked-returns scripts/*.sh || failed=1
-  (cd "$out" && "$shellcheck" --enable=check-extra-masked-returns justfile/*) || failed=1
+  lint "$out" || failed=1
   rm -rf "$out"
   return "$failed"
 }

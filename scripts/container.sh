@@ -13,12 +13,12 @@ name() {
 }
 
 sees() {
-  local at
-  # shellcheck disable=SC2312 # An inspect that fails sees no folder, and the container is made again.
+  local at mounts
+  mounts=$(podman inspect "$1" --format '{{range .Mounts}}{{.Destination}}{{"\n"}}{{end}}') || return 1
   while read -r at; do
     [ -n "$at" ] || continue
     case "$folder/" in "$at"/*) return 0 ;; esac
-  done < <(podman inspect "$1" --format '{{range .Mounts}}{{.Destination}}{{"\n"}}{{end}}')
+  done <<<"$mounts"
   return 1
 }
 

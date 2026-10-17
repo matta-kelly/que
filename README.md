@@ -39,12 +39,13 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
         - `run/`: builds the agent per user, with the settings its loop gives (`run/build/`), sends the trace of each run to Langfuse (`run/trace.ts`), serves the graph and the `/que/*` API, and the CLI
     - `evals/`: the eval runner (`@que/evals`). It reads a deployment's cases and agent configs, runs each case against a running que over HTTP, and prints the runs. When the deployment's `.env` has `QUE_JUDGE`, the name of one of its model configs, that model judges each finished run on the `good` of its case (`evals/src/judge.ts`). When the deployment's `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, it also sends the runs to that Langfuse: the cases as one dataset, and the runs under each agent config as one experiment run (`evals/src/langfuse.ts`). It makes the judge's model with the model maker (`@que/models`), as a run makes its own. It imports the core and the model maker, and nothing from the harness or the backend
     - `tests/integration/`: the tests that mount folders from disk
+    - `scripts/recipe-shell.mjs`: writes the shell of each justfile recipe to a file of its own, for the shell set of `scripts/check.sh` to lint. It sits here so the server's lint and format read it
 - `ui/`: the chat UI (see `ui/README.md`)
 - `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config (que holds no config of its own: a deployment keeps its own copy), its `.env.example`, and its `justfile`: `start`, `stop`, `logs`, `check` and `eval`
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in
 - `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
-- `scripts/recipe-shell.mjs`: writes the shell of each justfile recipe to a file of its own, for the shell set of `scripts/check.sh` to lint
+- `scripts/masked-return.just`: a justfile whose every recipe hides a failure, which the shell set of `scripts/check.sh` must find before it lints the real one
 
 ## Setup
 

@@ -1,6 +1,9 @@
 // Writes the shell of each justfile recipe to a file of its own, named by the recipe, for shellcheck to read.
 // Reads the justfile as just dumps it (`just --dump --dump-format json`) on stdin, and writes into the folder given.
 // An interpolation, {{...}}, is just's and not shell: it becomes one plain word, and shellcheck reads the shell around it.
+// It reads the kinds of recipe que's justfile has: a recipe with an sh or bash shebang, and one with no shebang, run line by line.
+// Others are not linted: a recipe in a `mod` (just dumps it under `modules`, not read here),
+// a `[script]` recipe (it has no #! line, so shellcheck stops on it), and a recipe with a shebang that is not sh or bash.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const [dir] = process.argv.slice(2);
