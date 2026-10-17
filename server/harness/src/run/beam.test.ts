@@ -110,12 +110,14 @@ test("ChatBeam sends each assistant message back with its reasoning_content, and
   assert.deepEqual(sentThinking(called.sent[0].body), EACH_ASSISTANT_TURN);
 
   const streamed = replaying("beam-stream-text.sse");
-  const stream = await new ChatBeam({
-    model: MODEL,
-    apiKey: "a-key",
-    fetch: streamed.fetch,
-  }).stream(chat);
-  for await (const _ of stream);
+  // The request goes out with the first chunk.
+  await (
+    await new ChatBeam({
+      model: MODEL,
+      apiKey: "a-key",
+      fetch: streamed.fetch,
+    }).stream(chat)
+  ).next();
   assert.deepEqual(sentThinking(streamed.sent[0].body), EACH_ASSISTANT_TURN);
 
   const evented = replaying("beam-stream-text.sse");

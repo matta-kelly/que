@@ -57,7 +57,11 @@ export async function loadDeployment(dir: string): Promise<{
 
 export async function mountDeployment(
   dir: string,
-  env: { MODEL?: string; FIREWORKS_API_KEY?: string } = {},
+  env: {
+    MODEL?: string;
+    FIREWORKS_API_KEY?: string;
+    BEAM_API_KEY?: string;
+  } = {},
   // Where a model's window and price come from when its file writes none. A test hands in its own.
   sources: FactSources = factSources(dir, env),
 ): Promise<{
@@ -109,6 +113,7 @@ export async function mountFromEnv(env: {
   QUE_DEPLOYMENT?: string;
   MODEL?: string;
   FIREWORKS_API_KEY?: string;
+  BEAM_API_KEY?: string;
 }): Promise<MountedPackage[]> {
   return (await mountDeployment(deploymentFolder(env), env)).packages;
 }
