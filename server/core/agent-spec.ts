@@ -7,122 +7,72 @@
  * contract is.
  */
 
-import { NAME } from "./package-spec.js";
+import * as z from "zod";
+import { check, must, name, named, NAME, strict, that } from "./check.js";
 
 /** The ways que has of loading the environment for the model: what it is shown, and when. A config names one. */
 export const LOADING = ["on-demand", "eager"] as const;
 export type Loading = (typeof LOADING)[number];
 
+const isText = (value: unknown): value is string =>
+  typeof value === "string" && !!value.trim();
+const isName = (value: unknown): value is string =>
+  typeof value === "string" && NAME.test(value);
+
 /** What `defineAgent` returns, and an agent file exports as its default. `name`, `packages`, `model` and `loop` are needed; each other field says what it is when left out. */
-export type AgentDefinition = {
-  /** What a run names to get this config. */
-  name: string;
-  /** Names of the packages the agent gets, out of the ones the deployment mounts. `[]` is none. */
-  packages: string[];
-  /** The name of a model config the deployment lists. A run can name another. */
-  model: string;
-  /** Opens the system prompt, in place of que's own role text. Left out: que's role text. */
-  instructions?: string;
-  /** How the model is shown the environment, and when. Left out: `on-demand`. */
-  loading?: Loading;
-  /** The name of a loop config the deployment lists: how the agent's loop is run. */
-  loop: string;
-  /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
-  userInstructions?: boolean;
-};
+export const AgentDefinition = z.strictObject(
+  {
+    /** What a run names to get this config. */
+    name,
+    /** Names of the packages the agent gets, out of the ones the deployment mounts. `[]` is none. */
+    packages: z.array(that(isText, "a package name"), {
+      error: must(
+        "an array",
+        "is missing: list the packages it gets, or `[]` for none",
+      ),
+    }),
+    /** The name of a model config the deployment lists. A run can name another. */
+    model: z
+      .custom<string>()
+      .refine((model) => typeof model !== "string" || !model.includes(":"), {
+        message:
+          'is written as "provider:model": a model is a file of its own, listed in `models` in the deployment, and the agent names it',
+        abort: true,
+      })
+      .refine(isName, {
+        error: must(
+          "the name of a model",
+          "is missing: name a model config the deployment lists",
+        ),
+      }),
+    /** Opens the system prompt, in place of que's own role text. Left out: que's role text. */
+    instructions: that(isText, "text that is not empty").optional(),
+    /** How the model is shown the environment, and when. Left out: `on-demand`. */
+    loading: z
+      .enum(LOADING, { error: must(`one of: ${LOADING.join(", ")}`) })
+      .optional(),
+    /** The name of a loop config the deployment lists: how the agent's loop is run. */
+    loop: that(
+      isName,
+      "the name of a loop",
+      "is missing: name a loop config the deployment lists",
+    ),
+    /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
+    userInstructions: z.boolean({ error: must("true or false") }).optional(),
+  },
+  strict({ legibility: 'the field "legibility" is now named `loading`' }),
+);
+
+export type AgentDefinition = z.infer<typeof AgentDefinition>;
 
 export function defineAgent(definition: AgentDefinition): AgentDefinition {
   return definition;
 }
-
-const FIELDS = [
-  "name",
-  "packages",
-  "model",
-  "instructions",
-  "loading",
-  "loop",
-  "userInstructions",
-];
 
 /**
  * Check a config against the contract, throwing one error that lists every
  * problem. Types can't catch these: a config is loaded at runtime.
  */
 export function validateAgent(def: unknown): asserts def is AgentDefinition {
-  if (!def || typeof def !== "object" || Array.isArray(def))
-    throw new Error("agent must be an object");
-  const {
-    name,
-    packages,
-    model,
-    instructions,
-    loading,
-    loop,
-    userInstructions,
-  } = def as Record<string, unknown>;
-  const problems: string[] = [];
-  const text = (value: unknown, what: string) => {
-    if (value !== undefined && (typeof value !== "string" || !value.trim()))
-      problems.push(`${what} of the agent is empty`);
-  };
-  const named = typeof name === "string" && NAME.test(name);
-
-  if (typeof name !== "string" || !name.trim())
-    problems.push("name of the agent is missing");
-  else if (!named) problems.push(`agent name "${name}" must match ${NAME}`);
-  for (const field of Object.keys(def))
-    if (field === "legibility")
-      problems.push('the field "legibility" is now named `loading`');
-    else if (!FIELDS.includes(field))
-      problems.push(`the agent has no field "${field}"`);
-  if (packages === undefined)
-    problems.push(
-      "packages of the agent is missing: list the packages it gets, or `[]` for none",
-    );
-  else if (!Array.isArray(packages))
-    problems.push("packages of the agent must be an array");
-  for (const pkg of Array.isArray(packages) ? packages : []) {
-    if (typeof pkg !== "string" || !pkg.trim())
-      problems.push(
-        `packages of the agent must each be a package name, got ${JSON.stringify(pkg)}`,
-      );
-  }
-  if (model === undefined)
-    problems.push(
-      "model of the agent is missing: name a model config the deployment lists",
-    );
-  else if (typeof model === "string" && model.includes(":"))
-    problems.push(
-      `model of the agent is written as "provider:model": a model is a file of its own, listed in \`models\` in the deployment, and the agent names it`,
-    );
-  else if (typeof model !== "string" || !NAME.test(model))
-    problems.push(
-      `model of the agent must be the name of a model, got ${JSON.stringify(model)}`,
-    );
-  text(instructions, "instructions");
-  if (
-    loading !== undefined &&
-    !(LOADING as readonly unknown[]).includes(loading)
-  )
-    problems.push(
-      `loading of the agent must be one of: ${LOADING.join(", ")}, got ${JSON.stringify(loading)}`,
-    );
-  if (loop === undefined)
-    problems.push(
-      "loop of the agent is missing: name a loop config the deployment lists",
-    );
-  else if (typeof loop !== "string" || !NAME.test(loop))
-    problems.push(
-      `loop of the agent must be the name of a loop, got ${JSON.stringify(loop)}`,
-    );
-  if (userInstructions !== undefined && typeof userInstructions !== "boolean")
-    problems.push(
-      `userInstructions of the agent must be true or false, got ${JSON.stringify(userInstructions)}`,
-    );
-
-  if (problems.length)
-    throw new Error(
-      `agent${named ? ` ${name}` : ""} is invalid:\n- ${problems.join("\n- ")}`,
-    );
+  check(AgentDefinition, def, `agent${named(def)} is invalid`);
 }

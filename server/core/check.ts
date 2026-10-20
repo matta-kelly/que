@@ -25,6 +25,48 @@ export const fn = z
   .custom()
   .refine((value) => typeof value === "function", "must be a function");
 
+/** An error that says what a value must be, and what it got. With `missing`, a value left out says that instead. */
+export const must =
+  (what: string, missing?: string) =>
+  ({ input }: { input?: unknown }) =>
+    input === undefined && missing
+      ? missing
+      : `must be ${what}, got ${JSON.stringify(input)}`;
+
+/**
+ * A value that `is` holds for, or `must(what, missing)`. Its issue does not
+ * stop the checks of the object it is in, as a wrong type would.
+ */
+export const that = <T>(
+  is: (value: unknown) => value is T,
+  what: string,
+  missing?: string,
+) => z.custom<T>().refine(is, { error: must(what, missing) });
+
+/**
+ * The error of an object that holds only its own fields: one it does not know
+ * has no field there, and one in `moved` gets that message.
+ */
+export const strict = (
+  moved: Record<string, string> = {},
+  notObject = "must be an object",
+) => ({
+  error: (issue: z.core.$ZodRawIssue) =>
+    issue.code === "unrecognized_keys"
+      ? issue.keys
+          .map((key) => moved[key] ?? `has no field "${key}"`)
+          .join("; ")
+      : issue.code === "invalid_type"
+        ? notObject
+        : undefined,
+});
+
+/** The name of a config for the lead of its error, when it is one: ` chat`, or nothing. */
+export const named = (definition: unknown) => {
+  const name = (definition as { name?: unknown } | undefined)?.name;
+  return typeof name === "string" && NAME.test(name) ? ` ${name}` : "";
+};
+
 /** A refinement of a list: no two items have the same name. */
 export const once =
   <T>(nameOf: (item: T) => string) =>

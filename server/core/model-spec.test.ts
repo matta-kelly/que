@@ -20,39 +20,36 @@ test("validateModel lists each fault in one error, and names the model", () => {
     temperature: 1,
   });
   assert.match(message, /^model odd is invalid/);
-  assert.match(message, /id of the model must be in "provider:model" form/);
+  assert.match(message, /- id must be in "provider:model" form/);
+  assert.match(message, /- window must be a whole number above zero, got 0/);
   assert.match(
     message,
-    /window of the model must be a whole number above zero/,
+    /- maxTokens must be a whole number above zero, got 1\.5/,
   );
-  assert.match(
-    message,
-    /maxTokens of the model must be a whole number above zero/,
-  );
-  assert.match(message, /the model has no field "temperature"/);
+  assert.match(message, /- has no field "temperature"/);
 
   const bare = faults({});
   assert.match(bare, /^model is invalid/);
-  assert.match(bare, /name of the model is missing/);
-  assert.match(bare, /id of the model/);
-  assert.match(bare, /maxTokens of the model/);
+  assert.match(bare, /- name is missing/);
+  assert.match(bare, /- id must be/);
+  assert.match(bare, /- maxTokens must be/);
 
   assert.match(
     faults({ name: "two words", id: "p:m", window: 10, maxTokens: 5 }),
-    /model name "two words"/,
+    /- name must match/,
   );
   for (const id of [":model", "provider:", "provider: model", 7])
     assert.match(
       faults({ name: "odd", id, window: 10, maxTokens: 5 }),
-      /id of the model/,
+      /- id must be in "provider:model" form/,
       JSON.stringify(id),
     );
   assert.match(
     faults({ name: "odd", id: "p:m", window: 10, maxTokens: 11 }),
-    /maxTokens of the model must not be above its window/,
+    /- maxTokens must not be above its window, got 11 and 10/,
   );
   for (const def of [undefined, null, "glm-flash", []])
-    assert.match(faults(def), /model must be an object/);
+    assert.match(faults(def), /^model is invalid:\n- must be an object/);
 });
 
 const lean = { name: "lean", id: "p:m", maxTokens: 5 };
@@ -72,7 +69,7 @@ test("validateModel rejects a price that is not in the shape, naming each fault"
   for (const price of [7, "cheap", null, []])
     assert.match(
       faults({ ...lean, price }),
-      /price of the model must be an object/,
+      /- price must be an object/,
       JSON.stringify(price),
     );
   const message = faults({
@@ -81,17 +78,14 @@ test("validateModel rejects a price that is not in the shape, naming each fault"
   });
   assert.match(
     message,
-    /price\.input of the model must be a number of zero or more/,
+    /- price\.input must be a number of zero or more, got -1/,
   );
+  assert.match(message, /- price\.output must be a number of zero or more/);
   assert.match(
     message,
-    /price\.output of the model must be a number of zero or more/,
+    /- price\.cachedInput must be a number of zero or more, got "low"/,
   );
-  assert.match(
-    message,
-    /price\.cachedInput of the model must be a number of zero or more/,
-  );
-  assert.match(message, /the price of the model has no field "perCall"/);
+  assert.match(message, /- price has no field "perCall"/);
 });
 
 test("validateModel accepts an effort, and rejects one that is not a word", () => {
@@ -99,7 +93,7 @@ test("validateModel accepts an effort, and rejects one that is not a word", () =
   for (const effort of ["", " high", "very high", 7, null])
     assert.match(
       faults({ ...lean, effort }),
-      /effort of the model must be one word/,
+      /- effort must be one word/,
       JSON.stringify(effort),
     );
 });
@@ -107,7 +101,7 @@ test("validateModel accepts an effort, and rejects one that is not a word", () =
 test("validateModel rejects a maxTokens above a written window", () => {
   assert.match(
     faults({ ...lean, window: 4 }),
-    /maxTokens of the model must not be above its window/,
+    /- maxTokens must not be above its window, got 5 and 4/,
   );
 });
 

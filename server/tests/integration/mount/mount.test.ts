@@ -149,7 +149,10 @@ test("stops at startup, naming the deployment, when it lists no model", async ()
     fromDeployment.mountDeployment(deployment("models-none")),
     (error: Error) => {
       assert.match(error.message, /^mount: .*deployments\/models-none/);
-      assert.match(error.message, /deployment models-none lists no model/);
+      assert.match(
+        error.message,
+        /deployment models-none is invalid:\n- models is missing: list at least one model config/,
+      );
       return true;
     },
   );

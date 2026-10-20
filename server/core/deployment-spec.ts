@@ -4,20 +4,47 @@
  * contract is.
  */
 
-import { NAME } from "./package-spec.js";
+import * as z from "zod";
+import { check, must, name, strict, that } from "./check.js";
+
+const isPath = (value: unknown): value is string =>
+  typeof value === "string" && !!value.trim();
+
+// que has no agent, loop or model of its own to fall back on.
+const files = (kind: string) => {
+  const none = `list at least one ${kind} config`;
+  return z
+    .array(that(isPath, "a file path"), {
+      error: must("an array", `is missing: ${none}`),
+    })
+    .min(1, `is empty: ${none}`);
+};
 
 /** What `defineDeployment` returns, and a deployment exports as its default. */
-export type DeploymentDefinition = {
-  name: string;
-  /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
-  packages: string[];
-  /** One file per agent config: an absolute path, or one taken from the deployment's own folder. At least one: que has no agent of its own. */
-  agents: string[];
-  /** One file per loop config: an absolute path, or one taken from the deployment's own folder. At least one: que has no loop of its own. */
-  loops: string[];
-  /** One file per model config: an absolute path, or one taken from the deployment's own folder. At least one: que has no model of its own. */
-  models: string[];
-};
+export const DeploymentDefinition = z.strictObject(
+  {
+    name,
+    /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
+    packages: z.array(that(isPath, "a folder path"), {
+      error: "must be an array",
+    }),
+    /** One file per agent config: an absolute path, or one taken from the deployment's own folder. At least one: que has no agent of its own. */
+    agents: files("agent"),
+    /** One file per loop config: an absolute path, or one taken from the deployment's own folder. At least one: que has no loop of its own. */
+    loops: files("loop"),
+    /** One file per model config: an absolute path, or one taken from the deployment's own folder. At least one: que has no model of its own. */
+    models: files("model"),
+  },
+  strict(
+    {
+      agent:
+        "has an `agent` block: an agent config is a file of its own, listed in `agents`",
+    },
+    "no definition (default export)",
+  ),
+);
+
+export type DeploymentDefinition = z.infer<typeof DeploymentDefinition>;
 
 export function defineDeployment(
   definition: DeploymentDefinition,
@@ -32,52 +59,10 @@ export function defineDeployment(
 export function validateDeployment(
   def: unknown,
 ): asserts def is DeploymentDefinition {
-  if (!def || typeof def !== "object")
-    throw new Error("deployment: no definition (default export)");
-  const { name, packages, agents, agent, loops, models } = def as Record<
-    string,
-    unknown
-  >;
-  const problems: string[] = [];
-  const deployment = name || "(unnamed)";
-
-  if (typeof name !== "string" || !name.trim())
-    problems.push("deployment name is missing");
-  if (typeof name === "string" && !NAME.test(name))
-    problems.push(`deployment name "${name}" must match ${NAME}`);
-  if (!Array.isArray(packages))
-    problems.push(`packages of deployment ${deployment} must be an array`);
-
-  for (const folder of Array.isArray(packages) ? packages : []) {
-    if (typeof folder !== "string" || !folder.trim())
-      problems.push(
-        `packages of deployment ${deployment} must each be a folder path, got ${JSON.stringify(folder)}`,
-      );
-  }
-
-  for (const [list, files] of Object.entries({ agents, loops, models })) {
-    if (files !== undefined && !Array.isArray(files))
-      problems.push(`${list} of deployment ${deployment} must be an array`);
-    for (const file of Array.isArray(files) ? files : []) {
-      if (typeof file !== "string" || !file.trim())
-        problems.push(
-          `${list} of deployment ${deployment} must each be a file path, got ${JSON.stringify(file)}`,
-        );
-    }
-  }
-  // que has no agent, loop or model of its own to fall back on.
-  for (const [list, files] of Object.entries({ agents, loops, models }))
-    if (files === undefined || (Array.isArray(files) && !files.length))
-      problems.push(
-        `deployment ${deployment} lists no ${list.slice(0, -1)}: list at least one ${list.slice(0, -1)} config in \`${list}\``,
-      );
-  if (agent !== undefined)
-    problems.push(
-      `deployment ${deployment} has an \`agent\` block: an agent config is a file of its own, listed in \`agents\``,
-    );
-
-  if (problems.length)
-    throw new Error(
-      `deployment ${deployment} is invalid:\n- ${problems.join("\n- ")}`,
-    );
+  const { name } = (def ?? {}) as { name?: unknown };
+  check(
+    DeploymentDefinition,
+    def,
+    `deployment ${typeof name === "string" && name ? name : "(unnamed)"} is invalid`,
+  );
 }

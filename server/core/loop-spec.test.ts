@@ -12,23 +12,23 @@ const faults = (def: unknown) => {
 };
 
 test("validateLoop rejects a loop with no name, and a name that is not a plain name", () => {
-  assert.match(faults({}), /name of the loop is missing/);
-  assert.match(faults({ name: " " }), /name of the loop is missing/);
-  assert.match(faults({ name: "two words" }), /loop name "two words"/);
+  assert.match(faults({}), /^loop is invalid:\n- name is missing/);
+  assert.match(faults({ name: " " }), /- name is missing/);
+  assert.match(faults({ name: "two words" }), /- name must match/);
 });
 
 test("validateLoop rejects a field that is not in the shape, at the top and inside a setting, naming it", () => {
   assert.match(
     faults({ name: "odd", compact: true }),
-    /the loop has no field "compact"/,
+    /^loop odd is invalid:\n- has no field "compact"/,
   );
   assert.match(
     faults({ name: "odd", summarize: { after: 0.5 } }),
-    /summarize of the loop has no field "after"/,
+    /- summarize has no field "after"/,
   );
   assert.match(
     faults({ name: "odd", limits: { seconds: 30 } }),
-    /limits of the loop has no field "seconds"/,
+    /- limits has no field "seconds"/,
   );
 });
 
@@ -37,7 +37,7 @@ test("validateLoop rejects a setting that is not an object or false", () => {
     for (const value of [true, 20_000, "off", null, []])
       assert.match(
         faults({ name: "odd", [setting]: value }),
-        new RegExp(`${setting} of the loop must be an object or false`),
+        new RegExp(`- ${setting} must be an object or false`),
         `${setting}: ${JSON.stringify(value)}`,
       );
 });
@@ -48,11 +48,11 @@ test("validateLoop rejects a share that is not between zero and one, and a keep 
       assert.match(
         faults({ name: "odd", summarize: { [field]: value } }),
         new RegExp(
-          `summarize\\.${field} of the loop must be a number above zero and below one`,
+          `- summarize\\.${field} must be a number above zero and below one`,
         ),
         `summarize.${field}: ${String(value)}`,
       );
-  const below = /summarize\.keep of the loop must be below summarize\.at/;
+  const below = /- summarize\.keep must be below summarize\.at/;
   assert.match(
     faults({ name: "odd", summarize: { at: 0.5, keep: 0.5 } }),
     below,
@@ -74,16 +74,16 @@ test("validateLoop names every fault in one error", () => {
     args: "none",
     limits: { toolCalls: 1.5 },
   });
-  assert.match(message, /no field "compact"/);
-  assert.match(message, /result\.max/);
-  assert.match(message, /summarize\.at/);
-  assert.match(message, /args of the loop/);
-  assert.match(message, /limits\.toolCalls/);
+  assert.match(message, /- has no field "compact"/);
+  assert.match(message, /- result\.max must be/);
+  assert.match(message, /- summarize\.at must be/);
+  assert.match(message, /- args must be an object or false/);
+  assert.match(message, /- limits\.toolCalls must be/);
 });
 
 test("validateLoop rejects what is not an object", () => {
   for (const def of [undefined, null, "long-chat", []])
-    assert.match(faults(def), /loop must be an object/);
+    assert.match(faults(def), /^loop is invalid:\n- must be an object/);
 });
 
 test("resolveLoop fills the part of a setting a loop leaves out", () => {
