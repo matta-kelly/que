@@ -13,7 +13,7 @@ A better way to deliver que to a deployment, ideally as an image.
 
 - [[que]]: the harness this belongs to
 - [[shit_sdlc]]: Ship, which moves a change as an image to a node
-- [[task-packages-from-git]]: how a deployment gets its plugins
+- [[design-npm-native-deployment]]: how a deployment gets its plugins
 
 ---
 ## What is wanted
