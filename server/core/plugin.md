@@ -30,7 +30,8 @@ MOVING TOWARD: https://agent-plugins.org/ really should just adopt this
 ## What it never knows
 
 - which agent uses it, or how it is shown to the model
-- any agent framework. It imports only `@que/core`, `@que/ontology`, `zod` and `basis`, and the harness supplies them
+- any agent framework. From que it imports only `@que/core`, `@que/ontology`, `zod` and `basis`, and the harness supplies them: these resolve to que's copy, even when the plugin installs its own
+- what else it needs, it brings itself: a library such as a database driver is a dependency in its own `package.json`, and the deployment installs it
 - the test: if removing the folder needs a change to the harness, it was not a plugin
 
 ## Capabilities and cases
