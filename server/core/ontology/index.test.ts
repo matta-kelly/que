@@ -3,7 +3,15 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
 import { base, linksOf } from "basis";
-import { que } from "@que/core/ontology";
+import { harness, plugin, que } from "@que/core/ontology";
+
+type Name = keyof typeof plugin.types | keyof typeof harness.types;
+
+/** A note parsed by the schema that holds its type. */
+const parse = (type: Name, node: unknown): unknown =>
+  type in plugin.types
+    ? plugin.parse(type as keyof typeof plugin.types, node)
+    : harness.parse(type as keyof typeof harness.types, node);
 
 /**
  * The files of basis that importing `specifier` loads, in a new process, so that
@@ -33,8 +41,30 @@ const basisLoadedBy = (specifier: string) =>
     );
   });
 
-test("@que/core/ontology gives a basis schema named que", async () => {
+test("@que/core/ontology gives the schemas plugin and harness, and harness imports plugin", () => {
+  assert.deepEqual(Object.keys(plugin.types), [
+    "package",
+    "op",
+    "skill",
+    "capability",
+    "case",
+  ]);
+  assert.deepEqual(plugin.imports, []);
+  assert.deepEqual(Object.keys(harness.types), [
+    "agent",
+    "model",
+    "loop",
+    "deployment",
+  ]);
+  assert.deepEqual(harness.imports, [plugin]);
+});
+
+test("que, deprecated, holds the nine types of plugin and harness, as the same objects", () => {
+  const nine = { ...plugin.types, ...harness.types };
   assert.equal(que.name, "que");
+  assert.deepEqual(Object.keys(que.types), Object.keys(nine));
+  for (const [name, type] of Object.entries(que.types))
+    assert.equal(type, nine[name as Name], name);
   assert.equal(typeof que.parse, "function");
 });
 
@@ -68,9 +98,9 @@ const without = (node: Record<string, unknown>, ...fields: string[]) =>
   );
 
 /** The one issue a parse that fails gives, so a test can say why it failed. */
-const issueOf = (type: keyof typeof que.types, node: unknown) => {
+const issueOf = (type: Name, node: unknown) => {
   try {
-    que.parse(type, node);
+    parse(type, node);
   } catch (error) {
     assert.ok(error instanceof z.ZodError);
     assert.equal(error.issues.length, 1);
@@ -80,7 +110,7 @@ const issueOf = (type: keyof typeof que.types, node: unknown) => {
 };
 
 test("an odoo package note with its ops, a skill and find-company parses", () => {
-  assert.deepEqual(que.parse("package", odoo), {
+  assert.deepEqual(parse("package", odoo), {
     ...odoo,
     ops: ["find-partners", "read-partner"],
     skills: ["odoo-search"],
@@ -96,12 +126,12 @@ test("an op, a skill and a capability note each parse with a title", () => {
       description: "Finds a company.",
       title: "Find a company",
     };
-    assert.deepEqual(que.parse(type, node), node);
+    assert.deepEqual(parse(type, node), node);
   }
 });
 
 test("a find-company case note parses", () => {
-  assert.deepEqual(que.parse("case", findCompany), {
+  assert.deepEqual(parse("case", findCompany), {
     ...findCompany,
     capability: "find-company",
   });
@@ -165,7 +195,7 @@ test("a case with no capability fails, on its capability", () => {
 
 test("a package note with no ops, skills or capabilities parses", () => {
   const node = without(odoo, "ops", "skills", "capabilities");
-  assert.deepEqual(que.parse("package", node), node);
+  assert.deepEqual(parse("package", node), node);
 });
 
 const chat = {
@@ -188,7 +218,7 @@ const landl = {
 };
 
 test("a chat agent note that uses odoo, runs on glm-flash, with the long-chat loop, parses", () => {
-  assert.deepEqual(que.parse("agent", chat), {
+  assert.deepEqual(parse("agent", chat), {
     ...chat,
     packages: ["odoo"],
     model: "glm-flash",
@@ -197,7 +227,7 @@ test("a chat agent note that uses odoo, runs on glm-flash, with the long-chat lo
 });
 
 test("a landl deployment note parses", () => {
-  assert.deepEqual(que.parse("deployment", landl), {
+  assert.deepEqual(parse("deployment", landl), {
     ...landl,
     packages: ["odoo"],
     agents: ["chat"],
@@ -236,7 +266,7 @@ test("a deployment with no packages fails, on its packages", () => {
 test("an agent, model, loop or deployment type has no field but its links", () => {
   // Each value stays in the config file, so a note of these types carries its links and no field.
   for (const name of ["agent", "model", "loop", "deployment"] as const) {
-    const type = que.types[name];
+    const type = harness.types[name];
     const fields = Object.keys(type.schema.shape).filter(
       (field) => !Object.hasOwn(base, field),
     );
@@ -251,7 +281,7 @@ test("an agent, model, loop or deployment type has no field but its links", () =
 test("an agent note with no packages parses, and one with no model or no loop fails, on that link", () => {
   // Left out, packages is none. que has no model or loop of its own, so an agent names each.
   const node = without(chat, "packages");
-  assert.deepEqual(que.parse("agent", node), {
+  assert.deepEqual(parse("agent", node), {
     ...node,
     model: "glm-flash",
     loop: "long-chat",
@@ -265,7 +295,7 @@ test("an agent note with no packages parses, and one with no model or no loop fa
 
 test("an agent note that writes its packages as [] parses", () => {
   // The config writes none as `[]`, and basis 0.2.0 takes `[]` on an optional many link.
-  assert.deepEqual(que.parse("agent", { ...chat, packages: [] }), {
+  assert.deepEqual(parse("agent", { ...chat, packages: [] }), {
     ...chat,
     packages: [],
     model: "glm-flash",
@@ -287,6 +317,6 @@ test("a deployment note with no agents, no loops or no models fails, on that lin
 test("a model and a loop note each parse with no field beyond the base", () => {
   for (const type of ["model", "loop"] as const) {
     const node = { name: "glm-flash", type, description: "A config." };
-    assert.deepEqual(que.parse(type, node), node);
+    assert.deepEqual(parse(type, node), node);
   }
 });
