@@ -6,7 +6,7 @@
  */
 
 import * as z from "zod";
-import { check, name, named, strict, that } from "./check.js";
+import { check, isCount, name, named, strict, that } from "./check.js";
 
 /** que's own value for each setting. */
 export const LOOP_DEFAULTS = {
@@ -16,8 +16,6 @@ export const LOOP_DEFAULTS = {
   limits: { modelCalls: 50, toolCalls: 100 },
 } as const;
 
-const isCount = (value: unknown): value is number =>
-  typeof value === "number" && Number.isInteger(value) && value > 0;
 const isShare = (value: unknown): value is number =>
   typeof value === "number" && value > 0 && value < 1;
 

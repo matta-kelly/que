@@ -5,7 +5,7 @@
  */
 
 import * as z from "zod";
-import { check, name, once, text } from "./check.js";
+import { check, name, once, strict, text } from "./check.js";
 import type { PackageDefinition } from "./package-spec.js";
 
 export const Case = z.strictObject(
@@ -20,12 +20,7 @@ export const Case = z.strictObject(
     /** One statement that is true or false after the run. */
     good: text,
   },
-  {
-    error: (issue) =>
-      issue.code === "unrecognized_keys"
-        ? `has a field ${issue.keys.map((key) => `"${key}"`).join(", ")}`
-        : undefined,
-  },
+  strict(),
 );
 
 export type Case = z.infer<typeof Case>;

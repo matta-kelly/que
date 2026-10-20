@@ -8,16 +8,20 @@
  */
 
 import * as z from "zod";
-import { check, must, name, named, NAME, strict, that } from "./check.js";
+import {
+  check,
+  isName,
+  isText,
+  must,
+  name,
+  named,
+  strict,
+  that,
+} from "./check.js";
 
 /** The ways que has of loading the environment for the model: what it is shown, and when. A config names one. */
 export const LOADING = ["on-demand", "eager"] as const;
 export type Loading = (typeof LOADING)[number];
-
-const isText = (value: unknown): value is string =>
-  typeof value === "string" && !!value.trim();
-const isName = (value: unknown): value is string =>
-  typeof value === "string" && NAME.test(value);
 
 /** What `defineAgent` returns, and an agent file exports as its default. `name`, `packages`, `model` and `loop` are needed; each other field says what it is when left out. */
 export const AgentDefinition = z.strictObject(

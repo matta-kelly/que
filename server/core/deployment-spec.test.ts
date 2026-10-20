@@ -6,7 +6,7 @@ test("validateDeployment names every problem in one error", () => {
   assert.throws(
     () => validateDeployment({ name: "two words", packages: [""] }),
     (error: Error) => {
-      assert.match(error.message, /deployment two words is invalid/);
+      assert.match(error.message, /deployment is invalid/);
       assert.match(error.message, /- name must match/);
       assert.match(
         error.message,
@@ -18,7 +18,7 @@ test("validateDeployment names every problem in one error", () => {
   assert.throws(
     () => validateDeployment({ name: "", packages: "./odoo" }),
     (error: Error) => {
-      assert.match(error.message, /deployment \(unnamed\) is invalid/);
+      assert.match(error.message, /deployment is invalid/);
       assert.match(error.message, /- name is missing/);
       assert.match(error.message, /- packages must be an array/);
       return true;
@@ -45,7 +45,7 @@ test("validateDeployment says so when there is no definition", () => {
   for (const def of [undefined, null, "shop", []])
     assert.throws(
       () => validateDeployment(def),
-      /deployment \(unnamed\) is invalid:\n- no definition \(default export\)/,
+      /deployment is invalid:\n- no definition \(default export\)/,
     );
 });
 

@@ -5,16 +5,13 @@
  */
 
 import * as z from "zod";
-import { check, must, name, strict, that } from "./check.js";
-
-const isPath = (value: unknown): value is string =>
-  typeof value === "string" && !!value.trim();
+import { check, isText, must, name, named, strict, that } from "./check.js";
 
 // que has no agent, loop or model of its own to fall back on.
 const files = (kind: string) => {
   const none = `list at least one ${kind} config`;
   return z
-    .array(that(isPath, "a file path"), {
+    .array(that(isText, "a file path"), {
       error: must("an array", `is missing: ${none}`),
     })
     .min(1, `is empty: ${none}`);
@@ -25,7 +22,7 @@ export const DeploymentDefinition = z.strictObject(
   {
     name,
     /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
-    packages: z.array(that(isPath, "a folder path"), {
+    packages: z.array(that(isText, "a folder path"), {
       error: "must be an array",
     }),
     /** One file per agent config: an absolute path, or one taken from the deployment's own folder. At least one: que has no agent of its own. */
@@ -59,10 +56,5 @@ export function defineDeployment(
 export function validateDeployment(
   def: unknown,
 ): asserts def is DeploymentDefinition {
-  const { name } = (def ?? {}) as { name?: unknown };
-  check(
-    DeploymentDefinition,
-    def,
-    `deployment ${typeof name === "string" && name ? name : "(unnamed)"} is invalid`,
-  );
+  check(DeploymentDefinition, def, `deployment${named(def)} is invalid`);
 }

@@ -9,13 +9,11 @@
  */
 
 import * as z from "zod";
-import { check, name, named, strict, that } from "./check.js";
+import { check, isCount, name, named, strict, that } from "./check.js";
 
 const aboveWindow = (maxTokens: number, window: number) =>
   `must not be above its window, got ${maxTokens} and ${window}`;
 
-const isCount = (value: unknown): value is number =>
-  typeof value === "number" && Number.isInteger(value) && value > 0;
 const isAmount = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
 

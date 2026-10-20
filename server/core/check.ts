@@ -17,6 +17,14 @@ export const text = z
   })
   .regex(/\S/, "is missing");
 
+/** Guards for `that`: text that is not blank, a name, and a whole number above zero. */
+export const isText = (value: unknown): value is string =>
+  typeof value === "string" && !!value.trim();
+export const isName = (value: unknown): value is string =>
+  typeof value === "string" && NAME.test(value);
+export const isCount = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value > 0;
+
 /** A name: text that model APIs allow in a tool name. */
 export const name = text.regex(NAME, `must match ${NAME}`);
 

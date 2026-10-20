@@ -4,7 +4,7 @@
  */
 
 import * as z from "zod";
-import { check, fn, name, once, text } from "./check.js";
+import { check, fn, name, named, once, text } from "./check.js";
 
 export { NAME } from "./check.js";
 
@@ -142,9 +142,5 @@ export function definePackage<S extends z.ZodObject, Conn>(
 export function validatePackage(
   def: PackageDefinition | undefined,
 ): asserts def is PackageDefinition {
-  check(
-    PackageDefinition,
-    def,
-    `package ${def?.name || "(unnamed)"} is invalid`,
-  );
+  check(PackageDefinition, def, `package${named(def)} is invalid`);
 }
