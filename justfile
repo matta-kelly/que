@@ -16,18 +16,23 @@ up deployment:
     dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
     [ -f "$dep/.env" ] || { echo "No .env in $dep. A deployment keeps its settings and secrets there: see templates/deployment/.env.example"; exit 1; }
     cd "{{root}}"
-    ./scripts/db.sh "$dep/.env"
-    c=$(./scripts/container.sh "$dep")
-    running() { podman exec "$c" pgrep -f "$1" >/dev/null; }
-    listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
-    # Every que's container is on the host network: a port another que's server holds would answer for this one.
+    # Every que's container is on the host network, and they share que-postgres: with another que
+    # serving, or a port held, this que's servers could not bind, and the other would answer for them.
+    # Asked before anything starts, so a refused up leaves nothing running.
+    others=$(./scripts/serving-ques.sh | paste -sd ' ' -)
+    [ -z "$others" ] || { echo "Another que is serving: $others. Run 'just down' in the deployment that started it first." >&2; exit 1; }
+    c=$(just _container)
+    running() { [ -n "$c" ] && podman exec "$c" pgrep -f "$1" >/dev/null 2>&1; }
+    # A server on localhost may hold either address: Node's langgraphjs binds ::1.
+    listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null || (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null; }
     for server in "langgraphjs dev:2024" "next dev:3000"; do
         if ! running "${server%:*}" && listening "${server##*:}"; then
-            others=$(./scripts/serving-ques.sh | paste -sd ' ' -)
-            echo "Port ${server##*:} is taken, and not by this que: ${others:+another que is serving ($others). Run 'just down' in the deployment that started it first}${others:-no que holds it. Stop what does}" >&2
+            echo "Port ${server##*:} is taken, and not by a que. Stop what holds it first." >&2
             exit 1
         fi
     done
+    ./scripts/db.sh "$dep/.env"
+    c=$(./scripts/container.sh "$dep")
     if running "langgraphjs dev"; then
         echo "The agent server is already running. Run 'just down' first to start it from another deployment."
     else

@@ -63,7 +63,7 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 
 From a deployment's folder:
 
-- `just start`: start everything, from that deployment. It runs que's `just up <deployment folder>`. It stops when the agent server's port (2024) or the UI's (3000) is held by anything but this checkout: every que's container is on the host network
+- `just start`: start everything, from that deployment. It runs que's `just up <deployment folder>`. It stops, before starting anything, when another checkout of que is serving, or the agent server's port (2024) or the UI's (3000) is held by anything else: every que's container is on the host network
 - `just stop`: stop everything. It runs que's `just down`. The database is shared by every checkout of que, so it keeps running while another one is serving
 - `just logs`: follow the agent server and UI logs. It runs que's `just logs`
 - `just check`: mount the deployment with no `.env` and no network, from its saved model facts, then type check the deployment's own code and each package it lists, wherever the package sits, and run their tests, with que's core handed to all of them. A deployment that would not mount fails, with mount's error: a config path that holds no file, or a package, loop or model an agent names that the deployment does not list. A model's window and price come from its file or from the facts a start saved in `.que/`; one in neither fails the check. It runs que's `just check-deployment <deployment folder>`. que's `just check-folder <folder>` does the same for any one folder of TypeScript
