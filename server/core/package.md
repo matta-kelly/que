@@ -10,6 +10,7 @@ A package is one concern, in one folder. It is everything an agent can get from 
 - [[#What it never knows]] the line between a package and the harness
 - [[#Capabilities and cases]] what it is for, and how that is proved
 
+MOVING TOWARD: https://agent-plugins.org/ really should just adopt this
 ## What it gives the harness
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
