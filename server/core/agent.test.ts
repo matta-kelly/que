@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LOADING, validateAgent } from "./agent.js";
+import { pluginsOf } from "./plugin.js";
 
 test("validateAgent rejects a model that is not a plain name, and says where a model goes for one written as provider:model", () => {
   for (const model of ["two words", 7, null])
@@ -22,7 +23,7 @@ test("validateAgent rejects a model that is not a plain name, and says where a m
 test("validateAgent accepts a loop, and rejects one that is not a plain name", () => {
   validateAgent({
     name: "chat",
-    packages: [],
+    plugins: [],
     model: "small",
     loop: "long-chat",
   });
@@ -43,8 +44,8 @@ test("validateAgent rejects a field that is not in the shape, naming it", () => 
 
 test("validateAgent rejects a package that is not a name", () => {
   assert.throws(
-    () => validateAgent({ name: "chat", packages: [7] }),
-    /- packages\.0 must be a package name, got 7/,
+    () => validateAgent({ name: "chat", plugins: [7] }),
+    /- plugins\.0 must be a plugin name, got 7/,
   );
 });
 
@@ -53,7 +54,7 @@ test("validateAgent names every fault in one error", () => {
     () =>
       validateAgent({
         loading: "lazy",
-        packages: "odoo",
+        plugins: "odoo",
         model: "",
         instructions: "",
       }),
@@ -64,7 +65,7 @@ test("validateAgent names every fault in one error", () => {
         error.message,
         /- loading must be one of: on-demand, eager, got "lazy"/,
       );
-      assert.match(error.message, /- packages must be an array, got "odoo"/);
+      assert.match(error.message, /- plugins must be an array, got "odoo"/);
       assert.match(
         error.message,
         /- model must be the name of a model, got ""/,
@@ -98,14 +99,14 @@ test("validateAgent rejects what is not an object, a config with no name, and a 
 test("validateAgent accepts userInstructions as true or false, and rejects any other value", () => {
   validateAgent({
     name: "chat",
-    packages: [],
+    plugins: [],
     model: "small",
     loop: "long-chat",
     userInstructions: true,
   });
   validateAgent({
     name: "chat",
-    packages: [],
+    plugins: [],
     model: "small",
     loop: "long-chat",
     userInstructions: false,
@@ -122,7 +123,7 @@ test("validateAgent accepts each way of loading", () => {
   for (const loading of LOADING)
     validateAgent({
       name: "chat",
-      packages: [],
+      plugins: [],
       model: "small",
       loop: "long-chat",
       loading,
@@ -132,7 +133,7 @@ test("validateAgent accepts each way of loading", () => {
 test("validateAgent rejects the field legibility, and says it is now loading", () => {
   validateAgent({
     name: "chat",
-    packages: [],
+    plugins: [],
     model: "small",
     loop: "long-chat",
     loading: "on-demand",
@@ -143,20 +144,20 @@ test("validateAgent rejects the field legibility, and says it is now loading", (
   );
 });
 
-test("validateAgent rejects an agent that leaves out packages, and takes `[]` as none", () => {
+test("validateAgent rejects an agent that leaves out plugins, and takes `[]` as none", () => {
   assert.throws(
     () => validateAgent({ name: "chat" }),
-    /- packages is missing: list the packages it gets, or `\[\]` for none/,
+    /- plugins is missing: list the plugins it gets, or `\[\]` for none/,
   );
   validateAgent({
     name: "chat",
-    packages: [],
+    plugins: [],
     model: "small",
     loop: "long-chat",
   });
   validateAgent({
     name: "chat",
-    packages: ["odoo", "notes"],
+    plugins: ["odoo", "notes"],
     model: "small",
     loop: "long-chat",
   });
@@ -164,11 +165,22 @@ test("validateAgent rejects an agent that leaves out packages, and takes `[]` as
 
 test("validateAgent rejects an agent that names no model or no loop", () => {
   assert.throws(
-    () => validateAgent({ name: "chat", packages: [], loop: "long-chat" }),
+    () => validateAgent({ name: "chat", plugins: [], loop: "long-chat" }),
     /- model is missing: name a model config the deployment lists/,
   );
   assert.throws(
-    () => validateAgent({ name: "chat", packages: [], model: "small" }),
+    () => validateAgent({ name: "chat", plugins: [], model: "small" }),
     /- loop is missing: name a loop config the deployment lists/,
+  );
+});
+
+test("validateAgent takes packages, the old name of plugins, and refuses an agent that gives both", () => {
+  const chat = { name: "chat", model: "small", loop: "long-chat" };
+  validateAgent({ ...chat, packages: ["odoo"] });
+  assert.deepEqual(pluginsOf({ ...chat, packages: ["odoo"] }), ["odoo"]);
+  assert.deepEqual(pluginsOf({ ...chat, plugins: ["odoo"] }), ["odoo"]);
+  assert.throws(
+    () => validateAgent({ ...chat, plugins: ["odoo"], packages: ["odoo"] }),
+    /agent chat is invalid:\n- packages is the old name of plugins: give plugins only/,
   );
 });

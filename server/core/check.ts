@@ -77,6 +77,23 @@ export const named = (definition: unknown) => {
   return typeof name === "string" && NAME.test(name) ? ` ${name}` : "";
 };
 
+/**
+ * A refinement of a config that lists plugins: under `plugins`, or under its
+ * old name `packages`, and not both. `missing` is the problem when it gives neither.
+ */
+export const onePluginList =
+  (missing: string) =>
+  (config: { plugins?: unknown; packages?: unknown }, ctx: z.RefinementCtx) => {
+    if (config.plugins !== undefined && config.packages !== undefined)
+      ctx.addIssue({
+        code: "custom",
+        path: ["packages"],
+        message: "is the old name of plugins: give plugins only",
+      });
+    else if (config.plugins === undefined && config.packages === undefined)
+      ctx.addIssue({ code: "custom", path: ["plugins"], message: missing });
+  };
+
 /** A refinement of a list: no two items have the same name. */
 export const once =
   <T>(nameOf: (item: T) => string) =>

@@ -68,7 +68,9 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
   } satisfies Fields<Case>,
   agent: {
     name: null,
-    packages: "plugin",
+    plugins: "plugin",
+    // The old name of plugins, kept in the config until cc moves. No note writes it.
+    packages: null,
     model: "model",
     instructions: null,
     loading: null,
@@ -92,7 +94,9 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
   } satisfies Fields<LoopDefinition>,
   deployment: {
     name: null,
-    packages: "plugin",
+    plugins: "plugin",
+    // The old name of plugins, kept in the config until cc moves. No note writes it.
+    packages: null,
     agents: "agent",
     loops: "loop",
     models: "model",

@@ -17,10 +17,10 @@ const small = {
   price: { input: 0.5, output: 1, cachedInput: 0.1 },
 };
 const longChat = { name: "long-chat" };
-const chat = { name: "chat", packages: [], model: "big", loop: "long-chat" };
+const chat = { name: "chat", plugins: [], model: "big", loop: "long-chat" };
 const lean = {
   name: "lean",
-  packages: [],
+  plugins: [],
   model: "small",
   loop: "long-chat",
   instructions: "Be brief.",
@@ -62,7 +62,7 @@ test("an agent has the share its loop summarizes at, and none when it does not s
   ];
   const on = (loop: string) => ({
     name: loop,
-    packages: [],
+    plugins: [],
     model: "big",
     loop,
   });

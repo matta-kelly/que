@@ -2,7 +2,7 @@ import { defineAgent } from "@que/core";
 
 export default defineAgent({
   name: "lean",
-  packages: [],
+  plugins: [],
   model: "small",
   loop: "long-chat",
 });

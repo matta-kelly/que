@@ -7,7 +7,7 @@ test("an agent that does not take the user's instructions gets none", () => {
     taken(
       {
         name: "chat",
-        packages: [],
+        plugins: [],
         model: "small",
         loop: "long-chat",
         userInstructions: true,
@@ -20,7 +20,7 @@ test("an agent that does not take the user's instructions gets none", () => {
     taken(
       {
         name: "chat",
-        packages: [],
+        plugins: [],
         model: "small",
         loop: "long-chat",
         userInstructions: false,
@@ -31,7 +31,7 @@ test("an agent that does not take the user's instructions gets none", () => {
   );
   assert.equal(
     taken(
-      { name: "chat", packages: [], model: "small", loop: "long-chat" },
+      { name: "chat", plugins: [], model: "small", loop: "long-chat" },
       "No emojis.",
     ),
     undefined,
@@ -41,7 +41,7 @@ test("an agent that does not take the user's instructions gets none", () => {
 test("blank text is no text", () => {
   const takes = {
     name: "chat",
-    packages: [],
+    plugins: [],
     model: "small",
     loop: "long-chat",
     userInstructions: true,

@@ -20,20 +20,20 @@ const notAsked = {
 };
 const chat = {
   name: "chat",
-  packages: ["shop", "notes"],
+  plugins: ["shop", "notes"],
   model: "small",
   loop: "long-chat",
 };
 const lean = {
   name: "lean",
-  packages: ["shop"],
+  plugins: ["shop"],
   model: "small",
   loop: "long-chat",
 };
-const bare = { name: "bare", packages: [], model: "small", loop: "long-chat" };
+const bare = { name: "bare", plugins: [], model: "small", loop: "long-chat" };
 const notesOnly = {
   name: "notes-only",
-  packages: ["notes"],
+  plugins: ["notes"],
   model: "small",
   loop: "long-chat",
 };

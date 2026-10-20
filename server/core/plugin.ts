@@ -145,6 +145,12 @@ export function validatePlugin(
   check(PluginDefinition, def, `package${named(def)} is invalid`);
 }
 
+/** The plugins a deployment or an agent lists, under `plugins` or its old name `packages`. */
+export const pluginsOf = (config: {
+  plugins?: string[];
+  packages?: string[];
+}): string[] => config.plugins ?? config.packages ?? [];
+
 // The old names, from before "package" was "plugin". They go once cc uses the new ones.
 
 /** @deprecated The old name of `PluginDefinition`. */
