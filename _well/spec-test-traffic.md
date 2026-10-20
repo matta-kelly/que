@@ -23,7 +23,7 @@ Each one is mine, and each can be changed in review.
 - **the rule for a browser test**: it runs on the real stack only when what it checks is the real model or a real service. Each other test runs on the test deployment
 - **the test deployment**: a deployment in que's repo, for the browser tests only
 	- its model is not real: a local server in the place of the provider answers each request with a fixed reply and fixed token counts. The provider package is pointed at it with `FIREWORKS_BASE_URL`, as the tests of the judge do ([[spec-eval-judge]])
-	- it has que's two chat agents, two model configs, and one small package with one operation that reads nothing outside the test
+	- it has que's two chat agents, two model configs, and one small plugin with one operation that reads nothing outside the test
 	- its `.env` has no Langfuse setting, so it sends no trace. It has no secret: the key of the provider is a made up one
 	- it uses que's own database, as any deployment does
 - **two commands**
