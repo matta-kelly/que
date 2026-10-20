@@ -10,8 +10,9 @@
  */
 
 import "./supply.js";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { existsSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
+import { isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   validateDeployment,
@@ -25,6 +26,21 @@ import { factSources, type FactSources } from "./model-facts/index.js";
 import { mountModels } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
 import { mountPackages, type MountedPackage } from "./packages.js";
+
+// A listed package is a folder path, or a name found as Node finds an import
+// from the deployment's folder: in the first `node_modules` up from it that has it.
+function packageFolder(dir: string, listed: string): string {
+  if (isAbsolute(listed) || listed.startsWith(".")) return resolve(dir, listed);
+  const lookup = createRequire(join(dir, "index.ts")).resolve.paths(listed);
+  const found = lookup
+    ?.map((modules) => join(modules, listed))
+    .find((folder) => existsSync(join(folder, "package.json")));
+  if (!found)
+    throw new Error(
+      `mount: deployment ${dir}: the package "${listed}" is not installed: no node_modules from this folder up holds it`,
+    );
+  return realpathSync(found);
+}
 
 export async function loadDeployment(dir: string): Promise<{
   name: string;
@@ -48,7 +64,7 @@ export async function loadDeployment(dir: string): Promise<{
   }
   return {
     name: definition.name,
-    packages: definition.packages.map((folder) => resolve(dir, folder)),
+    packages: definition.packages.map((listed) => packageFolder(dir, listed)),
     agents: definition.agents.map((file) => resolve(dir, file)),
     loops: definition.loops.map((file) => resolve(dir, file)),
     models: definition.models.map((file) => resolve(dir, file)),

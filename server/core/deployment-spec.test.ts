@@ -10,7 +10,7 @@ test("validateDeployment names every problem in one error", () => {
       assert.match(error.message, /- name must match/);
       assert.match(
         error.message,
-        /- packages\.0 must be a folder path, got ""/,
+        /- packages\.0 must be a package name or a folder path, got ""/,
       );
       return true;
     },
