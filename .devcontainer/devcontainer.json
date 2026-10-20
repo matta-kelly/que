@@ -24,9 +24,11 @@
     // a deployment's pinned one, never installs over this one's.
     "source=que-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/server/node_modules,type=volume",
     "source=que-ui-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
-    // Playwright's Chromium survives rebuilds. Shared by every checkout: a browser
-    // version sits in a folder of its own.
-    "source=que-browsers,target=/home/node/.cache,type=volume",
+    // The user's cache: Playwright's Chromium and the check's pinned tools, kept
+    // across rebuilds. One per checkout too: `playwright install` deletes any
+    // browser no link in the cache can still reach, and a link from another
+    // checkout's container cannot be reached from this one.
+    "source=que-cache-${devcontainerId},target=/home/node/.cache,type=volume",
     // Next.js build cache, thousands of files: keep it out of the repo folder too.
     "source=que-ui-next-${devcontainerId},target=${containerWorkspaceFolder}/ui/.next,type=volume"
   ],
