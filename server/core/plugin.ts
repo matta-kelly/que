@@ -142,7 +142,7 @@ export function definePlugin<S extends z.ZodObject, Conn>(
 export function validatePlugin(
   def: PluginDefinition | undefined,
 ): asserts def is PluginDefinition {
-  check(PluginDefinition, def, `package${named(def)} is invalid`);
+  check(PluginDefinition, def, `plugin${named(def)} is invalid`);
 }
 
 /** The plugins a deployment or an agent lists, under `plugins` or its old name `packages`. */

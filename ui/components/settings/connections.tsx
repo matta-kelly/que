@@ -17,7 +17,7 @@ const label = (field: string) =>
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/^./, (c) => c.toUpperCase());
 
-/** The list of connections: one row per package that needs a credential. */
+/** The list of connections: one row per plugin that needs a credential. */
 export function ConnectionsList() {
   const { data: connections, error } = useSWR<Connection[]>(
     QUE_API.connections,

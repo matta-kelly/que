@@ -1,6 +1,6 @@
 /**
  * The eager environment text: what a plugin is, that each operation is
- * already a tool, and the skills there are to read. With no open_package, the
+ * already a tool, and the skills there are to read. With no open_plugin, the
  * prompt is where the agent finds a skill's id.
  */
 
@@ -16,7 +16,7 @@ export const prompt = (catalog: Catalog) => {
     "## Your environment",
     ...(hasOperations || skills.length
       ? [
-          "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
+          "Everything you can do for the user comes from plugins. A plugin is one service the user has connected. It holds:",
           [
             ...(hasOperations
               ? [
@@ -29,7 +29,7 @@ export const prompt = (catalog: Catalog) => {
           ].join("\n"),
           ...(hasOperations
             ? [
-                "Every operation is already a tool, named `<package>_<operation>`. Call it.",
+                "Every operation is already a tool, named `<plugin>_<operation>`. Call it.",
               ]
             : []),
           ...(skills.length
@@ -38,10 +38,10 @@ export const prompt = (catalog: Catalog) => {
                 skills.map(skillLine).join("\n"),
               ]
             : []),
-          "If no package covers a request, say so.",
+          "If no plugin covers a request, say so.",
         ]
       : [
-          "The user's packages are listed below. They hold nothing to run or read: what each one says about itself is all there is.",
+          "The user's plugins are listed below. They hold nothing to run or read: what each one says about itself is all there is.",
         ]),
   ].join("\n\n");
 };

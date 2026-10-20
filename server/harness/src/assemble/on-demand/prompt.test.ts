@@ -21,7 +21,7 @@ const prompt = systemPrompt({
   catalog,
 });
 
-test("mentions read_skill only when a package has a skill", () => {
+test("mentions read_skill only when a plugin has a skill", () => {
   assert.match(prompt, /read_skill/);
   const noSkills = [
     { ...catalog[0], plugin: { ...catalog[0].plugin, skills: [] } },
@@ -29,7 +29,7 @@ test("mentions read_skill only when a package has a skill", () => {
   assert.doesNotMatch(systemPrompt({ catalog: noSkills }), /read_skill/);
 });
 
-test("for packages with skills and no operations, says how to open a package and read a skill", () => {
+test("for plugins with skills and no operations, says how to open a plugin and read a skill", () => {
   assert.equal(
     systemPrompt({ catalog: skillsOnly }),
     [
@@ -40,17 +40,17 @@ test("for packages with skills and no operations, says how to open a package and
       "",
       "## Your environment",
       "",
-      "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
+      "Everything you can do for the user comes from plugins. A plugin is one service the user has connected. It holds:",
       "",
       "- skills: written guides for tasks in that service",
       "",
-      "Pick a package from the list below and call `open_package` to see what it holds.",
+      "Pick a plugin from the list below and call `open_plugin` to see what it holds.",
       "",
       "Before a task a skill covers, read it with `read_skill`.",
       "",
-      "If no package covers a request, say so.",
+      "If no plugin covers a request, say so.",
       "",
-      "## Packages",
+      "## Plugins",
       "",
       "### Shop (`shop`)",
       "The shop's order system.",
@@ -58,7 +58,7 @@ test("for packages with skills and no operations, says how to open a package and
   );
 });
 
-test("for packages that hold nothing, says there is nothing to open or run", () => {
+test("for plugins that hold nothing, says there is nothing to open or run", () => {
   assert.equal(
     systemPrompt({ catalog: identityOnly }),
     [
@@ -69,9 +69,9 @@ test("for packages that hold nothing, says there is nothing to open or run", () 
       "",
       "## Your environment",
       "",
-      "The user's packages are listed below. They hold nothing to open or run: what each one says about itself is all there is.",
+      "The user's plugins are listed below. They hold nothing to open or run: what each one says about itself is all there is.",
       "",
-      "## Packages",
+      "## Plugins",
       "",
       "### Notes (`notes`)",
       "How the team writes things down.",
@@ -79,7 +79,7 @@ test("for packages that hold nothing, says there is nothing to open or run", () 
   );
 });
 
-test("the prompt still says how to reach an operation and read a skill when a package that holds nothing comes first", () => {
+test("the prompt still says how to reach an operation and read a skill when a plugin that holds nothing comes first", () => {
   assert.equal(
     systemPrompt({ catalog: besideNothing }),
     [
@@ -90,23 +90,23 @@ test("the prompt still says how to reach an operation and read a skill when a pa
       "",
       "## Your environment",
       "",
-      "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
+      "Everything you can do for the user comes from plugins. A plugin is one service the user has connected. It holds:",
       "",
       "- operations: actions you can run in that service, each with a description and arguments",
       "- skills: written guides for tasks in that service",
       "",
       "You start with no operations in reach. To use one:",
       "",
-      "1. Pick a package from the list below.",
-      "2. Call `open_package` to see what it holds.",
-      "3. Call `load_operation` for each operation you need. It becomes a tool named `<package>_<operation>` and stays for the rest of the conversation.",
+      "1. Pick a plugin from the list below.",
+      "2. Call `open_plugin` to see what it holds.",
+      "3. Call `load_operation` for each operation you need. It becomes a tool named `<plugin>_<operation>` and stays for the rest of the conversation.",
       "4. Call that tool.",
       "",
       "Before a task a skill covers, read it with `read_skill`.",
       "",
-      "If no package covers a request, say so.",
+      "If no plugin covers a request, say so.",
       "",
-      "## Packages",
+      "## Plugins",
       "",
       "### Notes (`notes`)",
       "How the team writes things down.",

@@ -17,8 +17,8 @@
             "id": "call_27f98a239e7c45149a7b1afc",
             "type": "function",
             "function": {
-              "name": "open_package",
-              "arguments": "{\"package\":\"shop\"}"
+              "name": "open_plugin",
+              "arguments": "{\"plugin\":\"shop\"}"
             }
           }
         ]
@@ -42,8 +42,8 @@
       },
       "tool_call_chunks": [
         {
-          "name": "open_package",
-          "args": "{\"package\":\"shop\"}",
+          "name": "open_plugin",
+          "args": "{\"plugin\":\"shop\"}",
           "id": "call_27f98a239e7c45149a7b1afc",
           "index": 0,
           "type": "tool_call_chunk"
@@ -51,9 +51,9 @@
       ],
       "tool_calls": [
         {
-          "name": "open_package",
+          "name": "open_plugin",
           "args": {
-            "package": "shop"
+            "plugin": "shop"
           },
           "id": "call_27f98a239e7c45149a7b1afc",
           "type": "tool_call"
@@ -79,7 +79,7 @@
       "status": "success",
       "content": "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- findOrders: Find orders. Search orders by customer name.",
       "tool_call_id": "call_27f98a239e7c45149a7b1afc",
-      "name": "open_package",
+      "name": "open_plugin",
       "metadata": {
         "versions": {
           "@langchain/core": "1.2.12"

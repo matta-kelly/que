@@ -48,9 +48,9 @@ app.get("/que/connections", async (c) => {
   );
 });
 
-app.put("/que/connections/:package", async (c) => {
-  const plugin = find(c.req.param("package"));
-  if (!plugin) return c.json({ error: "unknown package" }, 404);
+app.put("/que/connections/:plugin", async (c) => {
+  const plugin = find(c.req.param("plugin"));
+  if (!plugin) return c.json({ error: "unknown plugin" }, 404);
   try {
     await setCredential(plugin, userIdOf(c), (await c.req.json()).values);
   } catch (error) {
@@ -61,9 +61,9 @@ app.put("/que/connections/:package", async (c) => {
   return c.json({ ok: true });
 });
 
-app.delete("/que/connections/:package", async (c) => {
-  const plugin = find(c.req.param("package"));
-  if (!plugin) return c.json({ error: "unknown package" }, 404);
+app.delete("/que/connections/:plugin", async (c) => {
+  const plugin = find(c.req.param("plugin"));
+  if (!plugin) return c.json({ error: "unknown plugin" }, 404);
   await removeCredential(plugin, userIdOf(c));
   return c.json({ ok: true });
 });

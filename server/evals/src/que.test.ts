@@ -41,11 +41,11 @@ test("gives back the messages of the run, in que's own form", async () => {
       {
         from: "agent",
         text: "",
-        calls: [{ name: "open_package", args: { package: "shop" } }],
+        calls: [{ name: "open_plugin", args: { plugin: "shop" } }],
       },
       {
         from: "tool",
-        tool: "open_package",
+        tool: "open_plugin",
         text: "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- findOrders: Find orders. Search orders by customer name.",
         calls: [],
       },

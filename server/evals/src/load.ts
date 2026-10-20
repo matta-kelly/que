@@ -38,7 +38,7 @@ async function casesOf(dir: string): Promise<LoadedCase[]> {
   const cases = await definitionIn(file);
   if (!Array.isArray(cases))
     throw new Error(
-      `cases of package ${definition.name}: no list of cases (default export)`,
+      `cases of plugin ${definition.name}: no list of cases (default export)`,
     );
   validateCases(definition, cases as Case[]);
   return (cases as Case[]).map((c) => ({ package: definition.name, ...c }));

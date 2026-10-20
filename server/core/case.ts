@@ -43,7 +43,7 @@ export function validateCases(
     (capability) => !capability.trim() || capabilities.has(capability),
     {
       error: (issue) =>
-        `names "${String(issue.input)}", which package ${definition.name} does not have`,
+        `names "${String(issue.input)}", which plugin ${definition.name} does not have`,
     },
   );
   check(
@@ -51,6 +51,6 @@ export function validateCases(
       .array(Case.extend({ capability: known }))
       .superRefine(once((c) => c.name)),
     cases,
-    `cases of package ${definition.name} are invalid`,
+    `cases of plugin ${definition.name} are invalid`,
   );
 }

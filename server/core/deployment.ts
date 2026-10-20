@@ -27,9 +27,12 @@ const files = (kind: string) => {
 };
 
 /** What `defineDeployment` returns, and a deployment exports as its default. */
-const plugins = z.array(that(isText, "a package name or a folder path"), {
-  error: must("an array"),
-});
+const plugins = z.array(
+  that(isText, "a plugin folder or the name of its npm package"),
+  {
+    error: must("an array"),
+  },
+);
 
 export const DeploymentDefinition = z
   .strictObject(

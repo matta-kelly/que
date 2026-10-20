@@ -82,10 +82,10 @@ test("stops on an agent that leaves out its plugins, so no run is planned under 
   });
 });
 
-test("stops, naming the package, on cases that break the contract", async () => {
+test("stops, naming the plugin, on cases that break the contract", async () => {
   await assert.rejects(load(deployment("broken")), (error: Error) => {
     assert.match(error.message, /^eval:/);
-    assert.match(error.message, /cases of package broken are invalid/);
+    assert.match(error.message, /cases of plugin broken are invalid/);
     assert.ok(error.cause instanceof Error);
     return true;
   });

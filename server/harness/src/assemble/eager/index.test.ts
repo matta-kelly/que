@@ -41,13 +41,13 @@ test("there are no tools when no package holds an operation or a skill", () => {
   assert.deepEqual(tools, []);
 });
 
-test("read_skill's description does not send the agent to open_package alone", () => {
+test("read_skill's description does not send the agent to open_plugin alone", () => {
   const { tools } = assemble(eager, {
     catalog,
     connect: async () => undefined,
   });
   assert.equal(
     tools[0].description,
-    "Read Skill: returns the full text of a skill, by its id, as the prompt or open_package lists it.",
+    "Read Skill: returns the full text of a skill, by its id, as the prompt or open_plugin lists it.",
   );
 });
