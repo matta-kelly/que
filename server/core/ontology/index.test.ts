@@ -33,7 +33,7 @@ const basisLoadedBy = (specifier: string) =>
     );
   });
 
-test("@que/core/ontology gives a basis package named que", async () => {
+test("@que/core/ontology gives a basis schema named que", async () => {
   assert.equal(que.name, "que");
   assert.equal(typeof que.parse, "function");
 });
