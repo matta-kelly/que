@@ -1,7 +1,7 @@
 import * as z from "zod";
 import { Name } from "basis";
 import { definePlugin, OperationFailed } from "@que/core";
-import { plugin } from "@que/core/ontology";
+import { plugin } from "@que/ontology";
 
 export default definePlugin({
   name: "notes",
@@ -16,7 +16,7 @@ export default definePlugin({
         title: z.string().describe("The note's title"),
         // basis, supplied by que like zod.
         folder: Name.optional().describe("The folder the note is in"),
-        // que's ontology, supplied by que as a subpath of `@que/core`.
+        // que's ontology, supplied by que as a package of its own.
         capability: plugin.types.capability.schema.shape.name
           .optional()
           .describe("The capability the note is about"),

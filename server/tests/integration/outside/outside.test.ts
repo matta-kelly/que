@@ -31,6 +31,16 @@ test("que mounts a deployment and its package from a folder outside que", async 
   );
 });
 
+test("a folder outside que gets the same module by @que/core/ontology, the old name, as by @que/ontology", async () => {
+  const { old, now } = (await import(join(outside, "ontology-names.mjs"))) as {
+    old: Record<string, unknown>;
+    now: Record<string, unknown>;
+  };
+  assert.deepEqual(Object.keys(old), Object.keys(now));
+  for (const name of ["plugin", "harness", "que"])
+    assert.equal(old[name], now[name], name);
+});
+
 test("a deployment outside que type checks with the tsconfig `just check-folder` writes", () => {
   const tsconfig = join(outside, "tsconfig.json");
   writeFileSync(

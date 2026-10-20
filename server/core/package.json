@@ -4,11 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./ontology": "./ontology/index.ts"
+    ".": "./index.ts"
   },
   "dependencies": {
-    "basis": "github:matta-kelly/basis#v0.6.1",
     "zod": "^4.6.5"
   }
 }

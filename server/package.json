@@ -4,6 +4,7 @@
   "type": "module",
   "workspaces": [
     "core",
+    "ontology",
     "backend/*",
     "models",
     "harness",

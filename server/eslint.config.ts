@@ -180,6 +180,7 @@ export default defineConfig([
   // The import rules. A later entry replaces an earlier one for the files it names.
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp, providers]),
   hold(["core/**/*.ts"], [otherApp, providers, framework]),
+  hold(["ontology/**/*.ts"], [otherApp, providers, framework]),
   hold(["models/**/*.ts"], [otherApp, modelsAlone]),
 
   // The eval runner. Its tests can use what they need.

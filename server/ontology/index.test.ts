@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
 import { base, linksOf } from "basis";
-import { harness, plugin, que } from "@que/core/ontology";
+import { harness, plugin, que } from "@que/ontology";
 
 type Name = keyof typeof plugin.types | keyof typeof harness.types;
 
@@ -41,7 +41,7 @@ const basisLoadedBy = (specifier: string) =>
     );
   });
 
-test("@que/core/ontology gives the schemas plugin and harness, and harness imports plugin", () => {
+test("@que/ontology gives the schemas plugin and harness, and harness imports plugin", () => {
   assert.deepEqual(Object.keys(plugin.types), [
     "plugin",
     "op",
@@ -68,10 +68,10 @@ test("que, deprecated, holds the nine types of plugin and harness, as the same o
   assert.equal(typeof que.parse, "function");
 });
 
-test("importing @que/core does not load basis, and importing @que/core/ontology does", async () => {
+test("importing @que/core does not load basis, and importing @que/ontology does", async () => {
   assert.deepEqual(await basisLoadedBy("@que/core"), []);
   // The probe sees basis when it is loaded, so the empty list above is not for want of looking.
-  assert.notDeepEqual(await basisLoadedBy("@que/core/ontology"), []);
+  assert.notDeepEqual(await basisLoadedBy("@que/ontology"), []);
 });
 
 const odoo = {
