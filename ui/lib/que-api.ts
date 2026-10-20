@@ -27,7 +27,7 @@ export type Me = User & {
   instructionsFrom: "file" | "account";
 };
 
-/** A package that needs a credential, and whether this user has connected it. */
+/** A plugin that needs a credential, and whether this user has connected it. */
 export type Connection = {
   name: string;
   title: string;

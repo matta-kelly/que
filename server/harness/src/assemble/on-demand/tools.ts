@@ -11,7 +11,7 @@ import type { Catalog } from "../../access/catalog.js";
 import { toolName } from "../operations.js";
 import { skillLine } from "../skills.js";
 
-export const OPEN_PACKAGE = "open_package";
+export const OPEN_PLUGIN = "open_plugin";
 export const LOAD_OPERATION = "load_operation";
 
 // A description opens with what the thing is for; the rest is how to use it.
@@ -22,12 +22,12 @@ const find = (catalog: Catalog, name: string) =>
 
 const noPlugin = (catalog: Catalog, name: string) =>
   new OperationFailed(
-    `no package "${name}". Packages: ${catalog.map(({ plugin }) => plugin.definition.name).join(", ")}`,
+    `no plugin "${name}". Plugins: ${catalog.map(({ plugin }) => plugin.definition.name).join(", ")}`,
   );
 
-function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
+function openPlugin(catalog: Catalog, hasOperations: boolean): StructuredTool {
   return tool(
-    async ({ package: name }) => {
+    async ({ plugin: name }) => {
       const plugin = find(catalog, name);
       if (!plugin) throw noPlugin(catalog, name);
       const { definition, skills } = plugin;
@@ -47,13 +47,13 @@ function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
       ].join("\n");
     },
     {
-      name: OPEN_PACKAGE,
+      name: OPEN_PLUGIN,
       description: hasOperations
-        ? "Open Package: lists what a package holds, its operations and skills, with one line each. " +
+        ? "Open Plugin: lists what a plugin holds, its operations and skills, with one line each. " +
           "Use it to find the operation for a task. It does not make an operation callable; load_operation does."
-        : "Open Package: lists what a package holds, with one line each.",
+        : "Open Plugin: lists what a plugin holds, with one line each.",
       schema: z.object({
-        package: z.string().describe("Package name from the system prompt"),
+        plugin: z.string().describe("Plugin name from the system prompt"),
       }),
     },
   );
@@ -61,12 +61,12 @@ function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
 
 function loadOperation(catalog: Catalog): StructuredTool {
   return tool(
-    async ({ package: name, operation }) => {
+    async ({ plugin: name, operation }) => {
       const plugin = find(catalog, name);
       if (!plugin) throw noPlugin(catalog, name);
       const ops = plugin.definition.ops.map((op) => op.name);
       if (!ops.length)
-        throw new OperationFailed(`package "${name}" has no operations.`);
+        throw new OperationFailed(`plugin "${name}" has no operations.`);
       if (!ops.includes(operation))
         throw new OperationFailed(
           `no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`,
@@ -76,14 +76,14 @@ function loadOperation(catalog: Catalog): StructuredTool {
     {
       name: LOAD_OPERATION,
       description:
-        "Load Operation: makes one operation callable. From your next step it is a tool named <package>_<operation>, " +
+        "Load Operation: makes one operation callable. From your next step it is a tool named <plugin>_<operation>, " +
         "with its full description and arguments, and it stays for the rest of the conversation. " +
         "Load each operation you need before calling it; you can load several at once.",
       schema: z.object({
-        package: z.string().describe("Package name"),
+        plugin: z.string().describe("Plugin name"),
         operation: z
           .string()
-          .describe("Operation name, as open_package lists it"),
+          .describe("Operation name, as open_plugin lists it"),
       }),
     },
   );
@@ -97,7 +97,7 @@ export function tools(catalog: Catalog): StructuredTool[] {
   const hasSkills = catalog.some(({ plugin }) => plugin.skills.length);
   if (!hasOperations && !hasSkills) return [];
   return [
-    openPackage(catalog, hasOperations),
+    openPlugin(catalog, hasOperations),
     ...(hasOperations ? [loadOperation(catalog)] : []),
   ];
 }

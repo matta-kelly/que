@@ -138,7 +138,7 @@ test("with result on, an operation that is not loaded does not go out, and read_
     { name: "long-chat" },
     [
       calling("load", "load_operation", {
-        package: "shop",
+        plugin: "shop",
         operation: "getOrder",
       }),
       calling("order", "shop_getOrder", { id: 1 }),
@@ -149,7 +149,7 @@ test("with result on, an operation that is not loaded does not go out, and read_
 
   const [first, second] = sent.map((request) => request.tools);
   for (const name of [
-    "open_package",
+    "open_plugin",
     "load_operation",
     "read_skill",
     "read_file",

@@ -15,7 +15,7 @@ const REST = [
   "",
   "Every operation is a tool.",
   "",
-  "## Packages",
+  "## Plugins",
   "",
   "### Shop (`shop`)",
   "The shop's order system.",
@@ -33,7 +33,7 @@ test("given instructions, the rest of the prompt is the same", () => {
   assert.equal(instructed, ["You help the sales team.", "", REST].join("\n"));
 });
 
-test("given instructions and no packages, the prompt opens with them and says there are no packages", () => {
+test("given instructions and no plugins, the prompt opens with them and says there are no plugins", () => {
   assert.equal(
     systemPrompt({
       catalog: [],
@@ -45,7 +45,7 @@ test("given instructions and no packages, the prompt opens with them and says th
       "",
       "## Your environment",
       "",
-      "The user has no packages connected, so there is nothing you can look up or do for them yet.",
+      "The user has no plugins connected, so there is nothing you can look up or do for them yet.",
     ].join("\n"),
   );
 });
@@ -75,7 +75,7 @@ test("given the user's instructions, You has them after the line that names the 
       "",
       "Every operation is a tool.",
       "",
-      "## Packages",
+      "## Plugins",
       "",
       "### Shop (`shop`)",
       "The shop's order system.",

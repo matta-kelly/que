@@ -23,20 +23,20 @@ test("says every operation is already a tool, and lists the skills by id", () =>
     systemPrompt(catalog),
     [
       ...HEAD,
-      "Everything you can do for the user comes from packages. A package is one service the user has connected. It holds:",
+      "Everything you can do for the user comes from plugins. A plugin is one service the user has connected. It holds:",
       "",
       "- operations: actions you can run in that service, each with a description and arguments",
       "- skills: written guides for tasks in that service",
       "",
-      "Every operation is already a tool, named `<package>_<operation>`. Call it.",
+      "Every operation is already a tool, named `<plugin>_<operation>`. Call it.",
       "",
       "Before a task a skill covers, read it with `read_skill`, by its id. The skills:",
       "",
       "- shop/refunds: Refunds. How to refund an order.",
       "",
-      "If no package covers a request, say so.",
+      "If no plugin covers a request, say so.",
       "",
-      "## Packages",
+      "## Plugins",
       "",
       "### Shop (`shop`)",
       "The shop's order system.",
@@ -45,13 +45,13 @@ test("says every operation is already a tool, and lists the skills by id", () =>
   );
 });
 
-test("for packages with skills and no operations, names no operation", () => {
+test("for plugins with skills and no operations, names no operation", () => {
   const prompt = systemPrompt(skillsOnly);
   assert.doesNotMatch(prompt, /operation/);
   assert.match(prompt, /- shop\/refunds: Refunds\. How to refund an order\./);
 });
 
-test("lists the skills of every package", () => {
+test("lists the skills of every plugin", () => {
   const prompt = systemPrompt(mixed);
   assert.match(prompt, /- shop\/refunds: Refunds\./);
   assert.match(
@@ -60,21 +60,21 @@ test("lists the skills of every package", () => {
   );
 });
 
-test("mentions read_skill only when a package has a skill", () => {
+test("mentions read_skill only when a plugin has a skill", () => {
   const noSkills = [
     { ...catalog[0], plugin: { ...catalog[0].plugin, skills: [] } },
   ];
   assert.doesNotMatch(systemPrompt(noSkills), /read_skill/);
 });
 
-test("for packages that hold nothing, says there is nothing to run or read", () => {
+test("for plugins that hold nothing, says there is nothing to run or read", () => {
   assert.equal(
     systemPrompt(identityOnly),
     [
       ...HEAD,
-      "The user's packages are listed below. They hold nothing to run or read: what each one says about itself is all there is.",
+      "The user's plugins are listed below. They hold nothing to run or read: what each one says about itself is all there is.",
       "",
-      "## Packages",
+      "## Plugins",
       "",
       "### Notes (`notes`)",
       "How the team writes things down.",

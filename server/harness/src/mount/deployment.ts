@@ -38,7 +38,7 @@ function pluginFolder(dir: string, listed: string): string {
     .find((folder) => existsSync(join(folder, "package.json")));
   if (!found)
     throw new Error(
-      `mount: deployment ${dir}: the package "${listed}" is not installed: no node_modules from this folder up holds it`,
+      `mount: deployment ${dir}: the plugin "${listed}" is not installed: no node_modules from this folder up holds an npm package of that name`,
     );
   return realpathSync(found);
 }
@@ -108,7 +108,7 @@ export async function mountDeployment(
     );
     if (unmounted.length)
       throw new Error(
-        `mount: deployment ${dir}: the agent "${agent.name}" names packages the deployment does not mount: ${unmounted.join(", ")}`,
+        `mount: deployment ${dir}: the agent "${agent.name}" names plugins the deployment does not mount: ${unmounted.join(", ")}`,
       );
   }
   // An agent names a loop and a model by name, and each has to be one the deployment lists.

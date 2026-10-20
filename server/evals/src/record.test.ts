@@ -9,11 +9,11 @@ test("the record of a thread has each call, each result and the answer, in order
       {
         from: "agent",
         text: "",
-        calls: [{ name: "open_package", args: { package: "shop" } }],
+        calls: [{ name: "open_plugin", args: { plugin: "shop" } }],
       },
       {
         from: "tool",
-        tool: "open_package",
+        tool: "open_plugin",
         text: "# Shop (`shop`)",
         calls: [],
       },
@@ -25,8 +25,8 @@ test("the record of a thread has each call, each result and the answer, in order
     ]),
     {
       steps: [
-        { kind: "call", name: "open_package", args: { package: "shop" } },
-        { kind: "result", name: "open_package", text: "# Shop (`shop`)" },
+        { kind: "call", name: "open_plugin", args: { plugin: "shop" } },
+        { kind: "result", name: "open_plugin", text: "# Shop (`shop`)" },
       ],
       answer: "I can find the shop's orders by customer name.",
     },

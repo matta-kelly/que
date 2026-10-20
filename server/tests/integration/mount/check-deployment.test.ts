@@ -65,9 +65,9 @@ for (const [typo, name, says] of [
     /nope\.ts holds no agent/,
   ],
   [
-    "a package an agent names that is not listed",
+    "a plugin an agent names that is not listed",
     "agent-names-unmounted",
-    /names packages the deployment does not mount: delta/,
+    /names plugins the deployment does not mount: delta/,
   ],
   [
     "a loop an agent names that is not listed",

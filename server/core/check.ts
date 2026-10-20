@@ -6,7 +6,7 @@
 import * as z from "zod";
 
 // What model APIs allow in a tool name. The harness names each tool
-// `<package>_<op>`, so the combined name must fit too.
+// `<plugin>_<op>`, so the combined name must fit too.
 export const NAME = /^[a-zA-Z0-9_-]{1,64}$/;
 
 /** Text that is not blank. The value is kept as written. */

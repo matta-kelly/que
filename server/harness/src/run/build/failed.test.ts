@@ -89,17 +89,17 @@ test("a call whose arguments fail the operation's schema is a failed call, with 
   assert.doesNotMatch(content, /node_modules|\bat .*:\d+:\d+/);
 });
 
-test("a call to a package, an operation or a skill that is not there is a failed call", async () => {
+test("a call to a plugin, an operation or a skill that is not there is a failed call", async () => {
   const failed = await results(onDemand, [
-    { name: "open_package", args: { package: "crm" } },
-    { name: "load_operation", args: { package: "shop", operation: "nope" } },
+    { name: "open_plugin", args: { plugin: "crm" } },
+    { name: "load_operation", args: { plugin: "shop", operation: "nope" } },
     { name: "read_skill", args: { id: "shop/nope" } },
   ]);
   assert.deepEqual(
     failed.map((m) => m.status),
     ["error", "error", "error"],
   );
-  assert.match(String(failed[0].content), /^Error: no package "crm"/);
+  assert.match(String(failed[0].content), /^Error: no plugin "crm"/);
   assert.match(String(failed[1].content), /^Error: no operation "nope"/);
   assert.match(String(failed[2].content), /^Error: no skill "shop\/nope"/);
 });

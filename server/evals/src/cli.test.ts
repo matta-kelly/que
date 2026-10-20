@@ -70,7 +70,7 @@ test("the command runs each case of a deployment under each of its agents, print
     assert.ok(out.includes("shop / find-order / find-order-by-customer\n"));
     assert.ok(out.includes("shop / find-order / find-order-not-asked\n"));
     assert.ok(
-      out.includes('  [chat]\n    call     open_package {"package":"shop"}\n'),
+      out.includes('  [chat]\n    call     open_plugin {"plugin":"shop"}\n'),
     );
     assert.ok(
       out.includes('  [lean]\n    error    no agent "nope". Agents: chat\n'),
@@ -269,7 +269,7 @@ test("with a judge set, the command prints a verdict under each run, and sends e
   // The run of each case is the same replay: it opens a plugin, then answers.
   const model = await provider((question) =>
     question.includes("No operation is called.")
-      ? "The agent called open_package.\nVERDICT: no"
+      ? "The agent called open_plugin.\nVERDICT: no"
       : "The answer says what the agent finds.\nVERDICT: yes",
   );
   try {
@@ -298,7 +298,7 @@ test("with a judge set, the command prints a verdict under each run, and sends e
     );
     assert.ok(
       out.includes(
-        "    answer   I can find the shop's orders by customer name.\n    verdict  fail  The agent called open_package.\n",
+        "    answer   I can find the shop's orders by customer name.\n    verdict  fail  The agent called open_plugin.\n",
       ),
     );
     assert.ok(
@@ -327,7 +327,7 @@ test("with a judge set, the command prints a verdict under each run, and sends e
           name: "good",
           dataType: "BOOLEAN",
           value: 0,
-          comment: "The agent called open_package.",
+          comment: "The agent called open_plugin.",
         },
       ],
     );

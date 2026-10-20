@@ -19,7 +19,7 @@ const OWN =
 
 const pluginList = (catalog: Catalog) =>
   [
-    "## Packages",
+    "## Plugins",
     ...catalog.map(({ plugin: { definition: plugin }, identity }) =>
       [
         `### ${plugin.title} (\`${plugin.name}\`)`,
@@ -55,7 +55,7 @@ export function systemPrompt({
     ...(catalog.length
       ? [environment(catalog), pluginList(catalog)]
       : [
-          "## Your environment\n\nThe user has no packages connected, so there is nothing you can look up or do for them yet.",
+          "## Your environment\n\nThe user has no plugins connected, so there is nothing you can look up or do for them yet.",
         ]),
   ].join("\n\n");
 }

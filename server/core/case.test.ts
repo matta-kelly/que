@@ -47,7 +47,7 @@ test("validateCases lists a case with an empty input, start or good, and one wit
         { ...asked, name: undefined, capability: undefined },
       ] as never),
     (error: Error) => {
-      assert.match(error.message, /cases of package notes are invalid/);
+      assert.match(error.message, /cases of plugin notes are invalid/);
       assert.match(error.message, /- 1\.name is missing/);
       assert.match(error.message, /- 1\.capability is missing/);
       assert.match(error.message, /- write-up-asked\.input is missing/);
@@ -73,13 +73,13 @@ test("validateCases lists a case with a field that is not one of the five, and o
   );
 });
 
-test("validateCases lists a case that names a capability its package does not have", () => {
+test("validateCases lists a case that names a capability its plugin does not have", () => {
   assert.throws(
     () =>
       validateCases(
         notes,
         defineCases([{ ...asked, capability: "summarize" }]),
       ),
-    /- write-up-asked\.capability names "summarize", which package notes does not have/,
+    /- write-up-asked\.capability names "summarize", which plugin notes does not have/,
   );
 });

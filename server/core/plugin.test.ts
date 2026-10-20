@@ -24,14 +24,14 @@ const search = {
   run: async () => [],
 };
 
-test("validatePlugin refuses a package with no definition", () => {
+test("validatePlugin refuses a plugin with no definition", () => {
   assert.throws(
     () => validatePlugin(undefined),
-    /package is invalid:\n- no definition \(default export\)/,
+    /plugin is invalid:\n- no definition \(default export\)/,
   );
 });
 
-test("validatePlugin lists a package with a bad name, no title and no description", () => {
+test("validatePlugin lists a plugin with a bad name, no title and no description", () => {
   assert.throws(
     () =>
       validatePlugin({
@@ -41,7 +41,7 @@ test("validatePlugin lists a package with a bad name, no title and no descriptio
         description: undefined,
       } as never),
     (error: Error) => {
-      assert.match(error.message, /package is invalid/);
+      assert.match(error.message, /plugin is invalid/);
       assert.match(error.message, /- name must match .*, got "no spaces"/);
       assert.match(error.message, /- title is missing/);
       assert.match(error.message, /- description is missing/);
@@ -50,7 +50,7 @@ test("validatePlugin lists a package with a bad name, no title and no descriptio
   );
   assert.throws(
     () => validatePlugin({ ...notes, name: "" }),
-    /package is invalid:\n- name is missing/,
+    /plugin is invalid:\n- name is missing/,
   );
 });
 
@@ -198,7 +198,7 @@ test("validatePlugin lists a capability with a bad name, no name or one of space
   );
 });
 
-test("validatePlugin takes a package that keeps the contract", () => {
+test("validatePlugin takes a plugin that keeps the contract", () => {
   validatePlugin(
     definePlugin({
       ...notes,

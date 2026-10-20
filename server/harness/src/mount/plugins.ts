@@ -1,6 +1,6 @@
 /**
- * Mount: read plugins at startup. Each folder it is given is a capability
- * plugin; mount reads its definition and skills and touches no credentials.
+ * Mount: read plugins at startup. Each folder it is given is a plugin;
+ * mount reads its definition and skills and touches no credentials.
  * A definition or a skill that breaks the contract (validatePlugin and
  * parseSkill in @que/core) fails mounting, and so does one whose npm
  * package's `@que/core` peer range que's own @que/core is outside.
@@ -90,7 +90,7 @@ export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
   for (const dir of dirs) {
     const index = join(dir, "index.ts");
     if (!existsSync(index))
-      throw new Error(`mount: ${dir} holds no package (no index.ts)`);
+      throw new Error(`mount: ${dir} holds no plugin (no index.ts)`);
     checkCore(dir);
     const definition = (
       (await import(pathToFileURL(index).href)) as {

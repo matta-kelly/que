@@ -3,11 +3,16 @@ import assert from "node:assert/strict";
 import { AIMessage, HumanMessage, ToolMessage } from "langchain";
 import { loadedOperations } from "./send.js";
 
-const load = (id: string, plugin: string, operation: string) =>
+const load = (
+  id: string,
+  plugin: string,
+  operation: string,
+  argument = "plugin",
+) =>
   new AIMessage({
     content: "",
     tool_calls: [
-      { id, name: "load_operation", args: { package: plugin, operation } },
+      { id, name: "load_operation", args: { [argument]: plugin, operation } },
     ],
   });
 const result = (id: string, content: string, status?: "error") =>
@@ -33,4 +38,12 @@ test("operations stay loaded for the rest of the chat", () => {
     "shop_findOrders",
     "shop_getOrder",
   ]);
+});
+
+test("an operation loaded in a chat from before the rename, with the argument package, stays loaded", () => {
+  const messages = [
+    load("1", "shop", "findOrders", "package"),
+    result("1", "Loaded."),
+  ];
+  assert.deepEqual([...loadedOperations(messages)], ["shop_findOrders"]);
 });
