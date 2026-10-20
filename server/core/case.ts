@@ -6,7 +6,7 @@
 
 import * as z from "zod";
 import { check, name, once, strict, text } from "./check.js";
-import type { PackageDefinition } from "./package-spec.js";
+import type { PackageDefinition } from "./plugin.js";
 
 export const Case = z.strictObject(
   {

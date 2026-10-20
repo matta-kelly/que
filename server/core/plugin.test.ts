@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePackage, validatePackage } from "./package-spec.js";
+import { definePackage, validatePackage } from "./plugin.js";
 
 const notes = definePackage({
   name: "notes",

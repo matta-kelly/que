@@ -1,6 +1,6 @@
 ---
 type: component
-description: "What an operation is in que, and what makes a good one: its tool card, how it answers, and what a write promises. Read before writing or reviewing an operation. The code is the `Operation` type in `package-spec.ts`."
+description: "What an operation is in que, and what makes a good one: its tool card, how it answers, and what a write promises. Read before writing or reviewing an operation. The code is the `Operation` type in `plugin.ts`."
 status: running
 ---
 An operation is one thing the model can do in a package. The harness turns each one into a tool, named `<package>_<operation>`.

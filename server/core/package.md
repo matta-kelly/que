@@ -1,6 +1,6 @@
 ---
 type: component
-description: "The package contract for que, in words: what a package is, what it gives the harness, and what it promises. Read before writing a package, or before changing what the harness reads from one. The code of the contract is `package-spec.ts`."
+description: "The package contract for que, in words: what a package is, what it gives the harness, and what it promises. Read before writing a package, or before changing what the harness reads from one. The code of the contract is `plugin.ts`."
 status: running
 ---
 A package is one concern, in one folder. It is everything an agent can get from that concern, said in a form the harness can read without knowing the domain.

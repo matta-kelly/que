@@ -12,21 +12,21 @@ const pkg = plugin.types.package;
 const model = defineType({
   name: "model",
   description:
-    "One model a deployment's agents can run on. `ModelDefinition` in model-spec.ts.",
+    "One model a deployment's agents can run on. `ModelDefinition` in model.ts.",
   fields: {},
 });
 
 const loop = defineType({
   name: "loop",
   description:
-    "One way an agent handles a chat as it grows. `LoopDefinition` in loop-spec.ts.",
+    "One way an agent handles a chat as it grows. `LoopDefinition` in loop.ts.",
   fields: {},
 });
 
 const agent = defineType({
   name: "agent",
   description:
-    "One way a deployment's packages are run. `AgentDefinition` in agent-spec.ts.",
+    "One way a deployment's packages are run. `AgentDefinition` in agent.ts.",
   fields: {
     // The packages an agent gets: `[]` is none. `AgentDefinition.packages`.
     // The spec needs the field, and a note can leave it out: basis has no link that is needed and can be empty.
@@ -41,7 +41,7 @@ const agent = defineType({
 const deployment = defineType({
   name: "deployment",
   description:
-    "The packages, agents, loops and models one deployment runs. `DeploymentDefinition` in deployment-spec.ts.",
+    "The packages, agents, loops and models one deployment runs. `DeploymentDefinition` in deployment.ts.",
   fields: {
     // The packages a deployment uses. `DeploymentDefinition.packages`.
     // The spec takes `[]`, and a note refuses it: basis has no link that is needed and can be empty.

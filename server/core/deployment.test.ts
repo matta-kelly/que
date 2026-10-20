@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateDeployment } from "./deployment-spec.js";
+import { validateDeployment } from "./deployment.js";
 
 test("validateDeployment names every problem in one error", () => {
   assert.throws(
