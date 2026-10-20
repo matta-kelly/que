@@ -69,7 +69,7 @@ export async function connectedPlugins(
   userId: string,
 ): Promise<Map<string, Date>> {
   return new Map(
-    (await store.list(userId)).map((r) => [r.package, r.updatedAt]),
+    (await store.list(userId)).map((r) => [r.plugin, r.updatedAt]),
   );
 }
 
