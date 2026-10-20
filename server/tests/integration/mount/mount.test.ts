@@ -10,6 +10,7 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -71,6 +72,57 @@ export default defineDeployment({
   );
   return dir;
 };
+
+// A plugin whose package.json names the @que/core it works with, as a peer.
+const needingCore = (range: string) => {
+  const dir = mkdtempSync(join(workspace, "needs-core-"));
+  cpSync(join(fixtures, "packages/beta"), dir, { recursive: true });
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({
+      name: "beta",
+      type: "module",
+      peerDependencies: { "@que/core": range },
+    }),
+  );
+  return dir;
+};
+
+// que's own @que/core, from the one place its version is written.
+const core = (
+  JSON.parse(
+    readFileSync(
+      join(import.meta.dirname, "../../../core/package.json"),
+      "utf8",
+    ),
+  ) as { version: string }
+).version;
+
+test("stops, naming the folder, the range and que's own version, when a plugin needs another @que/core", async () => {
+  const dir = needingCore("^9.0.0");
+  await assert.rejects(mountPlugins([dir]), (error: Error) => {
+    assert.ok(error.message.includes(dir));
+    assert.match(error.message, /@que\/core \^9\.0\.0/);
+    assert.ok(error.message.includes(`que's is ${core}`));
+    return true;
+  });
+});
+
+test("a plugin whose @que/core range que's own version satisfies is mounted", async () => {
+  assert.deepEqual(names(await mountPlugins([needingCore(`^${core}`)])), [
+    "beta",
+  ]);
+});
+
+test("stops, naming the file, when a plugin's package.json is not JSON", async () => {
+  const dir = needingCore("*");
+  writeFileSync(join(dir, "package.json"), '{ "type": "module", }');
+  await assert.rejects(mountPlugins([dir]), (error: Error) => {
+    assert.match(error.message, /^mount:/);
+    assert.ok(error.message.includes(join(dir, "package.json")));
+    return true;
+  });
+});
 
 test("a listed plugin can be the name of its npm package, found as Node finds an import from the deployment's folder", async () => {
   const { plugins } = await loadDeployment(byName(["beta"]));
