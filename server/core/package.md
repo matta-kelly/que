@@ -50,7 +50,7 @@ A package is one concern, in one folder. It is everything an agent can get from 
 
 ```
 <name>/
-├── index.ts            the definition, as the default export (definePackage)
+├── index.ts            the definition, as the default export (definePlugin)
 ├── client.ts           the connection, and fakeConn: the same connection with no network, for tests
 ├── schema.ts           the shapes its ops read and return
 ├── fixtures.ts         recorded rows the op tests share, when they share any
@@ -59,10 +59,10 @@ A package is one concern, in one folder. It is everything an agent can get from 
 │   └── <entity>.test.ts  their tests, against fakeConn
 ├── skills/<skill>/SKILL.md  one for each skill the definition names
 ├── cases.ts            the cases (defineCases), by capability
-└── index.test.ts       contract checks only: validatePackage, validateCases
+└── index.test.ts       contract checks only: validatePlugin, validateCases
 ```
 
 - three kinds of proof, one home each
-	- contract checks: the same for every package. As [[operation]] gains a rule that code can check, `validatePackage` checks it, and every package gets it
+	- contract checks: the same for every package. As [[operation]] gains a rule that code can check, `validatePlugin` checks it, and every package gets it
 	- op tests: one behaviour of one operation, named `<operation>: <behaviour>`, with no network. Each write operation has two more: the same call twice answers `unchanged`, and a value that is not allowed fails with the allowed ones
 	- cases: one behaviour of one capability, with the model, against the real service

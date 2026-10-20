@@ -1,11 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePackage, OperationFailed } from "@que/core";
+import { definePlugin, OperationFailed } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 import { operationTools, toolName } from "./operations.js";
 
-const shop = definePackage({
+const shop = definePlugin({
   name: "shop",
   title: "Shop",
   description: "The shop's order system.",

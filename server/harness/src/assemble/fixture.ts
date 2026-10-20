@@ -1,12 +1,12 @@
 import * as z from "zod";
-import { definePackage } from "@que/core";
+import { definePlugin } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 
 /** A catalog with one fake package, for the tests in this folder. */
 export const catalog: Catalog = [
   {
     pkg: {
-      definition: definePackage({
+      definition: definePlugin({
         name: "shop",
         title: "Shop",
         description: "The shop's order system.",
@@ -54,7 +54,7 @@ export const skillsOnly: Catalog = [
   },
 ];
 
-const notes = definePackage({
+const notes = definePlugin({
   name: "notes",
   title: "Notes",
   description: "How the team writes things down.",

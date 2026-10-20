@@ -12,11 +12,11 @@ import {
   validateCases,
   validateDeployment,
   validateModel,
-  validatePackage,
+  validatePlugin,
   type AgentDefinition,
   type Case,
   type ModelDefinition,
-  type PackageDefinition,
+  type PluginDefinition,
 } from "@que/core";
 
 export type LoadedCase = Case & { package: string };
@@ -30,8 +30,8 @@ const definitionIn = async (file: string): Promise<unknown> =>
 
 async function casesOf(dir: string): Promise<LoadedCase[]> {
   const definition = (await definitionIn(join(dir, "index.ts"))) as
-    PackageDefinition | undefined;
-  validatePackage(definition);
+    PluginDefinition | undefined;
+  validatePlugin(definition);
   const file = join(dir, "cases.ts");
   if (!existsSync(file)) return [];
   const cases = await definitionIn(file);

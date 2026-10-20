@@ -1,7 +1,7 @@
 /**
  * Mount: read packages at startup. Each folder it is given is a capability
  * package; mount reads its definition and skills and touches no credentials.
- * A definition or a skill that breaks the contract (validatePackage and
+ * A definition or a skill that breaks the contract (validatePlugin and
  * parseSkill in @que/core) fails mounting.
  */
 
@@ -12,17 +12,17 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   parseSkill,
-  validatePackage,
-  type PackageDefinition,
+  validatePlugin,
+  type PluginDefinition,
   type Skill,
 } from "@que/core";
 
-export type MountedPackage = { definition: PackageDefinition; skills: Skill[] };
+export type MountedPackage = { definition: PluginDefinition; skills: Skill[] };
 
 // Only the skills the definition lists: a folder it does not list is not read.
 async function readSkills(
   dir: string,
-  { name: pkg, skills }: PackageDefinition,
+  { name: pkg, skills }: PluginDefinition,
 ): Promise<Skill[]> {
   return Promise.all(
     skills.map(async (name) => {
@@ -56,11 +56,11 @@ export async function mountPackages(dirs: string[]): Promise<MountedPackage[]> {
       throw new Error(`mount: ${dir} holds no package (no index.ts)`);
     const definition = (
       (await import(pathToFileURL(index).href)) as {
-        default?: PackageDefinition;
+        default?: PluginDefinition;
       }
     ).default;
     try {
-      validatePackage(definition);
+      validatePlugin(definition);
     } catch (error) {
       throw new Error(`mount: ${dir}: ${(error as Error).message}`, {
         cause: error,

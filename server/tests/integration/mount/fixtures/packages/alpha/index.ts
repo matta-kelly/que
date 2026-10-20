@@ -1,6 +1,6 @@
-import { definePackage } from "@que/core";
+import { definePlugin } from "@que/core";
 
-export default definePackage({
+export default definePlugin({
   name: "alpha",
   title: "Alpha",
   description: "The first fixture package.",
