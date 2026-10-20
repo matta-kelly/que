@@ -25,8 +25,10 @@ export const isName = (value: unknown): value is string =>
 export const isCount = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value > 0;
 
-/** A name: text that model APIs allow in a tool name. */
-export const name = text.regex(NAME, `must match ${NAME}`);
+/** A name: text that model APIs allow in a tool name. A name that does not match says what it got, as the lead leaves it out. */
+export const name = text.regex(NAME, {
+  error: ({ input }) => `must match ${NAME}, got ${JSON.stringify(input)}`,
+});
 
 /** A value that is a function. Only that is checked: what it takes and gives is the type's to say. */
 export const fn = z
