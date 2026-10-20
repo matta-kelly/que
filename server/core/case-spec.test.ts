@@ -66,7 +66,7 @@ test("validateCases lists a case with a field that is not one of the five, and o
         { ...asked, name: "write-up-judged", good: () => true },
       ] as never),
     (error: Error) => {
-      assert.match(error.message, /- write-up-asked has a field "grader"/);
+      assert.match(error.message, /- write-up-asked has no field "grader"/);
       assert.match(error.message, /- write-up-judged\.good must be text/);
       return true;
     },

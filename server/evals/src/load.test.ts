@@ -74,7 +74,10 @@ test("loads the model configs of a deployment, as written, in order", async () =
 test("stops on an agent that leaves out its packages, so no run is planned under every package", async () => {
   await assert.rejects(load(deployment("packageless")), (error: Error) => {
     assert.match(error.message, /^eval:/);
-    assert.match(error.message, /packages of the agent is missing/);
+    assert.match(
+      error.message,
+      /agent packageless is invalid:\n- packages is missing/,
+    );
     return true;
   });
 });

@@ -20,7 +20,7 @@ const search = {
 test("validatePackage refuses a package with no definition", () => {
   assert.throws(
     () => validatePackage(undefined),
-    /package \(unnamed\) is invalid:\n- no definition \(default export\)/,
+    /package is invalid:\n- no definition \(default export\)/,
   );
 });
 
@@ -34,7 +34,7 @@ test("validatePackage lists a package with a bad name, no title and no descripti
         description: undefined,
       } as never),
     (error: Error) => {
-      assert.match(error.message, /package no spaces is invalid/);
+      assert.match(error.message, /package is invalid/);
       assert.match(error.message, /- name must match/);
       assert.match(error.message, /- title is missing/);
       assert.match(error.message, /- description is missing/);
@@ -43,7 +43,7 @@ test("validatePackage lists a package with a bad name, no title and no descripti
   );
   assert.throws(
     () => validatePackage({ ...notes, name: "" }),
-    /package \(unnamed\) is invalid:\n- name is missing/,
+    /package is invalid:\n- name is missing/,
   );
 });
 
