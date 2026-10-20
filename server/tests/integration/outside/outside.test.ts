@@ -13,7 +13,7 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadDeployment } from "../../../harness/src/mount/deployment.js";
-import { mountPackages } from "../../../harness/src/mount/packages.js";
+import { mountPlugins } from "../../../harness/src/mount/plugins.js";
 import { checkConfig } from "../../../harness/src/mount/supplied.js";
 
 const outside = mkdtempSync(join(tmpdir(), "que-outside-"));
@@ -21,7 +21,7 @@ cpSync(join(import.meta.dirname, "fixtures"), outside, { recursive: true });
 after(() => rmSync(outside, { recursive: true, force: true }));
 
 const mount = async (deployment: string) =>
-  mountPackages((await loadDeployment(join(outside, deployment))).packages);
+  mountPlugins((await loadDeployment(join(outside, deployment))).plugins);
 
 test("que mounts a deployment and its package from a folder outside que", async () => {
   const mounted = await mount("deployment");

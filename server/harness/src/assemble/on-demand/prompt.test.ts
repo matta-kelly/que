@@ -23,7 +23,9 @@ const prompt = systemPrompt({
 
 test("mentions read_skill only when a package has a skill", () => {
   assert.match(prompt, /read_skill/);
-  const noSkills = [{ ...catalog[0], pkg: { ...catalog[0].pkg, skills: [] } }];
+  const noSkills = [
+    { ...catalog[0], plugin: { ...catalog[0].plugin, skills: [] } },
+  ];
   assert.doesNotMatch(systemPrompt({ catalog: noSkills }), /read_skill/);
 });
 

@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { AIMessage, HumanMessage, ToolMessage } from "langchain";
 import { loadedOperations } from "./send.js";
 
-const load = (id: string, pkg: string, operation: string) =>
+const load = (id: string, plugin: string, operation: string) =>
   new AIMessage({
     content: "",
     tool_calls: [
-      { id, name: "load_operation", args: { package: pkg, operation } },
+      { id, name: "load_operation", args: { package: plugin, operation } },
     ],
   });
 const result = (id: string, content: string, status?: "error") =>

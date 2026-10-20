@@ -1,5 +1,5 @@
 /**
- * Mount, against real folders: the deployments and packages in fixtures/.
+ * Mount, against real folders: the deployments and plugins in fixtures/.
  * No network: mounting reads
  * definitions and skills and opens no connection.
  */
@@ -20,17 +20,17 @@ import { loadDeployment } from "../../../harness/src/mount/deployment.js";
 import * as fromDeployment from "../../../harness/src/mount/deployment.js";
 import type { FactSources } from "../../../harness/src/mount/model-facts/index.js";
 import {
-  mountPackages,
-  type MountedPackage,
-} from "../../../harness/src/mount/packages.js";
+  mountPlugins,
+  type MountedPlugin,
+} from "../../../harness/src/mount/plugins.js";
 
 const fixtures = join(import.meta.dirname, "fixtures");
 const deployment = (name: string) => join(fixtures, "deployments", name);
-const names = (mounted: MountedPackage[]) =>
+const names = (mounted: MountedPlugin[]) =>
   mounted.map((p) => p.definition.name);
 
 const mount = async (name: string) =>
-  mountPackages((await loadDeployment(deployment(name))).packages);
+  mountPlugins((await loadDeployment(deployment(name))).plugins);
 
 test("a listed folder can be an absolute path", async () => {
   assert.deepEqual(names(await mount("absolute")), ["beta"]);
@@ -54,7 +54,7 @@ symlinkSync(
   join(workspace, "packages/beta"),
   join(workspace, "node_modules/beta"),
 );
-const byName = (packages: string[]) => {
+const byName = (plugins: string[]) => {
   const dir = mkdtempSync(join(workspace, "deployment-"));
   const fixture = (path: string) => JSON.stringify(join(fixtures, path));
   writeFileSync(
@@ -62,7 +62,7 @@ const byName = (packages: string[]) => {
     `import { defineDeployment } from "@que/core";
 export default defineDeployment({
   name: "by-name",
-  plugins: ${JSON.stringify(packages)},
+  plugins: ${JSON.stringify(plugins)},
   agents: [${fixture("agents/bare.ts")}],
   loops: [${fixture("loops/long-chat.ts")}],
   models: [${fixture("models/small.ts")}],
@@ -72,9 +72,9 @@ export default defineDeployment({
   return dir;
 };
 
-test("a listed package can be a name, found as Node finds an import from the deployment's folder", async () => {
-  const { packages } = await loadDeployment(byName(["beta"]));
-  assert.deepEqual(names(await mountPackages(packages)), ["beta"]);
+test("a listed plugin can be the name of its npm package, found as Node finds an import from the deployment's folder", async () => {
+  const { plugins } = await loadDeployment(byName(["beta"]));
+  assert.deepEqual(names(await mountPlugins(plugins)), ["beta"]);
 });
 
 test("stops, naming the package and the deployment folder, when a listed name is not installed", async () => {

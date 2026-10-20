@@ -1,5 +1,5 @@
 /**
- * A config is one way of putting the user's packages in front of the agent.
+ * A config is one way of putting the user's plugins in front of the agent.
  * It declares only what differs from one way to the next; assemble adds what
  * every way shares.
  */

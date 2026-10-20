@@ -32,7 +32,7 @@ const refunds = {
   description: "How to refund an order.",
   body: "Refund steps.",
 };
-const catalog: Catalog = [{ pkg: { definition: shop, skills: [refunds] } }];
+const catalog: Catalog = [{ plugin: { definition: shop, skills: [refunds] } }];
 
 /** The tool results of one run, in which the model makes each call given, then answers. */
 async function results(

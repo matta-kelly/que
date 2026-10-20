@@ -1,10 +1,10 @@
 /**
- * Access: the packages of a catalog that the deployment's agent names. It can
- * only take packages out, so a package the user cannot reach stays out.
+ * Access: the plugins of a catalog that the deployment's agent names. It can
+ * only take plugins out, so a plugin the user cannot reach stays out.
  */
 
 import type { Catalog } from "./catalog.js";
 
 export function narrow(catalog: Catalog, names: string[]): Catalog {
-  return catalog.filter(({ pkg }) => names.includes(pkg.definition.name));
+  return catalog.filter(({ plugin }) => names.includes(plugin.definition.name));
 }

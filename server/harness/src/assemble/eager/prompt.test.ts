@@ -61,7 +61,9 @@ test("lists the skills of every package", () => {
 });
 
 test("mentions read_skill only when a package has a skill", () => {
-  const noSkills = [{ ...catalog[0], pkg: { ...catalog[0].pkg, skills: [] } }];
+  const noSkills = [
+    { ...catalog[0], plugin: { ...catalog[0].plugin, skills: [] } },
+  ];
   assert.doesNotMatch(systemPrompt(noSkills), /read_skill/);
 });
 

@@ -1,5 +1,5 @@
 /**
- * What a deployment has to run: its name, the cases of its packages, its
+ * What a deployment has to run: its name, the cases of its plugins, its
  * agent configs and its model configs. Read from the deployment's own files,
  * as mount reads them, and checked with the contract.
  */

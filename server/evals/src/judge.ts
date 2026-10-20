@@ -33,7 +33,7 @@ export function modelNamed(models: Model[], name: string): Model {
 const cut = (text: string) =>
   text.length > RESULT ? `${text.slice(0, RESULT)} (cut)` : text;
 
-/** The text sent to the model. No case and no package changes the words around the case and the run. */
+/** The text sent to the model. No case and no plugin changes the words around the case and the run. */
 export function question(c: LoadedCase, record: RunRecord): string {
   const steps = record.steps.map((step) =>
     step.kind === "call"

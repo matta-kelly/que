@@ -1,5 +1,5 @@
 /**
- * Skills: a package's written guides, read by id. Shared by every config,
+ * Skills: a plugin's written guides, read by id. Shared by every config,
  * since a skill is read the same way however the agent found it.
  */
 
@@ -16,7 +16,9 @@ export const skillLine = (s: Skill) =>
 
 function readSkill(catalog: Catalog): StructuredTool {
   const skills = new Map(
-    catalog.flatMap(({ pkg }) => pkg.skills.map((s) => [s.id, s] as const)),
+    catalog.flatMap(({ plugin }) =>
+      plugin.skills.map((s) => [s.id, s] as const),
+    ),
   );
   return tool(
     async ({ id }) => {
@@ -35,9 +37,9 @@ function readSkill(catalog: Catalog): StructuredTool {
   );
 }
 
-/** read_skill, or nothing when no package has a skill. */
+/** read_skill, or nothing when no plugin has a skill. */
 export function skillTools(catalog: Catalog): StructuredTool[] {
-  return catalog.some(({ pkg }) => pkg.skills.length)
+  return catalog.some(({ plugin }) => plugin.skills.length)
     ? [readSkill(catalog)]
     : [];
 }

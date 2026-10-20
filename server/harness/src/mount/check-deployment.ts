@@ -1,7 +1,7 @@
 /**
  * Mounts a deployment with no `.env` and no network, then prints the folder of
- * each package it lists, one per line. A deployment that would not mount stops
- * here, with mount's error. A package can sit outside the deployment's folder
+ * each plugin it lists, one per line. A deployment that would not mount stops
+ * here, with mount's error. A plugin can sit outside the deployment's folder
  * (a repo's own `packages/`), so `just check-deployment` asks for this list
  * rather than looking only inside the deployment.
  *
@@ -40,4 +40,4 @@ try {
   console.error((error as Error).message);
   process.exit(1);
 }
-for (const folder of (await loadDeployment(dir)).packages) console.log(folder);
+for (const folder of (await loadDeployment(dir)).plugins) console.log(folder);

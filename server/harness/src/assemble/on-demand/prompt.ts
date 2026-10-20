@@ -1,5 +1,5 @@
 /**
- * The on-demand environment text: what a package is, and how to open one and
+ * The on-demand environment text: what a plugin is, and how to open one and
  * load an operation from it.
  */
 
@@ -48,6 +48,6 @@ const environment = (hasOperations: boolean, hasSkills: boolean) =>
 
 export const prompt = (catalog: Catalog) =>
   environment(
-    catalog.some(({ pkg }) => pkg.definition.ops.length),
-    catalog.some(({ pkg }) => pkg.skills.length),
+    catalog.some(({ plugin }) => plugin.definition.ops.length),
+    catalog.some(({ plugin }) => plugin.skills.length),
   );

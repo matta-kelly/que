@@ -1,5 +1,5 @@
 /**
- * The eager environment text: what a package is, that each operation is
+ * The eager environment text: what a plugin is, that each operation is
  * already a tool, and the skills there are to read. With no open_package, the
  * prompt is where the agent finds a skill's id.
  */
@@ -8,8 +8,10 @@ import type { Catalog } from "../../access/catalog.js";
 import { READ_SKILL, skillLine } from "../skills.js";
 
 export const prompt = (catalog: Catalog) => {
-  const hasOperations = catalog.some(({ pkg }) => pkg.definition.ops.length);
-  const skills = catalog.flatMap(({ pkg }) => pkg.skills);
+  const hasOperations = catalog.some(
+    ({ plugin }) => plugin.definition.ops.length,
+  );
+  const skills = catalog.flatMap(({ plugin }) => plugin.skills);
   return [
     "## Your environment",
     ...(hasOperations || skills.length
