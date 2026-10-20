@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { experiments } from "./experiment.js";
 
 const byCustomer = {
-  package: "shop",
+  plugin: "shop",
   name: "find-order-by-customer",
   capability: "find-order",
   input: "Where is the order of Ada?",
@@ -11,7 +11,7 @@ const byCustomer = {
   good: "The answer gives the state of the order of Ada.",
 };
 const notAsked = {
-  package: "shop",
+  plugin: "shop",
   name: "find-order-not-asked",
   capability: "find-order",
   input: "What can you do?",
@@ -71,7 +71,7 @@ test("the dataset has the name of the deployment, and one item for each case", (
         input: "Where is the order of Ada?",
         expected: "The answer gives the state of the order of Ada.",
         metadata: {
-          package: "shop",
+          plugin: "shop",
           capability: "find-order",
           case: "find-order-by-customer",
           start: "Ada has one open order.",
@@ -82,7 +82,7 @@ test("the dataset has the name of the deployment, and one item for each case", (
         input: "What can you do?",
         expected: "No operation is called.",
         metadata: {
-          package: "shop",
+          plugin: "shop",
           capability: "find-order",
           case: "find-order-not-asked",
           start: "Any.",

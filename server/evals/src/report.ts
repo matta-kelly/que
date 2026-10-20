@@ -71,7 +71,7 @@ function passes(outcomes: Outcome[]): string[] {
 
 const heading = (c: LoadedCase) =>
   [
-    `${c.package} / ${c.capability} / ${c.name}`,
+    `${c.plugin} / ${c.capability} / ${c.name}`,
     `  input  ${c.input}`,
     `  start  ${c.start}`,
     `  good   ${c.good}`,

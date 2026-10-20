@@ -29,12 +29,12 @@ export function plan(
 
   return cases.flatMap((c) =>
     chosen.map((agent): Planned =>
-      agent.plugins.includes(c.package)
+      agent.plugins.includes(c.plugin)
         ? { case: c, agent: agent.name }
         : {
             case: c,
             agent: agent.name,
-            skipped: `${agent.name} does not have ${c.package}`,
+            skipped: `${agent.name} does not have ${c.plugin}`,
           },
     ),
   );

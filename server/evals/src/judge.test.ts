@@ -12,7 +12,7 @@ import { completion } from "../fixtures/provider-stand-in.js";
 import { judge, judged, question, verdictOf } from "./judge.js";
 
 const byCustomer = {
-  package: "shop",
+  plugin: "shop",
   name: "find-order-by-customer",
   capability: "find-order",
   input: "Where is the order of Ada?",
@@ -20,7 +20,7 @@ const byCustomer = {
   good: "The answer gives the state of the order of Ada.",
 };
 const notAsked = {
-  package: "shop",
+  plugin: "shop",
   name: "find-order-not-asked",
   capability: "find-order",
   input: "What can you do?",

@@ -19,7 +19,7 @@ import {
   type PluginDefinition,
 } from "@que/core";
 
-export type LoadedCase = Case & { package: string };
+export type LoadedCase = Case & { plugin: string };
 /** An agent config, as its file gives it. */
 export type Agent = AgentDefinition;
 /** A model config, as its file gives it. */
@@ -40,7 +40,7 @@ async function casesOf(dir: string): Promise<LoadedCase[]> {
       `cases of plugin ${definition.name}: no list of cases (default export)`,
     );
   validateCases(definition, cases as Case[]);
-  return (cases as Case[]).map((c) => ({ package: definition.name, ...c }));
+  return (cases as Case[]).map((c) => ({ plugin: definition.name, ...c }));
 }
 
 export async function load(folder: string): Promise<{

@@ -14,7 +14,7 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
       deployment: "shop",
       cases: [
         {
-          package: "shop",
+          plugin: "shop",
           name: "find-order-by-customer",
           capability: "find-order",
           input: "Where is the order of Ada?",
@@ -22,7 +22,7 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
           good: "The answer gives the state of the order of Ada.",
         },
         {
-          package: "shop",
+          plugin: "shop",
           name: "find-order-not-asked",
           capability: "find-order",
           input: "What can you do?",

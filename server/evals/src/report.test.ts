@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { report } from "./report.js";
 
 const byCustomer = {
-  package: "shop",
+  plugin: "shop",
   name: "find-order-by-customer",
   capability: "find-order",
   input: "Where is the order of Ada?",
@@ -12,7 +12,7 @@ const byCustomer = {
 };
 
 const notAsked = {
-  package: "shop",
+  plugin: "shop",
   name: "find-order-not-asked",
   capability: "find-order",
   input: "What can you do?",
