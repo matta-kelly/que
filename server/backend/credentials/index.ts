@@ -35,6 +35,7 @@ export type Queryable = {
  * One statement, so Postgres runs it in one transaction: the rename is done
  * whole or not at all. The lock makes two que processes that start together
  * do it one after the other, so the second finds it done.
+ * It looks for the table in current_schema(), where the store makes it.
  */
 export const SETUP = `
   DO $$
