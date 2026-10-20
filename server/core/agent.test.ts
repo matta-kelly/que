@@ -1,7 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LOADING, validateAgent } from "./agent.js";
-import { pluginsOf } from "./plugin.js";
 
 test("validateAgent rejects a model that is not a plain name, and says where a model goes for one written as provider:model", () => {
   for (const model of ["two words", 7, null])
@@ -174,13 +173,16 @@ test("validateAgent rejects an agent that names no model or no loop", () => {
   );
 });
 
-test("validateAgent takes packages, the old name of plugins, and refuses an agent that gives both", () => {
-  const chat = { name: "chat", model: "small", loop: "long-chat" };
-  validateAgent({ ...chat, packages: ["odoo"] });
-  assert.deepEqual(pluginsOf({ ...chat, packages: ["odoo"] }), ["odoo"]);
-  assert.deepEqual(pluginsOf({ ...chat, plugins: ["odoo"] }), ["odoo"]);
+test("validateAgent rejects the field packages, and says it is now plugins", () => {
   assert.throws(
-    () => validateAgent({ ...chat, plugins: ["odoo"], packages: ["odoo"] }),
-    /agent chat is invalid:\n- packages is the old name of plugins: give plugins only/,
+    () =>
+      validateAgent({
+        name: "chat",
+        plugins: [],
+        packages: ["odoo"],
+        model: "small",
+        loop: "long-chat",
+      }),
+    /agent chat is invalid:\n- the field "packages" is now named `plugins`/,
   );
 });

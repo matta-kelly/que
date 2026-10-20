@@ -30,7 +30,7 @@ MOVING TOWARD: https://agent-plugins.org/ really should just adopt this
 ## What it never knows
 
 - which agent uses it, or how it is shown to the model
-- any agent framework. It imports only `@que/core`, `@que/ontology`, `@que/core/ontology`, `zod` and `basis`, and the harness supplies them
+- any agent framework. It imports only `@que/core`, `@que/ontology`, `zod` and `basis`, and the harness supplies them
 - the test: if removing the folder needs a change to the harness, it was not a package
 
 ## Capabilities and cases

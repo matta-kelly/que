@@ -1,15 +1,14 @@
 /**
  * Mount: hand `@que/core` and `@que/ontology` to a folder outside que. A
  * plugin or a deployment there imports what que supplies (`supplied.ts`), or
- * another subpath of `@que/core`, by name. It has no copy of its own. An old
- * name (`RENAMED`) is found as the name it now stands for.
+ * another subpath of `@que/core`, by name. It has no copy of its own.
  * It gets que's copy, so an `OperationFailed` it throws is the one que knows.
  */
 
 import { registerHooks } from "node:module";
 import { join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { RENAMED, SUPPLIED } from "./supplied.js";
+import { SUPPLIED } from "./supplied.js";
 
 const HARNESS = join(import.meta.dirname, "../../..");
 
@@ -30,10 +29,7 @@ function isOutsideQue(parentURL: string | undefined): boolean {
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (isSupplied(specifier) && isOutsideQue(context.parentURL))
-      return nextResolve(RENAMED[specifier] ?? specifier, {
-        ...context,
-        parentURL: import.meta.url,
-      });
+      return nextResolve(specifier, { ...context, parentURL: import.meta.url });
     return nextResolve(specifier, context);
   },
 });

@@ -15,7 +15,6 @@ import { createRequire } from "node:module";
 import { isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  pluginsOf,
   validateDeployment,
   type AgentDefinition,
   type LoopDefinition,
@@ -65,7 +64,7 @@ export async function loadDeployment(dir: string): Promise<{
   }
   return {
     name: definition.name,
-    plugins: pluginsOf(definition).map((listed) => pluginFolder(dir, listed)),
+    plugins: definition.plugins.map((listed) => pluginFolder(dir, listed)),
     agents: definition.agents.map((file) => resolve(dir, file)),
     loops: definition.loops.map((file) => resolve(dir, file)),
     models: definition.models.map((file) => resolve(dir, file)),
@@ -103,9 +102,7 @@ export async function mountDeployment(
   const models = await mountModels(modelFiles, sources);
   const mounted = plugins.map((p) => p.definition.name);
   for (const agent of agents) {
-    const unmounted = pluginsOf(agent).filter(
-      (name) => !mounted.includes(name),
-    );
+    const unmounted = agent.plugins.filter((name) => !mounted.includes(name));
     if (unmounted.length)
       throw new Error(
         `mount: deployment ${dir}: the agent "${agent.name}" names plugins the deployment does not mount: ${unmounted.join(", ")}`,

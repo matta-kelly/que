@@ -17,7 +17,6 @@
  * and so does a file for the user's instructions that cannot be read.
  */
 
-import { pluginsOf } from "@que/core";
 import { chatModel } from "@que/models";
 import { assemble } from "../assemble/assemble.js";
 import { catalogFor } from "../access/catalog.js";
@@ -49,7 +48,7 @@ export async function buildAgent(
     users.get(userId).catch(() => undefined),
     catalogFor(userId),
   ]);
-  const catalog = narrow(reachable, pluginsOf(config));
+  const catalog = narrow(reachable, config.plugins);
   // A call with no user has no text of theirs.
   const own = user && (await userInstructions(userId)).text;
 

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
 import { base, linksOf } from "basis";
-import { harness, plugin, que } from "@que/ontology";
+import { harness, plugin } from "@que/ontology";
 
 type Name = keyof typeof plugin.types | keyof typeof harness.types;
 
@@ -57,15 +57,6 @@ test("@que/ontology gives the schemas plugin and harness, and harness imports pl
     "deployment",
   ]);
   assert.deepEqual(harness.imports, [plugin]);
-});
-
-test("que, deprecated, holds the nine types of plugin and harness, as the same objects", () => {
-  const nine = { ...plugin.types, ...harness.types };
-  assert.equal(que.name, "que");
-  assert.deepEqual(Object.keys(que.types), Object.keys(nine));
-  for (const [name, type] of Object.entries(que.types))
-    assert.equal(type, nine[name as Name], name);
-  assert.equal(typeof que.parse, "function");
 });
 
 test("importing @que/core does not load basis, and importing @que/ontology does", async () => {

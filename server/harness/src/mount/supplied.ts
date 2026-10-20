@@ -13,17 +13,8 @@ const SERVER = join(import.meta.dirname, "../../..");
 export const SUPPLIED: Record<string, string> = {
   "@que/core": "core/index.ts",
   "@que/ontology": "ontology/index.ts",
-  "@que/core/ontology": "ontology/index.ts",
   zod: "node_modules/zod",
   basis: "node_modules/basis/dist/index.d.ts",
-};
-
-/**
- * Old names que still supplies, each with the name it now stands for. They go
- * once cc imports the new names.
- */
-export const RENAMED: Record<string, string> = {
-  "@que/core/ontology": "@que/ontology",
 };
 
 /**

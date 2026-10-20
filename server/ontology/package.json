@@ -8,7 +8,7 @@
     ".": "./index.ts"
   },
   "dependencies": {
-    "basis": "github:matta-kelly/basis#v0.6.1",
+    "basis": "github:matta-kelly/basis#v0.7.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
