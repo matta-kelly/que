@@ -4,7 +4,7 @@
  *
  * Who: @que/identity says who's asking; @que/users gets or creates their row.
  * The user's id becomes `langgraph_auth_user_id` in every run's config, which
- * the agent uses to pick their packages and credentials.
+ * the agent uses to pick their plugins and credentials.
  *
  * What they can see: every thread/run/etc. is stamped with its owner, and
  * reads are filtered to the caller's own.

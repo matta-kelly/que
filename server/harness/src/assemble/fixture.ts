@@ -2,10 +2,10 @@ import * as z from "zod";
 import { definePlugin } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 
-/** A catalog with one fake package, for the tests in this folder. */
+/** A catalog with one fake plugin, for the tests in this folder. */
 export const catalog: Catalog = [
   {
-    pkg: {
+    plugin: {
       definition: definePlugin({
         name: "shop",
         title: "Shop",
@@ -44,12 +44,12 @@ export const catalog: Catalog = [
   },
 ];
 
-/** The same package with its operations taken out: skills alone. */
+/** The same plugin with its operations taken out: skills alone. */
 export const skillsOnly: Catalog = [
   {
-    pkg: {
-      ...catalog[0].pkg,
-      definition: { ...catalog[0].pkg.definition, ops: [] },
+    plugin: {
+      ...catalog[0].plugin,
+      definition: { ...catalog[0].plugin.definition, ops: [] },
     },
   },
 ];
@@ -61,11 +61,11 @@ const notes = definePlugin({
   ops: [],
 });
 
-/** One package with operations beside one with skills alone. */
+/** One plugin with operations beside one with skills alone. */
 export const mixed: Catalog = [
   catalog[0],
   {
-    pkg: {
+    plugin: {
       definition: notes,
       skills: [
         {
@@ -79,13 +79,13 @@ export const mixed: Catalog = [
   },
 ];
 
-/** A package that declares its identity and nothing else. */
+/** A plugin that declares its identity and nothing else. */
 export const identityOnly: Catalog = [
-  { pkg: { definition: notes, skills: [] } },
+  { plugin: { definition: notes, skills: [] } },
 ];
 
-/** A package that holds nothing, listed before one with operations and a skill. */
+/** A plugin that holds nothing, listed before one with operations and a skill. */
 export const besideNothing: Catalog = [
-  { pkg: { definition: notes, skills: [] } },
-  { pkg: catalog[0].pkg },
+  { plugin: { definition: notes, skills: [] } },
+  { plugin: catalog[0].plugin },
 ];

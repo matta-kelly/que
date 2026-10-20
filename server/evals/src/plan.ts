@@ -1,6 +1,6 @@
 /**
  * The runs to make: each case under each agent config, grouped by case. A
- * case is not run under a config that cannot reach its package: that run
+ * case is not run under a config that cannot reach its plugin: that run
  * would say nothing about the case.
  */
 

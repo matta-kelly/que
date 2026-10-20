@@ -266,7 +266,7 @@ test("the command stops before any run, and lists the models, when the judge is 
 test("with a judge set, the command prints a verdict under each run, and sends each as a score", async () => {
   const server = await replay();
   const langfuse = await standIn();
-  // The run of each case is the same replay: it opens a package, then answers.
+  // The run of each case is the same replay: it opens a plugin, then answers.
   const model = await provider((question) =>
     question.includes("No operation is called.")
       ? "The agent called open_package.\nVERDICT: no"

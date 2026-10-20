@@ -1,9 +1,9 @@
 /**
  * The system prompt every config shares: the role (or the instructions given
  * in its place), who the user is and what they ask of the agent, and the
- * packages this user can use. The config supplies the text about the
- * environment. Everything about a package comes from what the package says
- * about itself through the package spec.
+ * plugins this user can use. The config supplies the text about the
+ * environment. Everything about a plugin comes from what the plugin says
+ * about itself through the plugin contract.
  */
 
 import type { Catalog } from "../access/catalog.js";
@@ -17,16 +17,16 @@ const ROLE = `You are a helpful assistant.
 const OWN =
   "These are their own instructions for how you work with them. Follow them where they do not go against the instructions above.";
 
-const packages = (catalog: Catalog) =>
+const pluginList = (catalog: Catalog) =>
   [
     "## Packages",
-    ...catalog.map(({ pkg: { definition: pkg }, identity }) =>
+    ...catalog.map(({ plugin: { definition: plugin }, identity }) =>
       [
-        `### ${pkg.title} (\`${pkg.name}\`)`,
-        pkg.description,
+        `### ${plugin.title} (\`${plugin.name}\`)`,
+        plugin.description,
         ...(identity
           ? [
-              `You're connected as ${identity.name} (${pkg.title} user ${identity.id}); "me"/"mine" in ${pkg.title} means this user.`,
+              `You're connected as ${identity.name} (${plugin.title} user ${identity.id}); "me"/"mine" in ${plugin.title} means this user.`,
             ]
           : []),
       ].join("\n"),
@@ -53,7 +53,7 @@ export function systemPrompt({
         ]
       : []),
     ...(catalog.length
-      ? [environment(catalog), packages(catalog)]
+      ? [environment(catalog), pluginList(catalog)]
       : [
           "## Your environment\n\nThe user has no packages connected, so there is nothing you can look up or do for them yet.",
         ]),

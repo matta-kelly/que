@@ -40,7 +40,7 @@ export function assemble(
   }: {
     user?: { name: string; email: string; instructions?: string };
     catalog: Catalog;
-    connect: (pkg: PluginDefinition) => Promise<unknown>;
+    connect: (plugin: PluginDefinition) => Promise<unknown>;
     instructions?: string;
   },
 ) {

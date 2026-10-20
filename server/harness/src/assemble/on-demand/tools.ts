@@ -1,6 +1,6 @@
 /**
- * The on-demand tools: how the agent looks inside a package and brings an
- * operation into reach. They read any package through the package spec
+ * The on-demand tools: how the agent looks inside a plugin and brings an
+ * operation into reach. They read any plugin through the plugin contract
  * (@que/core) and know nothing about a specific one.
  */
 
@@ -18,19 +18,19 @@ export const LOAD_OPERATION = "load_operation";
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];
 
 const find = (catalog: Catalog, name: string) =>
-  catalog.find(({ pkg }) => pkg.definition.name === name)?.pkg;
+  catalog.find(({ plugin }) => plugin.definition.name === name)?.plugin;
 
-const noPackage = (catalog: Catalog, name: string) =>
+const noPlugin = (catalog: Catalog, name: string) =>
   new OperationFailed(
-    `no package "${name}". Packages: ${catalog.map(({ pkg }) => pkg.definition.name).join(", ")}`,
+    `no package "${name}". Packages: ${catalog.map(({ plugin }) => plugin.definition.name).join(", ")}`,
   );
 
 function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
   return tool(
     async ({ package: name }) => {
-      const pkg = find(catalog, name);
-      if (!pkg) throw noPackage(catalog, name);
-      const { definition, skills } = pkg;
+      const plugin = find(catalog, name);
+      if (!plugin) throw noPlugin(catalog, name);
+      const { definition, skills } = plugin;
       return [
         `# ${definition.title} (\`${definition.name}\`)`,
         definition.description,
@@ -62,9 +62,9 @@ function openPackage(catalog: Catalog, hasOperations: boolean): StructuredTool {
 function loadOperation(catalog: Catalog): StructuredTool {
   return tool(
     async ({ package: name, operation }) => {
-      const pkg = find(catalog, name);
-      if (!pkg) throw noPackage(catalog, name);
-      const ops = pkg.definition.ops.map((op) => op.name);
+      const plugin = find(catalog, name);
+      if (!plugin) throw noPlugin(catalog, name);
+      const ops = plugin.definition.ops.map((op) => op.name);
       if (!ops.length)
         throw new OperationFailed(`package "${name}" has no operations.`);
       if (!ops.includes(operation))
@@ -89,10 +89,12 @@ function loadOperation(catalog: Catalog): StructuredTool {
   );
 }
 
-/** The tools this config adds. None when no package holds an operation or a skill. */
+/** The tools this config adds. None when no plugin holds an operation or a skill. */
 export function tools(catalog: Catalog): StructuredTool[] {
-  const hasOperations = catalog.some(({ pkg }) => pkg.definition.ops.length);
-  const hasSkills = catalog.some(({ pkg }) => pkg.skills.length);
+  const hasOperations = catalog.some(
+    ({ plugin }) => plugin.definition.ops.length,
+  );
+  const hasSkills = catalog.some(({ plugin }) => plugin.skills.length);
   if (!hasOperations && !hasSkills) return [];
   return [
     openPackage(catalog, hasOperations),

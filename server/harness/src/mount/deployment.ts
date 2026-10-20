@@ -3,7 +3,7 @@
  * has its definition as the default export. A definition that breaks the
  * contract (validateDeployment in @que/core) fails mounting, and so does an
  * agent config or a loop config that breaks its own, and an agent config that
- * names a package the deployment does not mount, or a loop or a model it does
+ * names a plugin the deployment does not mount, or a loop or a model it does
  * not list. So does a model config that breaks its own or has no window or no
  * price from its file or a source, and a `MODEL` setting, which que no longer
  * reads.
@@ -26,11 +26,11 @@ import { mountLoops } from "./loops.js";
 import { factSources, type FactSources } from "./model-facts/index.js";
 import { mountModels } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
-import { mountPackages, type MountedPackage } from "./packages.js";
+import { mountPlugins, type MountedPlugin } from "./plugins.js";
 
-// A listed package is a folder path, or a name found as Node finds an import
+// A listed plugin is a folder path, or the name of its npm package, found as Node finds an import
 // from the deployment's folder: in the first `node_modules` up from it that has it.
-function packageFolder(dir: string, listed: string): string {
+function pluginFolder(dir: string, listed: string): string {
   if (isAbsolute(listed) || listed.startsWith(".")) return resolve(dir, listed);
   const lookup = createRequire(join(dir, "index.ts")).resolve.paths(listed);
   const found = lookup
@@ -45,7 +45,7 @@ function packageFolder(dir: string, listed: string): string {
 
 export async function loadDeployment(dir: string): Promise<{
   name: string;
-  packages: string[];
+  plugins: string[];
   agents: string[];
   loops: string[];
   models: string[];
@@ -65,7 +65,7 @@ export async function loadDeployment(dir: string): Promise<{
   }
   return {
     name: definition.name,
-    packages: pluginsOf(definition).map((listed) => packageFolder(dir, listed)),
+    plugins: pluginsOf(definition).map((listed) => pluginFolder(dir, listed)),
     agents: definition.agents.map((file) => resolve(dir, file)),
     loops: definition.loops.map((file) => resolve(dir, file)),
     models: definition.models.map((file) => resolve(dir, file)),
@@ -82,7 +82,7 @@ export async function mountDeployment(
   // Where a model's window and price come from when its file writes none. A test hands in its own.
   sources: FactSources = factSources(dir, env),
 ): Promise<{
-  packages: MountedPackage[];
+  plugins: MountedPlugin[];
   agents: AgentDefinition[];
   loops: LoopDefinition[];
   models: MountedModel[];
@@ -92,16 +92,16 @@ export async function mountDeployment(
       "mount: MODEL is set, and que no longer reads it: a model is a file of its own, listed in `models` in the deployment",
     );
   const {
-    packages: folders,
+    plugins: folders,
     agents: files,
     loops: loopFiles,
     models: modelFiles,
   } = await loadDeployment(dir);
-  const packages = await mountPackages(folders);
+  const plugins = await mountPlugins(folders);
   const agents = await mountAgents(files);
   const loops = await mountLoops(loopFiles);
   const models = await mountModels(modelFiles, sources);
-  const mounted = packages.map((p) => p.definition.name);
+  const mounted = plugins.map((p) => p.definition.name);
   for (const agent of agents) {
     const unmounted = pluginsOf(agent).filter(
       (name) => !mounted.includes(name),
@@ -125,7 +125,7 @@ export async function mountDeployment(
         );
     }
   }
-  return { packages, agents, loops, models };
+  return { plugins, agents, loops, models };
 }
 
 export async function mountFromEnv(env: {
@@ -133,6 +133,6 @@ export async function mountFromEnv(env: {
   MODEL?: string;
   FIREWORKS_API_KEY?: string;
   BEAM_API_KEY?: string;
-}): Promise<MountedPackage[]> {
-  return (await mountDeployment(deploymentFolder(env), env)).packages;
+}): Promise<MountedPlugin[]> {
+  return (await mountDeployment(deploymentFolder(env), env)).plugins;
 }

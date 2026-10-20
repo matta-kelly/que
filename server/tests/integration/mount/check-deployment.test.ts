@@ -2,7 +2,7 @@
  * The mount step of `just check-deployment`: the script it runs first, run as
  * the recipe runs it, against the deployments in fixtures/. A deployment that
  * would not mount fails it with mount's own error; one that mounts passes, and
- * the script prints the folder of each package it lists. No network: the
+ * the script prints the folder of each plugin it lists. No network: the
  * fixtures are copied to the system's temp folder, so that a test can give a
  * deployment its own saved copy of facts.
  */
@@ -57,7 +57,7 @@ test("a deployment that mounts passes, and the folder of each package it lists i
   ]);
 });
 
-// The typos of matta-kelly/que#102 (a path, a package, a loop), and a model, each in a fixture of its own.
+// The typos of matta-kelly/que#102 (a path, a plugin, a loop), and a model, each in a fixture of its own.
 for (const [typo, name, says] of [
   [
     "a config path that holds no file",

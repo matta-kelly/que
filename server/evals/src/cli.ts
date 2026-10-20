@@ -1,5 +1,5 @@
 /**
- * The eval runner: run each case of a deployment's packages against a running
+ * The eval runner: run each case of a deployment's plugins against a running
  * que, under each of its agent configs, and print what the agent did.
  *
  *   tsx src/cli.ts <deployment folder> [--agent <name>]...

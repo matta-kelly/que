@@ -2,13 +2,13 @@
  * LangChain Agent Graph
  *
  * Chat factory: buildAgent(userId, name, model) assembles an agent for one user from
- * the packages they have access to, as one of the deployment's agent configs
- * says: which of those packages, the model, the instructions, how the
- * packages are put in front of the model, the loop it runs in, and if it
+ * the plugins they have access to, as one of the deployment's agent configs
+ * says: which of those plugins, the model, the instructions, how the
+ * plugins are put in front of the model, the loop it runs in, and if it
  * takes the user's own instructions. The loop
  * says which settings act on the agent. The model is the one the run names,
  * then the config's. The config is the one the run names,
- * or the first the deployment lists. Packages the user can't use are never
+ * or the first the deployment lists. Plugins the user can't use are never
  * loaded. The user is fixed when the agent is built, so every tool call runs
  * as them.
  *
@@ -56,7 +56,7 @@ export async function buildAgent(
   const parts = assemble(loadingFor(config), {
     user: user && { ...user, instructions: taken(config, own) },
     catalog,
-    connect: (pkg) => getConnection(pkg, userId),
+    connect: (plugin) => getConnection(plugin, userId),
     instructions: config.instructions,
   });
   return build(loopFor(mounted.loops, config), {
@@ -73,7 +73,7 @@ export async function buildAgent(
 // whatever they have connected right now, under the agent config the run
 // names (`agent`, sent in the run's configurable), on the model the run names
 // (`model`, sent the same way). Calls without a user (e.g.
-// fetching the graph schema) get no packages. The server says what each call
+// fetching the graph schema) get no plugins. The server says what each call
 // is for in its second argument, and only a run is traced.
 export const agent = async (
   config?: { configurable?: Record<string, unknown> },

@@ -23,9 +23,12 @@ const shop = definePlugin({
     },
   ],
 });
-const catalog: Catalog = [{ pkg: { definition: shop, skills: [] } }];
+const catalog: Catalog = [{ plugin: { definition: shop, skills: [] } }];
 
-const [getOrder] = operationTools(catalog, async (pkg) => `conn:${pkg.name}`);
+const [getOrder] = operationTools(
+  catalog,
+  async (plugin) => `conn:${plugin.name}`,
+);
 
 test("an operation becomes a tool named <package>_<operation>, with its own title, description and arguments", () => {
   assert.equal(getOrder.name, toolName("shop", "getOrder"));

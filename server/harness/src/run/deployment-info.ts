@@ -1,7 +1,7 @@
 /**
  * What a deployment lists, for the one that picks: its agents and its models,
  * by name. Nothing here is a secret or a prompt: no provider id, no
- * instructions, no package names.
+ * instructions, no plugin names.
  */
 
 import type {

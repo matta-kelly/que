@@ -1,4 +1,4 @@
-// Breaks the contract on purpose: packages must be a list.
+// Breaks the contract on purpose: plugins must be a list.
 export default {
   name: "broken",
   plugins: "../../packages/alpha",

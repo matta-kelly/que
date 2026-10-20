@@ -16,7 +16,7 @@ import { identify } from "@que/identity";
 import { buildAgent } from "./agent.js";
 import { users } from "../access/users.js";
 
-// Chat init: who this chat is for, then an agent with only their packages.
+// Chat init: who this chat is for, then an agent with only their plugins.
 const identity = await identify(new Headers());
 if (!identity) throw new Error("No identity: set DEV_USER_EMAIL in .env");
 const userId = (await users.ensure(identity)).id;

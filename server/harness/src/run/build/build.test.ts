@@ -130,8 +130,8 @@ test("with result on, an operation that is not loaded does not go out, and read_
   const connected: string[] = [];
   const { tools, middleware } = assemble(onDemand, {
     catalog,
-    connect: async (pkg) => {
-      connected.push(pkg.name);
+    connect: async (plugin) => {
+      connected.push(plugin.name);
     },
   });
   const { sent, result } = await run(

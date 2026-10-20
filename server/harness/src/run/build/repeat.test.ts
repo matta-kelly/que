@@ -32,7 +32,7 @@ const shop = definePlugin({
     },
   ],
 });
-const catalog: Catalog = [{ pkg: { definition: shop, skills: [] } }];
+const catalog: Catalog = [{ plugin: { definition: shop, skills: [] } }];
 
 const failing = { id: -1 };
 

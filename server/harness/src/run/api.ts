@@ -1,6 +1,6 @@
 /**
  * Connections API, served by the LangGraph server alongside the agent
- * (langgraph.json → http.app). Lists packages that need a credential and
+ * (langgraph.json → http.app). Lists plugins that need a credential and
  * whether the user has connected them; saves and removes credentials.
  * Credential values are never returned.
  *
@@ -11,9 +11,9 @@
 
 import { Hono, type Context } from "hono";
 import { OperationFailed } from "@que/core";
-import { agents, loops, models, packages } from "../mount/mounted.js";
+import { agents, loops, models, plugins } from "../mount/mounted.js";
 import {
-  connectedPackages,
+  connectedPlugins,
   removeCredential,
   setCredential,
 } from "../access/connections.js";
@@ -27,32 +27,32 @@ export const app = new Hono();
 const userIdOf = (c: Context) =>
   (c.get("auth" as never) as { user: { identity: string } }).user.identity;
 const find = (name: string) =>
-  packages.find((p) => p.definition.name === name)?.definition;
+  plugins.find((p) => p.definition.name === name)?.definition;
 const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
-  const connected = await connectedPackages(userIdOf(c));
+  const connected = await connectedPlugins(userIdOf(c));
   return c.json(
-    packages
+    plugins
       .filter((p) => p.definition.credential)
-      .map(({ definition: pkg }) => ({
-        name: pkg.name,
-        title: pkg.title,
-        description: pkg.description,
-        fields: Object.keys(pkg.credential!.shape).map((name) => ({
+      .map(({ definition: plugin }) => ({
+        name: plugin.name,
+        title: plugin.title,
+        description: plugin.description,
+        fields: Object.keys(plugin.credential!.shape).map((name) => ({
           name,
           secret: isSecret(name),
         })),
-        connectedAt: connected.get(pkg.name) ?? null,
+        connectedAt: connected.get(plugin.name) ?? null,
       })),
   );
 });
 
 app.put("/que/connections/:package", async (c) => {
-  const pkg = find(c.req.param("package"));
-  if (!pkg) return c.json({ error: "unknown package" }, 404);
+  const plugin = find(c.req.param("package"));
+  if (!plugin) return c.json({ error: "unknown package" }, 404);
   try {
-    await setCredential(pkg, userIdOf(c), (await c.req.json()).values);
+    await setCredential(plugin, userIdOf(c), (await c.req.json()).values);
   } catch (error) {
     if (error instanceof OperationFailed)
       return c.json({ error: error.message }, 400);
@@ -62,9 +62,9 @@ app.put("/que/connections/:package", async (c) => {
 });
 
 app.delete("/que/connections/:package", async (c) => {
-  const pkg = find(c.req.param("package"));
-  if (!pkg) return c.json({ error: "unknown package" }, 404);
-  await removeCredential(pkg, userIdOf(c));
+  const plugin = find(c.req.param("package"));
+  if (!plugin) return c.json({ error: "unknown package" }, 404);
+  await removeCredential(plugin, userIdOf(c));
   return c.json({ ok: true });
 });
 

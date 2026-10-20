@@ -1,5 +1,5 @@
 /**
- * Mount: hand `@que/core` to a folder outside que. A package or a deployment
+ * Mount: hand `@que/core` to a folder outside que. A plugin or a deployment
  * there imports what que supplies (`supplied.ts`), or another subpath of
  * `@que/core`, by name. It has no copy of its own.
  * It gets que's copy, so an `OperationFailed` it throws is the one que knows.
