@@ -9,7 +9,7 @@ import type {
   LoopDefinition,
   ModelDefinition,
   Operation,
-  PackageDefinition,
+  PluginDefinition,
   Skill,
 } from "@que/core";
 import { harness, plugin } from "@que/core/ontology";
@@ -30,7 +30,7 @@ type Fields<Spec> = Record<keyof Spec, Target>;
  * added to a spec, or a type added to the ontology, fails the type check until it is put here as a link or not.
  */
 const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
-  package: {
+  plugin: {
     name: null,
     title: null,
     description: null,
@@ -40,7 +40,7 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
     ops: "op",
     skills: "skill",
     capabilities: "capability",
-  } satisfies Fields<PackageDefinition>,
+  } satisfies Fields<PluginDefinition>,
   op: {
     name: null,
     title: null,
@@ -68,7 +68,7 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
   } satisfies Fields<Case>,
   agent: {
     name: null,
-    packages: "package",
+    packages: "plugin",
     model: "model",
     instructions: null,
     loading: null,
@@ -92,7 +92,7 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
   } satisfies Fields<LoopDefinition>,
   deployment: {
     name: null,
-    packages: "package",
+    packages: "plugin",
     agents: "agent",
     loops: "loop",
     models: "model",

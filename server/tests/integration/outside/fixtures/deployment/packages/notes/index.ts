@@ -1,9 +1,9 @@
 import * as z from "zod";
 import { Name } from "basis";
-import { definePackage, OperationFailed } from "@que/core";
+import { definePlugin, OperationFailed } from "@que/core";
 import { plugin } from "@que/core/ontology";
 
-export default definePackage({
+export default definePlugin({
   name: "notes",
   title: "Notes",
   description: "A package that sits in its deployment's folder, outside que.",

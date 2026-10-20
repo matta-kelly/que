@@ -2,14 +2,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIMessage, HumanMessage, ToolMessage, fakeModel } from "langchain";
 import * as z from "zod";
-import { definePackage, OperationFailed, resolveLoop } from "@que/core";
+import { definePlugin, OperationFailed, resolveLoop } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
 import { build } from "./build.js";
 import { assemble } from "../../assemble/assemble.js";
 import { eager } from "../../assemble/eager/index.js";
 import { onDemand } from "../../assemble/on-demand/index.js";
 
-const shop = definePackage({
+const shop = definePlugin({
   name: "shop",
   title: "Shop",
   description: "The shop's order system.",

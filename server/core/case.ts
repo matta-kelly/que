@@ -1,17 +1,17 @@
 /**
  * What a case is: one behaviour of one capability, written down so it can be
- * checked. A case is data about a package. No agent is given one, so the
+ * checked. A case is data about a plugin. No agent is given one, so the
  * harness reads none.
  */
 
 import * as z from "zod";
 import { check, name, once, strict, text } from "./check.js";
-import type { PackageDefinition } from "./plugin.js";
+import type { PluginDefinition } from "./plugin.js";
 
 export const Case = z.strictObject(
   {
     name,
-    /** The capability of its package that this case is about. */
+    /** The capability of its plugin that this case is about. */
     capability: text,
     /** What the user says. */
     input: text,
@@ -30,12 +30,12 @@ export function defineCases(cases: Case[]): Case[] {
 }
 
 /**
- * Check the cases of a package against the contract, throwing one error that
- * lists every problem. A package's own test calls this, as it calls
- * `validatePackage`.
+ * Check the cases of a plugin against the contract, throwing one error that
+ * lists every problem. A plugin's own test calls this, as it calls
+ * `validatePlugin`.
  */
 export function validateCases(
-  definition: PackageDefinition,
+  definition: PluginDefinition,
   cases: Case[],
 ): void {
   const capabilities = new Set(definition.capabilities.map((c) => c.name));

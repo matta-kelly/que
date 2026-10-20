@@ -7,7 +7,7 @@
 import { defineSchema, defineType, many, manyOrNone, one } from "basis";
 import { plugin } from "./plugin.js";
 
-const pkg = plugin.types.package;
+const pluginType = plugin.types.plugin;
 
 const model = defineType({
   name: "model",
@@ -30,7 +30,7 @@ const agent = defineType({
   fields: {
     // The packages an agent gets: `[]` is none. `AgentDefinition.packages`.
     // The spec needs the field, and a note can leave it out: basis has no link that is needed and can be empty.
-    packages: manyOrNone(() => pkg),
+    packages: manyOrNone(() => pluginType),
     // The model an agent runs on. `AgentDefinition.model`.
     model: one(() => model),
     // The loop an agent runs in. `AgentDefinition.loop`.
@@ -45,7 +45,7 @@ const deployment = defineType({
   fields: {
     // The packages a deployment uses. `DeploymentDefinition.packages`.
     // The spec takes `[]`, and a note refuses it: basis has no link that is needed and can be empty.
-    packages: many(() => pkg),
+    packages: many(() => pluginType),
     // The agents a deployment can run: at least one, since que has no agent of its own. `DeploymentDefinition.agents`.
     agents: many(() => agent),
     // The loops a deployment lists: at least one, since que has no loop of its own. `DeploymentDefinition.loops`.

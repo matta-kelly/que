@@ -4,15 +4,15 @@
  */
 
 import { tool, type StructuredTool } from "langchain";
-import type { PackageDefinition } from "@que/core";
+import type { PluginDefinition } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 
-// Model APIs only allow [a-zA-Z0-9_-] in tool names (validatePackage enforces it).
+// Model APIs only allow [a-zA-Z0-9_-] in tool names (validatePlugin enforces it).
 export const toolName = (pkg: string, op: string) => `${pkg}_${op}`;
 
 export function operationTools(
   catalog: Catalog,
-  connect: (pkg: PackageDefinition) => Promise<unknown>,
+  connect: (pkg: PluginDefinition) => Promise<unknown>,
 ): StructuredTool[] {
   return catalog.flatMap(({ pkg: { definition: pkg } }) =>
     pkg.ops.map((op) =>

@@ -1,5 +1,5 @@
 /**
- * The shared contract every package is written against. Framework-free:
+ * The shared contract every plugin is written against. Framework-free:
  * the harness turns definitions into its own tools and prompt.
  */
 
@@ -8,12 +8,12 @@ import { check, fn, name, named, once, text } from "./check.js";
 
 export { NAME } from "./check.js";
 
-/** The one failure type. Anything a package throws that isn't this is a bug. */
+/** The one failure type. Anything a plugin throws that isn't this is a bug. */
 export class OperationFailed extends Error {
   override name = "OperationFailed";
 }
 
-/** One operation a package exposes. Becomes a tool. */
+/** One operation a plugin exposes. Becomes a tool. */
 export const Operation = z.object({
   name,
   title: text,
@@ -43,7 +43,7 @@ export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = Omit<
   run(ctx: { conn: Conn }, params: z.infer<S>): Promise<unknown>;
 };
 
-/** One outcome a package gives. Its cases name it. */
+/** One outcome a plugin gives. Its cases name it. */
 export const Capability = z.object({
   name,
   title: text,
@@ -60,12 +60,12 @@ export type ServiceIdentity = {
 };
 
 /**
- * What `definePackage` returns, and a package exports as its default.
- * Packages that talk to a service declare the credential they need (a zod
- * object) and how to turn it into a connection; self-contained packages leave
+ * What `definePlugin` returns, and a plugin exports as its default.
+ * Plugins that talk to a service declare the credential they need (a zod
+ * object) and how to turn it into a connection; self-contained plugins leave
  * both out.
  */
-export const PackageDefinition = z
+export const PluginDefinition = z
   .object(
     {
       name,
@@ -83,7 +83,7 @@ export const PackageDefinition = z
       ops: z
         .array(Operation, { error: "must be an array" })
         .superRefine(once((op) => op.name)),
-      /** The names of its skills. Each one is a `skills/<name>/SKILL.md` in the package folder. */
+      /** The names of its skills. Each one is a `skills/<name>/SKILL.md` in the plugin folder. */
       skills: z
         .array(name, { error: "must be an array" })
         .superRefine(once((skill) => skill)),
@@ -105,11 +105,11 @@ export const PackageDefinition = z
     }),
   );
 
-export type PackageDefinition<
+export type PluginDefinition<
   S extends z.ZodObject = z.ZodObject,
   Conn = unknown,
 > = Omit<
-  z.infer<typeof PackageDefinition>,
+  z.infer<typeof PluginDefinition>,
   "credential" | "connect" | "whoami" | "ops"
 > & {
   credential?: S;
@@ -122,10 +122,10 @@ export type PackageDefinition<
 
 type Listed = "ops" | "skills" | "capabilities";
 
-export function definePackage<S extends z.ZodObject, Conn>(
-  definition: Omit<PackageDefinition<S, Conn>, Listed> &
-    Partial<Pick<PackageDefinition<S, Conn>, Listed>>,
-): PackageDefinition<S, Conn> {
+export function definePlugin<S extends z.ZodObject, Conn>(
+  definition: Omit<PluginDefinition<S, Conn>, Listed> &
+    Partial<Pick<PluginDefinition<S, Conn>, Listed>>,
+): PluginDefinition<S, Conn> {
   return {
     ...definition,
     ops: definition.ops ?? [],
@@ -136,11 +136,25 @@ export function definePackage<S extends z.ZodObject, Conn>(
 
 /**
  * Check a definition against the contract, throwing one error that lists
- * every problem. Types can't catch these: a package is loaded at runtime, and
+ * every problem. Types can't catch these: a plugin is loaded at runtime, and
  * names, titles and descriptions are what the model reads.
  */
-export function validatePackage(
-  def: PackageDefinition | undefined,
-): asserts def is PackageDefinition {
-  check(PackageDefinition, def, `package${named(def)} is invalid`);
+export function validatePlugin(
+  def: PluginDefinition | undefined,
+): asserts def is PluginDefinition {
+  check(PluginDefinition, def, `package${named(def)} is invalid`);
 }
+
+// The old names, from before "package" was "plugin". They go once cc uses the new ones.
+
+/** @deprecated The old name of `PluginDefinition`. */
+export const PackageDefinition = PluginDefinition;
+/** @deprecated The old name of `PluginDefinition`. */
+export type PackageDefinition<
+  S extends z.ZodObject = z.ZodObject,
+  Conn = unknown,
+> = PluginDefinition<S, Conn>;
+/** @deprecated The old name of `definePlugin`. */
+export const definePackage = definePlugin;
+/** @deprecated The old name of `validatePlugin`. */
+export const validatePackage: typeof validatePlugin = validatePlugin;

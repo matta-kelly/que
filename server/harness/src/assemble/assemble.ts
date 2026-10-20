@@ -10,7 +10,7 @@ import {
   createMiddleware,
   toolErrorMiddleware,
 } from "langchain";
-import { OperationFailed, type PackageDefinition } from "@que/core";
+import { OperationFailed, type PluginDefinition } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
 import { operationTools } from "./operations.js";
@@ -40,7 +40,7 @@ export function assemble(
   }: {
     user?: { name: string; email: string; instructions?: string };
     catalog: Catalog;
-    connect: (pkg: PackageDefinition) => Promise<unknown>;
+    connect: (pkg: PluginDefinition) => Promise<unknown>;
     instructions?: string;
   },
 ) {

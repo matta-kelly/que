@@ -1,6 +1,6 @@
-import { definePackage } from "@que/core";
+import { definePlugin } from "@que/core";
 
-export default definePackage({
+export default definePlugin({
   name: "untitled-skill",
   title: "Untitled Skill",
   description: "A sound package, with one skill that has no title.",

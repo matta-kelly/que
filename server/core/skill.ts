@@ -1,5 +1,5 @@
 /**
- * What a skill is: the text part of a package. Each one is a `SKILL.md`, and
+ * What a skill is: the text part of a plugin. Each one is a `SKILL.md`, and
  * the harness reads the file and hands its text here.
  */
 

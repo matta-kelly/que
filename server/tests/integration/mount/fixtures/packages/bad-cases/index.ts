@@ -1,6 +1,6 @@
-import { definePackage } from "@que/core";
+import { definePlugin } from "@que/core";
 
-export default definePackage({
+export default definePlugin({
   name: "bad-cases",
   title: "Bad Cases",
   description:

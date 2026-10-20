@@ -43,7 +43,7 @@ const basisLoadedBy = (specifier: string) =>
 
 test("@que/core/ontology gives the schemas plugin and harness, and harness imports plugin", () => {
   assert.deepEqual(Object.keys(plugin.types), [
-    "package",
+    "plugin",
     "op",
     "skill",
     "capability",
@@ -76,7 +76,7 @@ test("importing @que/core does not load basis, and importing @que/core/ontology 
 
 const odoo = {
   name: "odoo",
-  type: "package",
+  type: "plugin",
   description: "Odoo, the ERP.",
   title: "Odoo",
   ops: ["[[find-partners]]", "[[read-partner]]"],
@@ -109,8 +109,8 @@ const issueOf = (type: Name, node: unknown) => {
   assert.fail(`the ${type} note parsed`);
 };
 
-test("an odoo package note with its ops, a skill and find-company parses", () => {
-  assert.deepEqual(parse("package", odoo), {
+test("an odoo plugin note with its ops, a skill and find-company parses", () => {
+  assert.deepEqual(parse("plugin", odoo), {
     ...odoo,
     ops: ["find-partners", "read-partner"],
     skills: ["odoo-search"],
@@ -138,13 +138,13 @@ test("a find-company case note parses", () => {
 });
 
 test("a note with no description fails, on its description", () => {
-  const issue = issueOf("package", without(odoo, "description"));
+  const issue = issueOf("plugin", without(odoo, "description"));
   assert.equal(issue.code, "invalid_type");
   assert.deepEqual(issue.path, ["description"]);
 });
 
-/** A note of each type that has a title: package, op, skill and capability. */
-const titled = (["package", "op", "skill", "capability"] as const).map(
+/** A note of each type that has a title: plugin, op, skill and capability. */
+const titled = (["plugin", "op", "skill", "capability"] as const).map(
   (type) => ({
     name: "find-company",
     type,
@@ -153,7 +153,7 @@ const titled = (["package", "op", "skill", "capability"] as const).map(
   }),
 );
 
-test("a package, op, skill or capability note with no title fails, on its title", () => {
+test("a plugin, op, skill or capability note with no title fails, on its title", () => {
   for (const node of titled) {
     const issue = issueOf(node.type, without(node, "title"));
     assert.equal(issue.code, "invalid_type");
@@ -161,7 +161,7 @@ test("a package, op, skill or capability note with no title fails, on its title"
   }
 });
 
-test("a package, op, skill or capability note with a blank title fails, on its title", () => {
+test("a plugin, op, skill or capability note with a blank title fails, on its title", () => {
   for (const node of titled) {
     for (const blank of ["", " "]) {
       const issue = issueOf(node.type, { ...node, title: blank });
@@ -193,9 +193,9 @@ test("a case with no capability fails, on its capability", () => {
   assert.deepEqual(issue.path, ["capability"]);
 });
 
-test("a package note with no ops, skills or capabilities parses", () => {
+test("a plugin note with no ops, skills or capabilities parses", () => {
   const node = without(odoo, "ops", "skills", "capabilities");
-  assert.deepEqual(parse("package", node), node);
+  assert.deepEqual(parse("plugin", node), node);
 });
 
 const chat = {

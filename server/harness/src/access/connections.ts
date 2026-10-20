@@ -8,7 +8,7 @@
 
 import {
   OperationFailed,
-  type PackageDefinition,
+  type PluginDefinition,
   type ServiceIdentity,
 } from "@que/core";
 import { createStore } from "@que/credentials";
@@ -18,7 +18,7 @@ const store = createStore();
 type Resolved = { values: Record<string, unknown>; version: number };
 
 export async function resolveCredential(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
 ): Promise<Resolved | undefined> {
   if (!pkg.credential) return undefined;
@@ -32,7 +32,7 @@ export async function resolveCredential(
 
 /** A user can use a package if it needs no credential, or theirs resolves. */
 export async function hasAccess(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
 ): Promise<boolean> {
   return (
@@ -42,7 +42,7 @@ export async function hasAccess(
 
 /** Validate against the package's schema, prove it connects, then save. */
 export async function setCredential(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
   values: unknown,
 ): Promise<void> {
@@ -58,7 +58,7 @@ export async function setCredential(
 }
 
 export async function removeCredential(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
 ): Promise<void> {
   await store.remove(userId, pkg.name);
@@ -83,7 +83,7 @@ type Session = {
 const sessions = new Map<string, Session>(); // by `${pkg}:${userId}`
 
 async function session(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
 ): Promise<Session> {
   const credential = await resolveCredential(pkg, userId);
@@ -107,7 +107,7 @@ async function session(
 }
 
 export async function getConnection(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
 ): Promise<unknown> {
   if (!pkg.connect) return undefined;
@@ -116,7 +116,7 @@ export async function getConnection(
 
 /** Who this user is in the package's service, or undefined if it can't say. */
 export async function getServiceIdentity(
-  pkg: PackageDefinition,
+  pkg: PluginDefinition,
   userId: string,
 ): Promise<ServiceIdentity | undefined> {
   const whoami = pkg.whoami;

@@ -1,5 +1,5 @@
 /**
- * The plugin schema of que's ontology: what a package is made of. A package,
+ * The plugin schema of que's ontology: what a plugin is made of. A plugin,
  * its ops, skills and capabilities, and the cases that prove a capability.
  */
 
@@ -11,14 +11,14 @@ const title = z.string().regex(/\S/, "text that is not blank");
 
 const op = defineType({
   name: "op",
-  description: "One operation a package exposes. `Operation` in plugin.ts.",
+  description: "One operation a plugin exposes. `Operation` in plugin.ts.",
   fields: { title },
 });
 
 const skill = defineType({
   name: "skill",
   description:
-    "The text part of a package, one `SKILL.md`. `Skill` in skill.ts.",
+    "The text part of a plugin, one `SKILL.md`. `Skill` in skill.ts.",
   fields: { title },
 });
 
@@ -29,17 +29,17 @@ const capability = defineType({
   fields: { title },
 });
 
-const pkg = defineType({
-  name: "package",
+const pluginType = defineType({
+  name: "plugin",
   description:
-    "A set of ops, skills and capabilities. `PackageDefinition` in plugin.ts.",
+    "A set of ops, skills and capabilities. `PluginDefinition` in plugin.ts.",
   fields: {
     title,
-    // The ops of a package. `PackageDefinition.ops`.
+    // The ops of a plugin. `PluginDefinition.ops`.
     ops: manyOrNone(() => op),
-    // The skills of a package. `PackageDefinition.skills`.
+    // The skills of a plugin. `PluginDefinition.skills`.
     skills: manyOrNone(() => skill),
-    // The capabilities of a package. `PackageDefinition.capabilities`.
+    // The capabilities of a plugin. `PluginDefinition.capabilities`.
     capabilities: manyOrNone(() => capability),
   },
 });
@@ -56,9 +56,9 @@ const kase = defineType({
 export const plugin = defineSchema({
   name: "plugin",
   description:
-    "What a que package is made of: its ops, skills and capabilities, and the cases of a capability.",
+    "What a que plugin is made of: its ops, skills and capabilities, and the cases of a capability.",
   types: {
-    package: pkg,
+    plugin: pluginType,
     op,
     skill,
     capability,
