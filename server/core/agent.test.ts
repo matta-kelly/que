@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LOADING, validateAgent } from "./agent-spec.js";
+import { LOADING, validateAgent } from "./agent.js";
 
 test("validateAgent rejects a model that is not a plain name, and says where a model goes for one written as provider:model", () => {
   for (const model of ["two words", 7, null])

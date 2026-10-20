@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveLoop, validateLoop } from "./loop-spec.js";
+import { resolveLoop, validateLoop } from "./loop.js";
 
 const faults = (def: unknown) => {
   try {

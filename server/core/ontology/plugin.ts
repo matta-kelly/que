@@ -11,29 +11,28 @@ const title = z.string().regex(/\S/, "text that is not blank");
 
 const op = defineType({
   name: "op",
-  description:
-    "One operation a package exposes. `Operation` in package-spec.ts.",
+  description: "One operation a package exposes. `Operation` in plugin.ts.",
   fields: { title },
 });
 
 const skill = defineType({
   name: "skill",
   description:
-    "The text part of a package, one `SKILL.md`. `Skill` in skill-spec.ts.",
+    "The text part of a package, one `SKILL.md`. `Skill` in skill.ts.",
   fields: { title },
 });
 
 const capability = defineType({
   name: "capability",
   description:
-    "A capability is an outcome someone wants from a system: the unit of intent, and the unit that is proven. Its meaning is owned by the capability note (capability-model/_well/capability.md); this is that meaning as code. `Capability` in package-spec.ts.",
+    "A capability is an outcome someone wants from a system: the unit of intent, and the unit that is proven. Its meaning is owned by the capability note (capability-model/_well/capability.md); this is that meaning as code. `Capability` in plugin.ts.",
   fields: { title },
 });
 
 const pkg = defineType({
   name: "package",
   description:
-    "A set of ops, skills and capabilities. `PackageDefinition` in package-spec.ts.",
+    "A set of ops, skills and capabilities. `PackageDefinition` in plugin.ts.",
   fields: {
     title,
     // The ops of a package. `PackageDefinition.ops`.
@@ -47,7 +46,7 @@ const pkg = defineType({
 
 const kase = defineType({
   name: "case",
-  description: "One behaviour of one capability. `Case` in case-spec.ts.",
+  description: "One behaviour of one capability. `Case` in case.ts.",
   fields: {
     // The capability a case is about. `Case.capability`.
     capability: one(() => capability),

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { definePackage } from "./package-spec.js";
-import { defineCases, validateCases } from "./case-spec.js";
+import { definePackage } from "./plugin.js";
+import { defineCases, validateCases } from "./case.js";
 
 const notes = definePackage({
   name: "notes",

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mountedModel, validateModel } from "./model-spec.js";
+import { mountedModel, validateModel } from "./model.js";
 
 const faults = (def: unknown) => {
   try {

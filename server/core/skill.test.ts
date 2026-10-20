@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSkill } from "./skill-spec.js";
+import { parseSkill } from "./skill.js";
 
 test("parseSkill rejects a skill with no title or no description, naming the skill and the field", () => {
   assert.throws(
