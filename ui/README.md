@@ -34,4 +34,4 @@ through the proxy at `app/api/[..._path]`.
   - a model call with no stamp, or of a model with no price, has no cost, and is not counted as zero. The chat's cost says how many replies it could not count
   - a cost is an estimate, at the price of today. The tokens of a subagent are in no count
 - a unit test is beside the code it tests (`*.test.ts`), and runs on Node's own test runner, in `just check`
-- `.env.local`: copy from `.env.example`
+- `.env.local`: not needed. With none, the UI talks to que's own agent server (`components/runtime/agent-server.ts`). `.env.example` lists the settings that point it elsewhere
