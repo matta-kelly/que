@@ -152,7 +152,7 @@ test("validatePackage lists a skill with a bad name, and a name used twice", () 
   );
 });
 
-test("validatePackage lists a capability with a bad name, no name, a name used twice, and one with no title or description", () => {
+test("validatePackage lists a capability with a bad name, no name or one of spaces, a name used twice, and one with no title or description", () => {
   assert.throws(
     () =>
       validatePackage(
@@ -165,6 +165,7 @@ test("validatePackage lists a capability with a bad name, no name, a name used t
               description: "Its name has a space.",
             },
             { name: "", title: "Unnamed", description: "It has no name." },
+            { name: "   ", title: "Blank", description: "Its name is spaces." },
             {
               name: "write-up",
               title: "Write up a meeting",
@@ -178,6 +179,7 @@ test("validatePackage lists a capability with a bad name, no name, a name used t
     (error: Error) => {
       assert.match(error.message, /- capabilities\.no spaces\.name must match/);
       assert.match(error.message, /- capabilities\.1\.name is missing/);
+      assert.match(error.message, /- capabilities\.2\.name is missing/);
       assert.match(error.message, /- capabilities\.write-up is used twice/);
       assert.match(error.message, /- capabilities\.write-up\.title is missing/);
       assert.match(

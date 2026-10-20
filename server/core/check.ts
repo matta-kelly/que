@@ -21,10 +21,9 @@ export const text = z
 export const name = text.regex(NAME, `must match ${NAME}`);
 
 /** A value that is a function. Only that is checked: what it takes and gives is the type's to say. */
-export const fn = <F>() =>
-  z
-    .custom<F>()
-    .refine((value) => typeof value === "function", "must be a function");
+export const fn = z
+  .custom()
+  .refine((value) => typeof value === "function", "must be a function");
 
 /** A refinement of a list: no two items have the same name. */
 export const once =
@@ -47,7 +46,7 @@ function where(value: unknown, path: PropertyKey[]): string {
       here = (here as Record<PropertyKey, unknown> | undefined)?.[key];
       const name =
         typeof here === "string" ? here : (here as { name?: unknown })?.name;
-      return typeof key === "number" && typeof name === "string" && name
+      return typeof key === "number" && typeof name === "string" && name.trim()
         ? name
         : String(key);
     })

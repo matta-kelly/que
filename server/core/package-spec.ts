@@ -32,7 +32,7 @@ export const Operation = z.object({
           message: "has no description (add .describe())",
         });
   }),
-  run: fn<() => Promise<unknown>>(),
+  run: fn,
 });
 
 export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = Omit<
@@ -78,8 +78,8 @@ export const PackageDefinition = z
           "must be a zod object",
         )
         .optional(),
-      connect: fn<() => Promise<unknown>>().optional(),
-      whoami: fn<() => Promise<ServiceIdentity>>().optional(),
+      connect: fn.optional(),
+      whoami: fn.optional(),
       ops: z
         .array(Operation, { error: "must be an array" })
         .superRefine(once((op) => op.name)),
