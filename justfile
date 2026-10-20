@@ -16,9 +16,23 @@ up deployment:
     dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
     [ -f "$dep/.env" ] || { echo "No .env in $dep. A deployment keeps its settings and secrets there: see templates/deployment/.env.example"; exit 1; }
     cd "{{root}}"
+    # Every que's container is on the host network, and they share que-postgres: with another que
+    # serving, or a port held, this que's servers could not bind, and the other would answer for them.
+    # Asked before anything starts, so a refused up leaves nothing running.
+    others=$(./scripts/serving-ques.sh | paste -sd ' ' -)
+    [ -z "$others" ] || { echo "Another que is serving: $others. Run 'just down' in the deployment that started it first." >&2; exit 1; }
+    c=$(just _container)
+    running() { [ -n "$c" ] && podman exec "$c" pgrep -f "$1" >/dev/null 2>&1; }
+    # A server on localhost may hold either address: Node's langgraphjs binds ::1.
+    listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null || (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null; }
+    for server in "langgraphjs dev:2024" "next dev:3000"; do
+        if ! running "${server%:*}" && listening "${server##*:}"; then
+            echo "Port ${server##*:} is taken, and not by a que. Stop what holds it first." >&2
+            exit 1
+        fi
+    done
     ./scripts/db.sh "$dep/.env"
     c=$(./scripts/container.sh "$dep")
-    running() { podman exec "$c" pgrep -f "$1" >/dev/null; }
     if running "langgraphjs dev"; then
         echo "The agent server is already running. Run 'just down' first to start it from another deployment."
     else
@@ -37,12 +51,18 @@ up deployment:
     curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
     echo "que is up at http://localhost:3000"
 
-# Stop everything (the dev container, which stops the server and UI, and the database)
+# Stop everything (the dev container, which stops the server and UI, and the database, unless another que runs)
 down:
     #!/usr/bin/env bash
     set -euo pipefail
     c=$(just _container)
     [ -n "$c" ] && podman stop "$c" >/dev/null
+    # The database is every que's: it stops with the last one.
+    others=$("{{root}}/scripts/serving-ques.sh" | paste -sd ' ' -)
+    if [ -n "$others" ]; then
+        echo "que is down. The database keeps running for the other ques serving: $others"
+        exit 0
+    fi
     podman stop que-postgres >/dev/null 2>&1 || true
     echo "que is down"
 
