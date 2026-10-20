@@ -1,7 +1,7 @@
 /**
  * The packages que gives a folder outside que, the one list of them.
  * `supply.ts` hands them over at run time, and `checkConfig` maps them for the
- * type check that `just check-folder` runs. The README and `core/package.md`
+ * type check that `just check-folder` runs. The README and `core/plugin.md`
  * name them too, and `supplied.test.ts` holds them to this list.
  */
 

@@ -13,7 +13,7 @@ A better way to deliver que to a deployment, ideally as an image.
 
 - [[que]]: the harness this belongs to
 - [[shit_sdlc]]: Ship, which moves a change as an image to a node
-- [[task-packages-from-git]]: how a deployment gets its packages
+- [[design-npm-native-deployment]]: how a deployment gets its plugins
 
 ---
 ## What is wanted
@@ -34,7 +34,7 @@ A better way to deliver que to a deployment, ideally as an image.
 
 - delivery does not change how que and a deployment fit together. que starts, pointed at a deployment folder; an image is the box both folders are shipped in
 - so the code is the same with or without an image
-- que loads a package from a folder outside its own, and hands it `@que/core`. So a deployment needs no copy of que's code, only a que to run on
+- que loads a plugin from a folder outside its own, and hands it `@que/core`. So a deployment needs no copy of que's code, only a que to run on
 - making que fit for production (a real login, a server that is not the dev server) is a separate piece of work. An image can hold que as it runs today
 
 ## Open
@@ -49,4 +49,4 @@ A better way to deliver que to a deployment, ideally as an image.
 
 - a deployment folder and one command give a running que for that deployment
 - it works on a machine with no checkout of que
-- two deployments run from the same version of que, each with its own packages
+- two deployments run from the same version of que, each with its own plugins

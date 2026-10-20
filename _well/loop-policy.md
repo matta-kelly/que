@@ -9,7 +9,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 - [[#Practice]] where it acts, and what is built
 
 - [[que]]: the harness this is a unit of
-- [[daworks/que/server/core/package|package]]: what a package declares. The loop can show only that
+- [[daworks/que/server/core/plugin|plugin]]: what a plugin declares. The loop can show only that
 - [[evals]]: what reads a run after it ends
 
 ---
@@ -17,7 +17,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 
 - the question: what an agent keeps, shows and drops from one call to the next, in one run, and how it recovers
 - its place: in the run, the only frame with state that moves
-	- before: what is declared (packages, checked at mount)
+	- before: what is declared (plugins, checked at mount)
 		- the loop can show only that. No loop rule repairs a bad description
 	- after: what is read across runs (traces, cases)
 		- a run leaves a trace. An error is made in the loop and read outside it
@@ -64,7 +64,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 - in que: a loop is a file of settings with a name, and an agent names one. `server/core/loop.ts` says which settings act
 	- open: limits. The framework's own middleware leaves a thread that cannot go on, or ends a run with no answer. que's own would count from the saved chat
 - outside a loop
-	- cheap to lose: a rule of the harness and of how a package answers. No agent opts out
+	- cheap to lose: a rule of the harness and of how a plugin answers. No agent opts out
 	- repair of an unanswered tool call: always on. The call gets a result that says it was cancelled
 	- approval: which operations wait for a yes. On the agent, because it is about the job
 	- audit of tool calls: on for every agent. Not built
