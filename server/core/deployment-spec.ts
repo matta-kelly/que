@@ -21,8 +21,8 @@ const files = (kind: string) => {
 export const DeploymentDefinition = z.strictObject(
   {
     name,
-    /** One folder per package: an absolute path, or one taken from the deployment's own folder. */
-    packages: z.array(that(isText, "a folder path"), {
+    /** One entry per package: a name, found as Node finds an import from the deployment's own folder; or a folder path, absolute or taken from that folder. */
+    packages: z.array(that(isText, "a package name or a folder path"), {
       error: "must be an array",
     }),
     /** One file per agent config: an absolute path, or one taken from the deployment's own folder. At least one: que has no agent of its own. */
