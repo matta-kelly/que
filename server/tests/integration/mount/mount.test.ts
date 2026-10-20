@@ -38,8 +38,8 @@ test("a listed folder can be an absolute path", async () => {
 });
 
 // A deployment in an npm workspace, as a repo of deployments is: a plugin of
-// the repo is an npm package, linked into the root's node_modules, and the deployment sits in
-// a folder under the root.
+// the repo is an npm package, linked into the root's node_modules, and the
+// deployment sits in a folder under the root.
 const workspace = mkdtempSync(join(tmpdir(), "que-mount-by-name-"));
 after(() => rmSync(workspace, { recursive: true, force: true }));
 writeFileSync(join(workspace, "package.json"), '{ "type": "module" }\n');
