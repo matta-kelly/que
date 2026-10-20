@@ -1,8 +1,9 @@
 /**
  * Mount: hand `@que/core` and `@que/ontology` to a folder outside que. A
  * plugin or a deployment there imports what que supplies (`supplied.ts`), or
- * another subpath of `@que/core`, by name. It has no copy of its own.
- * It gets que's copy, so an `OperationFailed` it throws is the one que knows.
+ * another subpath of `@que/core`, by name. It gets que's copy, even if it
+ * installs its own, so an `OperationFailed` it throws is the one que knows.
+ * Any other name resolves as usual, from its own install.
  */
 
 import { registerHooks } from "node:module";

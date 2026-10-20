@@ -19,8 +19,8 @@ export const SUPPLIED: Record<string, string> = {
 
 /**
  * The tsconfig that type checks the folders with que's copy of each supplied
- * package. The folders have no install of their own: the compiler is told
- * where que keeps what they import.
+ * package: the compiler is told where que keeps those names, and finds any
+ * other library in the folder's own install.
  */
 export function checkConfig(folders: string[]) {
   return {
