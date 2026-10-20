@@ -6,7 +6,7 @@ import { plugin } from "@que/ontology";
 export default definePlugin({
   name: "notes",
   title: "Notes",
-  description: "A package that sits in its deployment's folder, outside que.",
+  description: "A plugin that sits in its deployment's folder, outside que.",
   ops: [
     {
       name: "find",

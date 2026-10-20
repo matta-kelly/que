@@ -10,7 +10,7 @@
     {
       "content": "",
       "additional_kwargs": {
-        "reasoning_content": "The user asks what I can do. I should open the shop package to see operations.",
+        "reasoning_content": "The user asks what I can do. I should open the shop plugin to see operations.",
         "tool_calls": [
           {
             "index": 0,

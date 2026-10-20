@@ -33,7 +33,7 @@ test("eager adds no tools: read_skill and the operations are all the agent gets"
   );
 });
 
-test("there are no tools when no package holds an operation or a skill", () => {
+test("there are no tools when no plugin holds an operation or a skill", () => {
   const { tools } = assemble(eager, {
     catalog: identityOnly,
     connect: async () => undefined,

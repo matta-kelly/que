@@ -4,5 +4,5 @@ export default definePlugin({
   name: "unlisted-skill",
   title: "Unlisted Skill",
   description:
-    "A sound package, with a skill folder its definition does not list.",
+    "A sound plugin, with a skill folder its definition does not list.",
 });

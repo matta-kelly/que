@@ -37,22 +37,22 @@ test("a listed folder can be an absolute path", async () => {
   assert.deepEqual(names(await mount("absolute")), ["beta"]);
 });
 
-// A deployment in an npm workspace, as a repo of deployments is: a package of
-// the repo is linked into the root's node_modules, and the deployment sits in
+// A deployment in an npm workspace, as a repo of deployments is: a plugin of
+// the repo is an npm package, linked into the root's node_modules, and the deployment sits in
 // a folder under the root.
 const workspace = mkdtempSync(join(tmpdir(), "que-mount-by-name-"));
 after(() => rmSync(workspace, { recursive: true, force: true }));
 writeFileSync(join(workspace, "package.json"), '{ "type": "module" }\n');
-cpSync(join(fixtures, "packages/beta"), join(workspace, "packages/beta"), {
+cpSync(join(fixtures, "plugins/beta"), join(workspace, "plugins/beta"), {
   recursive: true,
 });
 writeFileSync(
-  join(workspace, "packages/beta/package.json"),
+  join(workspace, "plugins/beta/package.json"),
   '{ "name": "beta", "type": "module" }\n',
 );
 mkdirSync(join(workspace, "node_modules"));
 symlinkSync(
-  join(workspace, "packages/beta"),
+  join(workspace, "plugins/beta"),
   join(workspace, "node_modules/beta"),
 );
 const byName = (plugins: string[]) => {
@@ -76,7 +76,7 @@ export default defineDeployment({
 // A plugin whose package.json names the @que/core it works with, as a peer.
 const needingCore = (range: string) => {
   const dir = mkdtempSync(join(workspace, "needs-core-"));
-  cpSync(join(fixtures, "packages/beta"), dir, { recursive: true });
+  cpSync(join(fixtures, "plugins/beta"), dir, { recursive: true });
   writeFileSync(
     join(dir, "package.json"),
     JSON.stringify({
@@ -129,7 +129,7 @@ test("a listed plugin can be the name of its npm package, found as Node finds an
   assert.deepEqual(names(await mountPlugins(plugins)), ["beta"]);
 });
 
-test("stops, naming the package and the deployment folder, when a listed name is not installed", async () => {
+test("stops, naming the plugin and the deployment folder, when a listed name is not installed", async () => {
   const dir = byName(["nowhere"]);
   await assert.rejects(loadDeployment(dir), (error: Error) => {
     assert.match(error.message, /"nowhere"/);
@@ -138,7 +138,7 @@ test("stops, naming the package and the deployment folder, when a listed name is
   });
 });
 
-test("a mounted package has its skills", async () => {
+test("a mounted plugin has its skills", async () => {
   const mounted = await mount("two");
   assert.deepEqual(mounted[1].skills, [
     {
@@ -150,9 +150,9 @@ test("a mounted package has its skills", async () => {
   ]);
 });
 
-test("stops, naming the folder and the fault, when a listed package breaks the package contract", async () => {
+test("stops, naming the folder and the fault, when a listed plugin breaks the plugin contract", async () => {
   await assert.rejects(mount("bad"), (error: Error) => {
-    assert.match(error.message, /packages\/bad/);
+    assert.match(error.message, /plugins\/bad/);
     assert.match(error.message, /description/);
     return true;
   });
@@ -161,12 +161,12 @@ test("stops, naming the folder and the fault, when a listed package breaks the p
 test("stops, naming the deployment folder, when the definition breaks the contract", async () => {
   await assert.rejects(loadDeployment(deployment("broken")), (error: Error) => {
     assert.match(error.message, /deployments\/broken/);
-    assert.match(error.message, /packages/);
+    assert.match(error.message, /plugins must be an array/);
     return true;
   });
 });
 
-test("stops, naming the skill, when a listed package has a skill that breaks the contract", async () => {
+test("stops, naming the skill, when a listed plugin has a skill that breaks the contract", async () => {
   await assert.rejects(mount("untitled-skill"), (error: Error) => {
     assert.match(error.message, /^mount:/);
     assert.match(error.message, /untitled-skill\/nameless/);
@@ -181,7 +181,7 @@ test("a skill folder the definition does not list is not mounted", async () => {
   assert.deepEqual(mounted[0].skills, []);
 });
 
-test("a package with a bad cases file still mounts", async () => {
+test("a plugin with a bad cases file still mounts", async () => {
   assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
 });
 
@@ -209,7 +209,7 @@ test("stops, naming the name, when two agents have one name", async () => {
   );
 });
 
-test("stops, naming the agent and the package, when an agent names a package the deployment does not mount", async () => {
+test("stops, naming the agent and the plugin, when an agent names a plugin the deployment does not mount", async () => {
   await assert.rejects(
     fromDeployment.mountDeployment(deployment("agent-names-unmounted")),
     (error: Error) => {

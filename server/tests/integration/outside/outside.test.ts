@@ -1,9 +1,9 @@
 /**
  * Mount, from a folder that is not inside que: a deployment that holds its
- * own package. The fixtures are copied to the system's temp folder first, so
+ * own plugin. The fixtures are copied to the system's temp folder first, so
  * that nothing above them can supply `@que/core`.
  * The type check of such a folder, as `just check-folder` runs it, is here too:
- * its package imports each name que supplies.
+ * its plugin imports each name que supplies.
  */
 
 import { after, test } from "node:test";
@@ -23,7 +23,7 @@ after(() => rmSync(outside, { recursive: true, force: true }));
 const mount = async (deployment: string) =>
   mountPlugins((await loadDeployment(join(outside, deployment))).plugins);
 
-test("que mounts a deployment and its package from a folder outside que", async () => {
+test("que mounts a deployment and its plugin from a folder outside que", async () => {
   const mounted = await mount("deployment");
   assert.deepEqual(
     mounted.map((p) => p.definition.name),
