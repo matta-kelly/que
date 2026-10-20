@@ -18,7 +18,7 @@ const byCustomer = {
   input: "Where is the order of Ada?",
   expected: "The answer gives the state of the order of Ada.",
   metadata: {
-    package: "shop",
+    plugin: "shop",
     capability: "find-order",
     case: "find-order-by-customer",
     start: "Ada has one open order.",
@@ -29,7 +29,7 @@ const notAsked = {
   input: "What can you do?",
   expected: "No operation is called.",
   metadata: {
-    package: "shop",
+    plugin: "shop",
     capability: "find-order",
     case: "find-order-not-asked",
     start: "Any.",
@@ -173,7 +173,7 @@ test("makes the dataset when Langfuse has none, with one item for each case", as
           input: "Where is the order of Ada?",
           expectedOutput: "The answer gives the state of the order of Ada.",
           metadata: {
-            package: "shop",
+            plugin: "shop",
             capability: "find-order",
             case: "find-order-by-customer",
             start: "Ada has one open order.",
@@ -185,7 +185,7 @@ test("makes the dataset when Langfuse has none, with one item for each case", as
           input: "What can you do?",
           expectedOutput: "No operation is called.",
           metadata: {
-            package: "shop",
+            plugin: "shop",
             capability: "find-order",
             case: "find-order-not-asked",
             start: "Any.",
@@ -250,7 +250,7 @@ test("archives the item of a case that is gone, and no other", async () => {
         input: "Which orders came in today?",
         expectedOutput: "The answer lists the orders of today.",
         metadata: {
-          package: "shop",
+          plugin: "shop",
           capability: "find-order",
           case: "find-order-by-date",
           start: "Any.",
@@ -298,7 +298,7 @@ test("sends one trace for each run of an experiment, on its item of the dataset,
         expected: "The answer gives the state of the order of Ada.",
         output: open,
         metadata: {
-          package: "shop",
+          plugin: "shop",
           capability: "find-order",
           case: "find-order-by-customer",
           start: "Ada has one open order.",
@@ -321,7 +321,7 @@ test("sends one trace for each run of an experiment, on its item of the dataset,
         expected: "No operation is called.",
         output: { error: "it stopped" },
         metadata: {
-          package: "shop",
+          plugin: "shop",
           capability: "find-order",
           case: "find-order-not-asked",
           start: "Any.",

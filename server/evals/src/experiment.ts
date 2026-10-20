@@ -15,7 +15,7 @@ export type Item = {
   input: string;
   expected: string;
   metadata: {
-    package: string;
+    plugin: string;
     capability: string;
     case: string;
     start: string;
@@ -51,7 +51,7 @@ export type Sent = { agent: string; run: string; url?: string };
 
 // A name of the contract has no ".", so no two cases share an id.
 const idOf = (deployment: string, c: LoadedCase) =>
-  `${deployment}.${c.package}.${c.name}`;
+  `${deployment}.${c.plugin}.${c.name}`;
 
 export function experiments({
   deployment,
@@ -77,7 +77,7 @@ export function experiments({
     input: c.input,
     expected: c.good,
     metadata: {
-      package: c.package,
+      plugin: c.plugin,
       capability: c.capability,
       case: c.name,
       start: c.start,
