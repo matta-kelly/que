@@ -3,12 +3,18 @@
  * the harness reads the file and hands its text here.
  */
 
-export type Skill = {
-  id: string;
-  title: string;
-  description: string;
-  body: string;
-};
+import * as z from "zod";
+import { check, text } from "./check.js";
+
+// The title and the description are what the model reads to choose a skill.
+export const Skill = z.object({
+  id: z.string(),
+  title: text,
+  description: text,
+  body: z.string(),
+});
+
+export type Skill = z.infer<typeof Skill>;
 
 // Minimal frontmatter: `key: value` lines between --- fences.
 function parseFrontmatter(text: string): {
@@ -27,15 +33,14 @@ function parseFrontmatter(text: string): {
 }
 
 /**
- * Turn the text of a `SKILL.md` into a skill, throwing when it has no title
- * or no description: those are what the model reads to choose a skill.
+ * Turn the text of a `SKILL.md` into a skill, throwing when its frontmatter
+ * has no title or no description.
  */
-export function parseSkill(id: string, text: string): Skill {
-  const { meta, body } = parseFrontmatter(text);
-  if (!meta.title?.trim() || !meta.description?.trim()) {
-    throw new Error(
-      `skill ${id} needs a title and description in its frontmatter`,
-    );
-  }
-  return { id, title: meta.title, description: meta.description, body };
+export function parseSkill(id: string, file: string): Skill {
+  const { meta, body } = parseFrontmatter(file);
+  return check(
+    Skill,
+    { id, title: meta.title, description: meta.description, body },
+    `skill ${id} is invalid`,
+  );
 }

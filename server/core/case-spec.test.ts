@@ -32,24 +32,27 @@ test("validateCases lists a case with a bad name, and a name used twice", () => 
         defineCases([{ ...asked, name: "no spaces" }, asked, asked]),
       ),
     (error: Error) => {
-      assert.match(error.message, /case name "no spaces" must match/);
-      assert.match(error.message, /case name "write-up-asked" is used twice/);
+      assert.match(error.message, /- no spaces\.name must match/);
+      assert.match(error.message, /- write-up-asked is used twice/);
       return true;
     },
   );
 });
 
-test("validateCases lists a case with an empty input, start or good", () => {
+test("validateCases lists a case with an empty input, start or good, and one with no name or capability", () => {
   assert.throws(
     () =>
-      validateCases(
-        notes,
-        defineCases([{ ...asked, input: "", start: "  ", good: "" }]),
-      ),
+      validateCases(notes, [
+        { ...asked, input: "", start: "  ", good: "" },
+        { ...asked, name: undefined, capability: undefined },
+      ] as never),
     (error: Error) => {
-      assert.match(error.message, /input of case write-up-asked is missing/);
-      assert.match(error.message, /start of case write-up-asked is missing/);
-      assert.match(error.message, /good of case write-up-asked is missing/);
+      assert.match(error.message, /cases of package notes are invalid/);
+      assert.match(error.message, /- 1\.name is missing/);
+      assert.match(error.message, /- 1\.capability is missing/);
+      assert.match(error.message, /- write-up-asked\.input is missing/);
+      assert.match(error.message, /- write-up-asked\.start is missing/);
+      assert.match(error.message, /- write-up-asked\.good is missing/);
       return true;
     },
   );
@@ -63,8 +66,8 @@ test("validateCases lists a case with a field that is not one of the five, and o
         { ...asked, name: "write-up-judged", good: () => true },
       ] as never),
     (error: Error) => {
-      assert.match(error.message, /case write-up-asked has a field "grader"/);
-      assert.match(error.message, /good of case write-up-judged must be text/);
+      assert.match(error.message, /- write-up-asked has a field "grader"/);
+      assert.match(error.message, /- write-up-judged\.good must be text/);
       return true;
     },
   );
@@ -77,6 +80,6 @@ test("validateCases lists a case that names a capability its package does not ha
         notes,
         defineCases([{ ...asked, capability: "summarize" }]),
       ),
-    /case write-up-asked names the capability "summarize", which package notes does not have/,
+    /- write-up-asked\.capability names "summarize", which package notes does not have/,
   );
 });

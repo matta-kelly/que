@@ -4,21 +4,31 @@
  * harness reads none.
  */
 
-import { NAME, type PackageDefinition } from "./package-spec.js";
+import * as z from "zod";
+import { check, name, once, text } from "./check.js";
+import type { PackageDefinition } from "./package-spec.js";
 
-export type Case = {
-  name: string;
-  /** The capability of its package that this case is about. */
-  capability: string;
-  /** What the user says. */
-  input: string;
-  /** What is true before the run. */
-  start: string;
-  /** One statement that is true or false after the run. */
-  good: string;
-};
+export const Case = z.strictObject(
+  {
+    name,
+    /** The capability of its package that this case is about. */
+    capability: text,
+    /** What the user says. */
+    input: text,
+    /** What is true before the run. */
+    start: text,
+    /** One statement that is true or false after the run. */
+    good: text,
+  },
+  {
+    error: (issue) =>
+      issue.code === "unrecognized_keys"
+        ? `has a field ${issue.keys.map((key) => `"${key}"`).join(", ")}`
+        : undefined,
+  },
+);
 
-const FIELDS = ["name", "capability", "input", "start", "good"];
+export type Case = z.infer<typeof Case>;
 
 export function defineCases(cases: Case[]): Case[] {
   return cases;
@@ -33,40 +43,19 @@ export function validateCases(
   definition: PackageDefinition,
   cases: Case[],
 ): void {
-  const problems: string[] = [];
   const capabilities = new Set(definition.capabilities.map((c) => c.name));
-  const seen = new Set<string>();
-
-  for (const c of cases as Record<string, unknown>[]) {
-    const id = typeof c.name === "string" && c.name.trim() ? c.name : "";
-    const of = id ? `case ${id}` : `a case in package ${definition.name}`;
-
-    for (const field of Object.keys(c)) {
-      if (!FIELDS.includes(field))
-        problems.push(`${of} has a field "${field}"`);
-    }
-    for (const field of FIELDS) {
-      const value = c[field];
-      if (value === undefined || (typeof value === "string" && !value.trim()))
-        problems.push(`${field} of ${of} is missing`);
-      else if (typeof value !== "string")
-        problems.push(`${field} of ${of} must be text`);
-    }
-    if (id) {
-      if (!NAME.test(id)) problems.push(`case name "${id}" must match ${NAME}`);
-      if (seen.has(id)) problems.push(`case name "${id}" is used twice`);
-      seen.add(id);
-    }
-    if (typeof c.capability === "string" && c.capability.trim()) {
-      if (!capabilities.has(c.capability))
-        problems.push(
-          `${of} names the capability "${c.capability}", which package ${definition.name} does not have`,
-        );
-    }
-  }
-
-  if (problems.length)
-    throw new Error(
-      `cases of package ${definition.name} are invalid:\n- ${problems.join("\n- ")}`,
-    );
+  const known = text.refine(
+    (capability) => !capability.trim() || capabilities.has(capability),
+    {
+      error: (issue) =>
+        `names "${String(issue.input)}", which package ${definition.name} does not have`,
+    },
+  );
+  check(
+    z
+      .array(Case.extend({ capability: known }))
+      .superRefine(once((c) => c.name)),
+    cases,
+    `cases of package ${definition.name} are invalid`,
+  );
 }
