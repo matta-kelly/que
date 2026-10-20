@@ -12,7 +12,7 @@ import type {
   PluginDefinition,
   Skill,
 } from "@que/core";
-import { harness, plugin } from "@que/core/ontology";
+import { harness, plugin } from "@que/ontology";
 
 /** The types of both schemas, each by its name. */
 const types = { ...plugin.types, ...harness.types };

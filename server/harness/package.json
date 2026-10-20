@@ -20,6 +20,7 @@
     "@que/credentials": "*",
     "@que/identity": "*",
     "@que/models": "*",
+    "@que/ontology": "*",
     "@que/users": "*",
     "basis": "github:matta-kelly/basis#v0.6.1",
     "deepagents": "^1.14.2",

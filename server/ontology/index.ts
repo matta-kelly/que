@@ -1,11 +1,11 @@
 /**
- * `@que/core/ontology`: que's words, as two basis schemas: `plugin` (plugin.ts),
+ * `@que/ontology`: que's words, as two basis schemas: `plugin` (plugin.ts),
  * and `harness` (harness.ts), which imports it.
  * A node carries its identity, its links, and a title where the spec has one (plugin, op,
  * skill, capability), and no more: its other fields and their values stay in the specs and
  * the code. Each link is a field named after the spec field it mirrors, and its comment says
  * what it holds. specs.test.ts holds the links and the specs to each other.
- * It sits apart from `@que/core`, so code that imports the core does not load basis.
+ * It is a package apart from `@que/core`, so code that imports the core does not load basis.
  */
 
 import { defineSchema } from "basis";
