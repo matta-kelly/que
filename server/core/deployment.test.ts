@@ -4,23 +4,23 @@ import { validateDeployment } from "./deployment.js";
 
 test("validateDeployment names every problem in one error", () => {
   assert.throws(
-    () => validateDeployment({ name: "two words", packages: [""] }),
+    () => validateDeployment({ name: "two words", plugins: [""] }),
     (error: Error) => {
       assert.match(error.message, /deployment is invalid/);
       assert.match(error.message, /- name must match/);
       assert.match(
         error.message,
-        /- packages\.0 must be a package name or a folder path, got ""/,
+        /- plugins\.0 must be a package name or a folder path, got ""/,
       );
       return true;
     },
   );
   assert.throws(
-    () => validateDeployment({ name: "", packages: "./odoo" }),
+    () => validateDeployment({ name: "", plugins: "./odoo" }),
     (error: Error) => {
       assert.match(error.message, /deployment is invalid/);
       assert.match(error.message, /- name is missing/);
-      assert.match(error.message, /- packages must be an array/);
+      assert.match(error.message, /- plugins must be an array/);
       return true;
     },
   );
@@ -31,7 +31,7 @@ test("validateDeployment rejects a field that is not in the shape, naming it", (
     () =>
       validateDeployment({
         name: "shop",
-        packages: [],
+        plugins: [],
         agents: ["./chat.ts"],
         loops: ["./long-chat.ts"],
         models: ["./small.ts"],
@@ -52,11 +52,11 @@ test("validateDeployment says so when there is no definition", () => {
 test("validateDeployment rejects agents that are not a list, and an agent that is not a file path", () => {
   assert.throws(
     () =>
-      validateDeployment({ name: "shop", packages: [], agents: "./chat.ts" }),
+      validateDeployment({ name: "shop", plugins: [], agents: "./chat.ts" }),
     /- agents must be an array/,
   );
   assert.throws(
-    () => validateDeployment({ name: "shop", packages: [], agents: [7, " "] }),
+    () => validateDeployment({ name: "shop", plugins: [], agents: [7, " "] }),
     (error: Error) => {
       assert.match(error.message, /- agents\.0 must be a file path, got 7/);
       assert.match(error.message, /- agents\.1 must be a file path, got " "/);
@@ -70,7 +70,7 @@ test("validateDeployment rejects an agent block, and says a config is now a file
     () =>
       validateDeployment({
         name: "shop",
-        packages: [],
+        plugins: [],
         agent: { model: "provider:model" },
       }),
     /deployment shop is invalid:\n(- .*\n)*- has an `agent` block: an agent config is a file of its own, listed in `agents`/,
@@ -80,7 +80,7 @@ test("validateDeployment rejects an agent block, and says a config is now a file
 test("validateDeployment rejects a deployment that lists no agent, no loop or no model, left out or empty", () => {
   const full = {
     name: "shop",
-    packages: [],
+    plugins: [],
     agents: ["./chat.ts"],
     loops: ["./long-chat.ts"],
     models: ["./small.ts"],
@@ -100,4 +100,22 @@ test("validateDeployment rejects a deployment that lists no agent, no loop or no
     );
   }
   validateDeployment(full);
+});
+
+test("validateDeployment takes packages, the old name of plugins, refuses a deployment that gives both, and one that gives neither", () => {
+  const shop = {
+    name: "shop",
+    agents: ["./chat.ts"],
+    loops: ["./long-chat.ts"],
+    models: ["./small.ts"],
+  };
+  validateDeployment({ ...shop, packages: ["./odoo"] });
+  assert.throws(
+    () => validateDeployment({ ...shop, plugins: [], packages: [] }),
+    /deployment shop is invalid:\n- packages is the old name of plugins: give plugins only/,
+  );
+  assert.throws(
+    () => validateDeployment(shop),
+    /deployment shop is invalid:\n- plugins is missing: list the plugins it uses, or `\[\]` for none/,
+  );
 });

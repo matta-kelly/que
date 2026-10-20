@@ -202,7 +202,7 @@ const chat = {
   name: "chat",
   type: "agent",
   description: "The agent a chat gets.",
-  packages: ["[[odoo]]"],
+  plugins: ["[[odoo]]"],
   model: "[[glm-flash]]",
   loop: "[[long-chat]]",
 };
@@ -211,7 +211,7 @@ const landl = {
   name: "landl",
   type: "deployment",
   description: "The landl deployment.",
-  packages: ["[[odoo]]"],
+  plugins: ["[[odoo]]"],
   agents: ["[[chat]]"],
   loops: ["[[long-chat]]"],
   models: ["[[glm-flash]]"],
@@ -220,7 +220,7 @@ const landl = {
 test("a chat agent note that uses odoo, runs on glm-flash, with the long-chat loop, parses", () => {
   assert.deepEqual(parse("agent", chat), {
     ...chat,
-    packages: ["odoo"],
+    plugins: ["odoo"],
     model: "glm-flash",
     loop: "long-chat",
   });
@@ -229,7 +229,7 @@ test("a chat agent note that uses odoo, runs on glm-flash, with the long-chat lo
 test("a landl deployment note parses", () => {
   assert.deepEqual(parse("deployment", landl), {
     ...landl,
-    packages: ["odoo"],
+    plugins: ["odoo"],
     agents: ["chat"],
     loops: ["long-chat"],
     models: ["glm-flash"],
@@ -254,13 +254,13 @@ test("an agent with two loops fails, on its loop", () => {
   assert.deepEqual(issue.path, ["loop"]);
 });
 
-test("a deployment with no packages fails, on its packages", () => {
-  const missing = issueOf("deployment", without(landl, "packages"));
+test("a deployment with no plugins fails, on its plugins", () => {
+  const missing = issueOf("deployment", without(landl, "plugins"));
   assert.equal(missing.code, "invalid_type");
-  assert.deepEqual(missing.path, ["packages"]);
-  const empty = issueOf("deployment", { ...landl, packages: [] });
+  assert.deepEqual(missing.path, ["plugins"]);
+  const empty = issueOf("deployment", { ...landl, plugins: [] });
   assert.equal(empty.code, "too_small");
-  assert.deepEqual(empty.path, ["packages"]);
+  assert.deepEqual(empty.path, ["plugins"]);
 });
 
 test("an agent, model, loop or deployment type has no field but its links", () => {
@@ -278,9 +278,9 @@ test("an agent, model, loop or deployment type has no field but its links", () =
   }
 });
 
-test("an agent note with no packages parses, and one with no model or no loop fails, on that link", () => {
-  // Left out, packages is none. que has no model or loop of its own, so an agent names each.
-  const node = without(chat, "packages");
+test("an agent note with no plugins parses, and one with no model or no loop fails, on that link", () => {
+  // Left out, plugins is none. que has no model or loop of its own, so an agent names each.
+  const node = without(chat, "plugins");
   assert.deepEqual(parse("agent", node), {
     ...node,
     model: "glm-flash",
@@ -293,11 +293,11 @@ test("an agent note with no packages parses, and one with no model or no loop fa
   }
 });
 
-test("an agent note that writes its packages as [] parses", () => {
+test("an agent note that writes its plugins as [] parses", () => {
   // The config writes none as `[]`, and basis 0.2.0 takes `[]` on an optional many link.
-  assert.deepEqual(parse("agent", { ...chat, packages: [] }), {
+  assert.deepEqual(parse("agent", { ...chat, plugins: [] }), {
     ...chat,
-    packages: [],
+    plugins: [],
     model: "glm-flash",
     loop: "long-chat",
   });

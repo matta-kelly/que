@@ -4,14 +4,14 @@ import { configFor } from "./config.js";
 
 const chat = {
   name: "chat",
-  packages: ["odoo"],
+  plugins: ["odoo"],
   model: "big",
   loop: "long-chat",
   instructions: "You help the sales team.",
 };
 const lean = {
   name: "lean",
-  packages: [],
+  plugins: [],
   model: "small",
   loop: "short-run",
 };

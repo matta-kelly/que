@@ -62,7 +62,7 @@ const byName = (packages: string[]) => {
     `import { defineDeployment } from "@que/core";
 export default defineDeployment({
   name: "by-name",
-  packages: ${JSON.stringify(packages)},
+  plugins: ${JSON.stringify(packages)},
   agents: [${fixture("agents/bare.ts")}],
   loops: [${fixture("loops/long-chat.ts")}],
   models: [${fixture("models/small.ts")}],

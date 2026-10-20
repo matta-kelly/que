@@ -4,7 +4,7 @@ export default defineDeployment({
   name: "my-deployment",
   // Folders of the packages this deployment uses, taken from this folder. A package can sit
   // outside it, as in a repo with its own packages/: "../packages/odoo".
-  packages: [],
+  plugins: [],
   // One file per agent config, at least one. A run names the one it wants, and a chat gets the first.
   agents: ["./agents/chat.ts"],
   // One file per loop config, at least one: how a chat is handled as it grows. An agent names one.

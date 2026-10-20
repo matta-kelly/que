@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  pluginsOf,
   validateAgent,
   validateCases,
   validateDeployment,
@@ -53,7 +54,7 @@ export async function load(folder: string): Promise<{
     const deployment = await definitionIn(join(folder, "index.ts"));
     validateDeployment(deployment);
     const cases: LoadedCase[] = [];
-    for (const path of deployment.packages)
+    for (const path of pluginsOf(deployment))
       cases.push(...(await casesOf(resolve(folder, path))));
     const agents: Agent[] = [];
     for (const path of deployment.agents) {

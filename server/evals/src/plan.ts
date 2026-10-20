@@ -4,6 +4,7 @@
  * would say nothing about the case.
  */
 
+import { pluginsOf } from "@que/core";
 import type { Agent, LoadedCase } from "./load.js";
 
 /** One case under one config. With `skipped`, it is not made, and this is why. */
@@ -29,7 +30,7 @@ export function plan(
 
   return cases.flatMap((c) =>
     chosen.map((agent): Planned =>
-      agent.packages.includes(c.package)
+      pluginsOf(agent).includes(c.package)
         ? { case: c, agent: agent.name }
         : {
             case: c,

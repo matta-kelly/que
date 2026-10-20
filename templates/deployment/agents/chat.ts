@@ -1,11 +1,11 @@
 import { defineAgent } from "@que/core";
 
-// One way this deployment's packages are run. `name`, `packages`, `model` and
+// One way this deployment's plugins are run. `name`, `plugins`, `model` and
 // `loop` are needed. Each other field is optional, and says below what it is when left out.
 export default defineAgent({
   name: "chat",
   // names, out of the ones the deployment lists. `[]` is none: list each one the agent gets
-  packages: [],
+  plugins: [],
   // the name of a model config the deployment lists. A run can name another
   model: "glm-flash",
   // the name of a loop config the deployment lists
