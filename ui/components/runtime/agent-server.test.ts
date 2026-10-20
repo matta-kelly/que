@@ -8,7 +8,10 @@ test("agentServer is que's own agent server when no setting names one, or the se
 });
 
 test("agentServer is the server a setting names", () => {
-  assert.equal(agentServer(" https://agents.example.com "), "https://agents.example.com");
+  assert.equal(
+    agentServer(" https://agents.example.com "),
+    "https://agents.example.com",
+  );
 });
 
 test("agentGraph is que's own graph when no setting names one, or the setting is blank", () => {
