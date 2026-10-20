@@ -64,7 +64,10 @@ export const AgentDefinition = z.strictObject(
     /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
     userInstructions: z.boolean({ error: must("true or false") }).optional(),
   },
-  strict({ legibility: 'the field "legibility" is now named `loading`' }),
+  strict({
+    legibility: 'the field "legibility" is now named `loading`',
+    packages: 'the field "packages" is now named `plugins`',
+  }),
 );
 
 export type AgentDefinition = z.infer<typeof AgentDefinition>;

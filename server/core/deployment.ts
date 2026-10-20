@@ -42,6 +42,7 @@ export const DeploymentDefinition = z.strictObject(
     {
       agent:
         "has an `agent` block: an agent config is a file of its own, listed in `agents`",
+      packages: 'the field "packages" is now named `plugins`',
     },
     "no definition (default export)",
   ),

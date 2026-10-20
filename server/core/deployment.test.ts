@@ -115,3 +115,18 @@ test("validateDeployment rejects a deployment that leaves out its plugins, and t
   );
   validateDeployment({ ...shop, plugins: [] });
 });
+
+test("validateDeployment rejects the field packages, and says it is now plugins", () => {
+  assert.throws(
+    () =>
+      validateDeployment({
+        name: "shop",
+        plugins: [],
+        packages: ["./odoo"],
+        agents: ["./chat.ts"],
+        loops: ["./long-chat.ts"],
+        models: ["./small.ts"],
+      }),
+    /deployment shop is invalid:\n- the field "packages" is now named `plugins`/,
+  );
+});

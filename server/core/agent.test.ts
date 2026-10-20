@@ -172,3 +172,17 @@ test("validateAgent rejects an agent that names no model or no loop", () => {
     /- loop is missing: name a loop config the deployment lists/,
   );
 });
+
+test("validateAgent rejects the field packages, and says it is now plugins", () => {
+  assert.throws(
+    () =>
+      validateAgent({
+        name: "chat",
+        plugins: [],
+        packages: ["odoo"],
+        model: "small",
+        loop: "long-chat",
+      }),
+    /agent chat is invalid:\n- the field "packages" is now named `plugins`/,
+  );
+});
