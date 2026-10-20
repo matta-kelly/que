@@ -27,12 +27,8 @@ export function loadedOperations(messages: BaseMessage[]): Set<string> {
     messages
       .flatMap((m) => (m as { tool_calls?: ToolCall[] }).tool_calls ?? [])
       .filter((call) => call.name === LOAD_OPERATION && succeeded.has(call.id!))
-      // A chat from before the argument was named `plugin` gives `package`.
       .map((call) =>
-        toolName(
-          String(call.args.plugin ?? call.args.package),
-          String(call.args.operation),
-        ),
+        toolName(String(call.args.plugin), String(call.args.operation)),
       ),
   );
 }
