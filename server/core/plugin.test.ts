@@ -1,14 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import {
-  definePackage,
-  definePlugin,
-  PackageDefinition,
-  PluginDefinition,
-  validatePackage,
-  validatePlugin,
-} from "./plugin.js";
+import { definePlugin, validatePlugin } from "./plugin.js";
 
 const notes = definePlugin({
   name: "notes",
@@ -207,16 +200,5 @@ test("validatePlugin takes a plugin that keeps the contract", () => {
       credential: z.object({ url: z.string() }),
       connect: async () => ({}),
     }),
-  );
-});
-
-test("the old names definePackage, validatePackage and PackageDefinition are the new ones", () => {
-  assert.equal(definePackage, definePlugin);
-  assert.equal(validatePackage, validatePlugin);
-  assert.equal(PackageDefinition, PluginDefinition);
-  const old: PackageDefinition = definePackage(notes);
-  assert.throws(
-    () => validatePackage({ ...old, name: "" }),
-    /- name is missing/,
   );
 });

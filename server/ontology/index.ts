@@ -8,19 +8,7 @@
  * It is a package apart from `@que/core`, so code that imports the core does not load basis.
  */
 
-import { defineSchema } from "basis";
 import { harness } from "./harness.js";
 import { plugin } from "./plugin.js";
 
 export { harness, plugin };
-
-/**
- * @deprecated All nine types in one schema, as before the split: the same type
- * objects, not defined again. It goes once cc imports `plugin`.
- */
-export const que = defineSchema({
-  name: "que",
-  description:
-    "que's words: the things a deployment, an agent and a package are made of.",
-  types: { ...plugin.types, ...harness.types },
-});

@@ -102,20 +102,16 @@ test("validateDeployment rejects a deployment that lists no agent, no loop or no
   validateDeployment(full);
 });
 
-test("validateDeployment takes packages, the old name of plugins, refuses a deployment that gives both, and one that gives neither", () => {
+test("validateDeployment rejects a deployment that leaves out its plugins, and takes `[]` as none", () => {
   const shop = {
     name: "shop",
     agents: ["./chat.ts"],
     loops: ["./long-chat.ts"],
     models: ["./small.ts"],
   };
-  validateDeployment({ ...shop, packages: ["./odoo"] });
-  assert.throws(
-    () => validateDeployment({ ...shop, plugins: [], packages: [] }),
-    /deployment shop is invalid:\n- packages is the old name of plugins: give plugins only/,
-  );
   assert.throws(
     () => validateDeployment(shop),
     /deployment shop is invalid:\n- plugins is missing: list the plugins it uses, or `\[\]` for none/,
   );
+  validateDeployment({ ...shop, plugins: [] });
 });

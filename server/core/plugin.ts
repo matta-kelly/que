@@ -144,23 +144,3 @@ export function validatePlugin(
 ): asserts def is PluginDefinition {
   check(PluginDefinition, def, `plugin${named(def)} is invalid`);
 }
-
-/** The plugins a deployment or an agent lists, under `plugins` or its old name `packages`. */
-export const pluginsOf = (config: {
-  plugins?: string[];
-  packages?: string[];
-}): string[] => config.plugins ?? config.packages ?? [];
-
-// The old names, from before "package" was "plugin". They go once cc uses the new ones.
-
-/** @deprecated The old name of `PluginDefinition`. */
-export const PackageDefinition = PluginDefinition;
-/** @deprecated The old name of `PluginDefinition`. */
-export type PackageDefinition<
-  S extends z.ZodObject = z.ZodObject,
-  Conn = unknown,
-> = PluginDefinition<S, Conn>;
-/** @deprecated The old name of `definePlugin`. */
-export const definePackage = definePlugin;
-/** @deprecated The old name of `validatePlugin`. */
-export const validatePackage: typeof validatePlugin = validatePlugin;

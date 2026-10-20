@@ -15,7 +15,6 @@ import {
   must,
   name,
   named,
-  onePluginList,
   strict,
   that,
 } from "./check.js";
@@ -25,53 +24,48 @@ export const LOADING = ["on-demand", "eager"] as const;
 export type Loading = (typeof LOADING)[number];
 
 /** What `defineAgent` returns, and an agent file exports as its default. `name`, `plugins`, `model` and `loop` are needed; each other field says what it is when left out. */
-const plugins = z.array(that(isText, "a plugin name"), {
-  error: must("an array"),
-});
-
-export const AgentDefinition = z
-  .strictObject(
-    {
-      /** What a run names to get this config. */
-      name,
-      /** Names of the plugins the agent gets, out of the ones the deployment mounts. `[]` is none. */
-      plugins: plugins.optional(),
-      /** @deprecated The old name of `plugins`. A config gives one of the two. */
-      packages: plugins.optional(),
-      /** The name of a model config the deployment lists. A run can name another. */
-      model: z
-        .custom<string>()
-        .refine((model) => typeof model !== "string" || !model.includes(":"), {
-          message:
-            'is written as "provider:model": a model is a file of its own, listed in `models` in the deployment, and the agent names it',
-          abort: true,
-        })
-        .refine(isName, {
-          error: must(
-            "the name of a model",
-            "is missing: name a model config the deployment lists",
-          ),
-        }),
-      /** Opens the system prompt, in place of que's own role text. Left out: que's role text. */
-      instructions: that(isText, "text that is not empty").optional(),
-      /** How the model is shown the environment, and when. Left out: `on-demand`. */
-      loading: z
-        .enum(LOADING, { error: must(`one of: ${LOADING.join(", ")}`) })
-        .optional(),
-      /** The name of a loop config the deployment lists: how the agent's loop is run. */
-      loop: that(
-        isName,
-        "the name of a loop",
-        "is missing: name a loop config the deployment lists",
+export const AgentDefinition = z.strictObject(
+  {
+    /** What a run names to get this config. */
+    name,
+    /** Names of the plugins the agent gets, out of the ones the deployment mounts. `[]` is none. */
+    plugins: z.array(that(isText, "a plugin name"), {
+      error: must(
+        "an array",
+        "is missing: list the plugins it gets, or `[]` for none",
       ),
-      /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
-      userInstructions: z.boolean({ error: must("true or false") }).optional(),
-    },
-    strict({ legibility: 'the field "legibility" is now named `loading`' }),
-  )
-  .superRefine(
-    onePluginList("is missing: list the plugins it gets, or `[]` for none"),
-  );
+    }),
+    /** The name of a model config the deployment lists. A run can name another. */
+    model: z
+      .custom<string>()
+      .refine((model) => typeof model !== "string" || !model.includes(":"), {
+        message:
+          'is written as "provider:model": a model is a file of its own, listed in `models` in the deployment, and the agent names it',
+        abort: true,
+      })
+      .refine(isName, {
+        error: must(
+          "the name of a model",
+          "is missing: name a model config the deployment lists",
+        ),
+      }),
+    /** Opens the system prompt, in place of que's own role text. Left out: que's role text. */
+    instructions: that(isText, "text that is not empty").optional(),
+    /** How the model is shown the environment, and when. Left out: `on-demand`. */
+    loading: z
+      .enum(LOADING, { error: must(`one of: ${LOADING.join(", ")}`) })
+      .optional(),
+    /** The name of a loop config the deployment lists: how the agent's loop is run. */
+    loop: that(
+      isName,
+      "the name of a loop",
+      "is missing: name a loop config the deployment lists",
+    ),
+    /** The agent's prompt gets the user's own instructions. One that does not say gets none. */
+    userInstructions: z.boolean({ error: must("true or false") }).optional(),
+  },
+  strict({ legibility: 'the field "legibility" is now named `loading`' }),
+);
 
 export type AgentDefinition = z.infer<typeof AgentDefinition>;
 
