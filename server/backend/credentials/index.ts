@@ -1,6 +1,6 @@
 /**
- * Credential store: one encrypted record per user and package, in Postgres.
- * Dumb storage only; the harness validates values against each package's
+ * Credential store: one encrypted record per user and plugin, in Postgres.
+ * Dumb storage only; the harness validates values against each plugin's
  * credential schema before saving. Values never leave the server.
  */
 
@@ -13,15 +13,51 @@ export type StoredCredential = {
 };
 
 export type CredentialStore = {
-  get(userId: string, pkg: string): Promise<StoredCredential | undefined>;
+  get(userId: string, plugin: string): Promise<StoredCredential | undefined>;
   set(
     userId: string,
-    pkg: string,
+    plugin: string,
     values: Record<string, unknown>,
   ): Promise<void>;
-  remove(userId: string, pkg: string): Promise<void>;
-  list(userId: string): Promise<{ package: string; updatedAt: Date }[]>;
+  remove(userId: string, plugin: string): Promise<void>;
+  list(userId: string): Promise<{ plugin: string; updatedAt: Date }[]>;
 };
+
+/** What the store runs its queries on: a pg pool, or anything with the same `query`. */
+export type Queryable = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query(text: string, values?: unknown[]): Promise<{ rows: any[] }>;
+};
+
+/**
+ * The table, made when it is not there. A table made before plugins were named
+ * plugins has the column `package`: it is renamed to `plugin`, with its rows.
+ * One statement, so Postgres runs it in one transaction: the rename is done
+ * whole or not at all. The lock makes two que processes that start together
+ * do it one after the other, so the second finds it done.
+ * It looks for the table in current_schema(), where the store makes it.
+ */
+export const SETUP = `
+  DO $$
+  BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('que.credentials'));
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND table_name = 'credentials'
+        AND column_name = 'package'
+    ) THEN
+      ALTER TABLE credentials RENAME COLUMN package TO plugin;
+    END IF;
+    CREATE TABLE IF NOT EXISTS credentials (
+      rep        text        NOT NULL,
+      plugin     text        NOT NULL,
+      secret     text        NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (rep, plugin)
+    );
+  END
+  $$`;
 
 // The one place the encryption key comes from. Swap this to fetch it from a
 // secret manager later; nothing else changes.
@@ -63,49 +99,46 @@ export function createStore(
   databaseUrl = process.env.DATABASE_URL,
 ): CredentialStore {
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
-  const pool = new pg.Pool({ connectionString: databaseUrl });
-  const ready = pool.query(`
-    CREATE TABLE IF NOT EXISTS credentials (
-      rep        text        NOT NULL,
-      package    text        NOT NULL,
-      secret     text        NOT NULL,
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      PRIMARY KEY (rep, package)
-    )`);
+  return storeOn(new pg.Pool({ connectionString: databaseUrl }));
+}
+
+/** The store, on a database it sets up first (`SETUP`). */
+export function storeOn(db: Queryable): CredentialStore {
+  const ready = db.query(SETUP);
 
   return {
-    async get(userId, pkg) {
+    async get(userId, plugin) {
       await ready;
-      const { rows } = await pool.query(
-        "SELECT secret, updated_at FROM credentials WHERE rep = $1 AND package = $2",
-        [userId, pkg],
+      const { rows } = await db.query(
+        "SELECT secret, updated_at FROM credentials WHERE rep = $1 AND plugin = $2",
+        [userId, plugin],
       );
       return rows[0]
         ? { values: decrypt(rows[0].secret), updatedAt: rows[0].updated_at }
         : undefined;
     },
-    async set(userId, pkg, values) {
+    async set(userId, plugin, values) {
       await ready;
-      await pool.query(
-        `INSERT INTO credentials (rep, package, secret) VALUES ($1, $2, $3)
-         ON CONFLICT (rep, package) DO UPDATE SET secret = EXCLUDED.secret, updated_at = now()`,
-        [userId, pkg, encrypt(values)],
+      await db.query(
+        `INSERT INTO credentials (rep, plugin, secret) VALUES ($1, $2, $3)
+         ON CONFLICT (rep, plugin) DO UPDATE SET secret = EXCLUDED.secret, updated_at = now()`,
+        [userId, plugin, encrypt(values)],
       );
     },
-    async remove(userId, pkg) {
+    async remove(userId, plugin) {
       await ready;
-      await pool.query(
-        "DELETE FROM credentials WHERE rep = $1 AND package = $2",
-        [userId, pkg],
-      );
+      await db.query("DELETE FROM credentials WHERE rep = $1 AND plugin = $2", [
+        userId,
+        plugin,
+      ]);
     },
     async list(userId) {
       await ready;
-      const { rows } = await pool.query(
-        "SELECT package, updated_at FROM credentials WHERE rep = $1",
+      const { rows } = await db.query(
+        "SELECT plugin, updated_at FROM credentials WHERE rep = $1",
         [userId],
       );
-      return rows.map((r) => ({ package: r.package, updatedAt: r.updated_at }));
+      return rows.map((r) => ({ plugin: r.plugin, updatedAt: r.updated_at }));
     },
   };
 }
