@@ -48,12 +48,12 @@ const saveFacts = (name: string, facts: object) => {
   );
 };
 
-test("a deployment that mounts passes, and the folder of each package it lists is printed", () => {
+test("a deployment that mounts passes, and the folder of each plugin it lists is printed", () => {
   const { status, stdout, stderr } = check("agents-two");
   assert.equal(status, 0, stderr);
   assert.deepEqual(stdout.trim().split("\n"), [
-    join(fixtures, "packages", "gamma"),
-    join(fixtures, "packages", "alpha"),
+    join(fixtures, "plugins", "gamma"),
+    join(fixtures, "plugins", "alpha"),
   ]);
 });
 

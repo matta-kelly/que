@@ -30,7 +30,7 @@ const [getOrder] = operationTools(
   async (plugin) => `conn:${plugin.name}`,
 );
 
-test("an operation becomes a tool named <package>_<operation>, with its own title, description and arguments", () => {
+test("an operation becomes a tool named <plugin>_<operation>, with its own title, description and arguments", () => {
   assert.equal(getOrder.name, toolName("shop", "getOrder"));
   assert.equal(getOrder.name, "shop_getOrder");
   assert.equal(getOrder.description, "Get order: One order with its lines.");

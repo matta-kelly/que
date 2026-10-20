@@ -186,3 +186,26 @@ test("validateAgent rejects the field packages, and says it is now plugins", () 
     /agent chat is invalid:\n- the field "packages" is now named `plugins`/,
   );
 });
+
+test("validateAgent refuses an old config that gives packages alone, with plugins missing and the hint", () => {
+  assert.throws(
+    () =>
+      validateAgent({
+        name: "chat",
+        packages: ["odoo"],
+        model: "small",
+        loop: "long-chat",
+      }),
+    (error: Error) => {
+      assert.match(
+        error.message,
+        /- plugins is missing: list the plugins it gets, or `\[\]` for none/,
+      );
+      assert.match(
+        error.message,
+        /- the field "packages" is now named `plugins`/,
+      );
+      return true;
+    },
+  );
+});

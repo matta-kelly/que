@@ -130,3 +130,27 @@ test("validateDeployment rejects the field packages, and says it is now plugins"
     /deployment shop is invalid:\n- the field "packages" is now named `plugins`/,
   );
 });
+
+test("validateDeployment refuses an old config that gives packages alone, with plugins missing and the hint", () => {
+  assert.throws(
+    () =>
+      validateDeployment({
+        name: "shop",
+        packages: ["./odoo"],
+        agents: ["./chat.ts"],
+        loops: ["./long-chat.ts"],
+        models: ["./small.ts"],
+      }),
+    (error: Error) => {
+      assert.match(
+        error.message,
+        /- plugins is missing: list the plugins it uses, or `\[\]` for none/,
+      );
+      assert.match(
+        error.message,
+        /- the field "packages" is now named `plugins`/,
+      );
+      return true;
+    },
+  );
+});

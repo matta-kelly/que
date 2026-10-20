@@ -57,7 +57,7 @@ test("with agents named, plans only those, in the order named", () => {
   );
 });
 
-test("skips a case under an agent that does not list its package, and under one with no packages", () => {
+test("skips a case under an agent that does not list its plugin, and under one with no plugins", () => {
   assert.deepEqual(plan([byCustomer], [notesOnly, bare], []), [
     {
       case: byCustomer,

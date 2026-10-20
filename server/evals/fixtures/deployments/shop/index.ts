@@ -2,7 +2,7 @@ import { defineDeployment } from "@que/core";
 
 export default defineDeployment({
   name: "shop",
-  plugins: ["../../packages/shop", "../../packages/notes"],
+  plugins: ["../../plugins/shop", "../../plugins/notes"],
   agents: [
     "../../agents/chat.ts",
     "../../agents/lean.ts",

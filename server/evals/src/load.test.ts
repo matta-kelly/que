@@ -6,7 +6,7 @@ import { load } from "./load.js";
 const deployment = (name: string) =>
   join(import.meta.dirname, "../fixtures/deployments", name);
 
-test("loads the name of a deployment, the cases of each package it lists, each with its package, and its agent configs as written, in order", async () => {
+test("loads the name of a deployment, the cases of each plugin it lists, each with its plugin, and its agent configs as written, in order", async () => {
   const { deployment: name, cases, agents } = await load(deployment("shop"));
   assert.deepEqual(
     { deployment: name, cases, agents },
@@ -72,11 +72,11 @@ test("loads the model configs of a deployment, as written, in order", async () =
 });
 
 test("stops on an agent that leaves out its plugins, so no run is planned under every plugin", async () => {
-  await assert.rejects(load(deployment("packageless")), (error: Error) => {
+  await assert.rejects(load(deployment("pluginless")), (error: Error) => {
     assert.match(error.message, /^eval:/);
     assert.match(
       error.message,
-      /agent packageless is invalid:\n- plugins is missing/,
+      /agent pluginless is invalid:\n- plugins is missing/,
     );
     return true;
   });

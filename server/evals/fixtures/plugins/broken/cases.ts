@@ -1,6 +1,6 @@
 import { defineCases } from "@que/core";
 
-// Not valid on purpose: the package names no capability.
+// Not valid on purpose: the plugin names no capability.
 export default defineCases([
   {
     name: "refund-asked",

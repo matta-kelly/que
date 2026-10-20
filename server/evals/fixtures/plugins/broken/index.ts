@@ -4,5 +4,5 @@ export default definePlugin({
   name: "broken",
   title: "Broken",
   description:
-    "A sound package, with cases that name a capability it does not have.",
+    "A sound plugin, with cases that name a capability it does not have.",
 });
