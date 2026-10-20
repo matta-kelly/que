@@ -1,5 +1,5 @@
 /**
- * `@que/core/ontology`: que's words, as one basis package.
+ * `@que/core/ontology`: que's words, as one basis schema.
  * A node carries its identity, its links, and a title where the spec has one (package, op,
  * skill, capability), and no more: its other fields and their values stay in the specs and
  * the code. Each link is a field named after the spec field it mirrors, and its comment says
@@ -7,7 +7,7 @@
  * It sits apart from `@que/core`, so code that imports the core does not load basis.
  */
 
-import { definePackage, defineType, many, manyOrNone, one } from "basis";
+import { defineSchema, defineType, many, manyOrNone, one } from "basis";
 import * as z from "zod";
 
 // Blank text is no title, as the specs refuse it (`!value.trim()`). The value is kept as written.
@@ -104,7 +104,7 @@ const deployment = defineType({
   },
 });
 
-export const que = definePackage({
+export const que = defineSchema({
   name: "que",
   description:
     "que's words: the things a deployment, an agent and a package are made of.",
