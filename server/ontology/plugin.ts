@@ -25,7 +25,7 @@ const skill = defineType({
 const capability = defineType({
   name: "capability",
   description:
-    "A capability is an outcome someone wants from a system: the unit of intent, and the unit that is proven. Its meaning is owned by the capability note (capability-model/_well/capability.md); this is that meaning as code. `Capability` in plugin.ts.",
+    "A capability is an outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in plugin.ts.",
   fields: { title },
 });
 
