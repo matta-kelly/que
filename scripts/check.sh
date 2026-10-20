@@ -128,7 +128,7 @@ check_ui() {
 }
 
 # The shell set's tools, each pinned to a release and held to its checksum, kept in the user's cache
-# (in the dev container, a volume that every que container shares).
+# (in the dev container, the checkout's cache volume, kept across rebuilds).
 tools=${XDG_CACHE_HOME:-$HOME/.cache}/que-tools
 shellcheck=$tools/shellcheck-v0.11.0/shellcheck
 just=$tools/just-1.56.0/just
