@@ -12,10 +12,13 @@ import type {
   PackageDefinition,
   Skill,
 } from "@que/core";
-import { que } from "@que/core/ontology";
+import { harness, plugin } from "@que/core/ontology";
+
+/** The types of both schemas, each by its name. */
+const types = { ...plugin.types, ...harness.types };
 
 /** What a spec field is in the ontology: the type its link points at, or null for a field that is no link. */
-type Target = keyof typeof que.types | null;
+type Target = keyof typeof types | null;
 
 /** Every field of a spec, and its target. */
 type Fields<Spec> = Record<keyof Spec, Target>;
@@ -26,7 +29,7 @@ type Fields<Spec> = Record<keyof Spec, Target>;
  * Each table holds each key of its spec and no other (`satisfies`), and there is a table for each type: a field
  * added to a spec, or a type added to the ontology, fails the type check until it is put here as a link or not.
  */
-const specs: { [Name in keyof typeof que.types]: Record<string, Target> } = {
+const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
   package: {
     name: null,
     title: null,
@@ -97,15 +100,15 @@ const specs: { [Name in keyof typeof que.types]: Record<string, Target> } = {
 };
 
 /** The fields of a spec that are links, each with its target. */
-const referencesOf = (name: keyof typeof que.types) =>
+const referencesOf = (name: keyof typeof types) =>
   Object.entries(specs[name]).filter(([, target]) => target !== null);
 
-const names = Object.keys(specs) as (keyof typeof que.types)[];
+const names = Object.keys(specs) as (keyof typeof types)[];
 
 test("each type's links are named as its spec's reference fields", () => {
   for (const name of names)
     assert.deepEqual(
-      linksOf(que.types[name])
+      linksOf(types[name])
         .map((link) => link.name)
         .sort(),
       referencesOf(name)
@@ -117,7 +120,7 @@ test("each type's links are named as its spec's reference fields", () => {
 
 test("each link points at the type its spec field names", () => {
   for (const name of names)
-    for (const link of linksOf(que.types[name]))
+    for (const link of linksOf(types[name]))
       assert.deepEqual(
         link.to().map((type) => type.name),
         [specs[name][link.name]],
