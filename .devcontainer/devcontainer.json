@@ -19,13 +19,16 @@
   "updateRemoteUserUID": false,
 
   "mounts": [
-    // Packages live in a podman volume, not the repo folder.
-    "source=que-node-modules,target=${containerWorkspaceFolder}/server/node_modules,type=volume",
-    "source=que-ui-node-modules,target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
-    // Playwright's Chromium survives rebuilds.
+    // Packages live in a podman volume, not the repo folder. One set per checkout
+    // (devcontainerId comes from the folder), so a second checkout of que, such as
+    // a deployment's pinned one, never installs over this one's.
+    "source=que-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/server/node_modules,type=volume",
+    "source=que-ui-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
+    // Playwright's Chromium survives rebuilds. Shared by every checkout: a browser
+    // version sits in a folder of its own.
     "source=que-browsers,target=/home/node/.cache,type=volume",
     // Next.js build cache, thousands of files: keep it out of the repo folder too.
-    "source=que-ui-next,target=${containerWorkspaceFolder}/ui/.next,type=volume"
+    "source=que-ui-next-${devcontainerId},target=${containerWorkspaceFolder}/ui/.next,type=volume"
   ],
 
   // New volumes start root-owned: hand it to `node`, then install.
