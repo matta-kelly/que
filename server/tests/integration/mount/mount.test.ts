@@ -4,8 +4,17 @@
  * definitions and skills and opens no connection.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadDeployment } from "../../../harness/src/mount/deployment.js";
 import * as fromDeployment from "../../../harness/src/mount/deployment.js";
@@ -25,6 +34,56 @@ const mount = async (name: string) =>
 
 test("a listed folder can be an absolute path", async () => {
   assert.deepEqual(names(await mount("absolute")), ["beta"]);
+});
+
+// A deployment in an npm workspace, as a repo of deployments is: a package of
+// the repo is linked into the root's node_modules, and the deployment sits in
+// a folder under the root.
+const workspace = mkdtempSync(join(tmpdir(), "que-mount-by-name-"));
+after(() => rmSync(workspace, { recursive: true, force: true }));
+writeFileSync(join(workspace, "package.json"), '{ "type": "module" }\n');
+cpSync(join(fixtures, "packages/beta"), join(workspace, "packages/beta"), {
+  recursive: true,
+});
+writeFileSync(
+  join(workspace, "packages/beta/package.json"),
+  '{ "name": "beta", "type": "module" }\n',
+);
+mkdirSync(join(workspace, "node_modules"));
+symlinkSync(
+  join(workspace, "packages/beta"),
+  join(workspace, "node_modules/beta"),
+);
+const byName = (packages: string[]) => {
+  const dir = mkdtempSync(join(workspace, "deployment-"));
+  const fixture = (path: string) => JSON.stringify(join(fixtures, path));
+  writeFileSync(
+    join(dir, "index.ts"),
+    `import { defineDeployment } from "@que/core";
+export default defineDeployment({
+  name: "by-name",
+  packages: ${JSON.stringify(packages)},
+  agents: [${fixture("agents/bare.ts")}],
+  loops: [${fixture("loops/long-chat.ts")}],
+  models: [${fixture("models/small.ts")}],
+});
+`,
+  );
+  return dir;
+};
+
+test("a listed package can be a name, found as Node finds an import from the deployment's folder", async () => {
+  const { packages } = await loadDeployment(byName(["beta"]));
+  assert.deepEqual(names(await mountPackages(packages)), ["beta"]);
+});
+
+test("stops, naming the package and the deployment folder, when a listed name is not installed", async () => {
+  const dir = byName(["nowhere"]);
+  await assert.rejects(loadDeployment(dir), (error: Error) => {
+    assert.match(error.message, /"nowhere"/);
+    assert.ok(error.message.includes(dir));
+    return true;
+  });
 });
 
 test("a mounted package has its skills", async () => {
