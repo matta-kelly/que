@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { agentServer } from "@/components/runtime/agent-server";
 
 const ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 
@@ -29,13 +30,7 @@ async function handleRequest(req: NextRequest, method: string) {
   if (!isAllowedRequestContext(req)) return crossOriginResponse();
 
   try {
-    const apiUrl = process.env.LANGGRAPH_API_URL?.trim();
-    if (!apiUrl) {
-      return NextResponse.json(
-        { error: "LANGGRAPH_API_URL is not configured." },
-        { status: 503 },
-      );
-    }
+    const apiUrl = agentServer(process.env.LANGGRAPH_API_URL);
 
     const path = req.nextUrl.pathname.replace(/^\/?api\//, "");
     const searchParams = new URLSearchParams(req.nextUrl.search);

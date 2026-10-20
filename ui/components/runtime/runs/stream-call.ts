@@ -17,8 +17,10 @@ import {
   mapMessages,
   withReasoning,
 } from "@/components/runtime/with-reasoning";
+import { agentGraph } from "@/components/runtime/agent-server";
 
-const ASSISTANT_ID = process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID!;
+// Read by its whole name, so Next.js puts the value into the browser's code.
+const ASSISTANT_ID = agentGraph(process.env.NEXT_PUBLIC_LANGGRAPH_ASSISTANT_ID);
 // The id that takes every message out, as LangGraph has it.
 const REMOVE_ALL_MESSAGES = "__remove_all__";
 // A stop was asked for while the chat did not have the id of its run yet.
