@@ -24,7 +24,8 @@
     // Packages live in a podman volume, not the repo folder. One set per checkout
     // (devcontainerId comes from the folder), so a second checkout of que, such as
     // a deployment's pinned one, never installs over this one's. scripts/container.sh
-    // names them by a hash of the folder in its place, so VS Code and `just` do not share them.
+    // names them by a hash of the folder in its place. `just` uses VS Code's container
+    // while it sees the folder, and removes it when it makes its own.
     "source=que-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/server/node_modules,type=volume",
     "source=que-ui-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
     // The user's cache: Playwright's Chromium and the check's pinned tools, kept

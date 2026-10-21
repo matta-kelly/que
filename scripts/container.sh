@@ -26,7 +26,8 @@ sees() {
 }
 
 # A short hash of the repo's path, in place of the devcontainerId VS Code uses: one container and one set of volumes per checkout.
-# The two hashes are not the same, so the first run here installs again, into new volumes.
+# The two hashes are not the same, so the first container made here installs again, into new volumes.
+# The volumes of a container made before (by VS Code, or by the devcontainer CLI) stay until they are removed by hand.
 id=$(printf '%s' "$root" | sha256sum | cut -c1-12)
 # The image, named by its Dockerfile, so a changed Dockerfile builds a new one.
 image=localhost/que-dev:$(sha256sum .devcontainer/Dockerfile | cut -c1-12)
@@ -42,12 +43,16 @@ if [ -z "$c" ] || ! sees "$c"; then
     "$root"/*) ;;
     *) mount=(--mount "type=bind,source=$top,target=$top") ;;
   esac
-  if [ -n "$c" ]; then
-    echo "The dev container cannot see $folder. Making it again with that folder mounted, which takes a few minutes." >&2
-    podman rm -f "$c" >/dev/null
-  fi
+  # Built before any container goes, so a build that fails leaves the old one.
   podman image exists "$image" || podman build -t "$image" .devcontainer >&2
+  [ -z "$c" ] || echo "The dev container cannot see $folder. Making it again with that folder mounted, which takes a few minutes." >&2
+  # Every container for this checkout goes, VS Code's too, so `just` cannot find one that cannot see the folder.
+  old=$(podman ps -aq --filter "label=devcontainer.local_folder=$root")
+  [ -z "$old" ] || xargs podman rm -f <<<"$old" >/dev/null
   c=que-dev-$id
+  podman rm -f --ignore "$c" >/dev/null
+  # A container whose install did not finish (it failed, or the script was stopped) is removed, so the next run makes it again.
+  trap 'podman rm -f "$c" >/dev/null 2>&1' EXIT
   # The settings of devcontainer.json: the repo at its host path, the four volumes, your user as `node`, the host network.
   # --init stops the container at once on `podman stop`, which `sleep` as the first process would not.
   podman run -d --init --name "$c" -l "devcontainer.local_folder=$root" \
@@ -59,16 +64,12 @@ if [ -z "$c" ] || ! sees "$c"; then
     --mount "type=volume,source=que-ui-next-$id,target=$root/ui/.next" \
     "${mount[@]}" -w "$root" "$image" sleep infinity >/dev/null
   # devcontainer.json's postCreateCommand: new volumes start root-owned, so hand them to `node`, then install.
-  # A container whose install failed is removed, so the next run makes it again.
-  if ! {
-    podman exec -u root "$c" chown node:node server/node_modules ui/node_modules ui/.next /home/node/.cache &&
-      podman exec -u node -w "$root/server" "$c" npm ci &&
-      podman exec -u node -w "$root/ui" "$c" sh -c 'npm ci && npx playwright install chromium'
-  } >&2; then
-    echo "The dev container's install failed. It is removed, so the next run makes it again." >&2
-    podman rm -f "$c" >/dev/null
-    exit 1
-  fi
+  {
+    podman exec -u root "$c" chown node:node server/node_modules ui/node_modules ui/.next /home/node/.cache
+    podman exec -u node -w "$root/server" "$c" npm ci
+    podman exec -u node -w "$root/ui" "$c" sh -c 'npm ci && npx playwright install chromium'
+  } >&2
+  trap - EXIT
 else
   podman start "$c" >/dev/null
 fi
