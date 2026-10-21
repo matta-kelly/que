@@ -1,6 +1,8 @@
 // Node runs in this container, so node_modules never lands in the repo folder:
 // the folder sits in a notes vault whose indexer reads every file.
 // Opens the whole repo: server/ and ui/ are two apps, each with its own node_modules.
+// This file is VS Code's. scripts/container.sh, which `just` calls, makes the same container
+// with podman alone: a change here is made there too.
 {
   "name": "que",
   "build": { "dockerfile": "Dockerfile" },
@@ -21,7 +23,9 @@
   "mounts": [
     // Packages live in a podman volume, not the repo folder. One set per checkout
     // (devcontainerId comes from the folder), so a second checkout of que, such as
-    // a deployment's pinned one, never installs over this one's.
+    // a deployment's pinned one, never installs over this one's. scripts/container.sh
+    // names them by a hash of the folder in its place. `just` uses VS Code's container
+    // while it sees the folder, and removes it when it makes its own.
     "source=que-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/server/node_modules,type=volume",
     "source=que-ui-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
     // The user's cache: Playwright's Chromium and the check's pinned tools, kept
