@@ -22,7 +22,7 @@
     "@que/models": "*",
     "@que/ontology": "*",
     "@que/users": "*",
-    "basis": "github:matta-kelly/basis#v0.11.0",
+    "basis": "github:matta-kelly/basis#v0.13.0",
     "deepagents": "^1.14.2",
     "hono": "^4.13.8",
     "langchain": "^1.5.10",
