@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
-import { base, linksOf } from "basis";
+import { linksOf, node } from "basis";
 import { harness, plugin } from "@que/ontology";
 
 type Name = keyof typeof plugin.types | keyof typeof harness.types;
@@ -259,7 +259,7 @@ test("an agent, model, loop or deployment type has no field but its links", () =
   for (const name of ["agent", "model", "loop", "deployment"] as const) {
     const type = harness.types[name];
     const fields = Object.keys(type.schema.shape).filter(
-      (field) => !Object.hasOwn(base, field),
+      (field) => !Object.hasOwn(node.schema.shape, field),
     );
     assert.deepEqual(
       fields,
@@ -305,7 +305,7 @@ test("a deployment note with no agents, no loops or no models fails, on that lin
   }
 });
 
-test("a model and a loop note each parse with no field beyond the base", () => {
+test("a model and a loop note each parse with no field beyond those every node has", () => {
   for (const type of ["model", "loop"] as const) {
     const node = { name: "glm-flash", type, description: "A config." };
     assert.deepEqual(parse(type, node), node);

@@ -24,8 +24,8 @@ type Target = keyof typeof types | null;
 type Fields<Spec> = Record<keyof Spec, Target>;
 
 /**
- * Each type of the ontology, and every field of its spec with its target. A field that is no link is the base,
- * the title, or a value that stays in the config.
+ * Each type of the ontology, and every field of its spec with its target. A field that is no link is one every node
+ * has, the title, or a value that stays in the config.
  * Each table holds each key of its spec and no other (`satisfies`), and there is a table for each type: a field
  * added to a spec, or a type added to the ontology, fails the type check until it is put here as a link or not.
  */
