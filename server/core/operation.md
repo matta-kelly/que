@@ -9,7 +9,7 @@ An operation is one thing the model can do in a plugin. The harness turns each o
 - [[#Answer]] what comes back
 - [[#Writes]] what an operation that changes data promises
 
-- [[plugin]]: the contract an operation is part of
+- [[plugin-contract]]: the contract an operation is part of
 
 ## Tool card
 

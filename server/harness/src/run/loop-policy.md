@@ -9,7 +9,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 - [[#Practice]] where it acts, and what is built
 
 - [[que]]: the harness this is a unit of
-- [[daworks/que/server/core/plugin|plugin]]: what a plugin declares. The loop can show only that
+- [[plugin-contract]]: what a plugin declares. The loop can show only that
 - [[evals]]: what reads a run after it ends
 
 ---

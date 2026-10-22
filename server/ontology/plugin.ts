@@ -64,4 +64,5 @@ export const plugin = defineSchema({
     capability,
     case: kase,
   },
+  typeNotes: new URL("./types/plugin/", import.meta.url),
 });

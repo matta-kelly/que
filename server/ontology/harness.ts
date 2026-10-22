@@ -5,7 +5,7 @@
  */
 
 import { defineSchema, defineType, many, manyOrNone, one } from "basis";
-import { plugin } from "./plugin.js";
+import { plugin } from "./plugin.ts";
 
 const pluginType = plugin.types.plugin;
 
@@ -61,4 +61,5 @@ export const harness = defineSchema({
     "What runs que's plugins: a deployment, its agents, and their models and loops.",
   types: { agent, model, loop, deployment },
   imports: [plugin],
+  typeNotes: new URL("./types/harness/", import.meta.url),
 });

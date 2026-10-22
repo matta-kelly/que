@@ -17,7 +17,7 @@ const lists = (text: string) =>
     .map(([list]) => list)
     .filter((list) => names.some((name) => list.includes(name)));
 
-for (const doc of ["README.md", "server/core/plugin.md"]) {
+for (const doc of ["README.md", "server/core/plugin-contract.md"]) {
   test(`each list in ${doc} that names a supplied package names all of them, and no other`, () => {
     const found = lists(readFileSync(join(repo, doc), "utf8"));
     assert.ok(found.length > 0, `${doc} lists no package que supplies`);
