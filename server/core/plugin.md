@@ -68,3 +68,5 @@ MOVING TOWARD: https://agent-plugins.org/ really should just adopt this
 	- contract checks: the same for every plugin. As [[operation]] gains a rule that code can check, `validatePlugin` checks it, and every plugin gets it
 	- op tests: one behaviour of one operation, named `<operation>: <behaviour>`, with no network. Each write operation has two more: the same call twice answers `unchanged`, and a value that is not allowed fails with the allowed ones
 	- cases: one behaviour of one capability, with the model, against the real service
+
+### Credentials / Access
