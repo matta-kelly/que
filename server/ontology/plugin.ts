@@ -3,7 +3,7 @@
  * its ops, skills and capabilities, and the cases that prove a capability.
  */
 
-import { defineSchema, defineType, manyOrNone, one } from "basis";
+import { defineSchema, defineType, manyOrNone, one } from "@mku1tra/basis";
 import * as z from "zod";
 
 // Blank text is no title, as the specs refuse it (`!value.trim()`). The value is kept as written.

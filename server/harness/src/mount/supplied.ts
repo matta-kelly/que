@@ -14,7 +14,7 @@ export const SUPPLIED: Record<string, string> = {
   "@que/core": "core/index.ts",
   "@que/ontology": "ontology/index.ts",
   zod: "node_modules/zod",
-  basis: "node_modules/basis/dist/index.d.ts",
+  "@mku1tra/basis": "node_modules/@mku1tra/basis/dist/index.d.ts",
 };
 
 /**

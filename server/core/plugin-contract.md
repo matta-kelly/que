@@ -66,7 +66,7 @@ Designed, not built.
 ## What it never knows
 
 - which agent uses it, or how it is shown to the model
-- any agent framework. From que it imports only `@que/core`, `@que/ontology`, `zod` and `basis`, and the harness supplies them: by those exact names, and any subpath of `@que/core`, they resolve to que's copy, even when the plugin installs its own. Another subpath, such as `zod/v4`, is not supplied
+- any agent framework. From que it imports only `@que/core`, `@que/ontology`, `zod` and `@mku1tra/basis`, and the harness supplies them: by those exact names, and any subpath of `@que/core`, they resolve to que's copy, even when the plugin installs its own. Another subpath, such as `zod/v4`, is not supplied
 - what else it needs, it brings itself: a library such as a database driver is a dependency in its own `package.json`, and the deployment installs it. A library it brings also gets que's copy of the supplied names, so it must work with que's versions of them
 - the test: if removing the folder needs a change to the harness, it was not a plugin
 

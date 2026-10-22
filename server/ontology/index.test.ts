@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import * as z from "zod";
-import { linksOf, node } from "basis";
+import { linksOf, node } from "@mku1tra/basis";
 import { harness, plugin } from "@que/ontology";
 
 type Name = keyof typeof plugin.types | keyof typeof harness.types;
@@ -25,7 +25,7 @@ const basisLoadedBy = (specifier: string) =>
       registerHooks({
         resolve(specifier, context, nextResolve) {
           const resolved = nextResolve(specifier, context);
-          if (resolved.url.includes("/node_modules/basis/")) loaded.push(resolved.url);
+          if (resolved.url.includes("/node_modules/@mku1tra/basis/")) loaded.push(resolved.url);
           return resolved;
         },
       });

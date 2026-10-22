@@ -14,7 +14,7 @@ import { SUPPLIED } from "./supplied.js";
 const HARNESS = join(import.meta.dirname, "../../..");
 
 // A subpath of `@que/core` is supplied, as its `exports` allow; `@que/core-old` is not.
-// zod and basis go by their bare names only, the names the type check maps.
+// zod and @mku1tra/basis go by their bare names only, the names the type check maps.
 function isSupplied(specifier: string): boolean {
   return (
     Object.hasOwn(SUPPLIED, specifier) || specifier.startsWith("@que/core/")

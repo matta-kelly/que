@@ -4,7 +4,13 @@
  * Its links point at the types of the plugin schema, which it imports.
  */
 
-import { defineSchema, defineType, many, manyOrNone, one } from "basis";
+import {
+  defineSchema,
+  defineType,
+  many,
+  manyOrNone,
+  one,
+} from "@mku1tra/basis";
 import { plugin } from "./plugin.ts";
 
 const pluginType = plugin.types.plugin;

@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { Name } from "basis";
+import { Name } from "@mku1tra/basis";
 import { definePlugin, OperationFailed } from "@que/core";
 import { plugin } from "@que/ontology";
 
