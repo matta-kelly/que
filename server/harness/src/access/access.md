@@ -11,7 +11,7 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 - [[#Instructions]] the user's own instructions for a run
 
 - [[que]]: the harness, whose second step this is. Mount comes before it, assemble after
-- [[plugin]]: the contract it reads (`credential`, `connect`, `whoami`)
+- [[plugin-contract]]: the contract it reads (`credential`, `connect`, `whoami`)
 
 ---
 ## Catalog

@@ -10,7 +10,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 - [[daworks]]: my projects, this is one of them
 - built on [[basis]] (`~/lot/daworks/basis`, GitHub matta-kelly/basis): que imports it, and hands it to the folders it mounts and checks
 - [[shit-sdlc]]: the loop every change to que goes through
-- [[daworks/que/server/core/plugin|plugin]]: the plugin contract as built
+- [[plugin-contract]]: the plugin contract as built
 - [[que-ui]]: the chat UI: what it is built on, what it shows, and the outside components that fit. Its Work has the designs in flight on the UI
 - [[evals]]: how an agent is checked: the stores, the movers and the loops. que has two parts of it
 	- the eval runner: `just eval` in a deployment runs each case of its plugins under each of its agent configs, and prints what the agent did. With the Langfuse settings, it keeps each run in Langfuse, as an experiment on a dataset mirrored from the cases
@@ -82,7 +82,7 @@ agent ─────────────────▶  assemble  turn its
 	- kept in a folder outside que. que names no environment
 	- what a company knows goes in as a plugin too: a plugin can hold skills only
 	- one promise from the harness: it mounts what is listed, and nothing else
-	- **Plugin**: one concern, in one folder. The contract as built: [[daworks/que/server/core/plugin|plugin]]
+	- **Plugin**: one concern, in one folder. The contract as built: [[plugin-contract]]
 		- what every plugin gives the harness, so the harness can do its job without knowing the domain
 			- identity: name, title, description (what it is, when to use it). **The only required part**
 			- needs: what it requires to load. Unmet → not loaded
