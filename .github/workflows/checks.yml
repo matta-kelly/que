@@ -1,4 +1,4 @@
-# The checks every pull request must pass, and that main is held to.
+# The checks main is held to, after each push: the backstop behind the pre-push hook (.githooks/pre-push), which runs the same set.
 # The check set is in `scripts/check.sh`, which `just check` runs too: this file sets up the toolchain and calls it.
 name: checks
 
@@ -92,7 +92,7 @@ jobs:
           node-version: 22
       - run: scripts/check.sh shell
 
-  # The one name the ruleset on main requires. It always starts, so it is never left pending:
+  # The one result of a run. It always starts, so it is never left pending:
   # a set's job that the change did not need is skipped, and a skipped job passes here.
   checks:
     needs: [changes, server, ui, shell]

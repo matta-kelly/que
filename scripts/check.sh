@@ -50,7 +50,7 @@ plan() {
       # The shell set reads the scripts and the justfile. No app set reads them: every app step runs inside server/ or ui/.
       scripts/* | justfile) need_shell=true ;;
       # No set reads these.
-      templates/* | .devcontainer/* | tests/e2e/*) ;;
+      templates/* | .devcontainer/* | .githooks/* | tests/e2e/*) ;;
       */*) need_server=true need_ui=true ;;
       # The README names what que supplies, and a server test holds it to the list.
       README.md) need_server=true ;;

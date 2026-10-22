@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# A push of que goes out only when its check passes: `just check`, the same set the pipeline runs.
+# main takes changes by push, after the check, with no pull request.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+if ! just check; then
+  echo "Refused: just check failed. Fix it, or push with --no-verify to skip this once." >&2
+  exit 1
+fi

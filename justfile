@@ -134,6 +134,7 @@ _check-folders container +folders:
 check *set:
     #!/usr/bin/env bash
     set -euo pipefail
+    git -C "{{root}}" config core.hooksPath .githooks
     c=$("{{root}}/scripts/container.sh")
     podman exec -u node -w "{{root}}" "$c" scripts/check.sh {{set}}
 
