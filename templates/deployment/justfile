@@ -20,6 +20,13 @@ logs:
 check:
     just --justfile {{que}}/justfile check-deployment {{here}}
 
+# write a plugin its card, plugin.json, from its definition: after a change to its definition or its version, and after a que update that changes what a card holds
+card plugin:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir=$(cd "{{invocation_directory()}}" && cd "{{plugin}}" && pwd)
+    just --justfile "{{que}}/justfile" card "$dir"
+
 # run the cases of this deployment's packages against que, under each of its agent configs, and print what the agent did.
 # que has to be up: just start. `--agent <name>`, one or more times, runs only those configs.
 # The runs act on the real services: a case that changes data changes real data.

@@ -76,7 +76,7 @@ agent ─────────────────▶  assemble  turn its
 ## Parts
 
 - **Environment**: a named set of plugins, and nothing more. The seam with the harness
-	- written in the deployment's definition, as `plugins`: each one a folder path
+	- written in the deployment's definition, as `plugins`: each one a folder path, or the name of its npm package
 	- kept in a folder outside que. que names no environment
 	- what a company knows goes in as a plugin too: a plugin can hold skills only
 	- one promise from the harness: it mounts what is listed, and nothing else
