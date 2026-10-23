@@ -18,8 +18,8 @@ import { harness, plugin } from "@que/ontology";
 /** The types of both schemas, each by its name. */
 const types = { ...plugin.types, ...harness.types };
 
-/** What a spec field is in the ontology: the type its link points at, or null for a field that is no link. */
-type Target = keyof typeof types | null;
+/** What a spec field is in the ontology: the type or types its link points at, or null for a field that is no link. */
+type Target = keyof typeof types | (keyof typeof types)[] | null;
 
 /** Every field of a spec, and its target. */
 type Fields<Spec> = Record<keyof Spec, Target>;
@@ -43,6 +43,7 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
     skills: "skill",
     capabilities: "capability",
     roles: "access-role",
+    uses: ["op", "skill"],
   } satisfies Fields<PluginDefinition & { skills: unknown }>,
   op: {
     name: null,
@@ -131,7 +132,7 @@ test("each link points at the type its spec field names", () => {
     for (const link of linksOf(types[name]))
       assert.deepEqual(
         link.to().map((type) => type.name),
-        [specs[name][link.name]],
+        [specs[name][link.name]].flat(),
         `${name}.${link.name}`,
       );
 });

@@ -3,10 +3,12 @@
  * mount reads its definition and skills and touches no credentials.
  * A definition or a skill that breaks the contract (validatePlugin and
  * parseSkill in @que/core) fails mounting, and so does one whose npm
- * package's `@que/core` peer range que's own @que/core is outside.
+ * package's `@que/core` peer range que's own @que/core is outside, and so
+ * does a name a domain uses that no mounted connector gives (uses.ts).
  */
 
 import "./supply.js";
+import { unresolvedUses } from "./uses.js";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -115,5 +117,11 @@ export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
       skills: await readSkills(dir, definition),
     });
   }
+  // What a domain uses resolves only once the whole deployment is mounted.
+  const unresolved = unresolvedUses(mounted);
+  if (unresolved.length)
+    throw new Error(
+      `mount: a plugin uses what the deployment does not give:\n- ${unresolved.join("\n- ")}`,
+    );
   return mounted;
 }

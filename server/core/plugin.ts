@@ -74,6 +74,33 @@ export const Role = z.object({
 
 export type Role = z.infer<typeof Role>;
 
+// How a domain names what it uses: an op by its tool name, `<plugin>_<op>`, and a skill by its id, `<plugin>/<skill>`.
+// A plugin's name has no `_` (standardName), so a tool name splits at its first one.
+const PLUGIN = "[a-z0-9]+(?:-[a-z0-9]+)*";
+const opRef = text.regex(new RegExp(`^${PLUGIN}_[a-zA-Z0-9_-]+$`), {
+  error: ({ input }) =>
+    `must be a tool name, <plugin>_<op>, got ${JSON.stringify(input)}`,
+});
+const skillRef = text.regex(new RegExp(`^${PLUGIN}/${PLUGIN}$`), {
+  error: ({ input }) =>
+    `must be a skill id, <plugin>/<skill>, got ${JSON.stringify(input)}`,
+});
+
+/** What a domain uses from connectors: their ops and skills, by name. Mount resolves each one. */
+export const Uses = z.strictObject(
+  {
+    ops: z
+      .array(opRef, { error: "must be an array" })
+      .superRefine(once((op) => op)),
+    skills: z
+      .array(skillRef, { error: "must be an array" })
+      .superRefine(once((skill) => skill)),
+  },
+  strict(),
+);
+
+export type Uses = z.infer<typeof Uses>;
+
 /** Who a connection is logged in as, in that service (e.g. an Odoo user). */
 export type ServiceIdentity = {
   id: string | number;
@@ -112,6 +139,7 @@ export const PluginDefinition = z
       roles: z
         .array(Role, { error: "must be an array" })
         .superRefine(once((role) => role.name)),
+      uses: Uses,
     },
     strict(
       {
@@ -122,6 +150,25 @@ export const PluginDefinition = z
     ),
   )
   .superRefine((definition, ctx) => {
+    // Its own ops and skills are its already: a name it uses is another plugin's.
+    const own = (ref: string, sep: string) =>
+      ref.startsWith(definition.name + sep);
+    definition.uses.ops.forEach((ref, i) => {
+      if (own(ref, "_"))
+        ctx.addIssue({
+          code: "custom",
+          path: ["uses", "ops", i],
+          message: `names its own op ${ref}: a plugin uses only other plugins' ops`,
+        });
+    });
+    definition.uses.skills.forEach((ref, i) => {
+      if (own(ref, "/"))
+        ctx.addIssue({
+          code: "custom",
+          path: ["uses", "skills", i],
+          message: `names its own skill ${ref}: a plugin uses only other plugins' skills`,
+        });
+    });
     const roles = definition.roles.map((role) => role.name);
     definition.ops.forEach((op, i) => {
       const tool = `${definition.name}_${op.name}`;
@@ -172,13 +219,19 @@ export type PluginDefinition<
 type Listed = "ops" | "capabilities" | "roles";
 
 export function definePlugin<S extends z.ZodObject, Conn>(
-  definition: Omit<PluginDefinition<S, Conn>, Listed> &
-    Partial<Pick<PluginDefinition<S, Conn>, Listed>>,
+  definition: Omit<PluginDefinition<S, Conn>, Listed | "uses"> &
+    Partial<Pick<PluginDefinition<S, Conn>, Listed>> & {
+      uses?: Partial<Uses>;
+    },
 ): PluginDefinition<S, Conn> {
   return {
     ...definition,
     ops: definition.ops ?? [],
     roles: definition.roles ?? [],
+    uses: {
+      ops: definition.uses?.ops ?? [],
+      skills: definition.uses?.skills ?? [],
+    },
     capabilities: definition.capabilities ?? [],
   };
 }

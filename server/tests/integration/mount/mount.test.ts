@@ -181,6 +181,17 @@ test("a folder under skills/ with no SKILL.md is not a skill", async () => {
   assert.deepEqual(mounted[0].skills, []);
 });
 
+test("a domain mounts when each name it uses is a mounted connector's op or skill", async () => {
+  assert.deepEqual(names(await mount("uses-resolve")), ["source", "domain"]);
+});
+
+test("stops, naming the domain and the name, when a domain uses what the deployment does not give", async () => {
+  await assert.rejects(
+    mount("uses-unresolved"),
+    /^Error: mount: a plugin uses what the deployment does not give:\n- stray uses source_lose, and source has no op lose$/,
+  );
+});
+
 test("a plugin with a bad cases file still mounts", async () => {
   assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
 });

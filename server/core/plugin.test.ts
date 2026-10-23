@@ -302,6 +302,66 @@ test("validatePlugin refuses a role named twice, and one with no description", (
   );
 });
 
+test("validatePlugin takes a domain that uses other plugins' ops and skills by name", () => {
+  assert.doesNotThrow(() =>
+    validatePlugin(
+      definePlugin({
+        ...notes,
+        uses: {
+          ops: ["warehouse_getFabric"],
+          skills: ["warehouse/fabric-guide"],
+        },
+      }),
+    ),
+  );
+});
+
+test("validatePlugin refuses a used op that is not a tool name, and a used skill that is not a skill id", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({
+          ...notes,
+          uses: { ops: ["getFabric"], skills: ["fabric-guide"] },
+        }),
+      ),
+    (error: Error) => {
+      assert.match(
+        error.message,
+        /- uses\.ops\.getFabric must be a tool name, <plugin>_<op>, got "getFabric"/,
+      );
+      assert.match(
+        error.message,
+        /- uses\.skills\.fabric-guide must be a skill id, <plugin>\/<skill>, got "fabric-guide"/,
+      );
+      return true;
+    },
+  );
+});
+
+test("validatePlugin refuses a name used twice", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({
+          ...notes,
+          uses: { ops: ["warehouse_getFabric", "warehouse_getFabric"] },
+        }),
+      ),
+    /- uses\.ops\.warehouse_getFabric is used twice/,
+  );
+});
+
+test("validatePlugin refuses a plugin that uses its own op", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({ ...notes, uses: { ops: ["notes_search"] } }),
+      ),
+    /- uses\.ops\.notes_search names its own op notes_search: a plugin uses only other plugins' ops/,
+  );
+});
+
 test("validatePlugin takes a plugin that keeps the contract", () => {
   validatePlugin(
     definePlugin({

@@ -47,20 +47,21 @@ What the standard leaves to the client, que defines. Built in `index.ts` today; 
 		- `good`: one statement, true or false after the run
 	- cases sit beside the plugin, in `cases.ts`. No agent is given one
 	- a case runs against the real service. A case that changes data changes real data
-- **kind**: two kinds of plugin, by what they touch. The contract does not know the kind
+- **kind**: two kinds of plugin, by what they touch
 	- connector: one service
-	- domain: across services
+	- domain: across services. The contract knows one by its `uses`
 - a plugin carries only the parts it uses: skills only, operations only, or both
 - what the definition does not list, the harness does not read
 
 ### Credentials / Access
 
-Built: roles, declared and checked. Designed, not built: a domain's list, and what each user gets each run.
+Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses, and what each user gets each run.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): lists its `roles`, each a name and a description, and each op names its `role` (warehouse `read`, `write`)
 	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none
-- domain: names the ops and skills it uses from connectors, by tool name (`warehouse_getFabric`)
+- domain: lists what it uses from connectors in `uses`: ops by tool name, skills by id (`uses: { ops: ["warehouse_getFabric"], skills: ["warehouse/fabric-guide"] }`)
+	- the check, at mount: each name is an op or skill of a connector the deployment mounts. A domain's op or skill cannot be used, so there are no chains and no cycles; a plugin's own are its already
 - who holds which domains, roles and logins, and what a user gets each run: que's control plane (not built), not the plugin
 
 ## What it promises

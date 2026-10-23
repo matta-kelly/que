@@ -75,6 +75,11 @@ for (const [typo, name, says] of [
     /names the loop "long-chat", which the deployment does not list/,
   ],
   [
+    "a name a domain uses that the deployment does not give",
+    "uses-unresolved",
+    /stray uses source_lose, and source has no op lose/,
+  ],
+  [
     "a model an agent names that is not listed",
     "agent-model-unlisted",
     /names the model "small", which the deployment does not list/,

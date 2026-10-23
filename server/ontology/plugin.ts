@@ -61,6 +61,8 @@ const pluginType = defineType({
     capabilities: manyOrNone(() => capability),
     // The roles of an internal service. `PluginDefinition.roles`.
     roles: manyOrNone(() => accessRole),
+    // What a domain uses from connectors, their ops and skills. `PluginDefinition.uses`.
+    uses: manyOrNone(() => [op, skill] as const),
   },
 });
 
