@@ -37,7 +37,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 	- other harnesses reach them through a remote MCP server in que (not built), not on their own
 - **what the model can read**: skills, as the standard has them. Each folder under `skills/` with a `SKILL.md` is one; the definition lists none
 	- its frontmatter: `name` (its folder's), `description`, and que's title in `metadata.title`. With no title, its name is its title. The standard's other fields are taken and not read
-	- a skill that breaks this fails the mount: que is stricter than the standard, which skips it, so a plugin never loads half its skills
+	- a skill that breaks this fails the mount, and so does a folder under `skills/` with no `SKILL.md`: que is stricter than the standard, which skips both, so a plugin never loads half its skills, and a misnamed `SKILL.md` is never dropped unseen
 - **what it needs**: a credential, if it talks to a service. Each user gives their own. A user with no credential does not get the plugin
 	- `connect` turns a credential into a connection. The connection is what the operations get, never the credential
 	- `whoami` says who the connection is logged in as, so "me" and "mine" mean something to the model
@@ -54,7 +54,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 	- connector: one service
 	- domain: across services. The contract knows one by its `uses`
 - a plugin carries only the parts it uses: skills only, operations only, or both
-- what the definition does not list, the harness does not read
+- what the definition does not list, the harness does not read, but for skills: each folder under `skills/` is one
 
 ### Credentials / Access
 

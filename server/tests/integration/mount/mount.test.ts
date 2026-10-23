@@ -175,10 +175,11 @@ test("stops, naming the skill, when a listed plugin has a skill that breaks the 
   });
 });
 
-test("a folder under skills/ with no SKILL.md is not a skill", async () => {
-  const mounted = await mount("fileless-skill");
-  assert.deepEqual(names(mounted), ["fileless-skill"]);
-  assert.deepEqual(mounted[0].skills, []);
+test("stops, naming the folder, when a folder under skills/ has no SKILL.md", async () => {
+  await assert.rejects(
+    mount("fileless-skill"),
+    /^Error: mount: fileless-skill has a folder under skills\/ with no SKILL\.md: ghost\./,
+  );
 });
 
 test("a domain mounts when each name it uses is a mounted connector's op or skill", async () => {

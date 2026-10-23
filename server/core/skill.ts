@@ -29,12 +29,19 @@ const Frontmatter = z.object(
       })
       .optional(),
   },
-  { error: "is missing (a --- fenced YAML block at the top)" },
+  {
+    error: ({ input }) =>
+      input === undefined
+        ? "is missing (a --- fenced YAML block at the top)"
+        : "must be a map of fields (name, description, ...)",
+  },
 );
 
-// The YAML between the --- fences at the top, and the text after them.
+// The YAML between the --- fences at the top, and the text after them. Line ends may be \r\n.
 function split(id: string, file: string): { meta: unknown; body: string } {
-  const match = file.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const match = file
+    .replace(/\r\n/g, "\n")
+    .match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return { meta: undefined, body: file };
   try {
     return { meta: parse(match[1]) ?? {}, body: match[2].trim() };

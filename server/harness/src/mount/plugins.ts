@@ -59,8 +59,9 @@ function checkCore(dir: string): void {
     );
 }
 
-// Each folder under skills/ with a SKILL.md is a skill, as Agent Plugins finds them: one level down, in name order.
-// A plugin with no skills/ has none.
+// Each folder under skills/ is a skill, as Agent Plugins finds them: one level down, in name order. A folder with no
+// SKILL.md fails: que is stricter than the standard, which skips it, as such a folder is a skill whose file is
+// missing or misnamed. A plugin with no skills/ has none.
 async function readSkills(
   root: string,
   { name: plugin }: PluginDefinition,
@@ -69,12 +70,17 @@ async function readSkills(
   const folders = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .filter((folder) =>
-      statSync(join(root, folder, "SKILL.md"), {
+    .sort();
+  const fileless = folders.filter(
+    (folder) =>
+      !statSync(join(root, folder, "SKILL.md"), {
         throwIfNoEntry: false,
       })?.isFile(),
-    )
-    .sort();
+  );
+  if (fileless.length)
+    throw new Error(
+      `mount: ${plugin} has a folder under skills/ with no SKILL.md: ${fileless.join(", ")}. Each folder there is a skill: give it its SKILL.md, or move it into the skill it belongs to`,
+    );
   return Promise.all(
     folders.map(async (folder) => {
       try {

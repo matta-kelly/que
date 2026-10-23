@@ -84,3 +84,21 @@ test("parseSkill rejects frontmatter that is not YAML", () => {
     /skill notes\/greet is invalid:\n- frontmatter is not YAML/,
   );
 });
+
+test("parseSkill reads a SKILL.md with \\r\\n line ends", () => {
+  assert.equal(
+    parseSkill(
+      "notes",
+      "greet",
+      "---\r\nname: greet\r\ndescription: Say hello.\r\n---\r\nSay hello.\r\n",
+    ).description,
+    "Say hello.",
+  );
+});
+
+test("parseSkill rejects frontmatter that is YAML but not a map of fields", () => {
+  assert.throws(
+    () => parseSkill("notes", "greet", "---\nhello\n---\n"),
+    /skill notes\/greet is invalid:\n- must be a map of fields/,
+  );
+});
