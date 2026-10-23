@@ -362,6 +362,16 @@ test("validatePlugin refuses a plugin that uses its own op", () => {
   );
 });
 
+test("validatePlugin refuses a plugin that uses its own skill", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({ ...notes, uses: { skills: ["notes/greet"] } }),
+      ),
+    /- uses\.skills\.notes\/greet names its own skill notes\/greet: a plugin uses only other plugins' skills/,
+  );
+});
+
 test("validatePlugin takes a plugin that keeps the contract", () => {
   validatePlugin(
     definePlugin({
