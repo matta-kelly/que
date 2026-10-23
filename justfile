@@ -113,6 +113,18 @@ check-folder folder:
     c=$(./scripts/container.sh "$dir")
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
+# Mount one plugin on its own, with no network, then type check its code and run its tests, as check-folder does.
+# The folder is a plugin: one that would not mount (its definition, its card, its skills) stops here, with mount's error.
+# What a domain uses is checked by the deployment that lists it.
+check-plugin folder:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir=$(cd "{{invocation_directory()}}" && cd "{{folder}}" && pwd)
+    cd "{{root}}"
+    c=$(./scripts/container.sh "$dir")
+    podman exec -u node -w "{{root}}/server" "$c" npx tsx harness/src/mount/check-plugin.ts "$dir"
+    just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
+
 # Write a plugin folder its card, plugin.json, made from its definition, with que's core handed to it.
 # A plugin that breaks the contract, or whose card would break Agent Plugins 1.0, stops here and writes nothing.
 card folder:
@@ -131,8 +143,6 @@ _check-folders container +folders:
     folders=({{folders}})
     podman exec -u node -w "$h" "{{container}}" sh -c 'mkdir -p /tmp/que-check && npx tsx harness/src/mount/check-config.ts "$@" > /tmp/que-check/tsconfig.json' sh "${folders[@]}"
     podman exec -u node -w "$h" "{{container}}" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
-    # Each folder that holds a plugin has the card its definition makes.
-    podman exec -u node -w "$h" "{{container}}" npx tsx harness/src/card/check.ts "${folders[@]}"
     for f in "${folders[@]}"; do
         # A folder with no tests has nothing to run.
         tests=$(find "$f" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit)

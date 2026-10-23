@@ -1,7 +1,8 @@
 /**
  * Prints the tsconfig that type checks the folders given, with que's copy of
- * each package it supplies (`supplied.ts`). `just check-folder` and
- * `just check-deployment` write it, and run the compiler on it.
+ * each package it supplies (`supplied.ts`). `just check-folder`,
+ * `just check-plugin` and `just check-deployment` write it, and run the
+ * compiler on it.
  *
  * `tsx check-config.ts <folder>...`
  */

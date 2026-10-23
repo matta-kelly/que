@@ -120,21 +120,23 @@ export async function loadPlugin(dir: string): Promise<{
   }
 }
 
+/**
+ * The plugin in `dir`, mounted on its own: its definition (loadPlugin), its card, and its skills. What a domain
+ * uses is not resolved here, as only the whole deployment gives it (mountPlugins).
+ */
+export async function mountPlugin(dir: string): Promise<MountedPlugin> {
+  const { files, definition } = await loadPlugin(dir);
+  try {
+    checkCard(dir, definition);
+  } catch (error) {
+    throw new Error(`mount: ${(error as Error).message}`, { cause: error });
+  }
+  return { definition, skills: await readSkills(files, definition) };
+}
+
 export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
   const mounted: MountedPlugin[] = [];
-
-  for (const dir of dirs) {
-    const { files, definition } = await loadPlugin(dir);
-    try {
-      checkCard(dir, definition);
-    } catch (error) {
-      throw new Error(`mount: ${(error as Error).message}`, { cause: error });
-    }
-    mounted.push({
-      definition,
-      skills: await readSkills(files, definition),
-    });
-  }
+  for (const dir of dirs) mounted.push(await mountPlugin(dir));
   // What a domain uses resolves only once the whole deployment is mounted.
   const unresolved = unresolvedUses(mounted);
   if (unresolved.length)

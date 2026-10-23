@@ -16,7 +16,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
 import {
   cardOf,
   cardText,
@@ -149,52 +148,5 @@ test("checkCard refuses a card that is not what the definition makes, naming the
   assert.throws(
     () => checkCard(dir, definition),
     /plugin\.json is not what its definition makes \(from line 4\): write it with `just card /,
-  );
-});
-
-// The card check `just check-folder` runs, on one folder.
-const checkFolder = (dir: string) =>
-  execFileSync(
-    process.execPath,
-    ["--import", "tsx", "harness/src/card/check.ts", dir],
-    {
-      cwd: join(import.meta.dirname, "../../.."),
-      encoding: "utf8",
-      stdio: "pipe",
-    },
-  );
-
-test("the check-folder card check passes a plugin whose card is right", () => {
-  assert.equal(checkFolder(copy("check-fresh")), "");
-});
-
-test("the check-folder card check passes over a folder that holds no plugin", () => {
-  assert.equal(checkFolder(work), "");
-});
-
-test("the check-folder card check fails a plugin in the old layout", () => {
-  const dir = join(work, "check-old");
-  cpSync(
-    join(import.meta.dirname, "../mount/fixtures/plugins/old-layout"),
-    dir,
-    { recursive: true },
-  );
-  writeFileSync(join(dir, "package.json"), '{ "type": "module" }\n');
-  assert.throws(
-    () => checkFolder(dir),
-    (error: { status: number; stderr: string }) =>
-      error.status === 1 &&
-      /que's files are in io\.github\.matta-kelly\.que\//.test(error.stderr),
-  );
-});
-
-test("the check-folder card check fails a plugin whose card is stale", () => {
-  const dir = copy("check-stale");
-  staleCard(dir);
-  assert.throws(
-    () => checkFolder(dir),
-    (error: { status: number; stderr: string }) =>
-      error.status === 1 &&
-      /plugin\.json is not what its definition makes/.test(error.stderr),
   );
 });
