@@ -29,6 +29,7 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 What the standard leaves to the client, que defines. Built in `index.ts` today; the target is que's extension namespace.
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
+	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name
 - **what the model can do**: operations. Each becomes a tool, and runs in que. What one is, and what makes a good one: [[operation]]
 	- other harnesses reach them through a remote MCP server in que (not built), not on their own
 - **what the model can read**: skills. Each is a text with a title and a description, read when the model asks for it

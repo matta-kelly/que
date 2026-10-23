@@ -35,7 +35,10 @@ test("validatePlugin lists a plugin with a bad name, no title and no description
       } as never),
     (error: Error) => {
       assert.match(error.message, /plugin is invalid/);
-      assert.match(error.message, /- name must match .*, got "no spaces"/);
+      assert.match(
+        error.message,
+        /- name must be lowercase letters and digits, with single hyphens between them, got "no spaces"/,
+      );
       assert.match(error.message, /- title is missing/);
       assert.match(error.message, /- description is missing/);
       return true;
@@ -44,6 +47,48 @@ test("validatePlugin lists a plugin with a bad name, no title and no description
   assert.throws(
     () => validatePlugin({ ...notes, name: "" }),
     /plugin is invalid:\n- name is missing/,
+  );
+});
+
+// What validatePlugin says of a plugin name that is not lowercase words joined by single hyphens.
+const notAName = (got: string) => (error: Error) =>
+  error.message.includes(
+    `- name must be lowercase letters and digits, with single hyphens between them, got "${got}"`,
+  );
+
+test("validatePlugin refuses a plugin name that is not lowercase words joined by single hyphens", () => {
+  assert.throws(
+    () => validatePlugin({ ...notes, name: "Notes" }),
+    notAName("Notes"),
+  );
+  assert.throws(
+    () => validatePlugin({ ...notes, name: "my_notes" }),
+    notAName("my_notes"),
+  );
+  assert.throws(
+    () => validatePlugin({ ...notes, name: "my.notes" }),
+    notAName("my.notes"),
+  );
+  assert.throws(
+    () => validatePlugin({ ...notes, name: "my--notes" }),
+    notAName("my--notes"),
+  );
+  assert.throws(
+    () => validatePlugin({ ...notes, name: "-notes" }),
+    notAName("-notes"),
+  );
+});
+
+test("validatePlugin refuses a plugin name over 64 characters", () => {
+  assert.throws(
+    () => validatePlugin({ ...notes, name: "n".repeat(65) }),
+    /- name must be at most 64 characters/,
+  );
+});
+
+test("validatePlugin takes a plugin name of lowercase words joined by single hyphens", () => {
+  assert.doesNotThrow(() =>
+    validatePlugin({ ...notes, name: "fabric-to-odoo2" }),
   );
 });
 

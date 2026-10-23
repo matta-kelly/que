@@ -4,7 +4,7 @@
  */
 
 import * as z from "zod";
-import { check, fn, name, named, once, text } from "./check.js";
+import { check, fn, must, name, named, once, text } from "./check.js";
 
 export { NAME } from "./check.js";
 
@@ -59,6 +59,18 @@ export type ServiceIdentity = {
   email?: string;
 };
 
+// A plugin's name is its name in the open standard (Agent Plugins, `plugin.json`) and the start of each of its
+// tool names, so it fits both: lowercase letters and digits, with single hyphens between them.
+const PLUGIN_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const pluginName = text
+  .regex(PLUGIN_NAME, {
+    error: must(
+      "lowercase letters and digits, with single hyphens between them",
+    ),
+  })
+  .max(64, { error: must("at most 64 characters") });
+
 /**
  * What `definePlugin` returns, and a plugin exports as its default.
  * Plugins that talk to a service declare the credential they need (a zod
@@ -68,7 +80,7 @@ export type ServiceIdentity = {
 export const PluginDefinition = z
   .object(
     {
-      name,
+      name: pluginName,
       title: text,
       description: text,
       credential: z
