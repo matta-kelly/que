@@ -8,7 +8,7 @@ The concern this plugin holds, in one line: what it is, and when an agent uses i
 - [[#Parts]] how its ops and skills give its capabilities
 
 - [[plugin-contract]]: what a plugin gives the harness, and what it promises
-- its code: the plugin's `index.ts` (`definePlugin`), which holds its values
+- its code: the plugin's `io.github.matta-kelly.que/index.ts` (`definePlugin`), which holds its values
 
 ---
 ## Kind

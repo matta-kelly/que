@@ -15,7 +15,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 
 ## Standard
 
-Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder. Not built: `plugin.json`; que reads `index.ts` (`definePlugin`).
+Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder, and que's files in its namespace folder. Not built: `plugin.json`; que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
 
 - what it is: a folder any harness can read
 	- `plugin.json`: `name` (required), and `version`, `description`, `author` and the like
@@ -26,7 +26,7 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 
 ## que's additions
 
-What the standard leaves to the client, que defines. Built in `index.ts` today; the target is que's extension namespace.
+What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@que/core`'s `pluginFiles` is the one place that says where each one is. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
 	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name
@@ -45,7 +45,7 @@ What the standard leaves to the client, que defines. Built in `index.ts` today; 
 		- `input`: what the user says
 		- `start`: what is true before the run
 		- `good`: one statement, true or false after the run
-	- cases sit beside the plugin, in `cases.ts`. No agent is given one
+	- cases sit beside the definition, in `io.github.matta-kelly.que/cases.ts`. No agent is given one
 	- a case runs against the real service. A case that changes data changes real data
 - **kind**: two kinds of plugin, by what they touch
 	- connector: one service
@@ -79,18 +79,22 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 
 ```
 <name>/
-├── plugin.json         the standard manifest (not built)
-├── index.ts            the definition, as the default export (definePlugin)
-├── client.ts           the connection, and fakeConn: the same connection with no network, for tests
-├── schema.ts           the shapes its ops read and return
-├── fixtures.ts         recorded rows the op tests share, when they share any
-├── ops/
-│   ├── <entity>.ts       the read and write operations of one entity
-│   └── <entity>.test.ts  their tests, against fakeConn
-├── skills/<skill>/SKILL.md  one skill each, found by folder
-├── cases.ts            the cases (defineCases), by capability
-└── index.test.ts       contract checks only: validatePlugin, validateCases
+├── plugin.json                   the standard manifest (not built)
+├── skills/<skill>/SKILL.md       one skill each, found by folder (the standard's)
+├── package.json                  npm: its dependencies, and the @que/core it works with
+└── io.github.matta-kelly.que/    que's files
+    ├── index.ts                  the definition, as the default export (definePlugin)
+    ├── client.ts                 the connection, and fakeConn: the same connection with no network, for tests
+    ├── schema.ts                 the shapes its ops read and return
+    ├── fixtures.ts               recorded rows the op tests share, when they share any
+    ├── ops/
+    │   ├── <entity>.ts           the read and write operations of one entity
+    │   └── <entity>.test.ts      their tests, against fakeConn
+    ├── cases.ts                  the cases (defineCases), by capability
+    └── index.test.ts             contract checks only: validatePlugin, validateCases
 ```
+
+- a definition at the plugin's root fails the mount, saying que's files moved into the namespace folder
 
 - three kinds of proof, one home each
 	- contract checks: the same for every plugin. As [[operation]] gains a rule that code can check, `validatePlugin` checks it, and every plugin gets it

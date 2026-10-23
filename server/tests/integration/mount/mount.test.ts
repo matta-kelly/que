@@ -192,6 +192,26 @@ test("stops, naming the domain and the name, when a domain uses what the deploym
   );
 });
 
+test("stops, saying where que's files go, when a plugin's definition is at its root", async () => {
+  await assert.rejects(mount("old-layout"), (error: Error) => {
+    assert.match(
+      error.message,
+      /^mount: .*plugins\/old-layout: que's files are in io\.github\.matta-kelly\.que\/, not at the plugin's root/,
+    );
+    return true;
+  });
+});
+
+test("stops, naming the folder, when a listed folder holds no plugin", async () => {
+  await assert.rejects(mount("hollow"), (error: Error) => {
+    assert.match(
+      error.message,
+      /^mount: .*plugins\/hollow holds no plugin \(no io\.github\.matta-kelly\.que\/index\.ts\)$/,
+    );
+    return true;
+  });
+});
+
 test("a plugin with a bad cases file still mounts", async () => {
   assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
 });

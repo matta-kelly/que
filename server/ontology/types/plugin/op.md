@@ -8,7 +8,7 @@ What this op does, in one line: a verb and its object.
 - [[#Role]] the role whose login it runs with, when its plugin lists roles
 
 - [[operation]]: what makes a good op: its tool card, its answers, and what a write promises
-- its code: the plugin's `ops/`, which holds its tool card and its input
+- its code: the plugin's `io.github.matta-kelly.que/ops/`, which holds its tool card and its input
 
 ---
 ## Use

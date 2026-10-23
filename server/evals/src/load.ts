@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
+  locatePlugin,
   validateAgent,
   validateCases,
   validateDeployment,
@@ -29,10 +30,11 @@ const definitionIn = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
 
 async function casesOf(dir: string): Promise<LoadedCase[]> {
-  const definition = (await definitionIn(join(dir, "index.ts"))) as
+  const files = locatePlugin(dir);
+  const definition = (await definitionIn(files.definition)) as
     PluginDefinition | undefined;
   validatePlugin(definition);
-  const file = join(dir, "cases.ts");
+  const file = files.cases;
   if (!existsSync(file)) return [];
   const cases = await definitionIn(file);
   if (!Array.isArray(cases))

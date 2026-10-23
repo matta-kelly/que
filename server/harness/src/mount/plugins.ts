@@ -15,6 +15,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { satisfies } from "semver";
 import {
+  locatePlugin,
   parseSkill,
   validatePlugin,
   type PluginDefinition,
@@ -61,10 +62,9 @@ function checkCore(dir: string): void {
 // Each folder under skills/ with a SKILL.md is a skill, as Agent Plugins finds them: one level down, in name order.
 // A plugin with no skills/ has none.
 async function readSkills(
-  dir: string,
+  root: string,
   { name: plugin }: PluginDefinition,
 ): Promise<Skill[]> {
-  const root = join(dir, "skills");
   if (!existsSync(root)) return [];
   const folders = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -96,12 +96,15 @@ export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
   const mounted: MountedPlugin[] = [];
 
   for (const dir of dirs) {
-    const index = join(dir, "index.ts");
-    if (!existsSync(index))
-      throw new Error(`mount: ${dir} holds no plugin (no index.ts)`);
+    let files;
+    try {
+      files = locatePlugin(dir);
+    } catch (error) {
+      throw new Error(`mount: ${(error as Error).message}`, { cause: error });
+    }
     checkCore(dir);
     const definition = (
-      (await import(pathToFileURL(index).href)) as {
+      (await import(pathToFileURL(files.definition).href)) as {
         default?: PluginDefinition;
       }
     ).default;
@@ -114,7 +117,7 @@ export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
     }
     mounted.push({
       definition,
-      skills: await readSkills(dir, definition),
+      skills: await readSkills(files.skills, definition),
     });
   }
   // What a domain uses resolves only once the whole deployment is mounted.
