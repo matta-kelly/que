@@ -4,7 +4,7 @@ description: "A set of ops, skills and capabilities. `PluginDefinition` in plugi
 ---
 The concern this plugin holds, in one line: what it is, and when an agent uses it.
 - [[#Kind]] connector (one service) or domain (across services)
-- [[#Needs]] the credential it needs to load, if any
+- [[#Needs]] the credential it needs to load, if any, and its roles, for an internal service
 - [[#Parts]] how its ops and skills give its capabilities
 
 - [[plugin-contract]]: what a plugin gives the harness, and what it promises

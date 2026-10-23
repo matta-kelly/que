@@ -3,7 +3,13 @@
  * its ops, skills and capabilities, and the cases that prove a capability.
  */
 
-import { defineSchema, defineType, manyOrNone, one } from "@mku1tra/basis";
+import {
+  defineSchema,
+  defineType,
+  manyOrNone,
+  one,
+  oneOrNone,
+} from "@mku1tra/basis";
 import * as z from "zod";
 
 // Blank text is no title, as the specs refuse it (`!value.trim()`). The value is kept as written.
@@ -12,7 +18,19 @@ const title = z.string().regex(/\S/, "text that is not blank");
 const op = defineType({
   name: "op",
   description: "One operation a plugin exposes. `Operation` in plugin.ts.",
-  fields: { title },
+  fields: {
+    title,
+    // The role whose login it runs with. `Operation.role`.
+    role: oneOrNone(() => accessRole),
+  },
+});
+
+// Not "role": lot's it owns that name, for the job an agent takes.
+const accessRole = defineType({
+  name: "access-role",
+  description:
+    "One access level of an internal service, which que holds one login for. `Role` in plugin.ts.",
+  fields: {},
 });
 
 const skill = defineType({
@@ -41,6 +59,8 @@ const pluginType = defineType({
     skills: manyOrNone(() => skill),
     // The capabilities of a plugin. `PluginDefinition.capabilities`.
     capabilities: manyOrNone(() => capability),
+    // The roles of an internal service. `PluginDefinition.roles`.
+    roles: manyOrNone(() => accessRole),
   },
 });
 
@@ -56,10 +76,11 @@ const kase = defineType({
 export const plugin = defineSchema({
   name: "plugin",
   description:
-    "What a que plugin is made of: its ops, skills and capabilities, and the cases of a capability.",
+    "What a que plugin is made of: its ops, skills, capabilities and roles, and the cases of a capability.",
   types: {
     plugin: pluginType,
     op,
+    "access-role": accessRole,
     skill,
     capability,
     case: kase,

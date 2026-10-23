@@ -55,10 +55,11 @@ What the standard leaves to the client, que defines. Built in `index.ts` today; 
 
 ### Credentials / Access
 
-Designed, not built.
+Built: roles, declared and checked. Designed, not built: a domain's list, and what each user gets each run.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
-- connector, internal (warehouse, dagster): lists its roles, and each op names its role (warehouse `read`, `write`)
+- connector, internal (warehouse, dagster): lists its `roles`, each a name and a description, and each op names its `role` (warehouse `read`, `write`)
+	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none
 - domain: names the ops and skills it uses from connectors, by tool name (`warehouse_getFabric`)
 - who holds which domains, roles and logins, and what a user gets each run: que's control plane (not built), not the plugin
 

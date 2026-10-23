@@ -45,6 +45,7 @@ test("@que/ontology gives the schemas plugin and harness, and harness imports pl
   assert.deepEqual(Object.keys(plugin.types), [
     "plugin",
     "op",
+    "access-role",
     "skill",
     "capability",
     "case",

@@ -10,6 +10,7 @@ import type {
   ModelDefinition,
   Operation,
   PluginDefinition,
+  Role,
   Skill,
 } from "@que/core";
 import { harness, plugin } from "@que/ontology";
@@ -41,6 +42,7 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
     // Not in the definition: each folder under skills/ with a SKILL.md, as Agent Plugins finds them.
     skills: "skill",
     capabilities: "capability",
+    roles: "access-role",
   } satisfies Fields<PluginDefinition & { skills: unknown }>,
   op: {
     name: null,
@@ -48,7 +50,12 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
     description: null,
     schema: null,
     run: null,
+    role: "access-role",
   } satisfies Fields<Operation>,
+  "access-role": {
+    name: null,
+    description: null,
+  } satisfies Fields<Role>,
   skill: {
     id: null,
     title: null,

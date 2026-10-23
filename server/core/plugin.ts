@@ -42,6 +42,8 @@ export const Operation = z.object({
         });
   }),
   run: fn,
+  // The role whose login it runs with, when its plugin lists roles: one of them.
+  role: standardName.optional(),
 });
 
 export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = Omit<
@@ -60,6 +62,17 @@ export const Capability = z.object({
 });
 
 export type Capability = z.infer<typeof Capability>;
+
+/**
+ * One access level of an internal service, which que holds one login for (warehouse `read`, `write`).
+ * A third-party service enforces its own, so its plugin lists none.
+ */
+export const Role = z.object({
+  name: standardName,
+  description: text,
+});
+
+export type Role = z.infer<typeof Role>;
 
 /** Who a connection is logged in as, in that service (e.g. an Odoo user). */
 export type ServiceIdentity = {
@@ -96,6 +109,9 @@ export const PluginDefinition = z
       capabilities: z
         .array(Capability, { error: "must be an array" })
         .superRefine(once((capability) => capability.name)),
+      roles: z
+        .array(Role, { error: "must be an array" })
+        .superRefine(once((role) => role.name)),
     },
     strict(
       {
@@ -105,7 +121,8 @@ export const PluginDefinition = z
       "no definition (default export)",
     ),
   )
-  .superRefine((definition, ctx) =>
+  .superRefine((definition, ctx) => {
+    const roles = definition.roles.map((role) => role.name);
     definition.ops.forEach((op, i) => {
       const tool = `${definition.name}_${op.name}`;
       if (tool.length > 64)
@@ -114,8 +131,28 @@ export const PluginDefinition = z
           path: ["ops", i, "name"],
           message: `makes the tool name ${tool}, over 64 characters`,
         });
-    }),
-  );
+      // A plugin with roles gives every op one of them; a plugin with none gives none.
+      const path = ["ops", i, "role"];
+      if (roles.length && op.role === undefined)
+        ctx.addIssue({
+          code: "custom",
+          path,
+          message: `is missing: the plugin lists roles (${roles.join(", ")}), so each op names one`,
+        });
+      else if (roles.length && !roles.includes(op.role ?? ""))
+        ctx.addIssue({
+          code: "custom",
+          path,
+          message: `must be one of the plugin's roles (${roles.join(", ")}), got ${JSON.stringify(op.role)}`,
+        });
+      else if (!roles.length && op.role !== undefined)
+        ctx.addIssue({
+          code: "custom",
+          path,
+          message: `names the role ${JSON.stringify(op.role)}, and the plugin lists none`,
+        });
+    });
+  });
 
 export type PluginDefinition<
   S extends z.ZodObject = z.ZodObject,
@@ -132,7 +169,7 @@ export type PluginDefinition<
   ops: Operation<Conn, any>[];
 };
 
-type Listed = "ops" | "capabilities";
+type Listed = "ops" | "capabilities" | "roles";
 
 export function definePlugin<S extends z.ZodObject, Conn>(
   definition: Omit<PluginDefinition<S, Conn>, Listed> &
@@ -141,6 +178,7 @@ export function definePlugin<S extends z.ZodObject, Conn>(
   return {
     ...definition,
     ops: definition.ops ?? [],
+    roles: definition.roles ?? [],
     capabilities: definition.capabilities ?? [],
   };
 }

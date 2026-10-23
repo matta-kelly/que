@@ -235,6 +235,73 @@ test("validatePlugin lists a capability with a bad name, no name or one of space
   );
 });
 
+const read = { name: "read", description: "Reads the notes." };
+const write = { name: "write", description: "Writes the notes." };
+
+test("validatePlugin takes a plugin whose roles are each named by its ops", () => {
+  assert.doesNotThrow(() =>
+    validatePlugin(
+      definePlugin({
+        ...notes,
+        roles: [read, write],
+        ops: [
+          { ...search, role: "read" },
+          { ...search, name: "save", role: "write" },
+        ],
+      }),
+    ),
+  );
+});
+
+test("validatePlugin refuses an op with no role when its plugin lists roles", () => {
+  assert.throws(
+    () =>
+      validatePlugin(definePlugin({ ...notes, roles: [read], ops: [search] })),
+    /- ops\.search\.role is missing: the plugin lists roles \(read\), so each op names one/,
+  );
+});
+
+test("validatePlugin refuses an op whose role its plugin does not list", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({
+          ...notes,
+          roles: [read],
+          ops: [{ ...search, role: "admin" }],
+        }),
+      ),
+    /- ops\.search\.role must be one of the plugin's roles \(read\), got "admin"/,
+  );
+});
+
+test("validatePlugin refuses an op with a role when its plugin lists none", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({ ...notes, ops: [{ ...search, role: "read" }] }),
+      ),
+    /- ops\.search\.role names the role "read", and the plugin lists none/,
+  );
+});
+
+test("validatePlugin refuses a role named twice, and one with no description", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({
+          ...notes,
+          roles: [read, { name: "read", description: "" }],
+        }),
+      ),
+    (error: Error) => {
+      assert.match(error.message, /- roles\.read is used twice/);
+      assert.match(error.message, /- roles\.read\.description is missing/);
+      return true;
+    },
+  );
+});
+
 test("validatePlugin takes a plugin that keeps the contract", () => {
   validatePlugin(
     definePlugin({
