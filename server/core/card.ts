@@ -11,9 +11,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-// ajv 8 for JSON Schema 2020-12. que's server/package.json lists it too, so npm puts it in server/node_modules and
-// eslint's ajv 6 is the one that nests: a copy nested in core/node_modules would be removed by an install of lot,
-// whose npm workspace takes in que's core, and every import of @que/core would then fail.
+// ajv 8, for JSON Schema 2020-12.
 import { Ajv2020 } from "ajv/dist/2020.js";
 import * as z from "zod";
 import { check, name, standardName, text } from "./check.js";
