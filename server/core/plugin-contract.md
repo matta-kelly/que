@@ -15,10 +15,13 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 
 ## Standard
 
-Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder, and que's files in its namespace folder. Not built: `plugin.json`; que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
+Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, made by `just card <plugin folder>`. Not built: the check that a plugin's card is there and matches its definition. que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
 
 - what it is: a folder any harness can read
-	- `plugin.json`: `name` (required), and `version`, `description`, `author` and the like
+	- `plugin.json`, the card: `name` (required), and `version`, `description`, `author` and the like
+		- que makes it from the definition and never by hand (`cardOf` in `@que/core`): `name` and `description` from the definition, `version` from the plugin's `package.json`
+		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in que's ontology, by its field names: `format` (1), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `uses`, `capabilities`. Skills are not in it: their folders are the standard's
+		- checked against the standard's own schema, kept in que (`core/standards/agent-plugins-1.0.0/`), never fetched, and against que's part (`CardPart`)
 	- `skills/<name>/SKILL.md`: found by folder, not listed. The Agent Skills format
 	- `mcp.json`: optional. que does not use it: ops run in que, with no server per plugin
 	- `extensions`: data for one client, under the client's reverse-domain name
@@ -79,7 +82,7 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 
 ```
 <name>/
-├── plugin.json                   the standard manifest (not built)
+├── plugin.json                   the card, made by `just card` from the definition
 ├── skills/<skill>/SKILL.md       one skill each, found by folder (the standard's)
 ├── package.json                  npm: its dependencies, and the @que/core it works with
 └── io.github.matta-kelly.que/    que's files

@@ -92,29 +92,41 @@ async function readSkills(
   );
 }
 
+/**
+ * The plugin in `dir`: where its files are, and its definition, checked against the contract. Mount reads each
+ * plugin this way, and so does anything else that reads one (the card's writer).
+ */
+export async function loadPlugin(dir: string): Promise<{
+  files: ReturnType<typeof locatePlugin>;
+  definition: PluginDefinition;
+}> {
+  let files;
+  try {
+    files = locatePlugin(dir);
+  } catch (error) {
+    throw new Error(`mount: ${(error as Error).message}`, { cause: error });
+  }
+  checkCore(dir);
+  const definition = (
+    (await import(pathToFileURL(files.definition).href)) as {
+      default?: PluginDefinition;
+    }
+  ).default;
+  try {
+    validatePlugin(definition);
+  } catch (error) {
+    throw new Error(`mount: ${dir}: ${(error as Error).message}`, {
+      cause: error,
+    });
+  }
+  return { files, definition };
+}
+
 export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
   const mounted: MountedPlugin[] = [];
 
   for (const dir of dirs) {
-    let files;
-    try {
-      files = locatePlugin(dir);
-    } catch (error) {
-      throw new Error(`mount: ${(error as Error).message}`, { cause: error });
-    }
-    checkCore(dir);
-    const definition = (
-      (await import(pathToFileURL(files.definition).href)) as {
-        default?: PluginDefinition;
-      }
-    ).default;
-    try {
-      validatePlugin(definition);
-    } catch (error) {
-      throw new Error(`mount: ${dir}: ${(error as Error).message}`, {
-        cause: error,
-      });
-    }
+    const { files, definition } = await loadPlugin(dir);
     mounted.push({
       definition,
       skills: await readSkills(files.skills, definition),

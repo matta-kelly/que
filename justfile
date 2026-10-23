@@ -113,6 +113,16 @@ check-folder folder:
     c=$(./scripts/container.sh "$dir")
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
+# Write a plugin folder its card, plugin.json, made from its definition, with que's core handed to it.
+# A plugin that breaks the contract, or whose card would break Agent Plugins 1.0, stops here and writes nothing.
+card folder:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir=$(cd "{{invocation_directory()}}" && cd "{{folder}}" && pwd)
+    cd "{{root}}"
+    c=$(./scripts/container.sh "$dir")
+    podman exec -u node -w "{{root}}/server" "$c" npx tsx harness/src/card/write.ts "$dir"
+
 # The folders have no install of their own: the compiler is told where que keeps what they import (server/harness/src/mount/supplied.ts).
 _check-folders container +folders:
     #!/usr/bin/env bash

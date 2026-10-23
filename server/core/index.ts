@@ -3,6 +3,7 @@
 export * from "./plugin.js";
 export * from "./skill.js";
 export * from "./layout.js";
+export * from "./card.js";
 export * from "./case.js";
 export * from "./deployment.js";
 export * from "./agent.js";
