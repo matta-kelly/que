@@ -57,12 +57,73 @@ export function validateCardPart(
   check(CardPart, part, what);
 }
 
-/** A schema as JSON Schema, for a reader that runs no code. Its own `$schema` is left out: the card is one document. */
-function jsonSchema(schema: z.ZodType, what: string): Record<string, unknown> {
-  let json: Record<string, unknown>;
+type Schema = Record<string, unknown>;
+
+// The keywords whose value is a schema, a list of schemas, or a map of name to schema (JSON Schema 2020-12, the
+// ones zod writes). Any other keyword holds a value (a default, an enum, a const), which is kept as it is.
+const SCHEMA = [
+  "items",
+  "additionalProperties",
+  "not",
+  "contains",
+  "propertyNames",
+  "if",
+  "then",
+  "else",
+];
+const SCHEMAS = ["anyOf", "oneOf", "allOf", "prefixItems"];
+const NAMED = ["properties", "patternProperties"];
+
+/**
+ * A JSON Schema with each `#/$defs/<name>` written out in its place, and no `$defs` left: the card is one
+ * document, so a `#/...` in it would point at the card's root. Only the places a schema can sit are walked, so a
+ * field or a default named `$ref` is kept. A definition that leads back to itself (a recursive schema) cannot be
+ * written out, and is refused.
+ */
+function inline(
+  schema: Schema,
+  defs: Record<string, Schema>,
+  what: string,
+  seen: string[] = [],
+): Schema {
+  const { $ref, $defs, ...rest } = schema;
+  void $defs;
+  if (typeof $ref === "string") {
+    const name = $ref.replace(/^#\/\$defs\//, "");
+    if (name === $ref || !Object.hasOwn(defs, name) || seen.includes(name))
+      throw new Error(
+        `${what} needs a $ref in JSON Schema (${$ref}: it is recursive, or not in the schema): a card holds each schema whole, so give it one that is not`,
+      );
+    return inline({ ...defs[name], ...rest }, defs, what, [...seen, name]);
+  }
+  const walk = (s: unknown) => inline(s as Schema, defs, what, seen);
+  return Object.fromEntries(
+    Object.entries(rest).map(([key, value]) => [
+      key,
+      typeof value !== "object" || value === null
+        ? value
+        : SCHEMA.includes(key)
+          ? walk(value)
+          : SCHEMAS.includes(key) && Array.isArray(value)
+            ? value.map(walk)
+            : NAMED.includes(key)
+              ? Object.fromEntries(
+                  Object.entries(value).map(([field, s]) => [field, walk(s)]),
+                )
+              : value,
+    ]),
+  );
+}
+
+/**
+ * A schema as JSON Schema, for a reader that runs no code. The card is one document, so each schema in it is
+ * whole: its own `$schema` is left out, and a schema used twice, or given an id, is written out where it is used.
+ */
+function jsonSchema(schema: z.ZodType, what: string): Schema {
+  let json: Schema;
   try {
     // The input a caller gives: a field with a default may be left out.
-    json = z.toJSONSchema(schema, { io: "input" }) as Record<string, unknown>;
+    json = z.toJSONSchema(schema, { io: "input", reused: "inline" }) as Schema;
   } catch (error) {
     throw new Error(
       `${what} has no JSON Schema form (${(error as Error).message}): give it one that zod can write as JSON Schema`,
@@ -70,7 +131,17 @@ function jsonSchema(schema: z.ZodType, what: string): Record<string, unknown> {
     );
   }
   delete json.$schema;
-  return json;
+  const whole = inline(
+    json,
+    (json.$defs ?? {}) as Record<string, Schema>,
+    what,
+  );
+  // A keyword the walk does not know (one a later zod may write) could still hold a ref: refuse it, never pass it.
+  if (JSON.stringify(whole).includes('"#/$defs/'))
+    throw new Error(
+      `${what} keeps a $ref to #/$defs/ under a keyword the card does not write out: give it a schema that has none`,
+    );
+  return whole;
 }
 
 const opNode = (plugin: string, op: Operation) => ({

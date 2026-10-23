@@ -133,3 +133,71 @@ test("cardText is two-space JSON ending in a newline, the same bytes for the sam
   assert.ok(text.startsWith('{\n  "$schema": '));
   assert.ok(text.endsWith("}\n"));
 });
+
+test("cardOf writes a schema with an id out in its place, with no $ref", () => {
+  const card = cardOf(
+    definePlugin({
+      name: "notes",
+      title: "Notes",
+      description: "How the team writes things down.",
+      ops: [
+        {
+          ...getFabric,
+          role: undefined,
+          schema: z.object({
+            code: z.string().meta({ id: "Code" }).describe("A code"),
+          }),
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
+    { code: { type: "string", description: "A code" } },
+  );
+});
+
+test("cardOf keeps a field named $ref, as only the places a schema sits are written out", () => {
+  const card = cardOf(
+    definePlugin({
+      name: "notes",
+      title: "Notes",
+      description: "How the team writes things down.",
+      ops: [
+        {
+          ...getFabric,
+          role: undefined,
+          schema: z.object({ $ref: z.string().describe("A reference") }),
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
+    { $ref: { type: "string", description: "A reference" } },
+  );
+});
+
+test("cardOf refuses an op whose schema is recursive, as a $ref in a card points at the card's root", () => {
+  const Node: z.ZodType = z.lazy(() =>
+    z.object({ children: z.array(Node).describe("Its children") }),
+  );
+  assert.throws(
+    () =>
+      cardOf(
+        definePlugin({
+          name: "notes",
+          title: "Notes",
+          description: "How the team writes things down.",
+          ops: [
+            {
+              ...getFabric,
+              role: undefined,
+              schema: z.object({ tree: Node.describe("A tree") }),
+            },
+          ],
+        }),
+      ),
+    /op notes_getFabric's schema needs a \$ref in JSON Schema \(#[^:]*: it is recursive, or not in the schema\)/,
+  );
+});
