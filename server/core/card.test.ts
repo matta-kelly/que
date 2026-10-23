@@ -201,3 +201,83 @@ test("cardOf refuses an op whose schema is recursive, as a $ref in a card points
     /op notes_getFabric's schema needs a \$ref in JSON Schema \(#[^:]*: it is recursive, or not in the schema\)/,
   );
 });
+
+test("cardOf refuses a $ref left under a keyword the card does not write out", () => {
+  assert.throws(
+    () =>
+      cardOf(
+        definePlugin({
+          name: "notes",
+          title: "Notes",
+          description: "How the team writes things down.",
+          ops: [
+            {
+              ...getFabric,
+              role: undefined,
+              schema: z
+                .object({ code: z.string().describe("A code") })
+                .meta({ unevaluatedProperties: { $ref: "#/$defs/Code" } }),
+            },
+          ],
+        }),
+      ),
+    /op notes_getFabric's schema keeps a \$ref to #\/\$defs\/ under a keyword the card does not write out/,
+  );
+});
+
+test("cardOf keeps a description that names a $ref", () => {
+  const card = cardOf(
+    definePlugin({
+      name: "notes",
+      title: "Notes",
+      description: "How the team writes things down.",
+      ops: [
+        {
+          ...getFabric,
+          role: undefined,
+          schema: z.object({
+            code: z.string().describe('Not a "#/$defs/Code" ref'),
+          }),
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
+    { code: { type: "string", description: 'Not a "#/$defs/Code" ref' } },
+  );
+});
+
+test("cardOf keeps a default that holds a $ref, as a default is data, not a schema", () => {
+  const card = cardOf(
+    definePlugin({
+      name: "notes",
+      title: "Notes",
+      description: "How the team writes things down.",
+      ops: [
+        {
+          ...getFabric,
+          role: undefined,
+          schema: z.object({
+            link: z
+              .object({ $ref: z.string().describe("A reference") })
+              .default({ $ref: "#top" })
+              .describe("A link"),
+          }),
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
+    {
+      link: {
+        type: "object",
+        properties: { $ref: { type: "string", description: "A reference" } },
+        required: ["$ref"],
+        default: { $ref: "#top" },
+        description: "A link",
+      },
+    },
+  );
+});

@@ -82,6 +82,8 @@ const SCHEMA = [
 ];
 const SCHEMAS = ["anyOf", "oneOf", "allOf", "prefixItems"];
 const NAMED = ["properties", "patternProperties"];
+// The keywords whose value is data, never a schema.
+const VALUES = ["default", "const", "enum", "examples"];
 
 /**
  * A JSON Schema with each `#/$defs/<name>` written out in its place, and no `$defs` left: the card is one
@@ -124,6 +126,24 @@ function inline(
   );
 }
 
+// Whether a schema still holds a $ref to a place in the document: a "$ref" keyword whose value is text starting
+// with #, in it or in any schema under it. Read as the walk reads a schema: a map of fields (properties) holds
+// schemas by name, so a field named $ref is a schema; a value keyword (a default, an enum) holds data, which is
+// not read; and any other keyword, one the walk does not know, is read in full, as it may hold a schema.
+function holdsRef(node: unknown): boolean {
+  if (Array.isArray(node)) return node.some(holdsRef);
+  if (typeof node !== "object" || node === null) return false;
+  return Object.entries(node).some(([key, value]) =>
+    key === "$ref"
+      ? typeof value === "string" && value.startsWith("#")
+      : VALUES.includes(key)
+        ? false
+        : NAMED.includes(key) && typeof value === "object" && value !== null
+          ? Object.values(value).some(holdsRef)
+          : holdsRef(value),
+  );
+}
+
 /**
  * A schema as JSON Schema, for a reader that runs no code. The card is one document, so each schema in it is
  * whole: its own `$schema` is left out, and a schema used twice, or given an id, is written out where it is used.
@@ -146,7 +166,7 @@ function jsonSchema(schema: z.ZodType, what: string): Schema {
     what,
   );
   // A keyword the walk does not know (one a later zod may write) could still hold a ref: refuse it, never pass it.
-  if (JSON.stringify(whole).includes('"#/$defs/'))
+  if (holdsRef(whole))
     throw new Error(
       `${what} keeps a $ref to #/$defs/ under a keyword the card does not write out: give it a schema that has none`,
     );
