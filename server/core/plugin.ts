@@ -4,7 +4,16 @@
  */
 
 import * as z from "zod";
-import { check, fn, must, name, named, once, text } from "./check.js";
+import {
+  check,
+  fn,
+  name,
+  named,
+  once,
+  standardName,
+  strict,
+  text,
+} from "./check.js";
 
 export { NAME } from "./check.js";
 
@@ -59,18 +68,6 @@ export type ServiceIdentity = {
   email?: string;
 };
 
-// A plugin's name is its name in the open standard (Agent Plugins, `plugin.json`) and the start of each of its
-// tool names, so it fits both: lowercase letters and digits, with single hyphens between them.
-const PLUGIN_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-const pluginName = text
-  .regex(PLUGIN_NAME, {
-    error: must(
-      "lowercase letters and digits, with single hyphens between them",
-    ),
-  })
-  .max(64, { error: must("at most 64 characters") });
-
 /**
  * What `definePlugin` returns, and a plugin exports as its default.
  * Plugins that talk to a service declare the credential they need (a zod
@@ -78,9 +75,10 @@ const pluginName = text
  * both out.
  */
 export const PluginDefinition = z
-  .object(
+  .strictObject(
     {
-      name: pluginName,
+      // Its name in the open standard (`plugin.json`), and the start of each of its tool names.
+      name: standardName,
       title: text,
       description: text,
       credential: z
@@ -95,15 +93,17 @@ export const PluginDefinition = z
       ops: z
         .array(Operation, { error: "must be an array" })
         .superRefine(once((op) => op.name)),
-      /** The names of its skills. Each one is a `skills/<name>/SKILL.md` in the plugin folder. */
-      skills: z
-        .array(name, { error: "must be an array" })
-        .superRefine(once((skill) => skill)),
       capabilities: z
         .array(Capability, { error: "must be an array" })
         .superRefine(once((capability) => capability.name)),
     },
-    { error: "no definition (default export)" },
+    strict(
+      {
+        skills:
+          '"skills" is gone: each folder under skills/ with a SKILL.md is a skill, as Agent Plugins finds them',
+      },
+      "no definition (default export)",
+    ),
   )
   .superRefine((definition, ctx) =>
     definition.ops.forEach((op, i) => {
@@ -132,7 +132,7 @@ export type PluginDefinition<
   ops: Operation<Conn, any>[];
 };
 
-type Listed = "ops" | "skills" | "capabilities";
+type Listed = "ops" | "capabilities";
 
 export function definePlugin<S extends z.ZodObject, Conn>(
   definition: Omit<PluginDefinition<S, Conn>, Listed> &
@@ -141,7 +141,6 @@ export function definePlugin<S extends z.ZodObject, Conn>(
   return {
     ...definition,
     ops: definition.ops ?? [],
-    skills: definition.skills ?? [],
     capabilities: definition.capabilities ?? [],
   };
 }

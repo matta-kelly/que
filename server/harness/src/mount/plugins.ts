@@ -7,7 +7,7 @@
  */
 
 import "./supply.js";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -56,25 +56,31 @@ function checkCore(dir: string): void {
     );
 }
 
-// Only the skills the definition lists: a folder it does not list is not read.
+// Each folder under skills/ with a SKILL.md is a skill, as Agent Plugins finds them: one level down, in name order.
+// A plugin with no skills/ has none.
 async function readSkills(
   dir: string,
-  { name: plugin, skills }: PluginDefinition,
+  { name: plugin }: PluginDefinition,
 ): Promise<Skill[]> {
+  const root = join(dir, "skills");
+  if (!existsSync(root)) return [];
+  const folders = readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((folder) =>
+      statSync(join(root, folder, "SKILL.md"), {
+        throwIfNoEntry: false,
+      })?.isFile(),
+    )
+    .sort();
   return Promise.all(
-    skills.map(async (name) => {
-      const id = `${plugin}/${name}`;
-      const file = join(dir, "skills", name, "SKILL.md");
-      let text;
+    folders.map(async (folder) => {
       try {
-        text = await readFile(file, "utf8");
-      } catch (error) {
-        throw new Error(`mount: skill ${id} has no file (${file})`, {
-          cause: error,
-        });
-      }
-      try {
-        return parseSkill(id, text);
+        return parseSkill(
+          plugin,
+          folder,
+          await readFile(join(root, folder, "SKILL.md"), "utf8"),
+        );
       } catch (error) {
         throw new Error(`mount: ${(error as Error).message}`, {
           cause: error,

@@ -37,7 +37,7 @@ const pluginType = defineType({
     title,
     // The ops of a plugin. `PluginDefinition.ops`.
     ops: manyOrNone(() => op),
-    // The skills of a plugin. `PluginDefinition.skills`.
+    // The skills of a plugin: each folder under its skills/ with a SKILL.md, as Agent Plugins finds them.
     skills: manyOrNone(() => skill),
     // The capabilities of a plugin. `PluginDefinition.capabilities`.
     capabilities: manyOrNone(() => capability),

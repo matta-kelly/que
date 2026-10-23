@@ -3,6 +3,6 @@ import { definePlugin } from "@que/core";
 export default definePlugin({
   name: "fileless-skill",
   title: "Fileless Skill",
-  description: "A sound plugin, that lists a skill it has no file for.",
-  skills: ["ghost"],
+  description:
+    "A sound plugin, with a folder under skills/ that has no SKILL.md.",
 });

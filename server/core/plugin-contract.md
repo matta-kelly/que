@@ -15,7 +15,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 
 ## Standard
 
-Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Not built: que reads `index.ts` (`definePlugin`), and no plugin has a `plugin.json` yet.
+Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder. Not built: `plugin.json`; que reads `index.ts` (`definePlugin`).
 
 - what it is: a folder any harness can read
 	- `plugin.json`: `name` (required), and `version`, `description`, `author` and the like
@@ -32,7 +32,9 @@ What the standard leaves to the client, que defines. Built in `index.ts` today; 
 	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name
 - **what the model can do**: operations. Each becomes a tool, and runs in que. What one is, and what makes a good one: [[operation]]
 	- other harnesses reach them through a remote MCP server in que (not built), not on their own
-- **what the model can read**: skills. Each is a text with a title and a description, read when the model asks for it
+- **what the model can read**: skills, as the standard has them. Each folder under `skills/` with a `SKILL.md` is one; the definition lists none
+	- its frontmatter: `name` (its folder's), `description`, and que's title in `metadata.title`. With no title, its name is its title. The standard's other fields are taken and not read
+	- a skill that breaks this fails the mount: que is stricter than the standard, which skips it, so a plugin never loads half its skills
 - **what it needs**: a credential, if it talks to a service. Each user gives their own. A user with no credential does not get the plugin
 	- `connect` turns a credential into a connection. The connection is what the operations get, never the credential
 	- `whoami` says who the connection is logged in as, so "me" and "mine" mean something to the model
@@ -83,7 +85,7 @@ Designed, not built.
 ├── ops/
 │   ├── <entity>.ts       the read and write operations of one entity
 │   └── <entity>.test.ts  their tests, against fakeConn
-├── skills/<skill>/SKILL.md  one for each skill the definition names
+├── skills/<skill>/SKILL.md  one skill each, found by folder
 ├── cases.ts            the cases (defineCases), by capability
 └── index.test.ts       contract checks only: validatePlugin, validateCases
 ```

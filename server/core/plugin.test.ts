@@ -92,20 +92,19 @@ test("validatePlugin takes a plugin name of lowercase words joined by single hyp
   );
 });
 
-test("validatePlugin lists ops, skills or capabilities that are not a list, and a connect or whoami that is not a function", () => {
+test("validatePlugin lists ops or capabilities that are not a list, and a connect or whoami that is not a function", () => {
   assert.throws(
     () =>
       validatePlugin({
         ...notes,
         ops: undefined,
-        skills: "greet",
         capabilities: {},
         connect: "odoo",
         whoami: 1,
       } as never),
     (error: Error) => {
-      for (const field of ["ops", "skills", "capabilities"])
-        assert.match(error.message, new RegExp(`- ${field} must be an array`));
+      assert.match(error.message, /- ops must be an array/);
+      assert.match(error.message, /- capabilities must be an array/);
       assert.match(error.message, /- connect must be a function/);
       assert.match(error.message, /- whoami must be a function/);
       return true;
@@ -183,17 +182,17 @@ test("validatePlugin lists a credential that is not a zod object, and an op with
   );
 });
 
-test("validatePlugin lists a skill with a bad name, and a name used twice", () => {
+test("validatePlugin refuses a definition that lists its skills, saying skills are found by folder", () => {
   assert.throws(
-    () =>
-      validatePlugin(
-        definePlugin({ ...notes, skills: ["no spaces", "greet", "greet"] }),
-      ),
-    (error: Error) => {
-      assert.match(error.message, /- skills\.no spaces must match/);
-      assert.match(error.message, /- skills\.greet is used twice/);
-      return true;
-    },
+    () => validatePlugin({ ...notes, skills: ["greet"] } as never),
+    /- "skills" is gone: each folder under skills\/ with a SKILL\.md is a skill/,
+  );
+});
+
+test("validatePlugin refuses a field the contract does not have", () => {
+  assert.throws(
+    () => validatePlugin({ ...notes, tools: [] } as never),
+    /- has no field "tools"/,
   );
 });
 
@@ -241,7 +240,6 @@ test("validatePlugin takes a plugin that keeps the contract", () => {
     definePlugin({
       ...notes,
       ops: [search],
-      skills: ["greet"],
       credential: z.object({ url: z.string() }),
       connect: async () => ({}),
     }),

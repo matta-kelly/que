@@ -167,17 +167,17 @@ test("stops, naming the deployment folder, when the definition breaks the contra
 });
 
 test("stops, naming the skill, when a listed plugin has a skill that breaks the contract", async () => {
-  await assert.rejects(mount("untitled-skill"), (error: Error) => {
+  await assert.rejects(mount("misnamed-skill"), (error: Error) => {
     assert.match(error.message, /^mount:/);
-    assert.match(error.message, /untitled-skill\/nameless/);
+    assert.match(error.message, /misnamed-skill\/nameless/);
     assert.ok(error.cause instanceof Error);
     return true;
   });
 });
 
-test("a skill folder the definition does not list is not mounted", async () => {
-  const mounted = await mount("unlisted-skill");
-  assert.deepEqual(names(mounted), ["unlisted-skill"]);
+test("a folder under skills/ with no SKILL.md is not a skill", async () => {
+  const mounted = await mount("fileless-skill");
+  assert.deepEqual(names(mounted), ["fileless-skill"]);
   assert.deepEqual(mounted[0].skills, []);
 });
 

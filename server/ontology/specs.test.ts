@@ -38,9 +38,10 @@ const specs: { [Name in keyof typeof types]: Record<string, Target> } = {
     connect: null,
     whoami: null,
     ops: "op",
+    // Not in the definition: each folder under skills/ with a SKILL.md, as Agent Plugins finds them.
     skills: "skill",
     capabilities: "capability",
-  } satisfies Fields<PluginDefinition>,
+  } satisfies Fields<PluginDefinition & { skills: unknown }>,
   op: {
     name: null,
     title: null,
