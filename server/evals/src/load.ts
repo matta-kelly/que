@@ -1,23 +1,23 @@
 /**
  * What a deployment has to run: its name, the cases of its plugins, its
  * agent configs and its model configs. Read from the deployment's own files,
- * as mount reads them, and checked with the contract.
+ * as mount reads them (a plugin by readDefinition), and checked with the
+ * contract. The @que/core range check is mount's alone: it is about the core
+ * mount hands a plugin, and the server that runs the cases mounts.
  */
 
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  locatePlugin,
+  readDefinition,
   validateAgent,
   validateCases,
   validateDeployment,
   validateModel,
-  validatePlugin,
   type AgentDefinition,
   type Case,
   type ModelDefinition,
-  type PluginDefinition,
 } from "@que/core";
 
 export type LoadedCase = Case & { plugin: string };
@@ -29,11 +29,9 @@ export type Model = ModelDefinition;
 const definitionIn = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
 
+// A plugin read as mount reads it (readDefinition), then its cases.
 async function casesOf(dir: string): Promise<LoadedCase[]> {
-  const files = locatePlugin(dir);
-  const definition = (await definitionIn(files.definition)) as
-    PluginDefinition | undefined;
-  validatePlugin(definition);
+  const { files, definition } = await readDefinition(dir);
   const file = files.cases;
   if (!existsSync(file)) return [];
   const cases = await definitionIn(file);

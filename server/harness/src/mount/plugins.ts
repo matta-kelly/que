@@ -12,13 +12,13 @@ import { unresolvedUses } from "./uses.js";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { satisfies } from "semver";
 import {
   locatePlugin,
   parseSkill,
-  validatePlugin,
+  readDefinition,
   type PluginDefinition,
+  type PluginFiles,
   type Skill,
 } from "@que/core";
 
@@ -38,8 +38,7 @@ const CORE = (
 
 // A plugin's npm package names the @que/core it works with as a peer. One with no package.json, or no range, works with any.
 // A prerelease of que's core counts as its version: semver leaves it out of every range otherwise, `*` included.
-function checkCore(dir: string): void {
-  const file = join(dir, "package.json");
+function checkCore(dir: string, file: string): void {
   if (!existsSync(file)) return;
   let manifest: Manifest | null;
   try {
@@ -63,19 +62,17 @@ function checkCore(dir: string): void {
 // SKILL.md fails: que is stricter than the standard, which skips it, as such a folder is a skill whose file is
 // missing or misnamed. A plugin with no skills/ has none.
 async function readSkills(
-  root: string,
+  files: PluginFiles,
   { name: plugin }: PluginDefinition,
 ): Promise<Skill[]> {
-  if (!existsSync(root)) return [];
-  const folders = readdirSync(root, { withFileTypes: true })
+  if (!existsSync(files.skills)) return [];
+  const folders = readdirSync(files.skills, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort();
   const fileless = folders.filter(
     (folder) =>
-      !statSync(join(root, folder, "SKILL.md"), {
-        throwIfNoEntry: false,
-      })?.isFile(),
+      !statSync(files.skill(folder), { throwIfNoEntry: false })?.isFile(),
   );
   if (fileless.length)
     throw new Error(
@@ -87,7 +84,7 @@ async function readSkills(
         return parseSkill(
           plugin,
           folder,
-          await readFile(join(root, folder, "SKILL.md"), "utf8"),
+          await readFile(files.skill(folder), "utf8"),
         );
       } catch (error) {
         throw new Error(`mount: ${(error as Error).message}`, {
@@ -99,11 +96,12 @@ async function readSkills(
 }
 
 /**
- * The plugin in `dir`: where its files are, and its definition, checked against the contract. Mount reads each
- * plugin this way, and so does anything else that reads one (the card's writer).
+ * The plugin in `dir`, as mount reads it: its files, its npm package's @que/core range held to que's, and its
+ * definition, checked against the contract (readDefinition in @que/core). The card's writer reads a plugin this
+ * way too.
  */
 export async function loadPlugin(dir: string): Promise<{
-  files: ReturnType<typeof locatePlugin>;
+  files: PluginFiles;
   definition: PluginDefinition;
 }> {
   let files;
@@ -112,20 +110,12 @@ export async function loadPlugin(dir: string): Promise<{
   } catch (error) {
     throw new Error(`mount: ${(error as Error).message}`, { cause: error });
   }
-  checkCore(dir);
-  const definition = (
-    (await import(pathToFileURL(files.definition).href)) as {
-      default?: PluginDefinition;
-    }
-  ).default;
+  checkCore(dir, files.package);
   try {
-    validatePlugin(definition);
+    return await readDefinition(dir);
   } catch (error) {
-    throw new Error(`mount: ${dir}: ${(error as Error).message}`, {
-      cause: error,
-    });
+    throw new Error(`mount: ${(error as Error).message}`, { cause: error });
   }
-  return { files, definition };
 }
 
 export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
@@ -135,7 +125,7 @@ export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
     const { files, definition } = await loadPlugin(dir);
     mounted.push({
       definition,
-      skills: await readSkills(files.skills, definition),
+      skills: await readSkills(files, definition),
     });
   }
   // What a domain uses resolves only once the whole deployment is mounted.

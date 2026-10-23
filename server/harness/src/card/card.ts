@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import {
   NAMESPACE,
+  pluginFiles,
   cardOf,
   cardText,
   validateCardPart,
@@ -46,7 +47,7 @@ export function validateCard(
 
 // The version its package.json gives, when it has one.
 function versionIn(dir: string): string | undefined {
-  const file = join(dir, "package.json");
+  const file = pluginFiles(dir).package;
   if (!existsSync(file)) return undefined;
   return (JSON.parse(readFileSync(file, "utf8")) as { version?: string })
     .version;
@@ -62,7 +63,7 @@ export async function makeCard(dir: string): Promise<Card> {
 
 /** Write the plugin in `dir` its card, `plugin.json`, from its definition. Returns the file's path. */
 export async function writeCard(dir: string): Promise<string> {
-  const file = join(dir, "plugin.json");
+  const file = pluginFiles(dir).card;
   writeFileSync(file, cardText(await makeCard(dir)));
   return file;
 }

@@ -29,7 +29,7 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 
 ## que's additions
 
-What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@que/core`'s `pluginFiles` is the one place that says where each one is. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
+What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@que/core`'s `pluginFiles` is the one place that says where each file is, the standard's and npm's too; `readDefinition` is the one way a plugin is read. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
 	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name
