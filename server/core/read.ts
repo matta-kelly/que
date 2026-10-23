@@ -1,6 +1,7 @@
 /**
  * Read a plugin from its folder: where its files are (layout.ts), and its definition, checked against the
- * contract. Mount, the evals and the card's writer read a plugin this way.
+ * contract. Mount, the evals and the card's writer read a plugin this way; mount and the evals then hold its
+ * card to it (checkCard).
  */
 
 import { pathToFileURL } from "node:url";

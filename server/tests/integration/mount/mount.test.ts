@@ -213,6 +213,26 @@ test("stops, naming the folder, when a listed folder holds no plugin", async () 
   });
 });
 
+test("stops, saying how to write it, when a listed plugin has no card", async () => {
+  const dir = mkdtempSync(join(workspace, "cardless-"));
+  cpSync(join(fixtures, "plugins/gamma"), dir, { recursive: true });
+  rmSync(join(dir, "plugin.json"));
+  await assert.rejects(
+    mountPlugins([dir]),
+    /^Error: mount: .* has no card \(plugin\.json\): write it with `just card /,
+  );
+});
+
+test("stops, naming the first line that differs, when a listed plugin's card is not what its definition makes", async () => {
+  const dir = mkdtempSync(join(workspace, "stale-"));
+  cpSync(join(fixtures, "plugins/gamma"), dir, { recursive: true });
+  writeFileSync(join(dir, "plugin.json"), "{}\n");
+  await assert.rejects(
+    mountPlugins([dir]),
+    /^Error: mount: .*plugin\.json is not what its definition makes \(from line 1\)/,
+  );
+});
+
 test("a plugin with a bad cases file still mounts", async () => {
   assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
 });

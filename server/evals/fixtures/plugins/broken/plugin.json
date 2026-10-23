@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "broken",
+  "description": "A sound plugin, with cases that name a capability it does not have.",
+  "extensions": {
+    "io.github.matta-kelly.que": {
+      "format": 1,
+      "title": "Broken",
+      "ops": [],
+      "roles": [],
+      "uses": {
+        "ops": [],
+        "skills": []
+      },
+      "capabilities": []
+    }
+  }
+}

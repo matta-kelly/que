@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "shop",
+  "description": "The shop's order system.",
+  "extensions": {
+    "io.github.matta-kelly.que": {
+      "format": 1,
+      "title": "Shop",
+      "ops": [],
+      "roles": [],
+      "uses": {
+        "ops": [],
+        "skills": []
+      },
+      "capabilities": [
+        {
+          "name": "find-order",
+          "title": "Find an order",
+          "description": "A person asks about an order and gets its state."
+        }
+      ]
+    }
+  }
+}

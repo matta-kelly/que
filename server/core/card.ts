@@ -4,11 +4,20 @@
  * fields describe the plugin to every harness; que's part, under its namespace in `extensions`, is the plugin's
  * nodes in que's ontology (plugin, op, access-role, capability), by the ontology's field names. Skills are not in
  * it: their folders are the standard's, and a reader reads them there.
+ *
+ * On disk, a card is checked against the standard's own schema (kept in que, never fetched: Agent Plugins §5.2)
+ * and against que's part, and held to its definition byte for byte.
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+// ajv 8 for JSON Schema 2020-12. que's server/package.json lists it too, so npm puts it in server/node_modules and
+// eslint's ajv 6 is the one that nests: a copy nested in core/node_modules would be removed by an install of lot,
+// whose npm workspace takes in que's core, and every import of @que/core would then fail.
+import { Ajv2020 } from "ajv/dist/2020.js";
 import * as z from "zod";
 import { check, name, standardName, text } from "./check.js";
-import { NAMESPACE } from "./layout.js";
+import { NAMESPACE, pluginFiles } from "./layout.js";
 import {
   Capability,
   Role,
@@ -191,3 +200,65 @@ export type Card = {
 
 /** A card as its file holds it: two-space JSON, ending in a newline, so the same definition makes the same bytes. */
 export const cardText = (card: Card) => `${JSON.stringify(card, null, 2)}\n`;
+
+const STANDARD = JSON.parse(
+  readFileSync(
+    join(
+      import.meta.dirname,
+      "standards/agent-plugins-1.0.0/plugin.schema.json",
+    ),
+    "utf8",
+  ),
+) as object;
+
+const standard = new Ajv2020({ allErrors: true }).compile(STANDARD);
+
+/** Check a card against the standard's schema and que's part, throwing one error that lists every problem. */
+export function validateCard(
+  card: unknown,
+  what: string,
+): asserts card is Card {
+  if (!standard(card))
+    throw new Error(
+      `${what} breaks Agent Plugins 1.0:\n- ${(standard.errors ?? [])
+        .map((e) => `${e.instancePath || "(the card)"} ${e.message}`)
+        .join("\n- ")}`,
+    );
+  validateCardPart(
+    (card as { extensions?: Record<string, unknown> }).extensions?.[NAMESPACE],
+    `${what}'s ${NAMESPACE} part is invalid`,
+  );
+}
+
+// The version the plugin in `dir`'s package.json gives, when it has one.
+function versionIn(dir: string): string | undefined {
+  const file = pluginFiles(dir).package;
+  if (!existsSync(file)) return undefined;
+  return (JSON.parse(readFileSync(file, "utf8")) as { version?: string })
+    .version;
+}
+
+/** The text the card of the plugin in `dir` must hold, from its definition, checked. */
+export function cardTextOf(dir: string, definition: PluginDefinition): string {
+  const card = cardOf(definition, versionIn(dir));
+  validateCard(card, `the card of ${definition.name}`);
+  return cardText(card);
+}
+
+/**
+ * Throw when the plugin in `dir` has no card, or one that is not, byte for byte, what its definition makes. The
+ * error names the first line that differs, and the command that writes it again.
+ */
+export function checkCard(dir: string, definition: PluginDefinition): void {
+  const file = pluginFiles(dir).card;
+  const fix = `write it with \`just card ${dir}\``;
+  if (!existsSync(file))
+    throw new Error(`${dir} has no card (plugin.json): ${fix}`);
+  const want = cardTextOf(dir, definition).split("\n");
+  const have = readFileSync(file, "utf8").split("\n");
+  const line = want.findIndex((text, i) => text !== have[i]);
+  if (line !== -1 || have.length !== want.length)
+    throw new Error(
+      `${file} is not what its definition makes (from line ${(line === -1 ? want.length : line) + 1}): ${fix}`,
+    );
+}

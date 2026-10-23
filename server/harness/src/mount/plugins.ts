@@ -4,7 +4,8 @@
  * A definition or a skill that breaks the contract (validatePlugin and
  * parseSkill in @que/core) fails mounting, and so does one whose npm
  * package's `@que/core` peer range que's own @que/core is outside, and so
- * does a name a domain uses that no mounted connector gives (uses.ts).
+ * does a name a domain uses that no mounted connector gives (uses.ts), and
+ * a plugin whose card (plugin.json) is not what its definition makes.
  */
 
 import "./supply.js";
@@ -14,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { satisfies } from "semver";
 import {
+  checkCard,
   locatePlugin,
   parseSkill,
   readDefinition,
@@ -123,6 +125,11 @@ export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
 
   for (const dir of dirs) {
     const { files, definition } = await loadPlugin(dir);
+    try {
+      checkCard(dir, definition);
+    } catch (error) {
+      throw new Error(`mount: ${(error as Error).message}`, { cause: error });
+    }
     mounted.push({
       definition,
       skills: await readSkills(files, definition),

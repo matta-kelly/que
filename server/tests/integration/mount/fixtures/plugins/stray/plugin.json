@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "stray",
+  "description": "A domain that uses an op source does not have.",
+  "extensions": {
+    "io.github.matta-kelly.que": {
+      "format": 1,
+      "title": "Stray",
+      "ops": [],
+      "roles": [],
+      "uses": {
+        "ops": [
+          "source_lose"
+        ],
+        "skills": []
+      },
+      "capabilities": []
+    }
+  }
+}

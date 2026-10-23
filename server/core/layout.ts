@@ -33,6 +33,10 @@ export type PluginFiles = ReturnType<typeof pluginFiles>;
 // Where a definition sat before que's files moved into its namespace folder.
 const oldDefinition = (dir: string) => join(dir, "index.ts");
 
+/** Whether `dir` holds a plugin, in the layout or in the old one, at the root. */
+export const holdsPlugin = (dir: string) =>
+  existsSync(pluginFiles(dir).definition) || existsSync(oldDefinition(dir));
+
 /**
  * The files of the plugin in `dir`, throwing when it has no definition: one at its root says que's files moved,
  * and a folder with neither holds no plugin.

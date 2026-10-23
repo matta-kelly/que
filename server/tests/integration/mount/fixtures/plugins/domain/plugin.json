@@ -1,0 +1,22 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "domain",
+  "description": "A domain that uses source's op and skill.",
+  "extensions": {
+    "io.github.matta-kelly.que": {
+      "format": 1,
+      "title": "Domain",
+      "ops": [],
+      "roles": [],
+      "uses": {
+        "ops": [
+          "source_find"
+        ],
+        "skills": [
+          "source/guide"
+        ]
+      },
+      "capabilities": []
+    }
+  }
+}

@@ -23,7 +23,6 @@
     "@que/ontology": "*",
     "@que/users": "*",
     "@mku1tra/basis": "^0.14.0",
-    "ajv": "^8.20.0",
     "deepagents": "^1.14.2",
     "hono": "^4.13.8",
     "langchain": "^1.5.10",

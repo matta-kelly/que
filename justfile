@@ -131,6 +131,8 @@ _check-folders container +folders:
     folders=({{folders}})
     podman exec -u node -w "$h" "{{container}}" sh -c 'mkdir -p /tmp/que-check && npx tsx harness/src/mount/check-config.ts "$@" > /tmp/que-check/tsconfig.json' sh "${folders[@]}"
     podman exec -u node -w "$h" "{{container}}" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
+    # Each folder that holds a plugin has the card its definition makes.
+    podman exec -u node -w "$h" "{{container}}" npx tsx harness/src/card/check.ts "${folders[@]}"
     for f in "${folders[@]}"; do
         # A folder with no tests has nothing to run.
         tests=$(find "$f" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit)

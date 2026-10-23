@@ -15,13 +15,15 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 
 ## Standard
 
-Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, made by `just card <plugin folder>`. Not built: the check that a plugin's card is there and matches its definition. que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
+Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, made by `just card <plugin folder>` and required. Not built: a reader of cards that runs no code, which que's control plane brings. que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
 
 - what it is: a folder any harness can read
 	- `plugin.json`, the card: `name` (required), and `version`, `description`, `author` and the like
 		- que makes it from the definition and never by hand (`cardOf` in `@que/core`): `name` and `description` from the definition, `version` from the plugin's `package.json`
 		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in que's ontology, by its field names: `format` (1), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `uses`, `capabilities`. Skills are not in it: their folders are the standard's
 		- checked against the standard's own schema, kept in que (`core/standards/agent-plugins-1.0.0/`), never fetched, and against que's part (`CardPart`)
+		- required: mount, the evals and `just check-folder` fail on a plugin with no card, or one that is not, byte for byte, what its definition makes, naming the first line that differs. The fix is always `just card`
+		- no formatter touches it (`.prettierignore`): the card check holds its bytes
 	- `skills/<name>/SKILL.md`: found by folder, not listed. The Agent Skills format
 	- `mcp.json`: optional. que does not use it: ops run in que, with no server per plugin
 	- `extensions`: data for one client, under the client's reverse-domain name

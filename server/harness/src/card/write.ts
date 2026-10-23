@@ -6,7 +6,7 @@
  */
 
 import "../mount/supply.js";
-import { writeCard } from "./card.js";
+import { writeCard } from "./writer.js";
 
 try {
   for (const dir of process.argv.slice(2)) console.log(await writeCard(dir));
