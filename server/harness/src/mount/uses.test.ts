@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import * as z from "zod";
 import { definePlugin, type Skill } from "@que/core";
 import type { MountedPlugin } from "./plugins.js";
-import { unresolvedUses } from "./uses.js";
+import { ownUses, sharedNames, unresolvedUses } from "./uses.js";
 
 const find = {
-  name: "findFabric",
+  name: "find-fabric",
   title: "Find a fabric",
   description: "Find a fabric by its code.",
   schema: z.object({ code: z.string().describe("The fabric code") }),
@@ -14,7 +14,7 @@ const find = {
 };
 
 const guide: Skill = {
-  id: "warehouse/fabric-guide",
+  id: "warehouse-fabric-guide",
   title: "Fabric guide",
   description: "How fabrics are coded.",
   body: "Codes are upper case.",
@@ -46,8 +46,8 @@ test("a domain whose every name is a mounted connector's op or skill resolves", 
     unresolvedUses([
       warehouse,
       domain("pim", {
-        ops: ["warehouse_findFabric"],
-        skills: ["warehouse/fabric-guide"],
+        ops: ["warehouse-find-fabric"],
+        skills: ["warehouse-fabric-guide"],
       }),
     ]),
     [],
@@ -60,8 +60,10 @@ test("a plugin that uses nothing resolves", () => {
 
 test("a name of a plugin the deployment does not mount does not resolve", () => {
   assert.deepEqual(
-    unresolvedUses([domain("pim", { ops: ["odoo_writeValue"] })]),
-    ["pim uses odoo_writeValue, and the deployment mounts no plugin odoo"],
+    unresolvedUses([domain("pim", { ops: ["odoo-write-value"] })]),
+    [
+      "pim uses odoo-write-value, and the deployment mounts no op odoo-write-value",
+    ],
   );
 });
 
@@ -69,9 +71,11 @@ test("a name of an op its plugin does not have does not resolve", () => {
   assert.deepEqual(
     unresolvedUses([
       warehouse,
-      domain("pim", { ops: ["warehouse_dropFabric"] }),
+      domain("pim", { ops: ["warehouse-drop-fabric"] }),
     ]),
-    ["pim uses warehouse_dropFabric, and warehouse has no op dropFabric"],
+    [
+      "pim uses warehouse-drop-fabric, and the deployment mounts no op warehouse-drop-fabric",
+    ],
   );
 });
 
@@ -79,9 +83,11 @@ test("a name of a skill its plugin does not have does not resolve", () => {
   assert.deepEqual(
     unresolvedUses([
       warehouse,
-      domain("pim", { skills: ["warehouse/odoo-guide"] }),
+      domain("pim", { skills: ["warehouse-odoo-guide"] }),
     ]),
-    ["pim uses warehouse/odoo-guide, and warehouse has no skill odoo-guide"],
+    [
+      "pim uses warehouse-odoo-guide, and the deployment mounts no skill warehouse-odoo-guide",
+    ],
   );
 });
 
@@ -89,27 +95,54 @@ test("a name of a domain's op does not resolve: a domain uses only connectors", 
   assert.deepEqual(
     unresolvedUses([
       warehouse,
-      domain("pim", { ops: ["warehouse_findFabric"] }),
-      domain("sales", { ops: ["pim_push"] }),
+      domain("pim", { ops: ["warehouse-find-fabric"] }),
+      domain("sales", { ops: ["pim-push"] }),
     ]),
     [
-      "sales uses pim_push, and pim is a domain: a domain uses only a connector's ops and skills",
+      "sales uses pim-push, and pim is a domain: a domain uses only a connector's ops and skills",
     ],
   );
 });
 
-test("an op name with an underscore splits at the first one, the end of the plugin's name", () => {
-  const snake: MountedPlugin = {
+test("a plugin that uses its own op or skill is named, with the name", () => {
+  const selfish: MountedPlugin = {
+    ...warehouse,
+    definition: {
+      ...warehouse.definition,
+      uses: {
+        ops: ["warehouse-find-fabric"],
+        skills: ["warehouse-fabric-guide"],
+      },
+    },
+  };
+  assert.deepEqual(ownUses(selfish), [
+    "warehouse uses warehouse-find-fabric, its own: a plugin uses only other plugins' ops and skills",
+    "warehouse uses warehouse-fabric-guide, its own: a plugin uses only other plugins' ops and skills",
+  ]);
+  assert.deepEqual(ownUses(warehouse), []);
+});
+
+test("a name two plugins give is named, with both plugins: odoo's find-partners and odoo-find's partners", () => {
+  const plugin = (name: string, op: string): MountedPlugin => ({
     definition: definePlugin({
-      name: "warehouse",
-      title: "Warehouse",
-      description: "The record.",
-      ops: [{ ...find, name: "find_fabric" }],
+      name,
+      title: name,
+      description: "A connector.",
+      ops: [{ ...find, name: op }],
     }),
     skills: [],
-  };
+  });
   assert.deepEqual(
-    unresolvedUses([snake, domain("pim", { ops: ["warehouse_find_fabric"] })]),
+    sharedNames([
+      plugin("odoo", "find-partners"),
+      plugin("odoo-find", "partners"),
+    ]),
+    [
+      "odoo-find-partners is a name of odoo and of odoo-find: rename one op or skill, as each name in a deployment is one tool and one node",
+    ],
+  );
+  assert.deepEqual(
+    sharedNames([warehouse, plugin("odoo", "find-partners")]),
     [],
   );
 });

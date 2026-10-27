@@ -6,56 +6,18 @@
  */
 
 import * as z from "zod";
-import { check, isCount, name, named, strict, that } from "./check.js";
+import { LOOP_DEFAULTS } from "@que/ontology/harness";
+import { check, named, standardName, strict } from "./check.js";
+import { fieldsOf, types } from "./ontology.js";
 
-/** que's own value for each setting. */
-export const LOOP_DEFAULTS = {
-  result: { max: 20_000 },
-  summarize: { at: 0.85, keep: 0.1 },
-  args: { max: 2_000 },
-  limits: { modelCalls: 50, toolCalls: 100 },
-} as const;
-
-const isShare = (value: unknown): value is number =>
-  typeof value === "number" && value > 0 && value < 1;
-
-const count = that(isCount, "a whole number above zero").optional();
-const share = that(isShare, "a number above zero and below one").optional();
-
-// A setting is its own fields, or `false` to turn it off.
-const setting = <S extends z.ZodRawShape>(fields: z.ZodObject<S>) =>
-  z
-    .union([z.literal(false), fields], { error: "must be an object or false" })
-    .optional();
+export { LOOP_DEFAULTS };
 
 /** What `defineLoop` returns, and a loop file exports as its default. A setting left out keeps que's own value; `false` turns it off. */
 export const LoopDefinition = z.strictObject(
   {
     /** What an agent names to get this loop. */
-    name,
-    /** `max`: in tokens. A tool result over it is not put in the chat whole. */
-    result: setting(z.strictObject({ max: count }, strict())),
-    /** `at`: the share of the model's window past which the old part of the chat is sent as a summary. `keep`: the share that is sent as it is. */
-    summarize: setting(
-      z
-        .strictObject({ at: share, keep: share }, strict())
-        .superRefine((fields, ctx) => {
-          // Checked on what the loop runs with, so a part left out counts as que's own.
-          const { at, keep } = { ...LOOP_DEFAULTS.summarize, ...fields };
-          if (isShare(at) && isShare(keep) && keep >= at)
-            ctx.addIssue({
-              code: "custom",
-              path: ["keep"],
-              message: `must be below summarize.at, got ${keep} and ${at}`,
-            });
-        }),
-    ),
-    /** `max`: in characters. In the old part of a chat, a longer argument of a tool call is cut. */
-    args: setting(z.strictObject({ max: count }, strict())),
-    /** The most model calls and tool calls one run can make. */
-    limits: setting(
-      z.strictObject({ modelCalls: count, toolCalls: count }, strict()),
-    ),
+    name: standardName,
+    ...fieldsOf(types.loop),
   },
   strict(),
 );

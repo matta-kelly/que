@@ -3,6 +3,7 @@ import { defineCases } from "@que/core";
 export default defineCases([
   {
     name: "find-order-by-customer",
+    description: "Finds the order of a customer by name, and gives its state.",
     capability: "find-order",
     input: "Where is the order of Ada?",
     start: "Ada has one open order.",
@@ -10,6 +11,7 @@ export default defineCases([
   },
   {
     name: "find-order-not-asked",
+    description: "Calls no operation when no order is asked for.",
     capability: "find-order",
     input: "What can you do?",
     start: "Any.",

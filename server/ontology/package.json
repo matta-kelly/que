@@ -3,15 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "que's ontology: its words as basis schemas, plugin and harness, for the notes that describe que's things.",
+  "description": "que's ontology: its words as basis schemas, plugin and harness, with the schema of each field. A note, a card and a definition in code are each parsed with it. Its source reads plugins' cards for a lint.",
   "exports": {
-    ".": "./index.ts"
+    ".": "./index.ts",
+    "./fields": "./fields.ts",
+    "./names": "./names.ts",
+    "./harness": "./harness.ts",
+    "./source": "./source.ts"
   },
   "dependencies": {
-    "@mku1tra/basis": "^0.14.0",
+    "@mku1tra/basis": "^0.19.0",
+    "yaml": "^2.9.1",
     "zod": "^4.6.5"
-  },
-  "devDependencies": {
-    "@que/core": "*"
   }
 }

@@ -6,14 +6,12 @@
  * the core mount hands a plugin, and the server that runs the cases mounts.
  */
 
-import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   checkCard,
   readDefinition,
   validateAgent,
-  validateCases,
   validateDeployment,
   validateModel,
   type AgentDefinition,
@@ -30,19 +28,11 @@ export type Model = ModelDefinition;
 const definitionIn = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
 
-// A plugin read as mount reads it (readDefinition), its card held to its definition, then its cases.
+// A plugin read as mount reads it (readDefinition): its cases checked, and its card held to them and its definition.
 async function casesOf(dir: string): Promise<LoadedCase[]> {
-  const { files, definition } = await readDefinition(dir);
-  checkCard(dir, definition);
-  const file = files.cases;
-  if (!existsSync(file)) return [];
-  const cases = await definitionIn(file);
-  if (!Array.isArray(cases))
-    throw new Error(
-      `cases of plugin ${definition.name}: no list of cases (default export)`,
-    );
-  validateCases(definition, cases as Case[]);
-  return (cases as Case[]).map((c) => ({ plugin: definition.name, ...c }));
+  const plugin = await readDefinition(dir);
+  checkCard(dir, plugin);
+  return plugin.cases.map((c) => ({ plugin: plugin.definition.name, ...c }));
 }
 
 export async function load(folder: string): Promise<{

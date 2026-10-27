@@ -46,7 +46,7 @@ test("gives back the messages of the run, in que's own form", async () => {
       {
         from: "tool",
         tool: "open_plugin",
-        text: "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- findOrders: Find orders. Search orders by customer name.",
+        text: "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- find-orders: Find orders. Search orders by customer name.",
         calls: [],
       },
       {

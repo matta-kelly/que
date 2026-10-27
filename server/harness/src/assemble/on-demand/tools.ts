@@ -76,7 +76,7 @@ function loadOperation(catalog: Catalog): StructuredTool {
     {
       name: LOAD_OPERATION,
       description:
-        "Load Operation: makes one operation callable. From your next step it is a tool named <plugin>_<operation>, " +
+        "Load Operation: makes one operation callable. From your next step it is a tool named <plugin>-<operation>, " +
         "with its full description and arguments, and it stays for the rest of the conversation. " +
         "Load each operation you need before calling it; you can load several at once.",
       schema: z.object({

@@ -12,7 +12,7 @@ export const catalog: Catalog = [
         description: "The shop's order system.",
         ops: [
           {
-            name: "findOrders",
+            name: "find-orders",
             title: "Find orders",
             description:
               "Search orders by customer name. Returns at most 20, newest first.",
@@ -22,10 +22,10 @@ export const catalog: Catalog = [
             run: async () => [],
           },
           {
-            name: "getOrder",
+            name: "get-order",
             title: "Get order",
             description:
-              "One order with its lines. Use findOrders for a search.",
+              "One order with its lines. Use find-orders for a search.",
             schema: z.object({ id: z.number().describe("Order id") }),
             run: async () => ({}),
           },
@@ -33,7 +33,7 @@ export const catalog: Catalog = [
       }),
       skills: [
         {
-          id: "shop/refunds",
+          id: "shop-refunds",
           title: "Refunds",
           description: "How to refund an order.",
           body: "Refund steps.",
@@ -69,7 +69,7 @@ export const mixed: Catalog = [
       definition: notes,
       skills: [
         {
-          id: "notes/meetings",
+          id: "notes-meetings",
           title: "Meetings",
           description: "How to write up a meeting.",
           body: "Meeting steps.",

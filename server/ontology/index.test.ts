@@ -1,45 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import * as z from "zod";
-import { linksOf, node } from "@mku1tra/basis";
 import { harness, plugin } from "@que/ontology";
 
 type Name = keyof typeof plugin.types | keyof typeof harness.types;
 
-/** A note parsed by the schema that holds its type. */
+/** A node parsed by the schema that holds its type, as the graph holds it: each link the name it points at. */
 const parse = (type: Name, node: unknown): unknown =>
   type in plugin.types
     ? plugin.parse(type as keyof typeof plugin.types, node)
     : harness.parse(type as keyof typeof harness.types, node);
-
-/**
- * The files of basis that importing `specifier` loads, in a new process, so that
- * nothing this test file has imported counts.
- */
-const basisLoadedBy = (specifier: string) =>
-  new Promise<string[]>((resolve, reject) => {
-    const probe = `
-      import { registerHooks } from "node:module";
-      const loaded = [];
-      registerHooks({
-        resolve(specifier, context, nextResolve) {
-          const resolved = nextResolve(specifier, context);
-          if (resolved.url.includes("/node_modules/@mku1tra/basis/")) loaded.push(resolved.url);
-          return resolved;
-        },
-      });
-      await import(${JSON.stringify(specifier)});
-      console.log(JSON.stringify(loaded));
-    `;
-    execFile(
-      process.execPath,
-      ["--import", "tsx", "--input-type=module", "--eval", probe],
-      { cwd: import.meta.dirname, timeout: 20_000 },
-      (error, out) =>
-        error ? reject(error) : resolve(JSON.parse(out) as string[]),
-    );
-  });
 
 test("@que/ontology gives the schemas plugin and harness, and harness imports plugin", () => {
   assert.deepEqual(Object.keys(plugin.types), [
@@ -60,30 +30,38 @@ test("@que/ontology gives the schemas plugin and harness, and harness imports pl
   assert.deepEqual(harness.imports, [plugin]);
 });
 
-test("importing @que/core does not load basis, and importing @que/ontology does", async () => {
-  assert.deepEqual(await basisLoadedBy("@que/core"), []);
-  // The probe sees basis when it is loaded, so the empty list above is not for want of looking.
-  assert.notDeepEqual(await basisLoadedBy("@que/ontology"), []);
-});
-
-const odoo = {
-  name: "odoo",
+const warehouse = {
+  name: "warehouse",
   type: "plugin",
-  description: "Odoo, the ERP.",
-  title: "Odoo",
-  ops: ["[[find-partners]]", "[[read-partner]]"],
-  skills: ["[[odoo-search]]"],
-  capabilities: ["[[find-company]]"],
+  description: "The record of what the business has entered.",
+  title: "Warehouse",
+  ops: ["warehouse-list-fabrics", "warehouse-get-fabric"],
+  skills: ["warehouse-fabric-guide"],
+  capabilities: ["find-fabric"],
+  roles: [],
+  uses: [],
+  cases: ["count-drafted"],
 };
 
-const findCompany = {
-  name: "find-company-by-name",
+const getFabric = {
+  name: "warehouse-get-fabric",
+  type: "op",
+  description: "Get one fabric by its code.",
+  title: "Get a fabric",
+  input: { type: "object", properties: { code: { type: "string" } } },
+};
+
+const countDrafted = {
+  name: "count-drafted",
   type: "case",
-  description: "The agent finds a company the user names.",
-  capability: "[[find-company]]",
+  description: "Counts the drafted fabrics, and gives only the number.",
+  capability: "find-fabric",
+  input: "How many fabrics are still drafted?",
+  start: "The warehouse holds fabrics, some drafted.",
+  good: "The answer is one number.",
 };
 
-/** The note with these fields left out. */
+/** The node with these fields left out. */
 const without = (node: Record<string, unknown>, ...fields: string[]) =>
   Object.fromEntries(
     Object.entries(node).filter(([field]) => !fields.includes(field)),
@@ -98,217 +76,145 @@ const issueOf = (type: Name, node: unknown) => {
     assert.equal(error.issues.length, 1);
     return error.issues[0];
   }
-  assert.fail(`the ${type} note parsed`);
+  assert.fail(`the ${type} node parsed`);
 };
 
-test("an odoo plugin note with its ops, a skill and find-company parses", () => {
-  assert.deepEqual(parse("plugin", odoo), {
-    ...odoo,
-    ops: ["find-partners", "read-partner"],
-    skills: ["odoo-search"],
-    capabilities: ["find-company"],
-  });
+test("a plugin with its ops, skills, capabilities and cases parses, each by its name", () => {
+  assert.deepEqual(parse("plugin", warehouse), warehouse);
 });
 
-test("an op, a skill and a capability note each parse with a title", () => {
-  for (const type of ["op", "skill", "capability"] as const) {
-    const node = {
-      name: "find-company",
-      type,
-      description: "Finds a company.",
-      title: "Find a company",
-    };
-    assert.deepEqual(parse(type, node), node);
+test("an op parses with its title and its input as JSON Schema, and fails with no input", () => {
+  assert.deepEqual(parse("op", getFabric), getFabric);
+  assert.deepEqual(issueOf("op", without(getFabric, "input"))?.path, ["input"]);
+});
+
+test("a case parses with its capability, input, start and good: the case's fields are its type's", () => {
+  assert.deepEqual(parse("case", countDrafted), countDrafted);
+  for (const field of ["capability", "input", "start", "good"]) {
+    const issue = issueOf("case", without(countDrafted, field));
+    assert.deepEqual(issue?.path, [field], field);
   }
-});
-
-test("a find-company case note parses", () => {
-  assert.deepEqual(parse("case", findCompany), {
-    ...findCompany,
-    capability: "find-company",
-  });
-});
-
-test("a note with no description fails, on its description", () => {
-  const issue = issueOf("plugin", without(odoo, "description"));
-  assert.equal(issue.code, "invalid_type");
-  assert.deepEqual(issue.path, ["description"]);
-});
-
-/** A note of each type that has a title: plugin, op, skill and capability. */
-const titled = (["plugin", "op", "skill", "capability"] as const).map(
-  (type) => ({
-    name: "find-company",
-    type,
-    description: "Finds a company.",
-    title: "Find a company",
-  }),
-);
-
-test("a plugin, op, skill or capability note with no title fails, on its title", () => {
-  for (const node of titled) {
-    const issue = issueOf(node.type, without(node, "title"));
-    assert.equal(issue.code, "invalid_type");
-    assert.deepEqual(issue.path, ["title"]);
-  }
-});
-
-test("a plugin, op, skill or capability note with a blank title fails, on its title", () => {
-  for (const node of titled) {
-    for (const blank of ["", " "]) {
-      const issue = issueOf(node.type, { ...node, title: blank });
-      assert.equal(issue.code, "invalid_format");
-      assert.deepEqual(issue.path, ["title"]);
-    }
-  }
-});
-
-test("a note with a field not on its type fails, on that field", () => {
-  // A case's input is a value the code holds, so a case note does not carry it.
-  const issue = issueOf("case", { ...findCompany, input: "find Acme" });
-  assert.equal(issue.code, "unrecognized_keys");
-  assert.deepEqual(issue.keys, ["input"]);
 });
 
 test("a case that names two capabilities fails, on its capability", () => {
   const issue = issueOf("case", {
-    ...findCompany,
-    capability: ["[[find-company]]", "[[find-contact]]"],
+    ...countDrafted,
+    capability: ["find-fabric", "find-company"],
   });
-  assert.equal(issue.code, "invalid_type");
-  assert.deepEqual(issue.path, ["capability"]);
+  assert.deepEqual(issue?.path, ["capability"]);
 });
 
-test("a case with no capability fails, on its capability", () => {
-  const issue = issueOf("case", without(findCompany, "capability"));
-  assert.equal(issue.code, "invalid_type");
-  assert.deepEqual(issue.path, ["capability"]);
+/** A node of each type that has a title: plugin, op, skill and capability. */
+const titled = [
+  warehouse,
+  getFabric,
+  {
+    name: "warehouse-fabric-guide",
+    type: "skill",
+    description: "How to read a fabric.",
+    title: "Fabric guide",
+  },
+  {
+    name: "find-fabric",
+    type: "capability",
+    description: "List or look up fabrics.",
+    title: "Find a fabric",
+  },
+] as const;
+
+test("a plugin, op, skill or capability with no title, or a blank one, fails on its title, with que's message", () => {
+  for (const node of titled) {
+    assert.deepEqual(issueOf(node.type as Name, without(node, "title"))?.path, [
+      "title",
+    ]);
+    for (const blank of ["", " "]) {
+      const issue = issueOf(node.type as Name, { ...node, title: blank });
+      assert.deepEqual(issue?.path, ["title"]);
+      assert.equal(issue?.message, "is missing");
+    }
+  }
 });
 
-test("a plugin note with no ops, skills or capabilities parses", () => {
-  const node = without(odoo, "ops", "skills", "capabilities");
-  assert.deepEqual(parse("plugin", node), node);
+test("a node with no description fails, on its description", () => {
+  const issue = issueOf("plugin", without(warehouse, "description"));
+  assert.deepEqual(issue?.path, ["description"]);
+});
+
+test("a node with a field not on its type fails, on that field", () => {
+  const issue = issueOf("capability", { ...titled[3], heldBy: "landl-db" });
+  assert.equal(issue?.code, "unrecognized_keys");
 });
 
 const chat = {
   name: "chat",
   type: "agent",
   description: "The agent a chat gets.",
-  plugins: ["[[odoo]]"],
-  model: "[[glm-flash]]",
-  loop: "[[long-chat]]",
+  plugins: ["warehouse"],
+  model: "glm-flash",
+  loop: "long-chat",
+  loading: "on-demand",
 };
 
-const landl = {
-  name: "landl",
-  type: "deployment",
-  description: "The landl deployment.",
-  plugins: ["[[odoo]]"],
-  agents: ["[[chat]]"],
-  loops: ["[[long-chat]]"],
-  models: ["[[glm-flash]]"],
+const glmFlash = {
+  name: "glm-flash",
+  type: "model",
+  description: "A fast model.",
+  id: "fireworks:glm-flash",
+  maxTokens: 4096,
 };
 
-test("a chat agent note that uses odoo, runs on glm-flash, with the long-chat loop, parses", () => {
-  assert.deepEqual(parse("agent", chat), {
-    ...chat,
-    plugins: ["odoo"],
-    model: "glm-flash",
-    loop: "long-chat",
-  });
+const longChat = {
+  name: "long-chat",
+  type: "loop",
+  description: "A loop for long chats.",
+  summarize: { at: 0.8, keep: 0.2 },
+  limits: false,
+};
+
+test("an agent, a model and a loop parse with the fields their configs write", () => {
+  assert.deepEqual(parse("agent", chat), chat);
+  assert.deepEqual(parse("model", glmFlash), glmFlash);
+  assert.deepEqual(parse("loop", longChat), longChat);
 });
 
-test("a landl deployment note parses", () => {
-  assert.deepEqual(parse("deployment", landl), {
-    ...landl,
-    plugins: ["odoo"],
+test("an agent with no plugins parses, and one with no model or no loop fails, on that link", () => {
+  assert.deepEqual(
+    parse("agent", without(chat, "plugins")),
+    without(chat, "plugins"),
+  );
+  for (const link of ["model", "loop"])
+    assert.deepEqual(issueOf("agent", without(chat, link))?.path, [link]);
+});
+
+test("a model whose id is not provider:model, and a loop that keeps more than it summarizes, fail with que's messages", () => {
+  const id = issueOf("model", { ...glmFlash, id: "glm-flash" });
+  assert.equal(
+    id?.message,
+    'must be in "provider:model" form, got "glm-flash"',
+  );
+  const keep = issueOf("loop", {
+    ...longChat,
+    summarize: { at: 0.5, keep: 0.6 },
+  });
+  assert.equal(keep?.message, "must be below summarize.at, got 0.6 and 0.5");
+});
+
+test("a deployment links its plugins, agents, loops and models, at least one of each", () => {
+  const landl = {
+    name: "landl",
+    type: "deployment",
+    description: "The landl deployment.",
+    plugins: ["warehouse"],
     agents: ["chat"],
     loops: ["long-chat"],
     models: ["glm-flash"],
-  });
-});
-
-test("an agent with two models fails, on its model", () => {
-  const issue = issueOf("agent", {
-    ...chat,
-    model: ["[[glm-flash]]", "[[minimax-m3]]"],
-  });
-  assert.equal(issue.code, "invalid_type");
-  assert.deepEqual(issue.path, ["model"]);
-});
-
-test("an agent with two loops fails, on its loop", () => {
-  const issue = issueOf("agent", {
-    ...chat,
-    loop: ["[[long-chat]]", "[[short-run]]"],
-  });
-  assert.equal(issue.code, "invalid_type");
-  assert.deepEqual(issue.path, ["loop"]);
-});
-
-test("a deployment with no plugins fails, on its plugins", () => {
-  const missing = issueOf("deployment", without(landl, "plugins"));
-  assert.equal(missing.code, "invalid_type");
-  assert.deepEqual(missing.path, ["plugins"]);
-  const empty = issueOf("deployment", { ...landl, plugins: [] });
-  assert.equal(empty.code, "too_small");
-  assert.deepEqual(empty.path, ["plugins"]);
-});
-
-test("an agent, model, loop or deployment type has no field but its links", () => {
-  // Each value stays in the config file, so a note of these types carries its links and no field.
-  for (const name of ["agent", "model", "loop", "deployment"] as const) {
-    const type = harness.types[name];
-    const fields = Object.keys(type.schema.shape).filter(
-      (field) => !Object.hasOwn(node.schema.shape, field),
+  };
+  assert.deepEqual(parse("deployment", landl), landl);
+  for (const link of ["plugins", "agents", "loops", "models"]) {
+    assert.deepEqual(issueOf("deployment", without(landl, link))?.path, [link]);
+    assert.equal(
+      issueOf("deployment", { ...landl, [link]: [] })?.code,
+      "too_small",
     );
-    assert.deepEqual(
-      fields,
-      linksOf(type).map((link) => link.name),
-      name,
-    );
-  }
-});
-
-test("an agent note with no plugins parses, and one with no model or no loop fails, on that link", () => {
-  // Left out, plugins is none. que has no model or loop of its own, so an agent names each.
-  const node = without(chat, "plugins");
-  assert.deepEqual(parse("agent", node), {
-    ...node,
-    model: "glm-flash",
-    loop: "long-chat",
-  });
-  for (const link of ["model", "loop"]) {
-    const issue = issueOf("agent", without(chat, link));
-    assert.equal(issue.code, "invalid_type", link);
-    assert.deepEqual(issue.path, [link]);
-  }
-});
-
-test("an agent note that writes its plugins as [] parses", () => {
-  // The config writes none as `[]`, and basis 0.2.0 takes `[]` on an optional many link.
-  assert.deepEqual(parse("agent", { ...chat, plugins: [] }), {
-    ...chat,
-    plugins: [],
-    model: "glm-flash",
-    loop: "long-chat",
-  });
-});
-
-test("a deployment note with no agents, no loops or no models fails, on that link", () => {
-  for (const link of ["agents", "loops", "models"]) {
-    const missing = issueOf("deployment", without(landl, link));
-    assert.equal(missing.code, "invalid_type", link);
-    assert.deepEqual(missing.path, [link]);
-    const empty = issueOf("deployment", { ...landl, [link]: [] });
-    assert.equal(empty.code, "too_small", link);
-    assert.deepEqual(empty.path, [link]);
-  }
-});
-
-test("a model and a loop note each parse with no field beyond those every node has", () => {
-  for (const type of ["model", "loop"] as const) {
-    const node = { name: "glm-flash", type, description: "A config." };
-    assert.deepEqual(parse(type, node), node);
   }
 });

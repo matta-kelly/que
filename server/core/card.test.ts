@@ -5,7 +5,7 @@ import { cardOf, cardText } from "./card.js";
 import { definePlugin } from "./plugin.js";
 
 const getFabric = {
-  name: "getFabric",
+  name: "get-fabric",
   title: "Get a fabric",
   description: "One fabric by its code.",
   role: "read",
@@ -34,14 +34,14 @@ const warehouse = definePlugin({
 });
 
 test("cardOf makes the standard's fields, and que's part as the plugin's ontology nodes", () => {
-  assert.deepEqual(cardOf(warehouse, "0.1.0"), {
+  assert.deepEqual(cardOf({ definition: warehouse, cases: [] }, "0.1.0"), {
     $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
     name: "warehouse",
     version: "0.1.0",
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        format: 1,
+        format: 2,
         title: "Warehouse",
         credential: {
           type: "object",
@@ -52,7 +52,7 @@ test("cardOf makes the standard's fields, and que's part as the plugin's ontolog
         },
         ops: [
           {
-            name: "getFabric",
+            name: "get-fabric",
             title: "Get a fabric",
             description: "One fabric by its code.",
             role: "read",
@@ -81,20 +81,22 @@ test("cardOf makes the standard's fields, and que's part as the plugin's ontolog
             description: "Look one up.",
           },
         ],
+        cases: [],
       },
     },
   });
 });
 
 test("cardOf leaves out the version, a credential and an op's role when there are none", () => {
-  const card = cardOf(
-    definePlugin({
+  const card = cardOf({
+    definition: definePlugin({
       name: "notes",
       title: "Notes",
       description: "How the team writes things down.",
       ops: [{ ...getFabric, role: undefined }],
     }),
-  );
+    cases: [],
+  });
   assert.equal("version" in card, false);
   assert.equal(
     "credential" in card.extensions["io.github.matta-kelly.que"],
@@ -109,8 +111,8 @@ test("cardOf leaves out the version, a credential and an op's role when there ar
 test("cardOf refuses an op whose schema has no JSON Schema form, naming the op", () => {
   assert.throws(
     () =>
-      cardOf(
-        definePlugin({
+      cardOf({
+        definition: definePlugin({
           name: "notes",
           title: "Notes",
           description: "How the team writes things down.",
@@ -122,21 +124,25 @@ test("cardOf refuses an op whose schema has no JSON Schema form, naming the op",
             },
           ],
         }),
-      ),
-    /op notes_getFabric's schema has no JSON Schema form/,
+        cases: [],
+      }),
+    /op notes-get-fabric's schema has no JSON Schema form/,
   );
 });
 
 test("cardText is two-space JSON ending in a newline, the same bytes for the same definition", () => {
-  const text = cardText(cardOf(warehouse, "0.1.0"));
-  assert.equal(text, cardText(cardOf(warehouse, "0.1.0")));
+  const text = cardText(cardOf({ definition: warehouse, cases: [] }, "0.1.0"));
+  assert.equal(
+    text,
+    cardText(cardOf({ definition: warehouse, cases: [] }, "0.1.0")),
+  );
   assert.ok(text.startsWith('{\n  "$schema": '));
   assert.ok(text.endsWith("}\n"));
 });
 
 test("cardOf writes a schema with an id out in its place, with no $ref", () => {
-  const card = cardOf(
-    definePlugin({
+  const card = cardOf({
+    definition: definePlugin({
       name: "notes",
       title: "Notes",
       description: "How the team writes things down.",
@@ -150,7 +156,8 @@ test("cardOf writes a schema with an id out in its place, with no $ref", () => {
         },
       ],
     }),
-  );
+    cases: [],
+  });
   assert.deepEqual(
     card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
     { code: { type: "string", description: "A code" } },
@@ -158,8 +165,8 @@ test("cardOf writes a schema with an id out in its place, with no $ref", () => {
 });
 
 test("cardOf keeps a field named $ref, as only the places a schema sits are written out", () => {
-  const card = cardOf(
-    definePlugin({
+  const card = cardOf({
+    definition: definePlugin({
       name: "notes",
       title: "Notes",
       description: "How the team writes things down.",
@@ -171,7 +178,8 @@ test("cardOf keeps a field named $ref, as only the places a schema sits are writ
         },
       ],
     }),
-  );
+    cases: [],
+  });
   assert.deepEqual(
     card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
     { $ref: { type: "string", description: "A reference" } },
@@ -184,8 +192,8 @@ test("cardOf refuses an op whose schema is recursive, as a $ref in a card points
   );
   assert.throws(
     () =>
-      cardOf(
-        definePlugin({
+      cardOf({
+        definition: definePlugin({
           name: "notes",
           title: "Notes",
           description: "How the team writes things down.",
@@ -197,16 +205,17 @@ test("cardOf refuses an op whose schema is recursive, as a $ref in a card points
             },
           ],
         }),
-      ),
-    /op notes_getFabric's schema needs a \$ref in JSON Schema \(#[^:]*: it is recursive, or not in the schema\)/,
+        cases: [],
+      }),
+    /op notes-get-fabric's schema needs a \$ref in JSON Schema \(#[^:]*: it is recursive, or not in the schema\)/,
   );
 });
 
 test("cardOf refuses a $ref left under a keyword the card does not write out", () => {
   assert.throws(
     () =>
-      cardOf(
-        definePlugin({
+      cardOf({
+        definition: definePlugin({
           name: "notes",
           title: "Notes",
           description: "How the team writes things down.",
@@ -220,14 +229,15 @@ test("cardOf refuses a $ref left under a keyword the card does not write out", (
             },
           ],
         }),
-      ),
-    /op notes_getFabric's schema keeps a \$ref to #\/\$defs\/ under a keyword the card does not write out/,
+        cases: [],
+      }),
+    /op notes-get-fabric's schema keeps a \$ref to #\/\$defs\/ under a keyword the card does not write out/,
   );
 });
 
 test("cardOf keeps a description that names a $ref", () => {
-  const card = cardOf(
-    definePlugin({
+  const card = cardOf({
+    definition: definePlugin({
       name: "notes",
       title: "Notes",
       description: "How the team writes things down.",
@@ -241,7 +251,8 @@ test("cardOf keeps a description that names a $ref", () => {
         },
       ],
     }),
-  );
+    cases: [],
+  });
   assert.deepEqual(
     card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
     { code: { type: "string", description: 'Not a "#/$defs/Code" ref' } },
@@ -249,8 +260,8 @@ test("cardOf keeps a description that names a $ref", () => {
 });
 
 test("cardOf keeps a default that holds a $ref, as a default is data, not a schema", () => {
-  const card = cardOf(
-    definePlugin({
+  const card = cardOf({
+    definition: definePlugin({
       name: "notes",
       title: "Notes",
       description: "How the team writes things down.",
@@ -267,7 +278,8 @@ test("cardOf keeps a default that holds a $ref, as a default is data, not a sche
         },
       ],
     }),
-  );
+    cases: [],
+  });
   assert.deepEqual(
     card.extensions["io.github.matta-kelly.que"].ops[0].input.properties,
     {
@@ -280,4 +292,19 @@ test("cardOf keeps a default that holds a $ref, as a default is data, not a sche
       },
     },
   );
+});
+
+test("cardOf puts each case on the card, by its name, as the plugin's case nodes", () => {
+  const countDrafted = {
+    name: "count-drafted",
+    description: "Counts the drafted fabrics.",
+    capability: "find-fabric",
+    input: "How many fabrics are drafted?",
+    start: "Some fabrics are drafted.",
+    good: "The answer is one number.",
+  };
+  const card = cardOf({ definition: warehouse, cases: [countDrafted] });
+  assert.deepEqual(card.extensions["io.github.matta-kelly.que"].cases, [
+    countDrafted,
+  ]);
 });

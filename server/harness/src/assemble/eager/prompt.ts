@@ -29,7 +29,7 @@ export const prompt = (catalog: Catalog) => {
           ].join("\n"),
           ...(hasOperations
             ? [
-                "Every operation is already a tool, named `<plugin>_<operation>`. Call it.",
+                "Every operation is already a tool, named `<plugin>-<operation>`. Call it.",
               ]
             : []),
           ...(skills.length

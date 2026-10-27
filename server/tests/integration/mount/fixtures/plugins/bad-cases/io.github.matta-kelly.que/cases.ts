@@ -2,6 +2,7 @@
 export default [
   {
     name: "refund-asked",
+    description: "Refunds the last order when asked.",
     capability: "refund",
     input: "Refund the last order.",
     start: "One order exists.",

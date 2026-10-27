@@ -1,6 +1,6 @@
 ---
 type: type
-description: "The plugins, agents, loops and models one deployment runs. `DeploymentDefinition` in deployment.ts."
+description: "The plugins, agents, loops and models one deployment runs. `DeploymentDefinition` in @que/core, which lists the files that define them."
 ---
 What this deployment is for, in one line: who uses it, and where it runs.
 - [[#Agents]] which agent a run gets when it names none, and why

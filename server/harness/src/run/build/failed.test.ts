@@ -15,7 +15,7 @@ const shop = definePlugin({
   description: "The shop's order system.",
   ops: [
     {
-      name: "getOrder",
+      name: "get-order",
       title: "Get order",
       description: "One order with its lines.",
       schema: z.object({ id: z.number().describe("Order id") }),
@@ -27,7 +27,7 @@ const shop = definePlugin({
   ],
 });
 const refunds = {
-  id: "shop/refunds",
+  id: "shop-refunds",
   title: "Refunds",
   description: "How to refund an order.",
   body: "Refund steps.",
@@ -61,7 +61,7 @@ async function results(
 
 test("a failed operation reaches the model as a failed call, with the text it had", async () => {
   const [failed] = await results(eager, [
-    { name: "shop_getOrder", args: { id: -1 } },
+    { name: "shop-get-order", args: { id: -1 } },
   ]);
   assert.equal(failed.status, "error");
   assert.equal(failed.content, "Error: no such order");
@@ -69,7 +69,7 @@ test("a failed operation reaches the model as a failed call, with the text it ha
 
 test("an operation that answers is not a failed call", async () => {
   const [answered] = await results(eager, [
-    { name: "shop_getOrder", args: { id: 4 } },
+    { name: "shop-get-order", args: { id: 4 } },
   ]);
   assert.notEqual(answered.status, "error");
   assert.equal(answered.content, JSON.stringify({ id: 4 }));
@@ -77,7 +77,7 @@ test("an operation that answers is not a failed call", async () => {
 
 test("a call whose arguments fail the operation's schema is a failed call, with the schema's text on one line and no stack", async () => {
   const [failed] = await results(eager, [
-    { name: "shop_getOrder", args: { id: "a" } },
+    { name: "shop-get-order", args: { id: "a" } },
   ]);
   assert.equal(failed.status, "error");
   const content = String(failed.content);
@@ -93,7 +93,7 @@ test("a call to a plugin, an operation or a skill that is not there is a failed 
   const failed = await results(onDemand, [
     { name: "open_plugin", args: { plugin: "crm" } },
     { name: "load_operation", args: { plugin: "shop", operation: "nope" } },
-    { name: "read_skill", args: { id: "shop/nope" } },
+    { name: "read_skill", args: { id: "shop-nope" } },
   ]);
   assert.deepEqual(
     failed.map((m) => m.status),
@@ -101,5 +101,5 @@ test("a call to a plugin, an operation or a skill that is not there is a failed 
   );
   assert.match(String(failed[0].content), /^Error: no plugin "crm"/);
   assert.match(String(failed[1].content), /^Error: no operation "nope"/);
-  assert.match(String(failed[2].content), /^Error: no skill "shop\/nope"/);
+  assert.match(String(failed[2].content), /^Error: no skill "shop-nope"/);
 });

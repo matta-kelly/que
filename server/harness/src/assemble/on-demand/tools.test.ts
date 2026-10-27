@@ -28,10 +28,10 @@ test("open_plugin lists each operation and skill with one line, and no arguments
   const text = await call("open_plugin", { plugin: "shop" });
   assert.match(
     text,
-    /findOrders: Find orders\. Search orders by customer name\./,
+    /find-orders: Find orders\. Search orders by customer name\./,
   );
-  assert.match(text, /getOrder: Get order\. One order with its lines\./);
-  assert.match(text, /shop\/refunds: Refunds\. How to refund an order\./);
+  assert.match(text, /get-order: Get order\. One order with its lines\./);
+  assert.match(text, /shop-refunds: Refunds\. How to refund an order\./);
   assert.doesNotMatch(text, /Returns at most 20/);
   assert.doesNotMatch(text, /Customer name/);
 });
@@ -47,22 +47,22 @@ test("open_plugin fails, naming the plugins that exist, when asked for one that 
 test("load_operation says which tool the operation became", async () => {
   const text = await call("load_operation", {
     plugin: "shop",
-    operation: "findOrders",
+    operation: "find-orders",
   });
-  assert.ok(text.includes(toolName("shop", "findOrders")));
+  assert.ok(text.includes(toolName("shop", "find-orders")));
 });
 
 test("load_operation fails, naming the operations that exist, when asked for one that does not", async () => {
   await assert.rejects(
     () => call("load_operation", { plugin: "shop", operation: "nope" }),
     (error: Error) =>
-      error instanceof OperationFailed && /findOrders/.test(error.message),
+      error instanceof OperationFailed && /find-orders/.test(error.message),
   );
 });
 
 test("read_skill returns the skill's text", async () => {
   assert.equal(
-    await call("read_skill", { id: "shop/refunds" }),
+    await call("read_skill", { id: "shop-refunds" }),
     "Refund steps.",
   );
 });
@@ -97,7 +97,7 @@ test("open_plugin shows no Operations heading for a plugin with no operations, b
     .find((t) => t.name === "open_plugin")!
     .invoke({ plugin: "notes" })) as string;
   assert.doesNotMatch(text, /Operations/);
-  assert.match(text, /notes\/meetings: Meetings\. How to write up a meeting\./);
+  assert.match(text, /notes-meetings: Meetings\. How to write up a meeting\./);
 });
 
 test("every base tool stays when a plugin that holds nothing sits beside one with operations and a skill", () => {

@@ -36,7 +36,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 	- general goal of something that runs locally but cna be persistent  --> can mount files but it also artifact native
 	- evals / UI: impalement some feedback component --> would be nice to tie to traces at some point
 		- [component](https://www.assistant-ui.com/elements/feedback-dialog)
-	- que in the basis lens: the ontology is a layer over the code, not the code. que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis, in `@que/ontology`. Nodes describe real things and point at their code; lint checks the two agree. The runtime runs the code, and the agent navigates the layer
+	- que in the basis lens: que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis, in `@que/ontology`, and `@que/core`'s code is built from its types. A plugin's things are nodes, read from its card; a note of the same name is another piece of the same node. The runtime runs the code, and the agent navigates the graph
 	- que mounts itself: a que plugin (que's ontology plus skills) and a capability plugin (the rail as skills) make a builder agent that navigates the factory and builds agents in it
 	- Look into mem0 for memeory
 

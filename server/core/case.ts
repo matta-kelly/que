@@ -1,24 +1,25 @@
 /**
  * What a case is: one behaviour of one capability, written down so it can be
- * checked. A case is data about a plugin. No agent is given one, so the
- * harness reads none.
+ * checked. A case is data about a plugin, on its card: mount reads it with
+ * the definition, and no agent is given one.
  */
 
 import * as z from "zod";
-import { check, name, once, strict, text } from "./check.js";
+import { check, once, standardName, strict, text } from "./check.js";
+import { fieldsOf, types } from "./ontology.js";
 import type { PluginDefinition } from "./plugin.js";
 
+/**
+ * One case: its name, which is its node's in the whole graph, the behaviour it shows, and the case's fields: the
+ * capability of its plugin it is about, what the user says, what is true before the run, and one statement that is true
+ * or false after it.
+ */
 export const Case = z.strictObject(
   {
-    name,
-    /** The capability of its plugin that this case is about. */
-    capability: text,
-    /** What the user says. */
-    input: text,
-    /** What is true before the run. */
-    start: text,
-    /** One statement that is true or false after the run. */
-    good: text,
+    name: standardName,
+    /** The behaviour it shows, in one line. */
+    description: text,
+    ...fieldsOf(types.case),
   },
   strict(),
 );
@@ -39,7 +40,7 @@ export function validateCases(
   cases: Case[],
 ): void {
   const capabilities = new Set(definition.capabilities.map((c) => c.name));
-  const known = text.refine(
+  const known = fieldsOf(types.case).capability.refine(
     (capability) => !capability.trim() || capabilities.has(capability),
     {
       error: (issue) =>

@@ -13,7 +13,7 @@ import { build } from "./build/build.js";
 import { stamp } from "./stamp.js";
 
 const ping = tool(async () => "pong", {
-  name: "shop_ping",
+  name: "shop-ping",
   description: "Ping: answers pong.",
   schema: z.object({}),
 });
@@ -39,7 +39,7 @@ test("each reply of a run has the name of its model config", async () => {
   const replies = await run([
     new AIMessage({
       content: "",
-      tool_calls: [{ id: "one", name: "shop_ping", args: {} }],
+      tool_calls: [{ id: "one", name: "shop-ping", args: {} }],
     }),
     new AIMessage("Pong."),
   ]);

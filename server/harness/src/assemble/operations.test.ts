@@ -11,7 +11,7 @@ const shop = definePlugin({
   description: "The shop's order system.",
   ops: [
     {
-      name: "getOrder",
+      name: "get-order",
       title: "Get order",
       description: "One order with its lines.",
       schema: z.object({ id: z.number().describe("Order id") }),
@@ -30,9 +30,9 @@ const [getOrder] = operationTools(
   async (plugin) => `conn:${plugin.name}`,
 );
 
-test("an operation becomes a tool named <plugin>_<operation>, with its own title, description and arguments", () => {
-  assert.equal(getOrder.name, toolName("shop", "getOrder"));
-  assert.equal(getOrder.name, "shop_getOrder");
+test("an operation becomes a tool named <plugin>-<operation>, with its own title, description and arguments", () => {
+  assert.equal(getOrder.name, toolName("shop", "get-order"));
+  assert.equal(getOrder.name, "shop-get-order");
   assert.equal(getOrder.description, "Get order: One order with its lines.");
   assert.equal(getOrder.schema, shop.ops[0].schema);
 });

@@ -5,6 +5,7 @@ import { report } from "./report.js";
 const byCustomer = {
   plugin: "shop",
   name: "find-order-by-customer",
+  description: "A behaviour of its capability.",
   capability: "find-order",
   input: "Where is the order of Ada?",
   start: "Ada has one open order.",
@@ -14,6 +15,7 @@ const byCustomer = {
 const notAsked = {
   plugin: "shop",
   name: "find-order-not-asked",
+  description: "A behaviour of its capability.",
   capability: "find-order",
   input: "What can you do?",
   start: "Any.",
@@ -30,12 +32,12 @@ test("the report has each case with its input, start and good, and each run unde
           steps: [
             {
               kind: "call",
-              name: "shop_findOrders",
+              name: "shop-find-orders",
               args: { customer: "Ada" },
             },
             {
               kind: "result",
-              name: "shop_findOrders",
+              name: "shop-find-orders",
               text: '[{"id":12,\n"state":"open"}]',
             },
           ],
@@ -54,7 +56,7 @@ test("the report has each case with its input, start and good, and each run unde
   good   The answer gives the state of the order of Ada.
 
   [chat]
-    call     shop_findOrders {"customer":"Ada"}
+    call     shop-find-orders {"customer":"Ada"}
     result   [{"id":12, "state":"open"}]
     answer   Order 12 of Ada is open.
              It was placed on Monday.
@@ -130,7 +132,7 @@ test("the report cuts a long result to 200 characters, and marks it", () => {
       agent: "chat",
       record: {
         steps: [
-          { kind: "result", name: "shop_findOrders", text: "x".repeat(250) },
+          { kind: "result", name: "shop-find-orders", text: "x".repeat(250) },
         ],
         answer: "Open.",
       },

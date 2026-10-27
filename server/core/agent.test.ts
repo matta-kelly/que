@@ -2,21 +2,18 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LOADING, validateAgent } from "./agent.js";
 
-test("validateAgent rejects a model that is not a plain name, and says where a model goes for one written as provider:model", () => {
-  for (const model of ["two words", 7, null])
+test("validateAgent rejects a model that is not the name of a model, as one written as provider:model is not", () => {
+  for (const [model, message] of [
+    ["two words", "Not a lowercase slug."],
+    ["fireworks:some-model", "Not a lowercase slug."],
+    [7, "Invalid input: expected string, received number"],
+    [null, "Invalid input: expected string, received null"],
+  ] as const)
     assert.throws(
       () => validateAgent({ name: "chat", model }),
-      /- model must be the name of a model, got/,
+      new RegExp(`- model ${message.replace(".", "\\.")}`),
       JSON.stringify(model),
     );
-  assert.throws(
-    () => validateAgent({ name: "chat", model: "fireworks:some-model" }),
-    (error: Error) => {
-      assert.match(error.message, /a model is a file of its own/);
-      assert.match(error.message, /`models`/);
-      return true;
-    },
-  );
 });
 
 test("validateAgent accepts a loop, and rejects one that is not a plain name", () => {
@@ -44,7 +41,7 @@ test("validateAgent rejects a field that is not in the shape, naming it", () => 
 test("validateAgent rejects a package that is not a name", () => {
   assert.throws(
     () => validateAgent({ name: "chat", plugins: [7] }),
-    /- plugins\.0 must be a plugin name, got 7/,
+    /- plugins\.0 Invalid input: expected string, received number/,
   );
 });
 
@@ -64,16 +61,19 @@ test("validateAgent names every fault in one error", () => {
         error.message,
         /- loading must be one of: on-demand, eager, got "lazy"/,
       );
-      assert.match(error.message, /- plugins must be an array, got "odoo"/);
       assert.match(
         error.message,
-        /- model must be the name of a model, got ""/,
+        /- plugins Invalid input: expected array, received string/,
       );
+      assert.match(error.message, /- model Not a lowercase slug\./);
       assert.match(
         error.message,
         /- instructions must be text that is not empty, got ""/,
       );
-      assert.match(error.message, /- loop is missing/);
+      assert.match(
+        error.message,
+        /- loop Invalid input: expected string, received undefined/,
+      );
       return true;
     },
   );
@@ -91,7 +91,7 @@ test("validateAgent rejects what is not an object, a config with no name, and a 
   );
   assert.throws(
     () => validateAgent({ name: "two words" }),
-    /- name must match/,
+    /- name must be lowercase letters and digits, with single hyphens between them, got "two words"/,
   );
 });
 
@@ -146,7 +146,7 @@ test("validateAgent rejects the field legibility, and says it is now loading", (
 test("validateAgent rejects an agent that leaves out plugins, and takes `[]` as none", () => {
   assert.throws(
     () => validateAgent({ name: "chat" }),
-    /- plugins is missing: list the plugins it gets, or `\[\]` for none/,
+    /- plugins Invalid input: expected array, received undefined/,
   );
   validateAgent({
     name: "chat",
@@ -165,11 +165,11 @@ test("validateAgent rejects an agent that leaves out plugins, and takes `[]` as 
 test("validateAgent rejects an agent that names no model or no loop", () => {
   assert.throws(
     () => validateAgent({ name: "chat", plugins: [], loop: "long-chat" }),
-    /- model is missing: name a model config the deployment lists/,
+    /- model Invalid input: expected string, received undefined/,
   );
   assert.throws(
     () => validateAgent({ name: "chat", plugins: [], model: "small" }),
-    /- loop is missing: name a loop config the deployment lists/,
+    /- loop Invalid input: expected string, received undefined/,
   );
 });
 
@@ -199,7 +199,7 @@ test("validateAgent refuses an old config that gives packages alone, with plugin
     (error: Error) => {
       assert.match(
         error.message,
-        /- plugins is missing: list the plugins it gets, or `\[\]` for none/,
+        /- plugins Invalid input: expected array, received undefined/,
       );
       assert.match(
         error.message,

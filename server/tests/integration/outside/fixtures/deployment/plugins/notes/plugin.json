@@ -4,7 +4,7 @@
   "description": "A plugin that sits in its deployment's folder, outside que.",
   "extensions": {
     "io.github.matta-kelly.que": {
-      "format": 1,
+      "format": 2,
       "title": "Notes",
       "ops": [
         {
@@ -21,12 +21,12 @@
               "folder": {
                 "description": "The folder the note is in",
                 "type": "string",
-                "pattern": "^[a-z][a-z0-9-]*$"
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
               },
               "capability": {
                 "description": "The capability the note is about",
                 "type": "string",
-                "pattern": "^[a-z][a-z0-9-]*$"
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
               }
             },
             "required": [
@@ -40,7 +40,8 @@
         "ops": [],
         "skills": []
       },
-      "capabilities": []
+      "capabilities": [],
+      "cases": []
     }
   }
 }

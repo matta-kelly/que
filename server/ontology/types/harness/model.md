@@ -1,6 +1,6 @@
 ---
 type: type
-description: "One model a deployment's agents can run on. `ModelDefinition` in model.ts."
+description: "One model a deployment's agents can run on. `ModelDefinition` in @que/core."
 ---
 What this model is for, in one line: the agents that run on it, and why.
 - [[#Choice]] why this model: its price, its window, and what it does well

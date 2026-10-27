@@ -4,11 +4,12 @@
  */
 
 import { tool, type StructuredTool } from "langchain";
-import type { PluginDefinition } from "@que/core";
+import { nameIn, type PluginDefinition } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
 
-// Model APIs only allow [a-zA-Z0-9_-] in tool names (validatePlugin enforces it).
-export const toolName = (plugin: string, op: string) => `${plugin}_${op}`;
+// An op's tool name is its node's name, `<plugin>-<op>`: one name in the model's tools and in the graph. Model APIs
+// allow it, at most 64 characters (validatePlugin enforces it).
+export const toolName = nameIn;
 
 export function operationTools(
   catalog: Catalog,

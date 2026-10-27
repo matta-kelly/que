@@ -4,7 +4,7 @@
   "description": "A sound plugin, with one skill whose name is not its folder's.",
   "extensions": {
     "io.github.matta-kelly.que": {
-      "format": 1,
+      "format": 2,
       "title": "Misnamed Skill",
       "ops": [],
       "roles": [],
@@ -12,7 +12,8 @@
         "ops": [],
         "skills": []
       },
-      "capabilities": []
+      "capabilities": [],
+      "cases": []
     }
   }
 }

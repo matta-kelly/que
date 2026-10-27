@@ -5,7 +5,15 @@
  */
 
 import * as z from "zod";
-import { check, isText, must, name, named, strict, that } from "./check.js";
+import {
+  check,
+  isText,
+  must,
+  named,
+  standardName,
+  strict,
+  that,
+} from "./check.js";
 
 // que has no agent, loop or model of its own to fall back on.
 const files = (kind: string) => {
@@ -20,7 +28,7 @@ const files = (kind: string) => {
 /** What `defineDeployment` returns, and a deployment exports as its default. */
 export const DeploymentDefinition = z.strictObject(
   {
-    name,
+    name: standardName,
     /** One entry per plugin: the name of its npm package, found as Node finds an import from the deployment's own folder; or a folder path, absolute or taken from that folder. */
     plugins: z.array(
       that(isText, "a plugin folder or the name of its npm package"),

@@ -135,18 +135,18 @@ export async function standIn(how: { status?: number; cut?: boolean } = {}) {
 
 /** An operation the agent can call. */
 const report = tool(async ({ rows }) => `${rows} rows of the report`, {
-  name: "shop_report",
+  name: "shop-report",
   description: "Report: the rows of the sales report.",
   schema: z.object({ rows: z.number().describe("How many rows") }),
 });
 
-/** An agent that calls `shop_report` one time, then answers "Well.". */
+/** An agent that calls `shop-report` one time, then answers "Well.". */
 export function reportingAgent() {
   const model = fakeModel();
   model.respond(
     new AIMessage({
       content: "",
-      tool_calls: [{ id: "call-1", name: "shop_report", args: { rows: 2 } }],
+      tool_calls: [{ id: "call-1", name: "shop-report", args: { rows: 2 } }],
     }),
   );
   model.respond(new AIMessage("Well."));

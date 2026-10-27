@@ -9,13 +9,14 @@
  */
 
 import "./supply.js";
-import { unresolvedUses } from "./uses.js";
+import { ownUses, sharedNames, unresolvedUses } from "./uses.js";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { satisfies } from "semver";
 import {
   checkCard,
+  type Case,
   locatePlugin,
   parseSkill,
   readDefinition,
@@ -99,12 +100,13 @@ async function readSkills(
 
 /**
  * The plugin in `dir`, as mount reads it: its files, its npm package's @que/core range held to que's, and its
- * definition, checked against the contract (readDefinition in @que/core). The card's writer reads a plugin this
+ * definition and its cases, checked against the contract (readDefinition in @que/core). The card's writer reads a plugin this
  * way too.
  */
 export async function loadPlugin(dir: string): Promise<{
   files: PluginFiles;
   definition: PluginDefinition;
+  cases: Case[];
 }> {
   let files;
   try {
@@ -121,22 +123,32 @@ export async function loadPlugin(dir: string): Promise<{
 }
 
 /**
- * The plugin in `dir`, mounted on its own: its definition (loadPlugin), its card, and its skills. What a domain
- * uses is not resolved here, as only the whole deployment gives it (mountPlugins).
+ * The plugin in `dir`, mounted on its own: its definition (loadPlugin), its card, and its skills, and none of its own
+ * ops or skills in what it uses. What a domain uses is not resolved here, as only the whole deployment gives it
+ * (mountPlugins), and neither are names two plugins share.
  */
 export async function mountPlugin(dir: string): Promise<MountedPlugin> {
-  const { files, definition } = await loadPlugin(dir);
+  const { files, definition, cases } = await loadPlugin(dir);
   try {
-    checkCard(dir, definition);
+    checkCard(dir, { definition, cases });
   } catch (error) {
     throw new Error(`mount: ${(error as Error).message}`, { cause: error });
   }
-  return { definition, skills: await readSkills(files, definition) };
+  const mounted = { definition, skills: await readSkills(files, definition) };
+  const own = ownUses(mounted);
+  if (own.length)
+    throw new Error(`mount: a plugin uses its own:\n- ${own.join("\n- ")}`);
+  return mounted;
 }
 
 export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
   const mounted: MountedPlugin[] = [];
   for (const dir of dirs) mounted.push(await mountPlugin(dir));
+  const shared = sharedNames(mounted);
+  if (shared.length)
+    throw new Error(
+      `mount: two plugins give one name:\n- ${shared.join("\n- ")}`,
+    );
   // What a domain uses resolves only once the whole deployment is mounted.
   const unresolved = unresolvedUses(mounted);
   if (unresolved.length)

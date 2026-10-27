@@ -71,11 +71,11 @@ test("the trace holds each model call and each tool call, with its input, its ou
   );
   assert.match(
     models[0].attributes["langfuse.observation.output"],
-    /shop_report/,
+    /shop-report/,
   );
   assert.match(models[1].attributes["langfuse.observation.output"], /Well\./);
   assert.equal(tools.length, 1);
-  assert.equal(tools[0].name, "shop_report");
+  assert.equal(tools[0].name, "shop-report");
   assert.match(
     tools[0].attributes["langfuse.observation.input"],
     /"rows":\s*2/,

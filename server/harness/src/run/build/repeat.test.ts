@@ -21,7 +21,7 @@ const shop = definePlugin({
   description: "The shop's order system.",
   ops: [
     {
-      name: "getOrder",
+      name: "get-order",
       title: "Get order",
       description: "One order with its lines.",
       schema: z.object({ id: z.number().describe("Order id") }),
@@ -39,7 +39,7 @@ const failing = { id: -1 };
 const asking = (id: string, args: Record<string, unknown>) =>
   new AIMessage({
     content: "",
-    tool_calls: [{ id, name: "shop_getOrder", args }],
+    tool_calls: [{ id, name: "shop-get-order", args }],
   });
 
 /** A call of a saved chat that failed with no such order, and its result. */
@@ -52,7 +52,7 @@ const failedCall = (id: string) => [
   }),
 ];
 
-/** A turn of a saved chat: the user asks, the agent calls getOrder, and the call has the result given. */
+/** A turn of a saved chat: the user asks, the agent calls get-order, and the call has the result given. */
 const savedTurn = (
   id: string,
   args: Record<string, unknown>,
@@ -71,7 +71,7 @@ const savedTurn = (
 ];
 
 /**
- * One run on a saved chat, in which the model calls getOrder with each
+ * One run on a saved chat, in which the model calls get-order with each
  * argument given, then answers. Returns the run's new messages and how many
  * times the model was called.
  */
@@ -129,7 +129,7 @@ test("after REPEAT_MAX calls with the same tool, arguments and error, the run en
   assert.equal(results.length, 3);
   assert.equal(modelCalls, 3);
   assert.ok(AIMessage.isInstance(last));
-  assert.match(text(last), /shop_getOrder/);
+  assert.match(text(last), /shop-get-order/);
   assert.match(text(last), /\{"id":-1\}/);
   assert.match(text(last), /Error: no such order/);
 });
@@ -233,5 +233,5 @@ test("a call whose arguments fail the operation's schema counts as a failed call
   ]);
   assert.equal(results.length, 3);
   assert.equal(modelCalls, 3);
-  assert.match(text(last), /shop_getOrder\(\{"id":"a"\}\)/);
+  assert.match(text(last), /shop-get-order\(\{"id":"a"\}\)/);
 });

@@ -1,6 +1,8 @@
 /**
  * The plugin schema of que's ontology: what a plugin is made of. A plugin,
- * its ops, skills and capabilities, and the cases that prove a capability.
+ * its ops, roles, skills and capabilities, and the cases that prove a capability.
+ * Each field is defined here once: a note, a card and a definition in code are parsed with it. A thing a plugin holds
+ * under its own name (an op, a role, a skill) is a node named `<plugin>-<name>` (names.ts).
  */
 
 import {
@@ -11,17 +13,23 @@ import {
   oneOrNone,
 } from "@mku1tra/basis";
 import * as z from "zod";
+import { text } from "./fields.ts";
 
-// Blank text is no title, as the specs refuse it (`!value.trim()`). The value is kept as written.
-const title = z.string().regex(/\S/, "text that is not blank");
+/** A JSON Schema, as a card writes one: what a credential or an op's input takes. */
+const jsonSchema = z.record(z.string(), z.unknown(), {
+  error: "must be a JSON Schema object",
+});
 
 const op = defineType({
   name: "op",
-  description: "One operation a plugin exposes. `Operation` in plugin.ts.",
+  description:
+    "One operation a plugin exposes: a tool the model calls, which runs in que. `Operation` in @que/core.",
   fields: {
-    title,
-    // The role whose login it runs with. `Operation.role`.
+    title: text,
+    // The role whose login it runs with, when its plugin lists roles.
     role: oneOrNone(() => accessRole),
+    // What it takes, as JSON Schema: the card writes it from the op's zod schema.
+    input: jsonSchema,
   },
 });
 
@@ -29,53 +37,58 @@ const op = defineType({
 const accessRole = defineType({
   name: "access-role",
   description:
-    "One access level of an internal service, which que holds one login for. `Role` in plugin.ts.",
+    "One access level of an internal service, which que holds one login for. `Role` in @que/core.",
   fields: {},
 });
 
 const skill = defineType({
   name: "skill",
   description:
-    "The text part of a plugin, one `SKILL.md`. `Skill` in skill.ts.",
-  fields: { title },
+    "The text part of a plugin, one `SKILL.md`. `Skill` in @que/core.",
+  fields: { title: text },
 });
 
 const capability = defineType({
   name: "capability",
   description:
-    "A capability is an outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in plugin.ts.",
-  // It lives in a plugin's code, and a note describes it.
-  described: true,
-  fields: { title },
+    "An outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in @que/core.",
+  fields: { title: text },
+});
+
+const kase = defineType({
+  name: "case",
+  description:
+    "One behaviour of one capability, which the eval runner runs with the model. `Case` in @que/core.",
+  fields: {
+    // The capability it is about.
+    capability: one(() => capability),
+    // What the user says.
+    input: text,
+    // What is true before the run.
+    start: text,
+    // One statement that is true or false after the run.
+    good: text,
+  },
 });
 
 const pluginType = defineType({
   name: "plugin",
   description:
-    "A set of ops, skills and capabilities. `PluginDefinition` in plugin.ts.",
+    "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `PluginDefinition` in @que/core.",
   fields: {
-    title,
-    // The ops of a plugin. `PluginDefinition.ops`.
+    title: text,
+    // The credential it needs, as JSON Schema, when it talks to a service.
+    credential: jsonSchema.optional(),
     ops: manyOrNone(() => op),
-    // The skills of a plugin: each folder under its skills/ with a SKILL.md, as Agent Plugins finds them.
+    // Each folder under its skills/ with a SKILL.md, as Agent Plugins finds them.
     skills: manyOrNone(() => skill),
-    // The capabilities of a plugin. `PluginDefinition.capabilities`.
     capabilities: manyOrNone(() => capability),
-    // The roles of an internal service. `PluginDefinition.roles`.
+    // The roles of an internal service.
     roles: manyOrNone(() => accessRole),
-    // What a domain uses from connectors, their ops and skills. `PluginDefinition.uses`.
+    // What a domain uses from connectors: their ops and skills.
     uses: manyOrNone(() => [op, skill] as const),
-  },
-});
-
-const kase = defineType({
-  name: "case",
-  description: "One behaviour of one capability. `Case` in case.ts.",
-  // It lives in a plugin's cases.ts, and a note describes it.
-  described: true,
-  fields: {
-    // The capability a case is about. `Case.capability`.
-    capability: one(() => capability),
+    // Its cases, in its cases.ts.
+    cases: manyOrNone(() => kase),
   },
 });
 

@@ -6,11 +6,13 @@
 import { parse } from "yaml";
 import * as z from "zod";
 import { check, standardName, text } from "./check.js";
+import { fieldsOf, nameIn, types } from "./ontology.js";
 
-// The title and the description are what the model reads to choose a skill.
+// The title and the description are what the model reads to choose a skill. Its id is its node's name,
+// `<plugin>-<folder>` (nameIn).
 export const Skill = z.object({
   id: z.string(),
-  title: text,
+  ...fieldsOf(types.skill),
   description: text,
   body: z.string(),
 });
@@ -63,7 +65,7 @@ export function parseSkill(
   folder: string,
   file: string,
 ): Skill {
-  const id = `${plugin}/${folder}`;
+  const id = nameIn(plugin, folder);
   const { meta, body } = split(id, file);
   const front = check(
     Frontmatter.refine((front) => front.name === folder, {

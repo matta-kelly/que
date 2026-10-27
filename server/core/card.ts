@@ -1,9 +1,10 @@
 /**
  * A plugin's card: its `plugin.json`, the manifest of Agent Plugins 1.0. Made from the definition, never written by
- * hand: the definition is the one source, and the card is what any reader reads with no code run. The standard's
- * fields describe the plugin to every harness; que's part, under its namespace in `extensions`, is the plugin's
- * nodes in que's ontology (plugin, op, access-role, capability), by the ontology's field names. Skills are not in
- * it: their folders are the standard's, and a reader reads them there.
+ * hand: the definition and the cases are the one source, and the card is what any reader reads with no code run.
+ * The standard's fields describe the plugin to every harness; que's part, under its namespace in `extensions`, is the
+ * plugin's nodes in que's ontology (plugin, op, access-role, capability, case), by the ontology's field names, each
+ * thing by its name in the plugin. Skills are not in it: their folders are the standard's, and a reader reads them
+ * there.
  *
  * On disk, a card is checked against the standard's own schema (kept in que, never fetched: Agent Plugins §5.2)
  * and against que's part, and held to its definition byte for byte.
@@ -14,8 +15,10 @@ import { join } from "node:path";
 // ajv 8, for JSON Schema 2020-12.
 import { Ajv2020 } from "ajv/dist/2020.js";
 import * as z from "zod";
-import { check, name, standardName, text } from "./check.js";
+import { Case } from "./case.js";
+import { check, standardName, text } from "./check.js";
 import { NAMESPACE, pluginFiles } from "./layout.js";
+import { nameIn } from "./ontology.js";
 import {
   Capability,
   Role,
@@ -29,7 +32,7 @@ export const CARD_SCHEMA =
   "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 /** The version of que's part of a card. It changes when that part's shape does. */
-export const CARD_FORMAT = 1;
+export const CARD_FORMAT = 2;
 
 const JsonSchema = z.record(z.string(), z.unknown(), {
   error: "must be a JSON Schema object",
@@ -42,7 +45,7 @@ export const CardPart = z.strictObject({
   credential: JsonSchema.optional(),
   ops: z.array(
     z.strictObject({
-      name,
+      name: standardName,
       title: text,
       description: text,
       role: standardName.optional(),
@@ -52,6 +55,7 @@ export const CardPart = z.strictObject({
   roles: z.array(Role),
   uses: Uses,
   capabilities: z.array(Capability),
+  cases: z.array(Case),
 });
 
 export type CardPart = z.infer<typeof CardPart>;
@@ -176,11 +180,14 @@ const opNode = (plugin: string, op: Operation) => ({
   title: op.title,
   description: op.description,
   ...(op.role === undefined ? {} : { role: op.role }),
-  input: jsonSchema(op.schema, `op ${plugin}_${op.name}'s schema`),
+  input: jsonSchema(op.schema, `op ${nameIn(plugin, op.name)}'s schema`),
 });
 
-/** The card of a plugin, from its definition and, when its package.json gives one, its version. */
-export function cardOf(definition: PluginDefinition, version?: string): Card {
+/** The card of a plugin, from its definition, its cases and, when its package.json gives one, its version. */
+export function cardOf(
+  { definition, cases }: { definition: PluginDefinition; cases: Case[] },
+  version?: string,
+): Card {
   return {
     $schema: CARD_SCHEMA,
     name: definition.name,
@@ -202,6 +209,7 @@ export function cardOf(definition: PluginDefinition, version?: string): Card {
         roles: definition.roles,
         uses: definition.uses,
         capabilities: definition.capabilities,
+        cases,
       },
     },
   };
@@ -256,23 +264,27 @@ function versionIn(dir: string): string | undefined {
     .version;
 }
 
-/** The text the card of the plugin in `dir` must hold, from its definition, checked. */
-export function cardTextOf(dir: string, definition: PluginDefinition): string {
-  const card = cardOf(definition, versionIn(dir));
+/** What a card is made from: a plugin's definition and its cases. */
+type Made = { definition: PluginDefinition; cases: Case[] };
+
+/** The text the card of the plugin in `dir` must hold, from its definition and its cases, checked. */
+export function cardTextOf(dir: string, plugin: Made): string {
+  const card = cardOf(plugin, versionIn(dir));
+  const { definition } = plugin;
   validateCard(card, `the card of ${definition.name}`);
   return cardText(card);
 }
 
 /**
- * Throw when the plugin in `dir` has no card, or one that is not, byte for byte, what its definition makes. The
- * error names the first line that differs, and the command that writes it again.
+ * Throw when the plugin in `dir` has no card, or one that is not, byte for byte, what its definition and its cases
+ * make. The error names the first line that differs, and the command that writes it again.
  */
-export function checkCard(dir: string, definition: PluginDefinition): void {
+export function checkCard(dir: string, plugin: Made): void {
   const file = pluginFiles(dir).card;
   const fix = `write it with \`just card ${dir}\``;
   if (!existsSync(file))
     throw new Error(`${dir} has no card (plugin.json): ${fix}`);
-  const want = cardTextOf(dir, definition).split("\n");
+  const want = cardTextOf(dir, plugin).split("\n");
   const have = readFileSync(file, "utf8").split("\n");
   const line = want.findIndex((text, i) => text !== have[i]);
   if (line !== -1 || have.length !== want.length)

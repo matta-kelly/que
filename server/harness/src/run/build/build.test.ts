@@ -28,7 +28,7 @@ const rows = (count: number) =>
 
 /** An operation with a result as long as it is asked for. */
 const report = tool(async ({ rows: count }) => rows(count), {
-  name: "shop_report",
+  name: "shop-report",
   description: "Report: the rows of the sales report.",
   schema: z.object({ rows: z.number().describe("How many rows") }),
 });
@@ -113,14 +113,14 @@ const everySetting: LoopDefinition = {
 test("with result and summarize off, the agent has the parts it is handed, the repair and the repeat guard", async () => {
   const { result, sent, graph } = await run(
     { ...everySetting, result: false, summarize: false },
-    [calling("big", "shop_report", { rows: 200 }), new AIMessage("Well.")],
+    [calling("big", "shop-report", { rows: 200 }), new AIMessage("Well.")],
   );
   assert.deepEqual(middlewareOf(graph), [
     "patchToolCallsMiddleware",
     "RepeatGuard",
     "Seen",
   ]);
-  assert.deepEqual(sent[0].tools, ["shop_report"]);
+  assert.deepEqual(sent[0].tools, ["shop-report"]);
   assert.match(sent[0].system, /You help the sales team\./);
   assert.equal(text(resultOf(result.messages, "big")), rows(200));
   assert.equal(result.files, undefined);
@@ -139,9 +139,9 @@ test("with result on, an operation that is not loaded does not go out, and read_
     [
       calling("load", "load_operation", {
         plugin: "shop",
-        operation: "getOrder",
+        operation: "get-order",
       }),
-      calling("order", "shop_getOrder", { id: 1 }),
+      calling("order", "shop-get-order", { id: 1 }),
       new AIMessage("Order 1."),
     ],
     { tools, middleware },
@@ -155,11 +155,11 @@ test("with result on, an operation that is not loaded does not go out, and read_
     "read_file",
   ])
     assert.ok(first.includes(name), `${name} goes out with the first request`);
-  assert.ok(!first.includes("shop_getOrder"));
-  assert.ok(!first.includes("shop_findOrders"));
-  assert.ok(second.includes("shop_getOrder"));
+  assert.ok(!first.includes("shop-get-order"));
+  assert.ok(!first.includes("shop-find-orders"));
+  assert.ok(second.includes("shop-get-order"));
   assert.ok(second.includes("read_file"));
-  assert.ok(!second.includes("shop_findOrders"));
+  assert.ok(!second.includes("shop-find-orders"));
 
   assert.deepEqual(connected, ["shop"]);
   assert.equal(text(resultOf(result.messages, "order")), "{}");
@@ -168,9 +168,9 @@ test("with result on, an operation that is not loaded does not go out, and read_
 test("a result over result.max is stored, the chat has its head, its tail and its path, and the model gets read_file and no other tool of files", async () => {
   const { result, sent } = await run(
     { name: "big-results", result: { max: 100 } },
-    [calling("big", "shop_report", { rows: 200 }), new AIMessage("Well.")],
+    [calling("big", "shop-report", { rows: 200 }), new AIMessage("Well.")],
   );
-  assert.deepEqual(sent[0].tools.sort(), ["read_file", "shop_report"]);
+  assert.deepEqual(sent[0].tools.sort(), ["read_file", "shop-report"]);
   const inChat = text(resultOf(result.messages, "big"));
   assert.ok(inChat.length < rows(200).length / 2);
   assert.match(inChat, /\/large_tool_results\/big/);
@@ -187,13 +187,13 @@ test("a result over result.max is stored, the chat has its head, its tail and it
 
 test("a result under result.max, and any result with result off, is in the chat whole", async () => {
   const under = await run({ name: "big-results", result: { max: 100 } }, [
-    calling("small", "shop_report", { rows: 5 }),
+    calling("small", "shop-report", { rows: 5 }),
     new AIMessage("Well."),
   ]);
   assert.equal(text(resultOf(under.result.messages, "small")), rows(5));
 
   const off = await run({ name: "whole", result: false }, [
-    calling("big", "shop_report", { rows: 5000 }),
+    calling("big", "shop-report", { rows: 5000 }),
     new AIMessage("Well."),
   ]);
   assert.equal(text(resultOf(off.result.messages, "big")), rows(5000));
@@ -203,9 +203,9 @@ test("a result under result.max, and any result with result off, is in the chat 
 // Each report is about 10,000 tokens: two are under half of the window, three are over.
 const REPORT = 1800;
 const threeReports = () => [
-  calling("a", "shop_report", { rows: REPORT }),
-  calling("b", "shop_report", { rows: REPORT }),
-  calling("c", "shop_report", { rows: REPORT }),
+  calling("a", "shop-report", { rows: REPORT }),
+  calling("b", "shop-report", { rows: REPORT }),
+  calling("c", "shop-report", { rows: REPORT }),
   new AIMessage("Well."),
 ];
 const kinds = (messages: BaseMessage[]) => messages.map((m) => m.getType());

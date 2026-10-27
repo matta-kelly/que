@@ -5,6 +5,7 @@ import { plan } from "./plan.js";
 const byCustomer = {
   plugin: "shop",
   name: "find-order-by-customer",
+  description: "A behaviour of its capability.",
   capability: "find-order",
   input: "Where is the order of Ada?",
   start: "Ada has one open order.",
@@ -13,6 +14,7 @@ const byCustomer = {
 const notAsked = {
   plugin: "shop",
   name: "find-order-not-asked",
+  description: "A behaviour of its capability.",
   capability: "find-order",
   input: "What can you do?",
   start: "Any.",

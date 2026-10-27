@@ -31,7 +31,7 @@ function readSkill(catalog: Catalog): StructuredTool {
       description:
         "Read Skill: returns the full text of a skill, by its id, as the prompt or open_plugin lists it.",
       schema: z.object({
-        id: z.string().describe("Skill id, e.g. odoo/lookup-company"),
+        id: z.string().describe("Skill id, e.g. odoo-lookup-company"),
       }),
     },
   );

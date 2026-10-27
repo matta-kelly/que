@@ -7,8 +7,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-/** que's namespace, a reverse-domain name: the folder of que's files in a plugin, and its key in `extensions`. */
-export const NAMESPACE = "io.github.matta-kelly.que";
+import { NAMESPACE } from "@que/ontology/names";
+
+export { NAMESPACE };
 
 /** The files of the plugin in `dir`. */
 export const pluginFiles = (dir: string) => ({

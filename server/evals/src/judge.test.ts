@@ -14,6 +14,7 @@ import { judge, judged, question, verdictOf } from "./judge.js";
 const byCustomer = {
   plugin: "shop",
   name: "find-order-by-customer",
+  description: "A behaviour of its capability.",
   capability: "find-order",
   input: "Where is the order of Ada?",
   start: "Ada has one open order.",
@@ -22,6 +23,7 @@ const byCustomer = {
 const notAsked = {
   plugin: "shop",
   name: "find-order-not-asked",
+  description: "A behaviour of its capability.",
   capability: "find-order",
   input: "What can you do?",
   start: "Any.",
@@ -38,12 +40,12 @@ const open = {
   steps: [
     {
       kind: "call" as const,
-      name: "shop_findOrders",
+      name: "shop-find-orders",
       args: { customer: "Ada" },
     },
     {
       kind: "result" as const,
-      name: "shop_findOrders",
+      name: "shop-find-orders",
       text: '[{"id":12,"state":"open"}]',
     },
   ],
@@ -91,7 +93,7 @@ test("the question has the case, each call, each result and the answer", () => {
   assert.ok(text.includes("Where is the order of Ada?"));
   assert.ok(text.includes("Ada has one open order."));
   assert.ok(text.includes("The answer gives the state of the order of Ada."));
-  assert.ok(text.includes('shop_findOrders {"customer":"Ada"}'));
+  assert.ok(text.includes('shop-find-orders {"customer":"Ada"}'));
   assert.ok(text.includes('[{"id":12,"state":"open"}]'));
   assert.ok(text.includes("Order 12 of Ada is open."));
 });
@@ -99,7 +101,7 @@ test("the question has the case, each call, each result and the answer", () => {
 test("the question cuts a long result to 2,000 characters, and marks it", () => {
   const text = question(byCustomer, {
     steps: [
-      { kind: "result", name: "shop_findOrders", text: "x".repeat(2_500) },
+      { kind: "result", name: "shop-find-orders", text: "x".repeat(2_500) },
     ],
     answer: "y".repeat(2_500),
   });

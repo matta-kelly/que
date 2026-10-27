@@ -28,11 +28,11 @@ test("says every operation is already a tool, and lists the skills by id", () =>
       "- operations: actions you can run in that service, each with a description and arguments",
       "- skills: written guides for tasks in that service",
       "",
-      "Every operation is already a tool, named `<plugin>_<operation>`. Call it.",
+      "Every operation is already a tool, named `<plugin>-<operation>`. Call it.",
       "",
       "Before a task a skill covers, read it with `read_skill`, by its id. The skills:",
       "",
-      "- shop/refunds: Refunds. How to refund an order.",
+      "- shop-refunds: Refunds. How to refund an order.",
       "",
       "If no plugin covers a request, say so.",
       "",
@@ -48,15 +48,15 @@ test("says every operation is already a tool, and lists the skills by id", () =>
 test("for plugins with skills and no operations, names no operation", () => {
   const prompt = systemPrompt(skillsOnly);
   assert.doesNotMatch(prompt, /operation/);
-  assert.match(prompt, /- shop\/refunds: Refunds\. How to refund an order\./);
+  assert.match(prompt, /- shop-refunds: Refunds\. How to refund an order\./);
 });
 
 test("lists the skills of every plugin", () => {
   const prompt = systemPrompt(mixed);
-  assert.match(prompt, /- shop\/refunds: Refunds\./);
+  assert.match(prompt, /- shop-refunds: Refunds\./);
   assert.match(
     prompt,
-    /- notes\/meetings: Meetings\. How to write up a meeting\./,
+    /- notes-meetings: Meetings\. How to write up a meeting\./,
   );
 });
 

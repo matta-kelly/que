@@ -4,16 +4,8 @@
  */
 
 import * as z from "zod";
-import {
-  check,
-  fn,
-  name,
-  named,
-  once,
-  standardName,
-  strict,
-  text,
-} from "./check.js";
+import { check, fn, named, once, standardName, strict, text } from "./check.js";
+import { fieldsOf, nameIn, types } from "./ontology.js";
 
 export { NAME } from "./check.js";
 
@@ -22,10 +14,11 @@ export class OperationFailed extends Error {
   override name = "OperationFailed";
 }
 
-/** One operation a plugin exposes. Becomes a tool. */
+/** One operation a plugin exposes. Becomes a tool, named `<plugin>-<op>` (nameIn), which is also its node's name. */
 export const Operation = z.object({
-  name,
-  title: text,
+  /** Its name in its plugin. */
+  name: standardName,
+  title: fieldsOf(types.op).title,
   description: text,
   // The model reads each field's description to fill it in.
   schema: z.custom<z.ZodObject>().superRefine((schema, ctx) => {
@@ -42,7 +35,7 @@ export const Operation = z.object({
         });
   }),
   run: fn,
-  // The role whose login it runs with, when its plugin lists roles: one of them.
+  // The role whose login it runs with, when its plugin lists roles: one of them, by its name in the plugin.
   role: standardName.optional(),
 });
 
@@ -54,10 +47,10 @@ export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = Omit<
   run(ctx: { conn: Conn }, params: z.infer<S>): Promise<unknown>;
 };
 
-/** One outcome a plugin gives. Its cases name it. */
+/** One outcome a plugin gives. Its cases name it, and its name is its node's, in the whole graph. */
 export const Capability = z.object({
-  name,
-  title: text,
+  name: standardName,
+  ...fieldsOf(types.capability),
   description: text,
 });
 
@@ -74,26 +67,17 @@ export const Role = z.object({
 
 export type Role = z.infer<typeof Role>;
 
-// How a domain names what it uses: an op by its tool name, `<plugin>_<op>`, and a skill by its id, `<plugin>/<skill>`.
-// A plugin's name has no `_` (standardName), so a tool name splits at its first one.
-const PLUGIN = "[a-z0-9]+(?:-[a-z0-9]+)*";
-const opRef = text.regex(new RegExp(`^${PLUGIN}_[a-zA-Z0-9_-]+$`), {
-  error: ({ input }) =>
-    `must be a tool name, <plugin>_<op>, got ${JSON.stringify(input)}`,
-});
-const skillRef = text.regex(new RegExp(`^${PLUGIN}/${PLUGIN}$`), {
-  error: ({ input }) =>
-    `must be a skill id, <plugin>/<skill>, got ${JSON.stringify(input)}`,
-});
-
-/** What a domain uses from connectors: their ops and skills, by name. Mount resolves each one. */
+/**
+ * What a domain uses from connectors: their ops and skills, each by its name in the graph, `<plugin>-<name>` (nameIn):
+ * an op's tool name, and a skill's id. Mount resolves each one.
+ */
 export const Uses = z.strictObject(
   {
     ops: z
-      .array(opRef, { error: "must be an array" })
+      .array(standardName, { error: "must be an array" })
       .superRefine(once((op) => op)),
     skills: z
-      .array(skillRef, { error: "must be an array" })
+      .array(standardName, { error: "must be an array" })
       .superRefine(once((skill) => skill)),
   },
   strict(),
@@ -119,7 +103,7 @@ export const PluginDefinition = z
     {
       // Its name in the open standard (`plugin.json`), and the start of each of its tool names.
       name: standardName,
-      title: text,
+      title: fieldsOf(types.plugin).title,
       description: text,
       credential: z
         .custom<z.ZodObject>()
@@ -150,28 +134,21 @@ export const PluginDefinition = z
     ),
   )
   .superRefine((definition, ctx) => {
-    // Its own ops and skills are its already: a name it uses is another plugin's.
-    const own = (ref: string, sep: string) =>
-      ref.startsWith(definition.name + sep);
+    // Its own ops are its already: an op it uses is another plugin's. Its skills are in its folder, so mount checks those.
+    const own = new Set(
+      definition.ops.map((op) => nameIn(definition.name, op.name)),
+    );
     definition.uses.ops.forEach((ref, i) => {
-      if (own(ref, "_"))
+      if (own.has(ref))
         ctx.addIssue({
           code: "custom",
           path: ["uses", "ops", i],
           message: `names its own op ${ref}: a plugin uses only other plugins' ops`,
         });
     });
-    definition.uses.skills.forEach((ref, i) => {
-      if (own(ref, "/"))
-        ctx.addIssue({
-          code: "custom",
-          path: ["uses", "skills", i],
-          message: `names its own skill ${ref}: a plugin uses only other plugins' skills`,
-        });
-    });
     const roles = definition.roles.map((role) => role.name);
     definition.ops.forEach((op, i) => {
-      const tool = `${definition.name}_${op.name}`;
+      const tool = nameIn(definition.name, op.name);
       if (tool.length > 64)
         ctx.addIssue({
           code: "custom",

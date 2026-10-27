@@ -2,6 +2,6 @@
 
 import { defineToolkit } from "@assistant-ui/react";
 
-// Custom UIs for agent tools, keyed by tool name (e.g. odoo_getCompany).
+// Custom UIs for agent tools, keyed by tool name (e.g. odoo-get-company).
 // Tools without an entry here render with the default tool-call display.
 export default defineToolkit({});

@@ -29,7 +29,7 @@ const environment = (hasOperations: boolean, hasSkills: boolean) =>
                 [
                   "1. Pick a plugin from the list below.",
                   `2. Call \`${OPEN_PLUGIN}\` to see what it holds.`,
-                  `3. Call \`${LOAD_OPERATION}\` for each operation you need. It becomes a tool named \`<plugin>_<operation>\` and stays for the rest of the conversation.`,
+                  `3. Call \`${LOAD_OPERATION}\` for each operation you need. It becomes a tool named \`<plugin>-<operation>\` and stays for the rest of the conversation.`,
                   "4. Call that tool.",
                 ].join("\n"),
               ]

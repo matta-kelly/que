@@ -7,7 +7,10 @@ test("validateDeployment names every problem in one error", () => {
     () => validateDeployment({ name: "two words", plugins: [""] }),
     (error: Error) => {
       assert.match(error.message, /deployment is invalid/);
-      assert.match(error.message, /- name must match/);
+      assert.match(
+        error.message,
+        /- name must be lowercase letters and digits/,
+      );
       assert.match(
         error.message,
         /- plugins\.0 must be a plugin folder or the name of its npm package, got ""/,

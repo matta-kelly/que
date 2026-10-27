@@ -41,14 +41,14 @@ test("a message with two calls gives two calls, in order", () => {
         from: "agent",
         text: "",
         calls: [
-          { name: "shop_findOrders", args: { customer: "Ada" } },
-          { name: "shop_findOrders", args: { customer: "Bo" } },
+          { name: "shop-find-orders", args: { customer: "Ada" } },
+          { name: "shop-find-orders", args: { customer: "Bo" } },
         ],
       },
     ]).steps,
     [
-      { kind: "call", name: "shop_findOrders", args: { customer: "Ada" } },
-      { kind: "call", name: "shop_findOrders", args: { customer: "Bo" } },
+      { kind: "call", name: "shop-find-orders", args: { customer: "Ada" } },
+      { kind: "call", name: "shop-find-orders", args: { customer: "Bo" } },
     ],
   );
 });
@@ -60,9 +60,9 @@ test("a thread that ends on a result has no answer", () => {
       {
         from: "agent",
         text: "",
-        calls: [{ name: "shop_findOrders", args: { customer: "Ada" } }],
+        calls: [{ name: "shop-find-orders", args: { customer: "Ada" } }],
       },
-      { from: "tool", tool: "shop_findOrders", text: "[]", calls: [] },
+      { from: "tool", tool: "shop-find-orders", text: "[]", calls: [] },
     ]).answer,
     "",
   );

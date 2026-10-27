@@ -14,7 +14,7 @@ import { resolveLoop } from "@que/core";
 import { build } from "./build.js";
 
 const ping = tool(async () => "pong", {
-  name: "shop_ping",
+  name: "shop-ping",
   description: "Ping: answers pong.",
   schema: z.object({}),
 });
@@ -22,7 +22,7 @@ const ping = tool(async () => "pong", {
 const asking = (id: string) =>
   new AIMessage({
     content: "",
-    tool_calls: [{ id, name: "shop_ping", args: {} }],
+    tool_calls: [{ id, name: "shop-ping", args: {} }],
   });
 
 /** One run on a chat as it was saved, with what the model was sent, and the chat after. */

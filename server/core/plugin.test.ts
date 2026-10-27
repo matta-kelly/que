@@ -132,7 +132,10 @@ test("validatePlugin lists an op with a bad name, a name used twice, no title or
         } as never),
       ),
     (error: Error) => {
-      assert.match(error.message, /- ops\.no spaces\.name must match/);
+      assert.match(
+        error.message,
+        /- ops\.no spaces\.name must be lowercase letters and digits/,
+      );
       assert.match(error.message, /- ops\.search is used twice/);
       assert.match(error.message, /- ops\.search\.title is missing/);
       assert.match(error.message, /- ops\.search\.description is missing/);
@@ -161,7 +164,7 @@ test("validatePlugin refuses an op with no name, and one whose tool name is over
         definePlugin({ ...notes, ops: [{ ...search, name: long }] }),
       ),
     new RegExp(
-      `- ops\\.${long}\\.name makes the tool name notes_${long}, over 64 characters`,
+      `- ops\\.${long}\\.name makes the tool name notes-${long}, over 64 characters`,
     ),
   );
 });
@@ -221,7 +224,10 @@ test("validatePlugin lists a capability with a bad name, no name or one of space
         }),
       ),
     (error: Error) => {
-      assert.match(error.message, /- capabilities\.no spaces\.name must match/);
+      assert.match(
+        error.message,
+        /- capabilities\.no spaces\.name must be lowercase letters and digits/,
+      );
       assert.match(error.message, /- capabilities\.1\.name is missing/);
       assert.match(error.message, /- capabilities\.2\.name is missing/);
       assert.match(error.message, /- capabilities\.write-up is used twice/);
@@ -308,31 +314,31 @@ test("validatePlugin takes a domain that uses other plugins' ops and skills by n
       definePlugin({
         ...notes,
         uses: {
-          ops: ["warehouse_getFabric"],
-          skills: ["warehouse/fabric-guide"],
+          ops: ["warehouse-get-fabric"],
+          skills: ["warehouse-fabric-guide"],
         },
       }),
     ),
   );
 });
 
-test("validatePlugin refuses a used op that is not a tool name, and a used skill that is not a skill id", () => {
+test("validatePlugin refuses a used op or skill that is not a name in the graph", () => {
   assert.throws(
     () =>
       validatePlugin(
         definePlugin({
           ...notes,
-          uses: { ops: ["getFabric"], skills: ["fabric-guide"] },
+          uses: { ops: ["warehouse_getFabric"], skills: ["warehouse/guide"] },
         }),
       ),
     (error: Error) => {
       assert.match(
         error.message,
-        /- uses\.ops\.getFabric must be a tool name, <plugin>_<op>, got "getFabric"/,
+        /- uses\.ops\.warehouse_getFabric must be lowercase letters and digits, with single hyphens between them, got "warehouse_getFabric"/,
       );
       assert.match(
         error.message,
-        /- uses\.skills\.fabric-guide must be a skill id, <plugin>\/<skill>, got "fabric-guide"/,
+        /- uses\.skills\.warehouse\/guide must be lowercase letters and digits, with single hyphens between them, got "warehouse\/guide"/,
       );
       return true;
     },
@@ -345,10 +351,10 @@ test("validatePlugin refuses a name used twice", () => {
       validatePlugin(
         definePlugin({
           ...notes,
-          uses: { ops: ["warehouse_getFabric", "warehouse_getFabric"] },
+          uses: { ops: ["warehouse-get-fabric", "warehouse-get-fabric"] },
         }),
       ),
-    /- uses\.ops\.warehouse_getFabric is used twice/,
+    /- uses\.ops\.warehouse-get-fabric is used twice/,
   );
 });
 
@@ -356,19 +362,13 @@ test("validatePlugin refuses a plugin that uses its own op", () => {
   assert.throws(
     () =>
       validatePlugin(
-        definePlugin({ ...notes, uses: { ops: ["notes_search"] } }),
+        definePlugin({
+          ...notes,
+          ops: [search],
+          uses: { ops: ["notes-search"] },
+        }),
       ),
-    /- uses\.ops\.notes_search names its own op notes_search: a plugin uses only other plugins' ops/,
-  );
-});
-
-test("validatePlugin refuses a plugin that uses its own skill", () => {
-  assert.throws(
-    () =>
-      validatePlugin(
-        definePlugin({ ...notes, uses: { skills: ["notes/greet"] } }),
-      ),
-    /- uses\.skills\.notes\/greet names its own skill notes\/greet: a plugin uses only other plugins' skills/,
+    /- uses\.ops\.notes-search names its own op notes-search: a plugin uses only other plugins' ops/,
   );
 });
 

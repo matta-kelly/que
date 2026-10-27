@@ -18,6 +18,7 @@ const notes = definePlugin({
 
 const asked = {
   name: "write-up-asked",
+  description: "A behaviour of its capability.",
   capability: "write-up",
   input: "Write up the meeting of today.",
   start: "A meeting took place today.",
@@ -32,7 +33,10 @@ test("validateCases lists a case with a bad name, and a name used twice", () => 
         defineCases([{ ...asked, name: "no spaces" }, asked, asked]),
       ),
     (error: Error) => {
-      assert.match(error.message, /- no spaces\.name must match/);
+      assert.match(
+        error.message,
+        /- no spaces\.name must be lowercase letters and digits/,
+      );
       assert.match(error.message, /- write-up-asked is used twice/);
       return true;
     },
@@ -44,12 +48,20 @@ test("validateCases lists a case with an empty input, start or good, and one wit
     () =>
       validateCases(notes, [
         { ...asked, input: "", start: "  ", good: "" },
-        { ...asked, name: undefined, capability: undefined },
+        {
+          ...asked,
+          name: undefined,
+          description: "A behaviour of its capability.",
+          capability: undefined,
+        },
       ] as never),
     (error: Error) => {
       assert.match(error.message, /cases of plugin notes are invalid/);
       assert.match(error.message, /- 1\.name is missing/);
-      assert.match(error.message, /- 1\.capability is missing/);
+      assert.match(
+        error.message,
+        /- 1\.capability Invalid input: expected string, received undefined/,
+      );
       assert.match(error.message, /- write-up-asked\.input is missing/);
       assert.match(error.message, /- write-up-asked\.start is missing/);
       assert.match(error.message, /- write-up-asked\.good is missing/);

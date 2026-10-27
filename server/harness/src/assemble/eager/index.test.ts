@@ -7,8 +7,8 @@ import { toolName } from "../operations.js";
 import { eager } from "./index.js";
 
 const operations = [
-  toolName("shop", "findOrders"),
-  toolName("shop", "getOrder"),
+  toolName("shop", "find-orders"),
+  toolName("shop", "get-order"),
 ];
 
 test("every operation goes out with the first request, and with each one after", () => {

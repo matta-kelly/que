@@ -31,13 +31,14 @@ after(() => rmSync(work, { recursive: true, force: true }));
 
 const source = join(import.meta.dirname, "../mount/fixtures/plugins/source");
 
-const good = cardOf(
-  definePlugin({
+const good = cardOf({
+  definition: definePlugin({
     name: "notes",
     title: "Notes",
     description: "How the team writes.",
   }),
-);
+  cases: [],
+});
 
 test("writeCard writes plugin.json from the definition, with the version its package.json gives", async () => {
   const dir = join(work, "source");
@@ -96,13 +97,13 @@ test("validateCard refuses a card whose que part is not the shape que reads", ()
           extensions: {
             "io.github.matta-kelly.que": {
               ...good.extensions["io.github.matta-kelly.que"],
-              format: 2,
+              format: 1,
             },
           },
         },
         "the card",
       ),
-    /the card's io\.github\.matta-kelly\.que part is invalid:\n- format must be 1/,
+    /the card's io\.github\.matta-kelly\.que part is invalid:\n- format must be 2/,
   );
 });
 
@@ -126,7 +127,9 @@ const staleCard = (dir: string) => {
 test("checkCard takes a card that is what the definition makes", async () => {
   const dir = copy("fresh");
   const { definition } = await loadPlugin(dir);
-  assert.doesNotThrow(() => checkCard(dir, definition));
+  assert.doesNotThrow(() =>
+    checkCard(dir, { definition: definition, cases: [] }),
+  );
 });
 
 test("checkCard refuses a plugin with no card, saying how to write it", async () => {
@@ -134,7 +137,7 @@ test("checkCard refuses a plugin with no card, saying how to write it", async ()
   unlinkSync(join(dir, "plugin.json"));
   const { definition } = await loadPlugin(dir);
   assert.throws(
-    () => checkCard(dir, definition),
+    () => checkCard(dir, { definition: definition, cases: [] }),
     (error: Error) =>
       error.message ===
       `${dir} has no card (plugin.json): write it with \`just card ${dir}\``,
@@ -146,7 +149,7 @@ test("checkCard refuses a card that is not what the definition makes, naming the
   staleCard(dir);
   const { definition } = await loadPlugin(dir);
   assert.throws(
-    () => checkCard(dir, definition),
+    () => checkCard(dir, { definition: definition, cases: [] }),
     /plugin\.json is not what its definition makes \(from line 4\): write it with `just card /,
   );
 });

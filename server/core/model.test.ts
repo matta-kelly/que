@@ -36,7 +36,7 @@ test("validateModel lists each fault in one error, and names the model", () => {
 
   assert.match(
     faults({ name: "two words", id: "p:m", window: 10, maxTokens: 5 }),
-    /- name must match/,
+    /- name must be lowercase letters and digits/,
   );
   for (const id of [":model", "provider:", "provider: model", 7])
     assert.match(

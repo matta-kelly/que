@@ -99,7 +99,7 @@ test("the prompt still says how to reach an operation and read a skill when a pl
       "",
       "1. Pick a plugin from the list below.",
       "2. Call `open_plugin` to see what it holds.",
-      "3. Call `load_operation` for each operation you need. It becomes a tool named `<plugin>_<operation>` and stays for the rest of the conversation.",
+      "3. Call `load_operation` for each operation you need. It becomes a tool named `<plugin>-<operation>` and stays for the rest of the conversation.",
       "4. Call that tool.",
       "",
       "Before a task a skill covers, read it with `read_skill`.",

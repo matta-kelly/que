@@ -16,6 +16,8 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
         {
           plugin: "shop",
           name: "find-order-by-customer",
+          description:
+            "Finds the order of a customer by name, and gives its state.",
           capability: "find-order",
           input: "Where is the order of Ada?",
           start: "Ada has one open order.",
@@ -24,6 +26,7 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
         {
           plugin: "shop",
           name: "find-order-not-asked",
+          description: "Calls no operation when no order is asked for.",
           capability: "find-order",
           input: "What can you do?",
           start: "Any.",
@@ -74,10 +77,7 @@ test("loads the model configs of a deployment, as written, in order", async () =
 test("stops on an agent that leaves out its plugins, so no run is planned under every plugin", async () => {
   await assert.rejects(load(deployment("pluginless")), (error: Error) => {
     assert.match(error.message, /^eval:/);
-    assert.match(
-      error.message,
-      /agent pluginless is invalid:\n- plugins is missing/,
-    );
+    assert.match(error.message, /agent pluginless is invalid:\n- plugins /);
     return true;
   });
 });

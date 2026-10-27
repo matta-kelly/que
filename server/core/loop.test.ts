@@ -14,7 +14,10 @@ const faults = (def: unknown) => {
 test("validateLoop rejects a loop with no name, and a name that is not a plain name", () => {
   assert.match(faults({}), /^loop is invalid:\n- name is missing/);
   assert.match(faults({ name: " " }), /- name is missing/);
-  assert.match(faults({ name: "two words" }), /- name must match/);
+  assert.match(
+    faults({ name: "two words" }),
+    /- name must be lowercase letters and digits/,
+  );
 });
 
 test("validateLoop rejects a field that is not in the shape, at the top and inside a setting, naming it", () => {

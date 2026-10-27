@@ -59,12 +59,12 @@ const open = {
   steps: [
     {
       kind: "call" as const,
-      name: "shop_findOrders",
+      name: "shop-find-orders",
       args: { customer: "Ada" },
     },
     {
       kind: "result" as const,
-      name: "shop_findOrders",
+      name: "shop-find-orders",
       text: '[{"id":12,"state":"open"}]',
     },
   ],

@@ -142,7 +142,7 @@ test("a mounted plugin has its skills", async () => {
   const mounted = await mount("two");
   assert.deepEqual(mounted[1].skills, [
     {
-      id: "alpha/greet",
+      id: "alpha-greet",
       title: "Greet",
       description: "How to greet a customer.",
       body: "Say hello.",
@@ -169,7 +169,7 @@ test("stops, naming the deployment folder, when the definition breaks the contra
 test("stops, naming the skill, when a listed plugin has a skill that breaks the contract", async () => {
   await assert.rejects(mount("misnamed-skill"), (error: Error) => {
     assert.match(error.message, /^mount:/);
-    assert.match(error.message, /misnamed-skill\/nameless/);
+    assert.match(error.message, /misnamed-skill-nameless/);
     assert.ok(error.cause instanceof Error);
     return true;
   });
@@ -189,7 +189,7 @@ test("a domain mounts when each name it uses is a mounted connector's op or skil
 test("stops, naming the domain and the name, when a domain uses what the deployment does not give", async () => {
   await assert.rejects(
     mount("uses-unresolved"),
-    /^Error: mount: a plugin uses what the deployment does not give:\n- stray uses source_lose, and source has no op lose$/,
+    /^Error: mount: a plugin uses what the deployment does not give:\n- stray uses source-lose, and the deployment mounts no op source-lose$/,
   );
 });
 
@@ -233,8 +233,11 @@ test("stops, naming the first line that differs, when a listed plugin's card is 
   );
 });
 
-test("a plugin with a bad cases file still mounts", async () => {
-  assert.deepEqual(names(await mount("bad-cases")), ["bad-cases"]);
+test("stops, naming the plugin and the case, when a plugin's cases break the contract: its card is made from them", async () => {
+  await assert.rejects(
+    mount("bad-cases"),
+    /^Error: mount: .*bad-cases: cases of plugin bad-cases are invalid:\n- refund-asked\.capability names "refund", which plugin bad-cases does not have/,
+  );
 });
 
 test("stops, naming the file, when an agent breaks the contract, with the contract's own error as its cause", async () => {
