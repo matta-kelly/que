@@ -12,6 +12,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 - [[#Layout]] the folder, and the three kinds of proof
 
 - [[operation]]: what an operation is, and what makes a good one
+- `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the cards. Not all of it is built: the control plane, and roles on cc's connectors
 
 ## Standard
 

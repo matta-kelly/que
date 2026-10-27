@@ -7,9 +7,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 - [[#Thesis]] the rule everything below follows, and the whole shape in one picture
 - [[#Parts]] environment and agent, which are defined; harness and backend, which are que; and the deployment they make
 
-- [[daworks]]: my projects, this is one of them
 - built on [[basis]] (`~/lot/daworks/basis`, GitHub matta-kelly/basis): que imports it, and hands it to the folders it mounts and checks
-- [[shit-sdlc]]: the loop every change to que goes through
 - [[plugin-contract]]: the plugin contract as built
 - [[que-ui]]: the chat UI: what it is built on, what it shows, and the outside components that fit. Its Work has the designs in flight on the UI
 - [[evals]]: how an agent is checked: the stores, the movers and the loops. que has two parts of it

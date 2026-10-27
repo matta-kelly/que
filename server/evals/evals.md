@@ -11,7 +11,6 @@ How an agent is checked against what good looks like: one system, two loops that
 - [[#Aim]] what a team in production does with this system, and where que is against it
 
 - [[que]]: the harness these evals check
-- [[shit-sdlc]]: the loop a change goes through; the dev loop here is the same loop for a change to an agent
 
 ---
 ## System
