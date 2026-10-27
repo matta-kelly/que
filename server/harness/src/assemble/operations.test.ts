@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePlugin, OperationFailed } from "@que/core";
+import { definePlugin, nameIn, OperationFailed } from "@que/core";
 import type { Catalog } from "../access/catalog.js";
-import { operationTools, toolName } from "./operations.js";
+import { operationTools } from "./operations.js";
 
 const shop = definePlugin({
   name: "shop",
@@ -31,7 +31,7 @@ const [getOrder] = operationTools(
 );
 
 test("an operation becomes a tool named <plugin>-<operation>, with its own title, description and arguments", () => {
-  assert.equal(getOrder.name, toolName("shop", "get-order"));
+  assert.equal(getOrder.name, nameIn("shop", "get-order"));
   assert.equal(getOrder.name, "shop-get-order");
   assert.equal(getOrder.description, "Get order: One order with its lines.");
   assert.equal(getOrder.schema, shop.ops[0].schema);

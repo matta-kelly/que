@@ -7,8 +7,6 @@ import * as z from "zod";
 import { check, fn, named, once, standardName, strict, text } from "./check.js";
 import { fieldsOf, pluginFaults, types } from "./ontology.js";
 
-export { NAME } from "./check.js";
-
 /** The one failure type. Anything a plugin throws that isn't this is a bug. */
 export class OperationFailed extends Error {
   override name = "OperationFailed";

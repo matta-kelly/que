@@ -9,7 +9,6 @@ import type { Catalog } from "../access/catalog.js";
 
 // An op's tool name is its node's name, `<plugin>-<op>`: one name in the model's tools and in the graph. Model APIs
 // allow it, at most 64 characters (validatePlugin enforces it).
-export const toolName = nameIn;
 
 export function operationTools(
   catalog: Catalog,
@@ -22,7 +21,7 @@ export function operationTools(
         async (params) =>
           JSON.stringify(await op.run({ conn: await connect(plugin) }, params)),
         {
-          name: toolName(plugin.name, op.name),
+          name: nameIn(plugin.name, op.name),
           description: `${op.title}: ${op.description}`,
           schema: op.schema,
         },

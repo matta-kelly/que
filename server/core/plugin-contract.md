@@ -70,7 +70,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses, and what each user gets each run.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
-- connector, internal (warehouse, dagster): lists its `roles`, each a name and a description, and each op names its `role` (warehouse `read`, `write`)
+- connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
 	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. A rule of que's ontology (`plugin/op-role`), so the lint holds a card to it as `validatePlugin` holds a definition
 - domain: lists what it uses from connectors in `uses`, each op and skill by its name in the graph (`uses: { ops: ["warehouse-get-fabric"], skills: ["warehouse-fabric-guide"] }`)
 	- the check, at mount: each name is an op or skill of a connector the deployment mounts, found by its name, not split. A plugin that names its own is refused when it mounts on its own, and by the lint (`plugin/own-use`) A domain's op or skill cannot be used, so there are no chains and no cycles; a plugin's own are its already

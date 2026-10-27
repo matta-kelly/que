@@ -5,20 +5,10 @@
 
 import * as z from "zod";
 
-import { NAME } from "@que/ontology/fields";
+import { standardName } from "@que/ontology/fields";
 
 // The schemas of que's fields are the ontology's: a definition is parsed with what a node holds.
-export {
-  NAME,
-  isCount,
-  isName,
-  isText,
-  must,
-  name,
-  standardName,
-  text,
-  that,
-} from "@que/ontology/fields";
+export { isText, must, standardName, text, that } from "@que/ontology/fields";
 
 /** A value that is a function. Only that is checked: what it takes and gives is the type's to say. */
 export const fn = z
@@ -46,7 +36,7 @@ export const strict = (
 /** The name of a config for the lead of its error, when it is one: ` chat`, or nothing. */
 export const named = (definition: unknown) => {
   const name = (definition as { name?: unknown } | undefined)?.name;
-  return typeof name === "string" && NAME.test(name) ? ` ${name}` : "";
+  return standardName.safeParse(name).success ? ` ${name}` : "";
 };
 
 /** A refinement of a list: no two items have the same name. */

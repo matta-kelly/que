@@ -11,20 +11,23 @@
 import * as z from "zod";
 import { maxTokensInWindow, ModelPrice } from "@que/ontology/harness";
 import { check, named, standardName, strict } from "./check.js";
-import { fieldsOf, ruleFaults, types } from "./ontology.js";
+import { fieldsOf, refineBy, ruleFaults, types } from "./ontology.js";
 
 export { ModelPrice };
 export type ModelPrice = z.infer<typeof ModelPrice>;
 
 /** What `defineModel` returns, and a model file exports as its default. */
-export const ModelDefinition = z.strictObject(
-  {
-    /** What an agent config or a run names to get this model. */
-    name: standardName,
-    ...fieldsOf(types.model),
-  },
-  strict(),
-);
+export const ModelDefinition = z
+  .strictObject(
+    {
+      /** What an agent config or a run names to get this model. */
+      name: standardName,
+      ...fieldsOf(types.model),
+    },
+    strict(),
+  )
+  // Its rule's faults are listed with its fields', in one error.
+  .superRefine(refineBy(maxTokensInWindow));
 
 export type ModelDefinition = z.infer<typeof ModelDefinition>;
 
@@ -76,10 +79,5 @@ export function mountedModel(
  * problem. Types can't catch these: a model is loaded at runtime.
  */
 export function validateModel(def: unknown): asserts def is ModelDefinition {
-  const model = check(ModelDefinition, def, `model${named(def)} is invalid`);
-  const faults = ruleFaults(maxTokensInWindow, model);
-  if (faults.length)
-    throw new Error(
-      `model ${model.name} is invalid:\n- ${faults.join("\n- ")}`,
-    );
+  check(ModelDefinition, def, `model${named(def)} is invalid`);
 }

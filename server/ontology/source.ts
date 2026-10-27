@@ -8,20 +8,16 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
+import type { Source } from "@mku1tra/basis";
 import { parse } from "yaml";
 import * as z from "zod";
 import { SkillFrontmatter } from "./fields.ts";
 import { NAMESPACE, nameIn } from "./names.ts";
 
-/** A piece, as basis's lint takes it from a source: its path from the folder linted, its node's name, and its fields. */
-type Piece = { path: string; name: string; fields: Record<string, unknown> };
-
-/** What a source gives basis's lint. */
-type Loaded = {
-  pieces: Piece[];
-  problems: { path: string; message: string; fatal: true }[];
-  unread: { path: string; name: string }[];
-};
+/** What a source gives basis's lint, in lists this reader fills, and one piece of it. */
+type Given = Awaited<ReturnType<Source>>;
+type Loaded = { [K in keyof Given]: Given[K][number][] };
+type Piece = Given["pieces"][number];
 
 /** que's part of a card, as far as this reader needs it: the lint checks each field against its type. */
 const Part = z.object({
@@ -163,7 +159,7 @@ async function piecesOf(dir: string, from: (path: string) => string) {
 }
 
 /** A card, as far as nodesOfCard reads it: the standard's name and description, and que's part. */
-export type CardNodes = z.infer<typeof Card>;
+type CardNodes = z.infer<typeof Card>;
 
 /**
  * The pieces of a plugin's nodes that its card gives, each at `path`: the plugin, its ops, roles, capabilities and
@@ -220,7 +216,7 @@ export function nodesOfCard(
  * The source of the plugins under `folder`, for the lint of the folder `root`: each path is from `root`. A card or a
  * skill that cannot be read is a problem of its own, and the lint goes on.
  */
-export function plugins(folder: string, root: string) {
+export function plugins(folder: string, root: string): Source {
   const from = (path: string) => relative(root, path).split(sep).join("/");
   return async function quePlugins(): Promise<Loaded> {
     const all: Loaded = { pieces: [], problems: [], unread: [] };

@@ -6,9 +6,8 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import { OperationFailed } from "@que/core";
+import { nameIn, OperationFailed } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
-import { toolName } from "../operations.js";
 import { skillLine } from "../skills.js";
 
 export const OPEN_PLUGIN = "open_plugin";
@@ -71,7 +70,7 @@ function loadOperation(catalog: Catalog): StructuredTool {
         throw new OperationFailed(
           `no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`,
         );
-      return `Loaded. Call it as the tool \`${toolName(name, operation)}\`; its arguments are in that tool's definition.`;
+      return `Loaded. Call it as the tool \`${nameIn(name, operation)}\`; its arguments are in that tool's definition.`;
     },
     {
       name: LOAD_OPERATION,

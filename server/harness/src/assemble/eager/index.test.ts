@@ -3,13 +3,10 @@ import assert from "node:assert/strict";
 import { AIMessage, HumanMessage } from "langchain";
 import { assemble } from "../assemble.js";
 import { catalog, identityOnly } from "../fixture.js";
-import { toolName } from "../operations.js";
+import { nameIn } from "@que/core";
 import { eager } from "./index.js";
 
-const operations = [
-  toolName("shop", "find-orders"),
-  toolName("shop", "get-order"),
-];
+const operations = [nameIn("shop", "find-orders"), nameIn("shop", "get-order")];
 
 test("every operation goes out with the first request, and with each one after", () => {
   assert.deepEqual(eager.send([], operations), operations);

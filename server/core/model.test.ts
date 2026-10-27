@@ -105,6 +105,15 @@ test("validateModel rejects a maxTokens above a written window", () => {
   );
 });
 
+test("validateModel lists a maxTokens above its window with the other faults", () => {
+  const message = faults({ ...lean, id: "x", window: 4 });
+  assert.match(message, /- id must be in "provider:model" form/);
+  assert.match(
+    message,
+    /- maxTokens must not be above its window, got 5 and 4/,
+  );
+});
+
 test("mountedModel takes a value of the file over a fact", () => {
   const facts = { window: 100, price: { input: 1, output: 2 } };
   assert.deepEqual(mountedModel(lean, facts), { ...lean, ...facts });

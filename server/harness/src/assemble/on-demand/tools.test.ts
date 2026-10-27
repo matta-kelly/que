@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { OperationFailed } from "@que/core";
+import { nameIn, OperationFailed } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
 import {
   besideNothing,
@@ -9,7 +9,6 @@ import {
   mixed,
   skillsOnly,
 } from "../fixture.js";
-import { toolName } from "../operations.js";
 import { skillTools } from "../skills.js";
 import { onDemand } from "./index.js";
 
@@ -49,7 +48,7 @@ test("load_operation says which tool the operation became", async () => {
     plugin: "shop",
     operation: "find-orders",
   });
-  assert.ok(text.includes(toolName("shop", "find-orders")));
+  assert.ok(text.includes(nameIn("shop", "find-orders")));
 });
 
 test("load_operation fails, naming the operations that exist, when asked for one that does not", async () => {
