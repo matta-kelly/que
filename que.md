@@ -62,7 +62,7 @@ defined                        que
 environment ───────────▶  mount     load and check the plugins
   plugins
                           access    for one user: the plugins they
-                                    can reach, each with its connection
+                                    can reach
 agent ─────────────────▶  assemble  turn its units into prompt,
   units                             tools, middleware
                           run       give those to the framework,
@@ -71,7 +71,7 @@ agent ─────────────────▶  assemble  turn its
                           backend   identity, credentials, state
 ```
 
-## Parts
+## Parts (packages)
 
 - **Environment**: a named set of plugins, and nothing more. The seam with the harness
 	- written in the deployment's definition, as `plugins`: each one a folder path, or the name of its npm package
@@ -126,20 +126,27 @@ agent ─────────────────▶  assemble  turn its
 		- state. The LangGraph thread
 		- workspace. None
 		- trigger and lifetime. A chat
-- **Harness**: the code that puts an environment and an agent together. Part of que. Four steps, in the order the work flows
-	- mount: an environment in, checked plugins out. Once, at startup, the same for every user
-		- loads each plugin the environment lists, and checks it against the contract
-		- reads each agent, loop and model config the deployment lists
-		- stops when an agent names a plugin that is not mounted, or a loop or a model that is not listed
-	- access ([[access]]): for one user, the mounted plugins they can reach, each with its connection
-		- narrowed to the plugins the agent config of the run names
-	- assemble: an agent's units in, the slots out (prompt, tools, middleware)
-		- built for one unit, loading: one config on a shared base
-	- run: hands the slots to the framework, and serves the answer
-		- the only step that names a framework
-		- access and assemble run once a chat, at its first message, and the chat keeps that agent: an edit to access or to the user's instructions is in the next chat
-		- sends a trace of each run to Langfuse, when the deployment's `.env` has the Langfuse settings: each model call and each tool call, with the user, the thread, the agent config and the commit of que. With no settings it sends nothing
-		- on LangChain and the LangGraph server
+- **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/harness`. Four layers, each one a folder in `server/harness/src/`
+	- boundary: what crosses into and out of the harness
+		- in
+			- plugins, through the plugin contract (`@mku1tra/que-plugin`)
+			- the deployment's definition and its agent, loop and model configs
+			- the backend: users, credentials and identity (`@que/users`, `@que/credentials`, `@que/identity`)
+			- models (`@que/models`)
+		- out
+			- the agent, to the LangGraph server
+			- que's API, to the UI
+			- traces, to Langfuse
+			- a plugin's card (`plugin.json`), to its author: `card/` writes it from the plugin's definition
+	- composition: what each layer owns, and what it hands to the next
+		- mount (`mount/`): what exists. Loads each plugin the environment lists, checks it against the contract, and reads each agent, loop and model config. Stops when an agent names a plugin that is not mounted, or a loop or a model that is not listed. Hands on: the mounted plugins and configs
+		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog
+		- assemble (`assemble/`): the agent. The catalog and the agent's units in, the slots out (prompt, tools, middleware). Built for one unit, loading: one config on a shared base. Hands on: the agent
+		- run (`run/`): serving the agent. Hands the slots to the framework, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names a framework: LangChain and the LangGraph server
+	- flow: when each layer runs
+		- que starts: mount, once, the same for every user
+		- a chat starts: access, then assemble. The chat keeps that agent: an edit to access or to the user's instructions is in the next chat
+		- each message: run
 - **Backend**: what an agent runs on. Part of que. One exists
 	- what it supplies
 		- identity, users and credentials: on Postgres
