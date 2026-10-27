@@ -7,7 +7,7 @@
 import { lint, type Piece, type Problem } from "@mku1tra/basis";
 import { cardOf, type Card } from "./card.ts";
 import { faults, named, refuse } from "./check.ts";
-import { PluginDefinition } from "./contract.ts";
+import { Plugin } from "./contract.ts";
 import { pluginFiles } from "./layout.ts";
 import { NAMESPACE, nameIn } from "./names.ts";
 import { plugin } from "./schema.ts";
@@ -115,7 +115,7 @@ export const sayProblem = ({ path, field, message, rule }: Problem) =>
 
 // What the plugin schema finds wrong with a definition that keeps the contract: its card's pieces, checked alone. An op
 // schema with no JSON Schema form has no card, and is a fault of its own.
-function ruleFaults(definition: PluginDefinition): string[] {
+function ruleFaults(definition: Plugin): string[] {
   let card: Card;
   try {
     card = cardOf({ definition, cases: [] });
@@ -134,12 +134,10 @@ function ruleFaults(definition: PluginDefinition): string[] {
  * schema's rules read a definition that keeps the contract. It is checked alone, with no skills or cases: what it
  * uses is another plugin's, which a deployment gives.
  */
-export function validatePlugin(
-  def: PluginDefinition | undefined,
-): asserts def is PluginDefinition {
-  const contract = faults(PluginDefinition, def);
+export function validatePlugin(def: Plugin | undefined): asserts def is Plugin {
+  const contract = faults(Plugin, def);
   refuse(
     `plugin${named(def)} is invalid`,
-    contract.length ? contract : ruleFaults(def as PluginDefinition),
+    contract.length ? contract : ruleFaults(def as Plugin),
   );
 }

@@ -11,7 +11,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 type Rule = { path: RegExp; why: string } | { code: string; why: string };
 
 const tests = ["**/*.test.ts"];
-const src = "harness/src";
+const src = "runtime/src";
 
 /** A selector for a path, with the slashes that end it escaped. */
 const matching = (path: RegExp) => `/${path.source}/`;
@@ -99,21 +99,29 @@ const credentials: Rule = {
   path: /credentials|access\/connections/,
   why: "A way of loading does not reach for credentials.",
 };
-const modelsAlone: Rule = {
-  path: /harness|backend|evals|@que\/(?!core)|@mku1tra\/que-plugin/,
-  why: "The model maker imports the core, and nothing from the harness, the backend or the eval runner: the harness and the eval runner both import it.",
+const chatModelAlone: Rule = {
+  path: /^(?!\.\/|@mku1tra\/que-harness$|langchain$|@langchain\/|node:)/,
+  why: "@que/chat-model imports only its own files, @mku1tra/que-harness, LangChain and node: the runtime and the eval runner both import it, never the other way.",
 };
 const providers: Rule = {
   path: /^@langchain\/(?:openai|fireworks)(?:\/|$)/,
-  why: "Only models/ names a provider package.",
+  why: "Only chat-model/ names a provider package.",
 };
 const pluginAlone: Rule = {
   path: /^(?!\.\/|@mku1tra\/basis$|ajv(?:\/|$)|zod(?:\/|$)|node:)/,
-  why: "@mku1tra/que-plugin imports only its own files, basis, ajv, zod and node: the harness and the core build on it, never the other way.",
+  why: "@mku1tra/que-plugin imports only its own files, basis, ajv, zod and node: the harness package and the runtime build on it, never the other way.",
 };
-const framework: Rule = {
-  path: /langchain|langgraph/,
-  why: "The core and the ontology import no agent framework.",
+const harnessAlone: Rule = {
+  path: /^(?!\.\/|@mku1tra\/basis$|@mku1tra\/que-plugin$|zod(?:\/|$)|node:)/,
+  why: "@mku1tra/que-harness imports only its own files, basis, zod, @mku1tra/que-plugin and node: the runtime, the model maker and the eval runner build on it, never the other way.",
+};
+const backendAlone: Rule = {
+  path: /^@que\/(?:runtime|chat-model|evals)(?:\/|$)|^(?:\.\.\/)+(?:runtime|chat-model|evals)(?:\/|$)/,
+  why: "The backend imports nothing from @que/runtime, @que/chat-model or @que/evals: the runtime stands on it, never the other way.",
+};
+const runtimeAlone: Rule = {
+  path: /^@que\/(?!chat-model$|credentials$|identity$|users$)|^(?:\.\.\/)+(?:plugin|harness|chat-model|backend|evals)\//,
+  why: "@que/runtime imports, of que's packages, only @mku1tra/que-plugin, @mku1tra/que-harness, @que/chat-model and the backend (@que/credentials, @que/identity, @que/users), each by its name: it builds on them, and no package imports it.",
 };
 
 // Agents, loops and models are mounted by one function, mountFiles in mount/files.ts.
@@ -144,8 +152,8 @@ const tracedByTrace: Rule[] = [
 
 const evals = "evals/src";
 const evalsAlone: Rule = {
-  path: /harness|backend|@que\/(?!core|models)|^(?:\.\.\/)+models(?:\/|$)/,
-  why: "The eval runner imports the plugin package, the core and the model maker, by its name @que/models, and nothing from the harness or the backend.",
+  path: /^@que\/(?!chat-model$)|^(?:\.\.\/)+(?:plugin|harness|chat-model|runtime|backend)(?:\/|$)/,
+  why: "The eval runner imports, of que's packages, only @mku1tra/que-plugin, @mku1tra/que-harness and the model maker, @que/chat-model, each by its name, and nothing from the runtime or the backend.",
 };
 const langGraphSdk: Rule = {
   path: /langgraph/,
@@ -156,15 +164,15 @@ const langfuseSdk: Rule = {
   why: "Only evals/src/langfuse.ts imports the Langfuse SDK, or OpenTelemetry.",
 };
 const judgeModel: Rule = {
-  path: /^@que\/models$/,
-  why: "Only evals/src/judge.ts imports @que/models, the maker of the judge's model.",
+  path: /^@que\/chat-model$/,
+  why: "Only evals/src/judge.ts imports @que/chat-model, the maker of the judge's model.",
 };
 const evalsFramework: Rule = {
   path: /^langchain(?:\/|$)|^@langchain\/(?!langgraph)/,
-  why: "The eval runner names no model framework: the judge's model comes from @que/models.",
+  why: "The eval runner names no model framework: the judge's model comes from @que/chat-model.",
 };
 
-// One lint setup for the server: plugin, core, ontology, backend, models, harness, evals and tests.
+// One lint setup for the server: plugin, harness, backend, chat-model, runtime, evals and tests.
 export default defineConfig([
   globalIgnores(["**/node_modules", "plugin/dist"]),
   {
@@ -184,9 +192,9 @@ export default defineConfig([
   // The import rules. A later entry replaces an earlier one for the files it names.
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp, providers]),
   hold(["plugin/src/**/*.ts"], [pluginAlone]),
-  hold(["core/**/*.ts"], [otherApp, providers, framework]),
-  hold(["ontology/**/*.ts"], [otherApp, providers, framework]),
-  hold(["models/**/*.ts"], [otherApp, modelsAlone]),
+  hold(["harness/src/**/*.ts"], [harnessAlone]),
+  hold(["chat-model/**/*.ts"], [otherApp, chatModelAlone]),
+  hold(["backend/**/*.ts"], [otherApp, providers, backendAlone]),
 
   // The eval runner. Its tests can use what they need.
   hold(
@@ -239,10 +247,18 @@ export default defineConfig([
     ],
   ),
 
-  // The harness, a folder at a time.
+  // The runtime, a folder at a time. Each entry holds it to its packages too.
+  hold([`${src}/**/*.ts`], [otherApp, providers, runtimeAlone]),
   hold(
     [`${src}/mount/**/*.ts`],
-    [otherApp, providers, direction("mount"), deepagents, langfuse],
+    [
+      otherApp,
+      providers,
+      runtimeAlone,
+      direction("mount"),
+      deepagents,
+      langfuse,
+    ],
     tests,
   ),
   hold(
@@ -250,6 +266,7 @@ export default defineConfig([
     [
       otherApp,
       providers,
+      runtimeAlone,
       direction("mount"),
       deepagents,
       langfuse,
@@ -258,7 +275,14 @@ export default defineConfig([
   ),
   hold(
     [`${src}/access/**/*.ts`],
-    [otherApp, providers, direction("access"), deepagents, langfuse],
+    [
+      otherApp,
+      providers,
+      runtimeAlone,
+      direction("access"),
+      deepagents,
+      langfuse,
+    ],
     tests,
   ),
   hold(
@@ -266,6 +290,7 @@ export default defineConfig([
     [
       otherApp,
       providers,
+      runtimeAlone,
       direction("assemble"),
       deepagents,
       langfuse,
@@ -275,7 +300,7 @@ export default defineConfig([
   ),
   hold(
     [`${src}/run/*.ts`],
-    [otherApp, providers, deepagents, langfuse, loading],
+    [otherApp, providers, runtimeAlone, deepagents, langfuse, loading],
     tests,
   ),
   hold(
@@ -283,6 +308,7 @@ export default defineConfig([
     [
       otherApp,
       providers,
+      runtimeAlone,
       deepagents,
       langfuse,
       mustImport(loading.path, loading.why),
@@ -293,6 +319,7 @@ export default defineConfig([
     [
       otherApp,
       providers,
+      runtimeAlone,
       deepagents,
       loading,
       {
@@ -306,14 +333,27 @@ export default defineConfig([
   ),
   hold(
     [`${src}/run/agent.ts`],
-    [otherApp, providers, deepagents, langfuse, loading, ...tracedByTrace],
+    [
+      otherApp,
+      providers,
+      runtimeAlone,
+      deepagents,
+      langfuse,
+      loading,
+      ...tracedByTrace,
+    ],
   ),
-  hold([`${src}/run/build/**/*.ts`], [otherApp, providers, langfuse], tests),
+  hold(
+    [`${src}/run/build/**/*.ts`],
+    [otherApp, providers, runtimeAlone, langfuse],
+    tests,
+  ),
   hold(
     [`${src}/run/build/build.ts`],
     [
       otherApp,
       providers,
+      runtimeAlone,
       langfuse,
       mustImport(deepagents.path, deepagents.why),
     ],
@@ -323,11 +363,16 @@ export default defineConfig([
   ...["mount", "access", "assemble"].map((folder) =>
     hold(
       [`${src}/${folder}/**/*.test.ts`],
-      [otherApp, providers, direction(folder, { inTest: true })],
+      [otherApp, providers, runtimeAlone, direction(folder, { inTest: true })],
     ),
   ),
   hold(
     [`${src}/assemble/fixture.ts`],
-    [otherApp, providers, direction("assemble", { inTest: true })],
+    [
+      otherApp,
+      providers,
+      runtimeAlone,
+      direction("assemble", { inTest: true }),
+    ],
   ),
 ]);

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { defineDeployment } from "@que/core";
+import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
   name: "absolute",

@@ -17,16 +17,16 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadDeployment } from "../../../harness/src/mount/deployment.js";
-import * as fromDeployment from "../../../harness/src/mount/deployment.js";
-import type { FactSources } from "../../../harness/src/mount/model-facts/index.js";
+import { loadDeployment } from "../../../runtime/src/mount/deployment.js";
+import * as fromDeployment from "../../../runtime/src/mount/deployment.js";
+import type { FactSources } from "../../../runtime/src/mount/model-facts/index.js";
 import {
   loadPlugin,
   mountPlugin,
   mountPlugins,
   type MountedPlugin,
-} from "../../../harness/src/mount/plugins.js";
-import { writeCard } from "../../../harness/src/card/writer.js";
+} from "../../../runtime/src/mount/plugins.js";
+import { writeCard } from "../../../runtime/src/card/writer.js";
 
 const fixtures = join(import.meta.dirname, "fixtures");
 const deployment = (name: string) => join(fixtures, "deployments", name);
@@ -63,7 +63,7 @@ const byName = (plugins: string[]) => {
   const fixture = (path: string) => JSON.stringify(join(fixtures, path));
   writeFileSync(
     join(dir, "index.ts"),
-    `import { defineDeployment } from "@que/core";
+    `import { defineDeployment } from "@mku1tra/que-harness";
 export default defineDeployment({
   name: "by-name",
   plugins: ${JSON.stringify(plugins)},

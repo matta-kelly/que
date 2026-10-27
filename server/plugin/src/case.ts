@@ -6,7 +6,7 @@
 
 import * as z from "zod";
 import { check, once, strict } from "./check.ts";
-import type { PluginDefinition } from "./contract.ts";
+import type { Plugin } from "./contract.ts";
 import { fieldsOf, standardName, text } from "./fields.ts";
 import { plugin } from "./schema.ts";
 
@@ -38,10 +38,7 @@ export function defineCases(cases: Case[]): Case[] {
  * lists every problem. A plugin's own test calls this, as it calls
  * `validatePlugin`.
  */
-export function validateCases(
-  definition: PluginDefinition,
-  cases: Case[],
-): void {
+export function validateCases(definition: Plugin, cases: Case[]): void {
   const capabilities = new Set(definition.capabilities.map((c) => c.name));
   const known = fieldsOf(types.case).capability.refine(
     (capability) => !capability.trim() || capabilities.has(capability),

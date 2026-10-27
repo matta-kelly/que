@@ -1,4 +1,4 @@
-import { defineModel } from "@que/core";
+import { defineModel } from "@mku1tra/que-harness";
 
 export default defineModel({
   name: "big",

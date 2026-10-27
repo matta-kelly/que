@@ -5,7 +5,7 @@
 
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { startTracing } from "../../../harness/src/run/trace.js";
+import { startTracing } from "../../../runtime/src/run/trace.js";
 import { TRACES, reportingAgent, runAsTheServer, standIn } from "./stand-in.js";
 
 // The Langfuse SDK sends what it holds on a timer. Its own setting, in seconds.

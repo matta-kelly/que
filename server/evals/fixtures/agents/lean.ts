@@ -1,4 +1,4 @@
-import { defineAgent } from "@que/core";
+import { defineAgent } from "@mku1tra/que-harness";
 
 export default defineAgent({
   name: "lean",

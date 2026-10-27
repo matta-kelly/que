@@ -27,7 +27,7 @@ after(() => rmSync(work, { recursive: true, force: true }));
 const check = (dir: string) =>
   spawnSync(
     join(server, "node_modules/.bin/tsx"),
-    ["harness/src/mount/check-plugin.ts", dir],
+    ["runtime/src/mount/check-plugin.ts", dir],
     { cwd: server, encoding: "utf8" },
   );
 

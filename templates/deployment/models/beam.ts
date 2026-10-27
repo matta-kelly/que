@@ -1,4 +1,4 @@
-import { defineModel } from "@que/core";
+import { defineModel } from "@mku1tra/que-harness";
 
 // Beam, Reflection's model. To run on it, list this file in `models` in index.ts, and set BEAM_API_KEY in
 // the .env. que fills in its `window` from Reflection, and its `price` from models.dev.

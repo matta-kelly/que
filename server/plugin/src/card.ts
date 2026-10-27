@@ -17,7 +17,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import * as z from "zod";
 import { Case } from "./case.ts";
 import { check } from "./check.ts";
-import { Capability, Role, Uses, type PluginDefinition } from "./contract.ts";
+import { Capability, AccessRole, Uses, type Plugin } from "./contract.ts";
 import { fieldsOf, standardName, text } from "./fields.ts";
 import { pluginFiles } from "./layout.ts";
 import { NAMESPACE, nameIn } from "./names.ts";
@@ -56,7 +56,7 @@ export const Card = z.object({
           input: fieldsOf(op).input,
         }),
       ),
-      roles: z.array(Role),
+      roles: z.array(AccessRole),
       uses: Uses,
       capabilities: z.array(Capability),
       cases: z.array(Case),
@@ -175,7 +175,7 @@ function schemaJson(schema: z.ZodType, what: string): Schema {
 
 /** The card of a plugin, from its definition, its cases and, when its package.json gives one, its version. */
 export function cardOf(
-  { definition, cases }: { definition: PluginDefinition; cases: Case[] },
+  { definition, cases }: { definition: Plugin; cases: Case[] },
   version?: string,
 ): Card {
   return {
@@ -253,7 +253,7 @@ function versionIn(dir: string): string | undefined {
 }
 
 /** What a card is made from: a plugin's definition and its cases. */
-type Made = { definition: PluginDefinition; cases: Case[] };
+type Made = { definition: Plugin; cases: Case[] };
 
 /** The card the plugin in `dir` must have, from its definition and its cases, checked. */
 export function checkedCard(dir: string, made: Made): Card {

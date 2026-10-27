@@ -20,7 +20,7 @@ export type Que = {
   run(input: string, agent?: string): Promise<Message[]>;
 };
 
-// The graph que serves (server/harness/langgraph.json).
+// The graph que serves (server/runtime/langgraph.json).
 const GRAPH = "agent";
 // On the trace que sends of each run: it tells a run of the runner from a chat.
 const TAG = "eval";

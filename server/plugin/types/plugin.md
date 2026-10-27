@@ -1,6 +1,6 @@
 ---
 type: type
-description: "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `PluginDefinition` in @mku1tra/que-plugin."
+description: "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `Plugin` in @mku1tra/que-plugin."
 ---
 The concern this plugin holds, in one line: what it is, and when an agent uses it.
 - [[#Parts]] how its ops and skills give its capabilities

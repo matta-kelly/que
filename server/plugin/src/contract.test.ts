@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePlugin, type PluginDefinition, type Role } from "./contract.ts";
+import { definePlugin, type Plugin, type AccessRole } from "./contract.ts";
 import { validatePlugin } from "./lint.ts";
 
 const notes = definePlugin({
@@ -263,7 +263,7 @@ test("validatePlugin takes a plugin whose roles are each named by its ops", () =
 // Each role fault is reported once: op-role for an op with no role, and basis/link for a role that is not there.
 const roleFaults: [
   string,
-  Pick<PluginDefinition, "ops"> & { roles?: Role[] },
+  Pick<Plugin, "ops"> & { roles?: AccessRole[] },
   string,
 ][] = [
   [

@@ -34,7 +34,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 	- general goal of something that runs locally but cna be persistent  --> can mount files but it also artifact native
 	- evals / UI: impalement some feedback component --> would be nice to tie to traces at some point
 		- [component](https://www.assistant-ui.com/elements/feedback-dialog)
-	- que in the basis lens: que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis: the plugin schema in `@mku1tra/que-plugin`, and the harness schema in `@que/ontology`, and que's code is built from their types. A plugin's things are nodes, read from its card; a note of the same name is another piece of the same node. The runtime runs the code, and the agent navigates the graph
+	- que in the basis lens: que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis: the plugin schema in `@mku1tra/que-plugin`, and the harness schema in `@mku1tra/que-harness`, and que's code is built from their types. A plugin's things are nodes, read from its card; a note of the same name is another piece of the same node. The runtime runs the code, and the agent navigates the graph
 	- que mounts itself: a que plugin (que's ontology plus skills) and a capability plugin (the rail as skills) make a builder agent that navigates the factory and builds agents in it
 	- Look into mem0 for memeory
 
@@ -126,13 +126,13 @@ agent ─────────────────▶  assemble  turn its
 		- state. The LangGraph thread
 		- workspace. None
 		- trigger and lifetime. A chat
-- **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/harness`. Four layers, each one a folder in `server/harness/src/`
+- **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/runtime`. Four layers, each one a folder in `server/runtime/src/`
 	- boundary: what crosses into and out of the harness
 		- in
 			- plugins, through the plugin contract (`@mku1tra/que-plugin`)
-			- the deployment's definition and its agent, loop and model configs
+			- the deployment's definition and its agent, loop and model configs, written against `@mku1tra/que-harness`
 			- the backend: users, credentials and identity (`@que/users`, `@que/credentials`, `@que/identity`)
-			- models (`@que/models`)
+			- models (`@que/chat-model`)
 		- out
 			- the agent, to the LangGraph server
 			- que's API, to the UI

@@ -5,7 +5,8 @@
  */
 
 import type { Verdict } from "./judge.js";
-import type { Agent, LoadedCase } from "./load.js";
+import type { Agent } from "@mku1tra/que-harness";
+import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
 import type { Outcome } from "./report.js";
 

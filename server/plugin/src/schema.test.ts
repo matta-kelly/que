@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
+import * as exported from "./index.ts";
 import { plugin } from "./schema.ts";
 
 type Name = keyof typeof plugin.types;
@@ -95,4 +96,21 @@ test("a case that names two capabilities fails, on its capability", () => {
 test("a node with a field not on its type fails, on that field", () => {
   const issue = issueOf("capability", { ...findFabric, heldBy: "landl-db" });
   assert.equal(issue?.code, "unrecognized_keys");
+});
+
+/** A type's name as code writes it: `access-role` is `AccessRole`. */
+const pascal = (name: string) =>
+  name
+    .split("-")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join("");
+
+test("each type of the plugin schema is a schema the package exports by its name in PascalCase", () => {
+  for (const { name } of Object.values(plugin.types)) {
+    const code = (exported as Record<string, unknown>)[pascal(name)];
+    assert.ok(
+      code instanceof z.ZodType,
+      `no export ${pascal(name)} for the type ${name}`,
+    );
+  }
 });

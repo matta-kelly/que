@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { Name } from "@mku1tra/basis";
-import { definePlugin, OperationFailed, plugin } from "@mku1tra/que-plugin";
+import { definePlugin, OpFailed, plugin } from "@mku1tra/que-plugin";
 
 export default definePlugin({
   name: "notes",
@@ -21,7 +21,7 @@ export default definePlugin({
           .describe("The capability the note is about"),
       }),
       run: async () => {
-        throw new OperationFailed("the notes are not reachable");
+        throw new OpFailed("the notes are not reachable");
       },
     },
   ],

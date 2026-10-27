@@ -1,7 +1,7 @@
 /**
  * Mount, from a folder that is not inside que: a deployment that holds its
  * own plugin. The fixtures are copied to the system's temp folder first, so
- * that nothing above them can supply `@mku1tra/que-plugin` or `@que/core`.
+ * that nothing above them can supply `@mku1tra/que-plugin` or `@mku1tra/que-harness`.
  * The type check of such a folder, as `just check-folder` runs it, is here too:
  * its plugin imports each name que supplies.
  */
@@ -12,10 +12,10 @@ import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OperationFailed } from "@mku1tra/que-plugin";
-import { loadDeployment } from "../../../harness/src/mount/deployment.js";
-import { mountPlugins } from "../../../harness/src/mount/plugins.js";
-import { checkConfig } from "../../../harness/src/mount/supplied.js";
+import { OpFailed } from "@mku1tra/que-plugin";
+import { loadDeployment } from "../../../runtime/src/mount/deployment.js";
+import { mountPlugins } from "../../../runtime/src/mount/plugins.js";
+import { checkConfig } from "../../../runtime/src/mount/supplied.js";
 
 const outside = mkdtempSync(join(tmpdir(), "que-outside-"));
 cpSync(join(import.meta.dirname, "fixtures"), outside, { recursive: true });
@@ -32,7 +32,7 @@ test("que mounts a deployment and its plugin from a folder outside que", async (
   );
 });
 
-test("a plugin outside que gets que's @mku1tra/que-plugin, its source, so an OperationFailed it throws is que's class", async () => {
+test("a plugin outside que gets que's @mku1tra/que-plugin, its source, so an OpFailed it throws is que's class", async () => {
   assert.ok(
     import.meta
       .resolve("@mku1tra/que-plugin")
@@ -43,7 +43,7 @@ test("a plugin outside que gets que's @mku1tra/que-plugin, its source, so an Ope
   await assert.rejects(
     find.run({ conn: undefined }, { title: "a note" }),
     (error: Error) =>
-      error instanceof OperationFailed &&
+      error instanceof OpFailed &&
       error.message === "the notes are not reachable",
   );
 });

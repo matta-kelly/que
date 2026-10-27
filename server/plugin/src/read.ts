@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { validateCases, type Case } from "./case.ts";
-import type { PluginDefinition } from "./contract.ts";
+import type { Plugin } from "./contract.ts";
 import { locatePlugin, type PluginFiles } from "./layout.ts";
 import { validatePlugin } from "./lint.ts";
 
@@ -17,12 +17,11 @@ const defaultOf = async (file: string): Promise<unknown> =>
 /** The plugin in `dir`: its files, its definition and its cases, checked. Throws naming the folder and the fault. */
 export async function readDefinition(dir: string): Promise<{
   files: PluginFiles;
-  definition: PluginDefinition;
+  definition: Plugin;
   cases: Case[];
 }> {
   const files = locatePlugin(dir);
-  const definition = (await defaultOf(files.definition)) as
-    PluginDefinition | undefined;
+  const definition = (await defaultOf(files.definition)) as Plugin | undefined;
   try {
     validatePlugin(definition);
   } catch (error) {

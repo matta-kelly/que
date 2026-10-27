@@ -11,7 +11,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 - [[#What it never knows]] the line between a plugin and the harness
 - [[#Layout]] the folder, and the three kinds of proof
 
-- [[operation]]: what an operation is, and what makes a good one
+- [[op-contract]]: what an operation is, and what makes a good one
 - `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the cards. Not all of it is built: the control plane, and roles on cc's connectors
 
 ## Standard
@@ -38,7 +38,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
 	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name. So two plugins can give one name (odoo's `find-partners`, odoo-find's `partners`), and two can list one capability: mount refuses a deployment where they do, naming both (`basis/unique-name`)
 	- each field is defined once, in the plugin schema's types: the contract and the card are built from them, and a note of the thing is checked with the same type
-- **what the model can do**: operations. Each becomes a tool, named `<plugin>-<op>`, which is also its node's name, and runs in que. What one is, and what makes a good one: [[operation]]
+- **what the model can do**: operations. Each becomes a tool, named `<plugin>-<op>`, which is also its node's name, and runs in que. What one is, and what makes a good one: [[op-contract]]
 	- other harnesses reach them through a remote MCP server in que (not built), not on their own
 - **what the model can read**: skills, as the standard has them. Each folder under `skills/` with a `SKILL.md` is one; the definition lists none
 	- read as basis reads a note (`readNote`), by `parseSkill`, which mount and the source both use. Its frontmatter: `name` (its folder's), `description`, and que's title in `metadata.title`. With no title, its name is its title. The standard's other fields are taken and not read
@@ -82,12 +82,12 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 
 ## What it promises
 
-- each operation keeps the promises in [[operation]]: its tool card, its answers, and what a write promises
+- each operation keeps the promises in [[op-contract]]: its tool card, its answers, and what a write promises
 
 ## What it never knows
 
 - which agent uses it, or how it is shown to the model
-- any agent framework. From que a plugin imports only `@mku1tra/que-plugin`, `zod` and `@mku1tra/basis`; `@que/core` is a deployment's, for its definition and its configs. The harness supplies each of them to a folder outside que: by those exact names they resolve to que's copy, even when the folder installs its own. A subpath, such as `zod/v4`, is not supplied
+- any agent framework. From que a plugin imports only `@mku1tra/que-plugin`, `zod` and `@mku1tra/basis`; `@mku1tra/que-harness` is a deployment's, for its definition and its configs. The runtime supplies each of them to a folder outside que: by those exact names they resolve to que's copy, even when the folder installs its own. A subpath, such as `zod/v4`, is not supplied
 - what else it needs, it brings itself: a library such as a database driver is a dependency in its own `package.json`, and the deployment installs it. A library it brings also gets que's copy of the supplied names, so it must work with que's versions of them
 - the test: if removing the folder needs a change to the harness, it was not a plugin
 
@@ -113,6 +113,6 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 - a definition at the plugin's root fails the mount, saying que's files moved into the namespace folder
 
 - three kinds of proof, one home each
-	- contract checks: the same for every plugin. As [[operation]] gains a rule that code can check, `validatePlugin` checks it, and every plugin gets it
+	- contract checks: the same for every plugin. As [[op-contract]] gains a rule that code can check, `validatePlugin` checks it, and every plugin gets it
 	- op tests: one behaviour of one operation, named `<operation>: <behaviour>`, with no network. Each write operation has two more: the same call twice answers `unchanged`, and a value that is not allowed fails with the allowed ones
 	- cases: one behaviour of one capability, with the model, against the real service

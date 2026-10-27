@@ -16,7 +16,7 @@ stop:
 logs:
     just --justfile {{que}}/justfile logs
 
-# mount this deployment with no .env and no network, from its saved model facts, then type check it and the packages it lists, and run their tests, against que's core
+# mount this deployment with no .env and no network, from its saved model facts, then type check it and the packages it lists, and run their tests, against que's supplied packages
 check:
     just --justfile {{que}}/justfile check-deployment {{here}}
 

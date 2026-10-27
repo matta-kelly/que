@@ -99,8 +99,8 @@ console.log(JSON.stringify({
   );
   for (const name of [
     "definePlugin",
-    "Operation",
-    "OperationFailed",
+    "Op",
+    "OpFailed",
     "defineCases",
     "validatePlugin",
     "validateCases",
@@ -114,7 +114,7 @@ test("a plugin in that folder type checks on the types in dist/index.d.ts", () =
   writeFileSync(
     join(outside, "index.ts"),
     `import * as z from "zod";
-import { definePlugin, OperationFailed } from "@mku1tra/que-plugin";
+import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 
 export default definePlugin({
   name: "notes",
@@ -127,7 +127,7 @@ export default definePlugin({
       description: "Finds a note by its title.",
       schema: z.object({ title: z.string().describe("The note's title") }),
       run: async () => {
-        throw new OperationFailed("the notes are not reachable");
+        throw new OpFailed("the notes are not reachable");
       },
     },
   ],

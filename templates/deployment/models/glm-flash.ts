@@ -1,4 +1,4 @@
-import { defineModel } from "@que/core";
+import { defineModel } from "@mku1tra/que-harness";
 
 // One model this deployment's agents can run on. These three fields are the choices, and each is needed.
 // que fills in what is true of the model when it starts: its `window` from the provider, and its `price`

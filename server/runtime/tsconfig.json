@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.base.json",
+  "include": [
+    "**/*.ts",
+    "../plugin/src/**/*.ts",
+    "../harness/src/**/*.ts",
+    "../backend/**/*.ts",
+    "../chat-model/**/*.ts",
+    "../evals/**/*.ts",
+    "../tests/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

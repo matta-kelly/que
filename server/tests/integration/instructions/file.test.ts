@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fromFile } from "../../../harness/src/access/instructions.js";
+import { fromFile } from "../../../runtime/src/access/instructions.js";
 
 test("the text is the content of the file, and a change to the file is in the next read", async () => {
   const file = join(await mkdtemp(join(tmpdir(), "que-")), "agents.md");

@@ -1,7 +1,7 @@
 # que UI
 
 Chat UI for the que agent, built on [assistant-ui](https://www.assistant-ui.com/docs)
-(from its `with-langgraph` example). Talks to the LangGraph server serving `server/harness/`
+(from its `with-langgraph` example). Talks to the LangGraph server serving `server/runtime/`
 through the proxy at `app/api/[..._path]`.
 
 - `app/`: routes, plus the root layout

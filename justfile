@@ -85,12 +85,12 @@ eval deployment *args: _require-up
     commit=$(git -C "{{root}}" rev-parse --short HEAD)
     dirty=$(git -C "{{root}}" status --porcelain --untracked-files=no)
     if [ -n "$dirty" ]; then commit="$commit-dirty"; fi
-    # The deployment imports the core by name, and has no copy of its own: it is handed que's, as mount hands it.
+    # The deployment imports @mku1tra/que-harness by name, and has no copy of its own: it is handed que's, as mount hands it.
     # The runner takes its settings from the deployment's .env, as the server does.
-    podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/harness/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
+    podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/runtime/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
 # Mount a deployment with no .env and no network, from its saved model facts, then type check its own code and the packages it lists,
-# and run their tests, with que's core handed to all of them. A deployment that would not mount stops here, with mount's error.
+# and run their tests, with que's supplied packages handed to all of them. A deployment that would not mount stops here, with mount's error.
 # A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
     #!/usr/bin/env bash
@@ -100,12 +100,12 @@ check-deployment deployment:
     c=$(./scripts/container.sh "$dep")
     h="{{root}}/server"
     # Into a variable first: a failure inside `< <(...)` would not stop the recipe.
-    listed=$(podman exec -u node -w "$h" "$c" npx tsx harness/src/mount/check-deployment.ts "$dep")
+    listed=$(podman exec -u node -w "$h" "$c" npx tsx runtime/src/mount/check-deployment.ts "$dep")
     pkgs=()
     [ -z "$listed" ] || mapfile -t pkgs <<<"$listed"
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dep" "${pkgs[@]}"
 
-# Type check any folder of TypeScript and run its tests, with que's core handed to it: a package, or code that sits beside a deployment
+# Type check any folder of TypeScript and run its tests, with que's supplied packages handed to it: a package, or code that sits beside a deployment
 check-folder folder:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -123,10 +123,10 @@ check-plugin folder:
     dir=$(cd "{{invocation_directory()}}" && cd "{{folder}}" && pwd)
     cd "{{root}}"
     c=$(./scripts/container.sh "$dir")
-    podman exec -u node -w "{{root}}/server" "$c" npx tsx harness/src/mount/check-plugin.ts "$dir"
+    podman exec -u node -w "{{root}}/server" "$c" npx tsx runtime/src/mount/check-plugin.ts "$dir"
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
-# Write a plugin folder its card, plugin.json, made from its definition, with que's core handed to it.
+# Write a plugin folder its card, plugin.json, made from its definition, with que's supplied packages handed to it.
 # A plugin that breaks the contract, or whose card would break Agent Plugins 1.0, stops here and writes nothing.
 card folder:
     #!/usr/bin/env bash
@@ -134,15 +134,15 @@ card folder:
     dir=$(cd "{{invocation_directory()}}" && cd "{{folder}}" && pwd)
     cd "{{root}}"
     c=$(./scripts/container.sh "$dir")
-    podman exec -u node -w "{{root}}/server" "$c" npx tsx harness/src/card/write.ts "$dir"
+    podman exec -u node -w "{{root}}/server" "$c" npx tsx runtime/src/card/write.ts "$dir"
 
-# The folders have no install of their own: the compiler is told where que keeps what they import (server/harness/src/mount/supplied.ts).
+# The folders have no install of their own: the compiler is told where que keeps what they import (server/runtime/src/mount/supplied.ts).
 _check-folders container +folders:
     #!/usr/bin/env bash
     set -euo pipefail
     h="{{root}}/server"
     folders=({{folders}})
-    podman exec -u node -w "$h" "{{container}}" sh -c 'mkdir -p /tmp/que-check && npx tsx harness/src/mount/check-config.ts "$@" > /tmp/que-check/tsconfig.json' sh "${folders[@]}"
+    podman exec -u node -w "$h" "{{container}}" sh -c 'mkdir -p /tmp/que-check && npx tsx runtime/src/mount/check-config.ts "$@" > /tmp/que-check/tsconfig.json' sh "${folders[@]}"
     podman exec -u node -w "$h" "{{container}}" npx tsc --noEmit -p /tmp/que-check/tsconfig.json
     for f in "${folders[@]}"; do
         # A folder with no tests has nothing to run.
@@ -150,7 +150,7 @@ _check-folders container +folders:
         [ -n "$tests" ] || continue
         echo "tests: $f"
         # No npm starts this, so it sets server/.npmrc's source condition itself: que's packages resolve to their source.
-        podman exec -u node -w "$f" -e NODE_OPTIONS=--conditions=@mku1tra/que-source "{{container}}" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
+        podman exec -u node -w "$f" -e NODE_OPTIONS=--conditions=@mku1tra/que-source "{{container}}" "$h/node_modules/.bin/tsx" --import "$h/runtime/src/mount/supply.ts" --test "**/*.test.ts"
     done
     echo "check passed"
 

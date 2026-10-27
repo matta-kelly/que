@@ -11,12 +11,12 @@ import { plugin } from "./schema.ts";
 const types = plugin.types;
 
 /** The one failure type. Anything a plugin throws that isn't this is a bug. */
-export class OperationFailed extends Error {
-  override name = "OperationFailed";
+export class OpFailed extends Error {
+  override name = "OpFailed";
 }
 
 /** One operation a plugin exposes. Becomes a tool, named `<plugin>-<op>` (nameIn), which is also its node's name. */
-export const Operation = z.object({
+export const Op = z.object({
   /** Its name in its plugin. */
   name: standardName,
   title: fieldsOf(types.op).title,
@@ -40,8 +40,8 @@ export const Operation = z.object({
   role: standardName.optional(),
 });
 
-export type Operation<Conn = unknown, S extends z.ZodType = z.ZodType> = Omit<
-  z.infer<typeof Operation>,
+export type Op<Conn = unknown, S extends z.ZodType = z.ZodType> = Omit<
+  z.infer<typeof Op>,
   "schema" | "run"
 > & {
   schema: S;
@@ -61,12 +61,12 @@ export type Capability = z.infer<typeof Capability>;
  * One access level of an internal service, which que holds one login for (warehouse `read`, `write`).
  * A third-party service enforces its own, so its plugin lists none.
  */
-export const Role = z.object({
+export const AccessRole = z.object({
   name: standardName,
   description: text,
 });
 
-export type Role = z.infer<typeof Role>;
+export type AccessRole = z.infer<typeof AccessRole>;
 
 /**
  * What a domain uses from connectors: their ops and skills, each by its name in the graph, `<plugin>-<name>` (nameIn):
@@ -99,7 +99,7 @@ export type ServiceIdentity = {
  * object) and how to turn it into a connection; self-contained plugins leave
  * both out.
  */
-export const PluginDefinition = z.strictObject(
+export const Plugin = z.strictObject(
   {
     // Its name in the open standard (`plugin.json`), and the start of each of its tool names.
     name: standardName,
@@ -115,13 +115,13 @@ export const PluginDefinition = z.strictObject(
     connect: fn.optional(),
     whoami: fn.optional(),
     ops: z
-      .array(Operation, { error: "must be an array" })
+      .array(Op, { error: "must be an array" })
       .superRefine(once((op) => op.name)),
     capabilities: z
       .array(Capability, { error: "must be an array" })
       .superRefine(once((capability) => capability.name)),
     roles: z
-      .array(Role, { error: "must be an array" })
+      .array(AccessRole, { error: "must be an array" })
       .superRefine(once((role) => role.name)),
     uses: Uses,
   },
@@ -134,11 +134,8 @@ export const PluginDefinition = z.strictObject(
   ),
 );
 
-export type PluginDefinition<
-  S extends z.ZodObject = z.ZodObject,
-  Conn = unknown,
-> = Omit<
-  z.infer<typeof PluginDefinition>,
+export type Plugin<S extends z.ZodObject = z.ZodObject, Conn = unknown> = Omit<
+  z.infer<typeof Plugin>,
   "credential" | "connect" | "whoami" | "ops"
 > & {
   credential?: S;
@@ -146,17 +143,17 @@ export type PluginDefinition<
   /** Who the connection is logged in as. The harness tells the model, so "me"/"mine" resolve without asking. */
   whoami?(conn: Conn): Promise<ServiceIdentity>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ops: Operation<Conn, any>[];
+  ops: Op<Conn, any>[];
 };
 
 type Listed = "ops" | "capabilities" | "roles";
 
 export function definePlugin<S extends z.ZodObject, Conn>(
-  definition: Omit<PluginDefinition<S, Conn>, Listed | "uses"> &
-    Partial<Pick<PluginDefinition<S, Conn>, Listed>> & {
+  definition: Omit<Plugin<S, Conn>, Listed | "uses"> &
+    Partial<Pick<Plugin<S, Conn>, Listed>> & {
       uses?: Partial<Uses>;
     },
-): PluginDefinition<S, Conn> {
+): Plugin<S, Conn> {
   return {
     ...definition,
     ops: definition.ops ?? [],

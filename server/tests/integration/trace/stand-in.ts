@@ -8,8 +8,8 @@ import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { AIMessage, HumanMessage, fakeModel, tool } from "langchain";
 import * as z from "zod";
-import { resolveLoop } from "@que/core";
-import { build } from "../../../harness/src/run/build/build.js";
+import { resolveLoop } from "@mku1tra/que-harness";
+import { build } from "../../../runtime/src/run/build/build.js";
 
 /** The path the Langfuse SDK posts spans to, under the base URL. */
 export const TRACES = "/api/public/otel/v1/traces";

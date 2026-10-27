@@ -4,7 +4,8 @@
  * would say nothing about the case.
  */
 
-import type { Agent, LoadedCase } from "./load.js";
+import type { Agent } from "@mku1tra/que-harness";
+import type { LoadedCase } from "./load.js";
 
 /** One case under one config. With `skipped`, it is not made, and this is why. */
 export type Planned = { case: LoadedCase; agent: string; skipped?: string };

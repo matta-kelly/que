@@ -23,8 +23,8 @@ import {
   definePlugin,
   validateCard,
 } from "@mku1tra/que-plugin";
-import { writeCard } from "../../../harness/src/card/writer.js";
-import { loadPlugin } from "../../../harness/src/mount/plugins.js";
+import { writeCard } from "../../../runtime/src/card/writer.js";
+import { loadPlugin } from "../../../runtime/src/mount/plugins.js";
 
 const work = mkdtempSync(join(tmpdir(), "que-card-"));
 after(() => rmSync(work, { recursive: true, force: true }));

@@ -13,7 +13,7 @@ import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { mountDeployment } from "../../../harness/src/mount/deployment.js";
+import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 
 const server = join(import.meta.dirname, "../../..");
 const fixtures = mkdtempSync(join(tmpdir(), "que-check-deployment-"));
@@ -26,7 +26,7 @@ const deployment = (name: string) => join(fixtures, "deployments", name);
 const check = (name: string) =>
   spawnSync(
     join(server, "node_modules/.bin/tsx"),
-    ["harness/src/mount/check-deployment.ts", deployment(name)],
+    ["runtime/src/mount/check-deployment.ts", deployment(name)],
     { cwd: server, encoding: "utf8" },
   );
 

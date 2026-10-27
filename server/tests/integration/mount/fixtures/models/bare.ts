@@ -1,4 +1,4 @@
-import { defineModel } from "@que/core";
+import { defineModel } from "@mku1tra/que-harness";
 
 // A model that writes no fact: its window and its price come from the sources.
 export default defineModel({

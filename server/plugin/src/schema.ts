@@ -17,7 +17,7 @@ import { JsonSchema, text } from "./fields.ts";
 const op = defineType({
   name: "op",
   description:
-    "One operation a plugin exposes: a tool the model calls, which runs in que. `Operation` in @mku1tra/que-plugin.",
+    "One operation a plugin exposes: a tool the model calls, which runs in que. `Op` in @mku1tra/que-plugin.",
   fields: {
     title: text,
     // The role whose login it runs with, when its plugin lists roles.
@@ -31,7 +31,7 @@ const op = defineType({
 const accessRole = defineType({
   name: "access-role",
   description:
-    "One access level of an internal service, which que holds one login for. `Role` in @mku1tra/que-plugin.",
+    "One access level of an internal service, which que holds one login for. `AccessRole` in @mku1tra/que-plugin.",
   fields: {},
 });
 
@@ -68,7 +68,7 @@ const kase = defineType({
 const pluginType = defineType({
   name: "plugin",
   description:
-    "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `PluginDefinition` in @mku1tra/que-plugin.",
+    "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `Plugin` in @mku1tra/que-plugin.",
   fields: {
     title: text,
     // The credential it needs, as JSON Schema, when it talks to a service.

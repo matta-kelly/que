@@ -1,4 +1,4 @@
-import { defineDeployment } from "@que/core";
+import { defineDeployment } from "@mku1tra/que-harness";
 
 // Its name is not the name of its folder, so the two can be told apart.
 export default defineDeployment({

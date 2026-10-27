@@ -1,6 +1,6 @@
 /**
- * `@mku1tra/que-plugin`: everything a plugin is, in one place. For an author, the contract (definePlugin, Operation,
- * OperationFailed, defineCases) and its checks (validatePlugin, validateCases). For mount and the evals, where a
+ * `@mku1tra/que-plugin`: everything a plugin is, in one place. For an author, the contract (definePlugin, Op,
+ * OpFailed, defineCases) and its checks (validatePlugin, validateCases). For mount and the evals, where a
  * plugin's files are, how it is read, its card, and the one check. For a lint, the plugin schema and the source of
  * plugins. It depends on ajv, and on basis and zod as peers. npm gets it built to `dist/`; inside que it resolves to
  * this source, with no build, by the `@mku1tra/que-source` condition.

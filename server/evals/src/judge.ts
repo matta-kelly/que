@@ -1,12 +1,13 @@
 /**
  * The judge: a model that is asked the `good` of a case about the run the
  * agent made, and answers yes or no with a reason. The one file that makes a
- * model: with `@que/models`, as a run makes its own. What it takes and hands
+ * model: with `@que/chat-model`, as a run makes its own. What it takes and hands
  * back is in the runner's own form.
  */
 
-import { chatModel } from "@que/models";
-import type { LoadedCase, Model } from "./load.js";
+import { chatModel } from "@que/chat-model";
+import type { Model } from "@mku1tra/que-harness";
+import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
 import type { Outcome } from "./report.js";
 

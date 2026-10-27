@@ -13,15 +13,11 @@ import {
   validateAgent,
   validateDeployment,
   validateModel,
-  type AgentDefinition,
-  type ModelDefinition,
-} from "@que/core";
+  type Agent,
+  type Model,
+} from "@mku1tra/que-harness";
 
 export type LoadedCase = Case & { plugin: string };
-/** An agent config, as its file gives it. */
-export type Agent = AgentDefinition;
-/** A model config, as its file gives it. */
-export type Model = ModelDefinition;
 
 const definitionIn = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;

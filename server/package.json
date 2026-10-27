@@ -4,16 +4,15 @@
   "type": "module",
   "workspaces": [
     "plugin",
-    "core",
-    "ontology",
-    "backend/*",
-    "models",
     "harness",
+    "backend/*",
+    "chat-model",
+    "runtime",
     "evals"
   ],
   "scripts": {
-    "start": "npm start -w harness",
-    "server": "npm run server -w harness"
+    "start": "npm start -w runtime",
+    "server": "npm run server -w runtime"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

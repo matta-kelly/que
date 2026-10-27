@@ -1,4 +1,4 @@
-import { defineLoop } from "@que/core";
+import { defineLoop } from "@mku1tra/que-harness";
 
 // One way an agent's loop is run. An agent config names it with `loop`. Only
 // `name` is needed: each other field is optional, and what is left out has

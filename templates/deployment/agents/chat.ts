@@ -1,4 +1,4 @@
-import { defineAgent } from "@que/core";
+import { defineAgent } from "@mku1tra/que-harness";
 
 // One way this deployment's plugins are run. `name`, `plugins`, `model` and
 // `loop` are needed. Each other field is optional, and says below what it is when left out.

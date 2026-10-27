@@ -95,11 +95,11 @@ fi
 
 check_server() {
   step "server: install" server install
-  step "server: types" server/harness npx tsc --noEmit
+  step "server: types" server/runtime npx tsc --noEmit
   step "server: lint" server npx eslint
   step "server: format" server npx prettier --check .
   step "server: unit and integration tests" server npx tsx --test --test-reporter="$reporter" \
-    "plugin/**/*.test.ts" "core/**/*.test.ts" "ontology/**/*.test.ts" "backend/**/*.test.ts" "models/**/*.test.ts" "harness/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
+    "plugin/**/*.test.ts" "harness/**/*.test.ts" "backend/**/*.test.ts" "chat-model/**/*.test.ts" "runtime/src/**/*.test.ts" "evals/**/*.test.ts" "tests/integration/**/*.test.ts"
 }
 
 # The browser tests have a budget. A browser test needs the whole app up, and one
