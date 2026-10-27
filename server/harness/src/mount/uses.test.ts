@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as z from "zod";
 import { definePlugin, type Skill } from "@que/core";
 import type { MountedPlugin } from "./plugins.js";
-import { ownUses, sharedNames, unresolvedUses } from "./uses.js";
+import { sharedNames, unresolvedUses } from "./uses.js";
 
 const find = {
   name: "find-fabric",
@@ -102,24 +102,6 @@ test("a name of a domain's op does not resolve: a domain uses only connectors", 
       "sales uses pim-push, and pim is a domain: a domain uses only a connector's ops and skills",
     ],
   );
-});
-
-test("a plugin that uses its own op or skill is named, with the name", () => {
-  const selfish: MountedPlugin = {
-    ...warehouse,
-    definition: {
-      ...warehouse.definition,
-      uses: {
-        ops: ["warehouse-find-fabric"],
-        skills: ["warehouse-fabric-guide"],
-      },
-    },
-  };
-  assert.deepEqual(ownUses(selfish), [
-    "warehouse uses warehouse-find-fabric, its own: a plugin uses only other plugins' ops and skills",
-    "warehouse uses warehouse-fabric-guide, its own: a plugin uses only other plugins' ops and skills",
-  ]);
-  assert.deepEqual(ownUses(warehouse), []);
 });
 
 test("a name two plugins give is named, with both plugins: odoo's find-partners and odoo-find's partners", () => {

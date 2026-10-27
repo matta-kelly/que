@@ -9,34 +9,22 @@
  */
 
 import * as z from "zod";
-import { ModelPrice } from "@que/ontology/harness";
-import { check, isCount, named, standardName, strict } from "./check.js";
-import { fieldsOf, types } from "./ontology.js";
+import { maxTokensInWindow, ModelPrice } from "@que/ontology/harness";
+import { check, named, standardName, strict } from "./check.js";
+import { fieldsOf, ruleFaults, types } from "./ontology.js";
 
 export { ModelPrice };
 export type ModelPrice = z.infer<typeof ModelPrice>;
 
-const aboveWindow = (maxTokens: number, window: number) =>
-  `must not be above its window, got ${maxTokens} and ${window}`;
-
 /** What `defineModel` returns, and a model file exports as its default. */
-export const ModelDefinition = z
-  .strictObject(
-    {
-      /** What an agent config or a run names to get this model. */
-      name: standardName,
-      ...fieldsOf(types.model),
-    },
-    strict(),
-  )
-  .superRefine(({ maxTokens, window }, ctx) => {
-    if (isCount(window) && isCount(maxTokens) && maxTokens > window)
-      ctx.addIssue({
-        code: "custom",
-        path: ["maxTokens"],
-        message: aboveWindow(maxTokens, window),
-      });
-  });
+export const ModelDefinition = z.strictObject(
+  {
+    /** What an agent config or a run names to get this model. */
+    name: standardName,
+    ...fieldsOf(types.model),
+  },
+  strict(),
+);
 
 export type ModelDefinition = z.infer<typeof ModelDefinition>;
 
@@ -76,10 +64,10 @@ export function mountedModel(
     throw new Error(`model ${definition.name} has no window`);
   if (price === undefined)
     throw new Error(`model ${definition.name} has no price`);
-  if (definition.maxTokens > window)
-    throw new Error(
-      `maxTokens of the model ${definition.name} ${aboveWindow(definition.maxTokens, window)}`,
-    );
+  // The window it ends with, from its file or the facts, held to the same rule a model's file is.
+  const faults = ruleFaults(maxTokensInWindow, { ...definition, window });
+  if (faults.length)
+    throw new Error(`model ${definition.name}: ${faults.join("; ")}`);
   return { ...definition, window, price };
 }
 
@@ -88,5 +76,10 @@ export function mountedModel(
  * problem. Types can't catch these: a model is loaded at runtime.
  */
 export function validateModel(def: unknown): asserts def is ModelDefinition {
-  check(ModelDefinition, def, `model${named(def)} is invalid`);
+  const model = check(ModelDefinition, def, `model${named(def)} is invalid`);
+  const faults = ruleFaults(maxTokensInWindow, model);
+  if (faults.length)
+    throw new Error(
+      `model ${model.name} is invalid:\n- ${faults.join("\n- ")}`,
+    );
 }

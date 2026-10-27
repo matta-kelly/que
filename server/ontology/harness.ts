@@ -7,6 +7,7 @@
  */
 
 import {
+  defineRule,
   defineSchema,
   defineType,
   many,
@@ -154,6 +155,22 @@ const deployment = defineType({
   },
 });
 
+/** A model gives no more in one reply than it takes in. */
+export const maxTokensInWindow = defineRule({
+  name: "max-tokens-in-window",
+  description: "A model's maxTokens is not above its window.",
+  on: model,
+  check: ({ maxTokens, window }) =>
+    isCount(window) && isCount(maxTokens) && maxTokens > window
+      ? [
+          {
+            field: "/maxTokens",
+            message: `must not be above its window, got ${maxTokens} and ${window}`,
+          },
+        ]
+      : [],
+});
+
 export const harness = defineSchema({
   name: "harness",
   description:
@@ -161,4 +178,5 @@ export const harness = defineSchema({
   types: { agent, model, loop, deployment },
   imports: [plugin],
   typeNotes: new URL("./types/harness/", import.meta.url),
+  rules: [maxTokensInWindow],
 });

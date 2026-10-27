@@ -197,3 +197,54 @@ test("gives a skill whose name is not its folder's a problem, as que does not re
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("gives a skill que does not read a problem: a description over 1024 characters, or metadata that is not text", async () => {
+  for (const front of [
+    `name: fabric-guide\ndescription: ${"a".repeat(1025)}`,
+    "name: fabric-guide\ndescription: How.\nmetadata:\n  title: 7",
+  ]) {
+    const root = await vault();
+    try {
+      await writeFile(
+        join(
+          root,
+          "plugins",
+          "warehouse",
+          "skills",
+          "fabric-guide",
+          "SKILL.md",
+        ),
+        `---\n${front}\n---\nRead it.\n`,
+      );
+      const { problems } = await plugins(join(root, "plugins"), root)();
+      assert.match(problems[0]?.message ?? "", /^The skill cannot be read/);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("holds a plugin's card to the plugin schema's rules: an op whose role its plugin does not list is a problem on the card", async () => {
+  const part = card.extensions[NAMESPACE];
+  const stray = {
+    ...card,
+    extensions: {
+      [NAMESPACE]: {
+        ...part,
+        ops: [{ ...part.ops[0], role: "write" }],
+      },
+    },
+  };
+  const root = await vault({}, stray);
+  try {
+    assert.deepEqual(
+      (await lintOf(root)).map((p) => [p.path, p.rule, p.field]),
+      [
+        ["plugins/warehouse/plugin.json", "basis/link", "/role"],
+        ["plugins/warehouse/plugin.json", "plugin/op-role", "/ops"],
+      ],
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

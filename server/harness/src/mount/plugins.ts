@@ -9,13 +9,14 @@
  */
 
 import "./supply.js";
-import { ownUses, sharedNames, unresolvedUses } from "./uses.js";
+import { sharedNames, unresolvedUses } from "./uses.js";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { satisfies } from "semver";
 import {
   checkCard,
+  pluginFaults,
   type Case,
   locatePlugin,
   parseSkill,
@@ -123,8 +124,8 @@ export async function loadPlugin(dir: string): Promise<{
 }
 
 /**
- * The plugin in `dir`, mounted on its own: its definition (loadPlugin), its card, and its skills, and none of its own
- * ops or skills in what it uses. What a domain uses is not resolved here, as only the whole deployment gives it
+ * The plugin in `dir`, mounted on its own: its definition (loadPlugin), its card, and its skills, held to the plugin
+ * schema's rules with its skills (none of its own ops or skills in what it uses). What a domain uses is not resolved here, as only the whole deployment gives it
  * (mountPlugins), and neither are names two plugins share.
  */
 export async function mountPlugin(dir: string): Promise<MountedPlugin> {
@@ -135,9 +136,15 @@ export async function mountPlugin(dir: string): Promise<MountedPlugin> {
     throw new Error(`mount: ${(error as Error).message}`, { cause: error });
   }
   const mounted = { definition, skills: await readSkills(files, definition) };
-  const own = ownUses(mounted);
-  if (own.length)
-    throw new Error(`mount: a plugin uses its own:\n- ${own.join("\n- ")}`);
+  // Its skills are in its folder, so what the plugin's rules find with them is found here.
+  const faults = pluginFaults(
+    definition,
+    mounted.skills.map((skill) => skill.id),
+  );
+  if (faults.length)
+    throw new Error(
+      `mount: plugin ${definition.name} is invalid:\n- ${faults.join("\n- ")}`,
+    );
   return mounted;
 }
 

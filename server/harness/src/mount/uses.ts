@@ -11,20 +11,6 @@ import type { MountedPlugin } from "./plugins.js";
 const isDomain = ({ definition: { uses } }: MountedPlugin) =>
   uses.ops.length + uses.skills.length > 0;
 
-/** Each op and skill a mounted plugin uses that is its own, said as how to fix it: a plugin uses only others'. */
-export function ownUses({ definition, skills }: MountedPlugin): string[] {
-  const own = new Set([
-    ...definition.ops.map((op) => nameIn(definition.name, op.name)),
-    ...skills.map((skill) => skill.id),
-  ]);
-  return [...definition.uses.ops, ...definition.uses.skills]
-    .filter((ref) => own.has(ref))
-    .map(
-      (ref) =>
-        `${definition.name} uses ${ref}, its own: a plugin uses only other plugins' ops and skills`,
-    );
-}
-
 /**
  * Each name that two mounted plugins give, said as how to fix it. An op's tool name and a skill's id are
  * `<plugin>-<name>`, so plugin odoo's op find-partners and plugin odoo-find's op partners are one name: one of them

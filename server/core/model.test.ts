@@ -127,6 +127,6 @@ test("mountedModel throws, naming the model and the fact, when one is in neither
 test("mountedModel throws when maxTokens is above the window it ends with", () => {
   assert.throws(
     () => mountedModel(lean, { window: 4, price: { input: 1, output: 2 } }),
-    /maxTokens of the model lean must not be above its window, got 5 and 4/,
+    /model lean: maxTokens must not be above its window, got 5 and 4/,
   );
 });

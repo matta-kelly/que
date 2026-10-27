@@ -5,7 +5,7 @@
 
 import * as z from "zod";
 import { check, fn, named, once, standardName, strict, text } from "./check.js";
-import { fieldsOf, nameIn, types } from "./ontology.js";
+import { fieldsOf, pluginFaults, types } from "./ontology.js";
 
 export { NAME } from "./check.js";
 
@@ -98,85 +98,40 @@ export type ServiceIdentity = {
  * object) and how to turn it into a connection; self-contained plugins leave
  * both out.
  */
-export const PluginDefinition = z
-  .strictObject(
+export const PluginDefinition = z.strictObject(
+  {
+    // Its name in the open standard (`plugin.json`), and the start of each of its tool names.
+    name: standardName,
+    title: fieldsOf(types.plugin).title,
+    description: text,
+    credential: z
+      .custom<z.ZodObject>()
+      .refine(
+        (credential) => credential instanceof z.ZodObject,
+        "must be a zod object",
+      )
+      .optional(),
+    connect: fn.optional(),
+    whoami: fn.optional(),
+    ops: z
+      .array(Operation, { error: "must be an array" })
+      .superRefine(once((op) => op.name)),
+    capabilities: z
+      .array(Capability, { error: "must be an array" })
+      .superRefine(once((capability) => capability.name)),
+    roles: z
+      .array(Role, { error: "must be an array" })
+      .superRefine(once((role) => role.name)),
+    uses: Uses,
+  },
+  strict(
     {
-      // Its name in the open standard (`plugin.json`), and the start of each of its tool names.
-      name: standardName,
-      title: fieldsOf(types.plugin).title,
-      description: text,
-      credential: z
-        .custom<z.ZodObject>()
-        .refine(
-          (credential) => credential instanceof z.ZodObject,
-          "must be a zod object",
-        )
-        .optional(),
-      connect: fn.optional(),
-      whoami: fn.optional(),
-      ops: z
-        .array(Operation, { error: "must be an array" })
-        .superRefine(once((op) => op.name)),
-      capabilities: z
-        .array(Capability, { error: "must be an array" })
-        .superRefine(once((capability) => capability.name)),
-      roles: z
-        .array(Role, { error: "must be an array" })
-        .superRefine(once((role) => role.name)),
-      uses: Uses,
+      skills:
+        '"skills" is gone: each folder under skills/ with a SKILL.md is a skill, as Agent Plugins finds them',
     },
-    strict(
-      {
-        skills:
-          '"skills" is gone: each folder under skills/ with a SKILL.md is a skill, as Agent Plugins finds them',
-      },
-      "no definition (default export)",
-    ),
-  )
-  .superRefine((definition, ctx) => {
-    // Its own ops are its already: an op it uses is another plugin's. Its skills are in its folder, so mount checks those.
-    const own = new Set(
-      definition.ops.map((op) => nameIn(definition.name, op.name)),
-    );
-    definition.uses.ops.forEach((ref, i) => {
-      if (own.has(ref))
-        ctx.addIssue({
-          code: "custom",
-          path: ["uses", "ops", i],
-          message: `names its own op ${ref}: a plugin uses only other plugins' ops`,
-        });
-    });
-    const roles = definition.roles.map((role) => role.name);
-    definition.ops.forEach((op, i) => {
-      const tool = nameIn(definition.name, op.name);
-      if (tool.length > 64)
-        ctx.addIssue({
-          code: "custom",
-          path: ["ops", i, "name"],
-          message: `makes the tool name ${tool}, over 64 characters`,
-        });
-      // A plugin with roles gives every op one of them; a plugin with none gives none.
-      const path = ["ops", i, "role"];
-      if (roles.length && op.role === undefined)
-        ctx.addIssue({
-          code: "custom",
-          path,
-          message: `is missing: the plugin lists roles (${roles.join(", ")}), so each op names one`,
-        });
-      else if (roles.length && !roles.includes(op.role ?? ""))
-        ctx.addIssue({
-          code: "custom",
-          path,
-          message: `must be one of the plugin's roles (${roles.join(", ")}), got ${JSON.stringify(op.role)}`,
-        });
-      else if (!roles.length && op.role !== undefined)
-        ctx.addIssue({
-          code: "custom",
-          path,
-          message: `names the role ${JSON.stringify(op.role)}, and the plugin lists none`,
-        });
-    });
-  });
+    "no definition (default export)",
+  ),
+);
 
 export type PluginDefinition<
   S extends z.ZodObject = z.ZodObject,
@@ -222,4 +177,9 @@ export function validatePlugin(
   def: PluginDefinition | undefined,
 ): asserts def is PluginDefinition {
   check(PluginDefinition, def, `plugin${named(def)} is invalid`);
+  const faults = pluginFaults(def as PluginDefinition);
+  if (faults.length)
+    throw new Error(
+      `plugin ${(def as PluginDefinition).name} is invalid:\n- ${faults.join("\n- ")}`,
+    );
 }

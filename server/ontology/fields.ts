@@ -59,3 +59,23 @@ export const that = <T>(
   what: string,
   missing?: string,
 ) => z.custom<T>().refine(is, { error: must(what, missing) });
+
+// The Agent Skills frontmatter que reads. Its other fields (license, compatibility, allowed-tools) are allowed and
+// not read. que's title is in `metadata`, the standard's place for a client's own fields.
+export const SkillFrontmatter = z.object(
+  {
+    name: standardName,
+    description: text.max(1024, { error: "must be at most 1024 characters" }),
+    metadata: z
+      .record(z.string(), z.string(), {
+        error: "must be a map of text to text",
+      })
+      .optional(),
+  },
+  {
+    error: ({ input }) =>
+      input === undefined
+        ? "is missing (a --- fenced YAML block at the top)"
+        : "must be a map of fields (name, description, ...)",
+  },
+);

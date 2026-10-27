@@ -6,6 +6,7 @@
  */
 
 import {
+  defineRule,
   defineSchema,
   defineType,
   manyOrNone,
@@ -92,6 +93,64 @@ const pluginType = defineType({
   },
 });
 
+// Model APIs take a tool name of at most 64 characters, and an op's name is its tool name.
+const toolName = defineRule({
+  name: "tool-name",
+  description: "An op's name, its tool name, is at most 64 characters.",
+  on: op,
+  check: (node) =>
+    node.name.length > 64
+      ? [
+          {
+            message: `${node.name}, its tool name, is ${node.name.length} characters: model APIs take at most 64.`,
+          },
+        ]
+      : [],
+});
+
+// A plugin with roles gives every op one of them; a plugin with none gives none.
+const opRole = defineRule({
+  name: "op-role",
+  description:
+    "Each op of a plugin that lists roles names one of them, and each op of a plugin that lists none names none.",
+  on: pluginType,
+  check: (node, graph) => {
+    const roles = node.roles ?? [];
+    const listed = roles.join(", ");
+    return (node.ops ?? []).flatMap((name) => {
+      const found = graph.get(name, op);
+      // An op that is not a node, or did not parse, has that problem itself.
+      if (!found) return [];
+      const role = found.role;
+      const message =
+        roles.length && role === undefined
+          ? `${name} names no role: the plugin lists roles (${listed}), so each op names one.`
+          : roles.length && role !== undefined && !roles.includes(role)
+            ? `${name} names the role ${role}, which is not one of the plugin's (${listed}).`
+            : !roles.length && role !== undefined
+              ? `${name} names the role ${role}, and the plugin lists none.`
+              : undefined;
+      return message ? [{ field: "/ops", message }] : [];
+    });
+  },
+});
+
+// Its own ops and skills are a plugin's already: what it uses is another plugin's.
+const ownUse = defineRule({
+  name: "own-use",
+  description: "A plugin uses no op or skill of its own.",
+  on: pluginType,
+  check: (node) => {
+    const own = new Set([...(node.ops ?? []), ...(node.skills ?? [])]);
+    return (node.uses ?? [])
+      .filter((name) => own.has(name))
+      .map((name) => ({
+        field: "/uses",
+        message: `${name} is its own: a plugin uses only other plugins' ops and skills.`,
+      }));
+  },
+});
+
 export const plugin = defineSchema({
   name: "plugin",
   description:
@@ -105,4 +164,5 @@ export const plugin = defineSchema({
     case: kase,
   },
   typeNotes: new URL("./types/plugin/", import.meta.url),
+  rules: [toolName, opRole, ownUse],
 });

@@ -10,6 +10,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative, sep } from "node:path";
 import { parse } from "yaml";
 import * as z from "zod";
+import { SkillFrontmatter } from "./fields.ts";
 import { NAMESPACE, nameIn } from "./names.ts";
 
 /** A piece, as basis's lint takes it from a source: its path from the folder linted, its node's name, and its fields. */
@@ -62,13 +63,6 @@ const Card = z.object({
   extensions: z.object({ [NAMESPACE]: Part }),
 });
 
-/** A skill's frontmatter, as far as this reader needs it. */
-const SkillFront = z.object({
-  name: z.unknown(),
-  description: z.unknown(),
-  metadata: z.object({ title: z.unknown().optional() }).optional(),
-});
-
 /** The YAML between the `---` lines at the top of a file. */
 const frontmatterOf = (text: string): unknown => {
   const block = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
@@ -115,7 +109,6 @@ async function piecesOf(dir: string, from: (path: string) => string) {
     return out;
   }
   const plugin = card.name;
-  const part = card.extensions[NAMESPACE];
   const piece = (
     name: string,
     fields: Record<string, unknown>,
@@ -137,10 +130,12 @@ async function piecesOf(dir: string, from: (path: string) => string) {
     const path = from(file);
     const name = nameIn(plugin, folder);
     try {
-      const front = SkillFront.parse(
+      // As que reads a skill (parseSkill), with the same schema.
+      const read = SkillFrontmatter.safeParse(
         frontmatterOf(await readFile(file, "utf8")),
       );
-      // As que reads a skill (parseSkill): its name is its folder's.
+      if (!read.success) throw new Error(z.prettifyError(read.error));
+      const front = read.data;
       if (front.name !== folder)
         throw new Error(`its name is not its folder's, ${folder}`);
       skills.push(name);
@@ -163,6 +158,28 @@ async function piecesOf(dir: string, from: (path: string) => string) {
     }
   }
 
+  out.pieces.push(...nodesOfCard(card, skills, cardPath));
+  return out;
+}
+
+/** A card, as far as nodesOfCard reads it: the standard's name and description, and que's part. */
+export type CardNodes = z.infer<typeof Card>;
+
+/**
+ * The pieces of a plugin's nodes that its card gives, each at `path`: the plugin, its ops, roles, capabilities and
+ * cases, and its skills by their names. The one way a card becomes nodes: the source gives them to the lint, and
+ * `@que/core` checks a definition's with the ontology's rules.
+ */
+export function nodesOfCard(
+  card: CardNodes,
+  skills: readonly string[],
+  path: string,
+): Piece[] {
+  const plugin = card.name;
+  const part = card.extensions[NAMESPACE];
+  const pieces: Piece[] = [];
+  const piece = (name: string, fields: Record<string, unknown>) =>
+    pieces.push({ path, name, fields });
   piece(plugin, {
     type: "plugin",
     description: card.description,
@@ -196,7 +213,7 @@ async function piecesOf(dir: string, from: (path: string) => string) {
     });
   for (const { name, ...fields } of part.cases)
     piece(name, { type: "case", ...fields });
-  return out;
+  return pieces;
 }
 
 /**

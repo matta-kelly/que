@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
 import { definePlugin, validatePlugin } from "./plugin.js";
+import { pluginFaults } from "./ontology.js";
 
 const notes = definePlugin({
   name: "notes",
@@ -164,7 +165,7 @@ test("validatePlugin refuses an op with no name, and one whose tool name is over
         definePlugin({ ...notes, ops: [{ ...search, name: long }] }),
       ),
     new RegExp(
-      `- ops\\.${long}\\.name makes the tool name notes-${long}, over 64 characters`,
+      `- notes-${long}, its tool name, is 66 characters: model APIs take at most 64\\.`,
     ),
   );
 });
@@ -263,7 +264,7 @@ test("validatePlugin refuses an op with no role when its plugin lists roles", ()
   assert.throws(
     () =>
       validatePlugin(definePlugin({ ...notes, roles: [read], ops: [search] })),
-    /- ops\.search\.role is missing: the plugin lists roles \(read\), so each op names one/,
+    /- notes-search names no role: the plugin lists roles \(notes-read\), so each op names one\./,
   );
 });
 
@@ -277,7 +278,7 @@ test("validatePlugin refuses an op whose role its plugin does not list", () => {
           ops: [{ ...search, role: "admin" }],
         }),
       ),
-    /- ops\.search\.role must be one of the plugin's roles \(read\), got "admin"/,
+    /- notes-search names the role notes-admin, which is not one of the plugin's \(notes-read\)\./,
   );
 });
 
@@ -287,7 +288,7 @@ test("validatePlugin refuses an op with a role when its plugin lists none", () =
       validatePlugin(
         definePlugin({ ...notes, ops: [{ ...search, role: "read" }] }),
       ),
-    /- ops\.search\.role names the role "read", and the plugin lists none/,
+    /- notes-search names the role notes-read, and the plugin lists none\./,
   );
 });
 
@@ -368,7 +369,7 @@ test("validatePlugin refuses a plugin that uses its own op", () => {
           uses: { ops: ["notes-search"] },
         }),
       ),
-    /- uses\.ops\.notes-search names its own op notes-search: a plugin uses only other plugins' ops/,
+    /- notes-search is its own: a plugin uses only other plugins' ops and skills\./,
   );
 });
 
@@ -380,5 +381,17 @@ test("validatePlugin takes a plugin that keeps the contract", () => {
       credential: z.object({ url: z.string() }),
       connect: async () => ({}),
     }),
+  );
+});
+
+test("pluginFaults finds a skill a plugin uses that is its own, given its skills' ids, as mount gives them", () => {
+  assert.deepEqual(
+    pluginFaults(
+      definePlugin({ ...notes, uses: { skills: ["notes-greet"] } }),
+      ["notes-greet"],
+    ),
+    [
+      "notes-greet is its own: a plugin uses only other plugins' ops and skills.",
+    ],
   );
 });

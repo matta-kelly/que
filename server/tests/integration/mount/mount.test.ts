@@ -507,6 +507,6 @@ test("stops, naming the model, the fact, the reason and the field, when a model 
       {},
       sources({ window: 4_000, price: { input: 3, output: 4 } }),
     ),
-    /^Error: mount: .*maxTokens of the model bare must not be above its window/,
+    /^Error: mount: .*model bare: maxTokens must not be above its window/,
   );
 });

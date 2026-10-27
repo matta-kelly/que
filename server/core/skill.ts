@@ -5,8 +5,10 @@
 
 import { parse } from "yaml";
 import * as z from "zod";
-import { check, standardName, text } from "./check.js";
+import { check, text } from "./check.js";
 import { fieldsOf, nameIn, types } from "./ontology.js";
+// The Agent Skills frontmatter que reads: the ontology's, so que's lint reads a skill as que does.
+import { SkillFrontmatter as Frontmatter } from "@que/ontology/fields";
 
 // The title and the description are what the model reads to choose a skill. Its id is its node's name,
 // `<plugin>-<folder>` (nameIn).
@@ -18,26 +20,6 @@ export const Skill = z.object({
 });
 
 export type Skill = z.infer<typeof Skill>;
-
-// The Agent Skills frontmatter que reads. Its other fields (license, compatibility, allowed-tools) are allowed and
-// not read. que's title is in `metadata`, the standard's place for a client's own fields.
-const Frontmatter = z.object(
-  {
-    name: standardName,
-    description: text.max(1024, { error: "must be at most 1024 characters" }),
-    metadata: z
-      .record(z.string(), z.string(), {
-        error: "must be a map of text to text",
-      })
-      .optional(),
-  },
-  {
-    error: ({ input }) =>
-      input === undefined
-        ? "is missing (a --- fenced YAML block at the top)"
-        : "must be a map of fields (name, description, ...)",
-  },
-);
 
 // The YAML between the --- fences at the top, and the text after them. Line ends may be \r\n.
 function split(id: string, file: string): { meta: unknown; body: string } {
