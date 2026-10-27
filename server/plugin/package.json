@@ -1,6 +1,6 @@
 {
   "name": "@mku1tra/que-plugin",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Everything a que plugin is: its contract, its card, its skills and cases, the plugin schema of que's ontology, the one check of plugins, and the source that reads plugins' cards for a lint.",
   "license": "MIT",
   "repository": {
