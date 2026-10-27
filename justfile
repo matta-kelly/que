@@ -40,7 +40,8 @@ up deployment:
         commit=$(git -C "{{root}}" rev-parse HEAD 2>/dev/null || true)
         if [ -n "$commit" ] && ! git -C "{{root}}" diff --quiet HEAD; then commit="$commit-dirty"; fi
         # The server takes its settings from the deployment's .env, and none from que's own folder.
-        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "QUE_COMMIT=$commit" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "NODE_OPTIONS=--require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+        # npm sets NODE_OPTIONS from its node-options, so the options go there: server/.npmrc's source condition, and dotenv.
+        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "QUE_COMMIT=$commit" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "npm_config_node_options=--conditions=@mku1tra/que-source --require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
     fi
     running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
     echo "Starting…"
@@ -148,7 +149,8 @@ _check-folders container +folders:
         tests=$(find "$f" -name '*.test.ts' -not -path '*/node_modules/*' -print -quit)
         [ -n "$tests" ] || continue
         echo "tests: $f"
-        podman exec -u node -w "$f" "{{container}}" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
+        # No npm starts this, so it sets server/.npmrc's source condition itself: que's packages resolve to their source.
+        podman exec -u node -w "$f" -e NODE_OPTIONS=--conditions=@mku1tra/que-source "{{container}}" "$h/node_modules/.bin/tsx" --import "$h/harness/src/mount/supply.ts" --test "**/*.test.ts"
     done
     echo "check passed"
 

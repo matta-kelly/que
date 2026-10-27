@@ -76,8 +76,8 @@ export default defineDeployment({
   return dir;
 };
 
-// A plugin whose package.json names the @que/plugin it works with, as a peer, or another package.
-const needing = (range: string, peer = "@que/plugin") => {
+// A plugin whose package.json names the @mku1tra/que-plugin it works with, as a peer, or another package.
+const needing = (range: string, peer = "@mku1tra/que-plugin") => {
   const dir = mkdtempSync(join(workspace, "needs-plugin-"));
   cpSync(join(fixtures, "plugins/beta"), dir, { recursive: true });
   writeFileSync(
@@ -91,7 +91,7 @@ const needing = (range: string, peer = "@que/plugin") => {
   return dir;
 };
 
-// que's own @que/plugin, from the one place its version is written.
+// que's own @mku1tra/que-plugin, from the one place its version is written.
 const version = (
   JSON.parse(
     readFileSync(
@@ -101,17 +101,17 @@ const version = (
   ) as { version: string }
 ).version;
 
-test("stops, naming the folder, the range and que's own version, when a plugin needs another @que/plugin", async () => {
+test("stops, naming the folder, the range and que's own version, when a plugin needs another @mku1tra/que-plugin", async () => {
   const dir = needing("^9.0.0");
   await assert.rejects(mountPlugins([dir]), (error: Error) => {
     assert.ok(error.message.includes(dir));
-    assert.match(error.message, /@que\/plugin \^9\.0\.0/);
+    assert.match(error.message, /@mku1tra\/que-plugin \^9\.0\.0/);
     assert.ok(error.message.includes(`que's is ${version}`));
     return true;
   });
 });
 
-test("a plugin whose @que/plugin range que's own version satisfies is mounted", async () => {
+test("a plugin whose @mku1tra/que-plugin range que's own version satisfies is mounted", async () => {
   assert.deepEqual(names(await mountPlugins([needing(`^${version}`)])), [
     "beta",
   ]);
@@ -120,7 +120,7 @@ test("a plugin whose @que/plugin range que's own version satisfies is mounted", 
 test("stops, saying the contract moved, when a plugin names @que/core as its peer", async () => {
   const dir = needing("^0.3.0", "@que/core");
   await assert.rejects(mountPlugins([dir]), {
-    message: `mount: ${dir}: the plugin contract moved to @que/plugin: name it as the peer in ${join(dir, "package.json")} ("@que/plugin": "^${version}"), in place of @que/core`,
+    message: `mount: ${dir}: the plugin contract moved to @mku1tra/que-plugin: name it as the peer in ${join(dir, "package.json")} ("@mku1tra/que-plugin": "^${version}"), in place of @que/core`,
   });
 });
 
@@ -210,7 +210,7 @@ const written = async (name: string, fields: string) => {
   mkdirSync(join(dir, "io.github.matta-kelly.que"), { recursive: true });
   writeFileSync(
     join(dir, "io.github.matta-kelly.que/index.ts"),
-    `import { definePlugin } from "@que/plugin";
+    `import { definePlugin } from "@mku1tra/que-plugin";
 export default definePlugin({ name: "${name}", title: "${name}", description: "A plugin.", ${fields} });
 `,
   );

@@ -5,7 +5,7 @@
  */
 
 import * as z from "zod";
-import { check, named, standardName, strict } from "@que/plugin";
+import { check, named, standardName, strict } from "@mku1tra/que-plugin";
 import { isText, must, that } from "@que/ontology/fields";
 
 // que has no agent, loop or model of its own to fall back on.

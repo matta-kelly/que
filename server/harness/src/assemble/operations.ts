@@ -4,7 +4,7 @@
  */
 
 import { tool, type StructuredTool } from "langchain";
-import { nameIn, type PluginDefinition } from "@que/plugin";
+import { nameIn, type PluginDefinition } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 
 // An op's tool name is its node's name, `<plugin>-<op>`: one name in the model's tools and in the graph. Model APIs

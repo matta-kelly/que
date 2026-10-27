@@ -2,13 +2,13 @@
  * What a deployment has to run: its name, the cases of its plugins, its
  * agent configs and its model configs. Read from the deployment's own files,
  * as mount reads them (a plugin by readDefinition, and its card), and checked
- * with the contract. The @que/plugin range check is mount's alone: it is about
- * the @que/plugin mount hands a plugin, and the server that runs the cases mounts.
+ * with the contract. The @mku1tra/que-plugin range check is mount's alone: it is about
+ * the @mku1tra/que-plugin mount hands a plugin, and the server that runs the cases mounts.
  */
 
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { checkCard, readDefinition, type Case } from "@que/plugin";
+import { checkCard, readDefinition, type Case } from "@mku1tra/que-plugin";
 import {
   validateAgent,
   validateDeployment,

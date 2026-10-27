@@ -1,5 +1,5 @@
 /**
- * Mount: hand `@que/plugin` and `@que/core` to a folder outside que. A
+ * Mount: hand `@mku1tra/que-plugin` and `@que/core` to a folder outside que. A
  * plugin or a deployment there imports what que supplies (`supplied.ts`) by
  * name. It gets que's copy, even if it installs its own, so an
  * `OperationFailed` it throws is the one que knows. Any other name resolves

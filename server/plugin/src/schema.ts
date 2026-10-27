@@ -17,7 +17,7 @@ import { JsonSchema, text } from "./fields.ts";
 const op = defineType({
   name: "op",
   description:
-    "One operation a plugin exposes: a tool the model calls, which runs in que. `Operation` in @que/plugin.",
+    "One operation a plugin exposes: a tool the model calls, which runs in que. `Operation` in @mku1tra/que-plugin.",
   fields: {
     title: text,
     // The role whose login it runs with, when its plugin lists roles.
@@ -31,28 +31,28 @@ const op = defineType({
 const accessRole = defineType({
   name: "access-role",
   description:
-    "One access level of an internal service, which que holds one login for. `Role` in @que/plugin.",
+    "One access level of an internal service, which que holds one login for. `Role` in @mku1tra/que-plugin.",
   fields: {},
 });
 
 const skill = defineType({
   name: "skill",
   description:
-    "The text part of a plugin, one `SKILL.md`. `Skill` in @que/plugin.",
+    "The text part of a plugin, one `SKILL.md`. `Skill` in @mku1tra/que-plugin.",
   fields: { title: text },
 });
 
 const capability = defineType({
   name: "capability",
   description:
-    "An outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in @que/plugin.",
+    "An outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in @mku1tra/que-plugin.",
   fields: { title: text },
 });
 
 const kase = defineType({
   name: "case",
   description:
-    "One behaviour of one capability, which the eval runner runs with the model. `Case` in @que/plugin.",
+    "One behaviour of one capability, which the eval runner runs with the model. `Case` in @mku1tra/que-plugin.",
   fields: {
     // The capability it is about.
     capability: one(() => capability),
@@ -68,7 +68,7 @@ const kase = defineType({
 const pluginType = defineType({
   name: "plugin",
   description:
-    "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `PluginDefinition` in @que/plugin.",
+    "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `PluginDefinition` in @mku1tra/que-plugin.",
   fields: {
     title: text,
     // The credential it needs, as JSON Schema, when it talks to a service.
@@ -189,6 +189,7 @@ export const plugin = defineSchema({
     capability,
     case: kase,
   },
-  typeNotes: new URL("./types/", import.meta.url),
+  // From the package root, so the path is the same from src/ and from dist/.
+  typeNotes: new URL("../types/", import.meta.url),
   rules: [toolName, opRole, ownUse, connectorUse],
 });

@@ -1,4 +1,4 @@
-import { definePlugin } from "@que/plugin";
+import { definePlugin } from "@mku1tra/que-plugin";
 
 // At the plugin's root, where que's files sat before they moved into io.github.matta-kelly.que/.
 export default definePlugin({

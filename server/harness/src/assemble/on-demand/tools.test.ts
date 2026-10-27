@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nameIn, OperationFailed } from "@que/plugin";
+import { nameIn, OperationFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
 import {
   besideNothing,

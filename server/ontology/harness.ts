@@ -14,7 +14,7 @@ import {
   manyOrNone,
   one,
 } from "@mku1tra/basis";
-import { plugin, strict } from "@que/plugin";
+import { plugin, strict } from "@mku1tra/que-plugin";
 import * as z from "zod";
 import { isCount, isText, must, that } from "./fields.ts";
 

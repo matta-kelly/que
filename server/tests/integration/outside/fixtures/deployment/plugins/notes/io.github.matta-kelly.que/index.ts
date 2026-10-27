@@ -1,6 +1,6 @@
 import * as z from "zod";
 import { Name } from "@mku1tra/basis";
-import { definePlugin, OperationFailed, plugin } from "@que/plugin";
+import { definePlugin, OperationFailed, plugin } from "@mku1tra/que-plugin";
 
 export default definePlugin({
   name: "notes",
@@ -15,7 +15,7 @@ export default definePlugin({
         title: z.string().describe("The note's title"),
         // basis, supplied by que like zod.
         folder: Name.optional().describe("The folder the note is in"),
-        // The plugin schema, supplied by que in @que/plugin.
+        // The plugin schema, supplied by que in @mku1tra/que-plugin.
         capability: plugin.types.capability.schema.shape.name
           .optional()
           .describe("The capability the note is about"),

@@ -1,15 +1,44 @@
 {
-  "name": "@que/plugin",
-  "version": "0.4.0",
-  "private": true,
-  "type": "module",
+  "name": "@mku1tra/que-plugin",
+  "version": "0.5.0",
   "description": "Everything a que plugin is: its contract, its card, its skills and cases, the plugin schema of que's ontology, the one check of plugins, and the source that reads plugins' cards for a lint.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matta-kelly/que.git",
+    "directory": "server/plugin"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "exports": {
-    ".": "./index.ts"
+    ".": {
+      "@mku1tra/que-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "standards",
+    "types"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "npm run build && cp ../../LICENSE LICENSE"
   },
   "dependencies": {
+    "ajv": "^8.20.0"
+  },
+  "peerDependencies": {
     "@mku1tra/basis": "^0.19.0",
-    "ajv": "^8.20.0",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -10,7 +10,13 @@
 
 import * as z from "zod";
 import { maxTokensInWindow, ModelPrice } from "@que/ontology/harness";
-import { check, fieldsOf, named, standardName, strict } from "@que/plugin";
+import {
+  check,
+  fieldsOf,
+  named,
+  standardName,
+  strict,
+} from "@mku1tra/que-plugin";
 import { refineBy, ruleFaults, types } from "./ontology.js";
 
 export { ModelPrice };

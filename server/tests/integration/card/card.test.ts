@@ -22,7 +22,7 @@ import {
   checkCard,
   definePlugin,
   validateCard,
-} from "@que/plugin";
+} from "@mku1tra/que-plugin";
 import { writeCard } from "../../../harness/src/card/writer.js";
 import { loadPlugin } from "../../../harness/src/mount/plugins.js";
 

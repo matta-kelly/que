@@ -21,7 +21,7 @@
     "@que/credentials": "*",
     "@que/identity": "*",
     "@que/models": "*",
-    "@que/plugin": "*",
+    "@mku1tra/que-plugin": "*",
     "@que/users": "*",
     "deepagents": "^1.14.2",
     "hono": "^4.13.8",
@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@langchain/langgraph-cli": "^1.5.0",
-    "@tsconfig/recommended": "^1.0.13",
     "@types/node": "^22",
     "dotenv": "^17.4.2",
     "tsx": "^4.23.13",

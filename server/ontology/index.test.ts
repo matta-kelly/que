@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { plugin } from "@que/plugin";
+import { plugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
 import { harness } from "@que/ontology";
 

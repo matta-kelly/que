@@ -9,7 +9,7 @@
   "dependencies": {
     "@mku1tra/basis": "^0.19.0",
     "@que/ontology": "*",
-    "@que/plugin": "*",
+    "@mku1tra/que-plugin": "*",
     "zod": "^4.6.5"
   }
 }

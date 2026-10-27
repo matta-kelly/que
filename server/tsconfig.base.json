@@ -1,0 +1,24 @@
+{
+  // The compiler options of que's server: the harness's type check, and the build of @mku1tra/que-plugin, extend it.
+  "extends": "@tsconfig/recommended",
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2022", "ES2022.Object"],
+    "types": ["node"],
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    // Inside que, @mku1tra/que-plugin resolves to its source by this condition (plugin/package.json, exports), with no build.
+    "customConditions": ["@mku1tra/que-source"],
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "useDefineForClassFields": true,
+    "strictPropertyInitialization": false,
+    "strict": true,
+    "resolveJsonModule": true
+  }
+}

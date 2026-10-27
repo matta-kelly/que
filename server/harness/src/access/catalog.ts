@@ -3,7 +3,7 @@
  * that service. A plugin the user has no access to is left out.
  */
 
-import type { ServiceIdentity } from "@que/plugin";
+import type { ServiceIdentity } from "@mku1tra/que-plugin";
 import { getServiceIdentity, hasAccess } from "./connections.js";
 import { plugins } from "../mount/mounted.js";
 import type { MountedPlugin } from "../mount/plugins.js";

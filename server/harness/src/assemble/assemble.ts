@@ -10,7 +10,7 @@ import {
   createMiddleware,
   toolErrorMiddleware,
 } from "langchain";
-import { OperationFailed, type PluginDefinition } from "@que/plugin";
+import { OperationFailed, type PluginDefinition } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
 import { operationTools } from "./operations.js";

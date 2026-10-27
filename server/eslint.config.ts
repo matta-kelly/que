@@ -100,7 +100,7 @@ const credentials: Rule = {
   why: "A way of loading does not reach for credentials.",
 };
 const modelsAlone: Rule = {
-  path: /harness|backend|evals|@que\/(?!core)/,
+  path: /harness|backend|evals|@que\/(?!core)|@mku1tra\/que-plugin/,
   why: "The model maker imports the core, and nothing from the harness, the backend or the eval runner: the harness and the eval runner both import it.",
 };
 const providers: Rule = {
@@ -109,7 +109,7 @@ const providers: Rule = {
 };
 const pluginAlone: Rule = {
   path: /^(?!\.\/|@mku1tra\/basis$|ajv(?:\/|$)|zod(?:\/|$)|node:)/,
-  why: "@que/plugin imports only its own files, basis, ajv, zod and node: the harness and the core build on it, never the other way.",
+  why: "@mku1tra/que-plugin imports only its own files, basis, ajv, zod and node: the harness and the core build on it, never the other way.",
 };
 const framework: Rule = {
   path: /langchain|langgraph/,
@@ -144,7 +144,7 @@ const tracedByTrace: Rule[] = [
 
 const evals = "evals/src";
 const evalsAlone: Rule = {
-  path: /harness|backend|@que\/(?!plugin|core|models)|^(?:\.\.\/)+models(?:\/|$)/,
+  path: /harness|backend|@que\/(?!core|models)|^(?:\.\.\/)+models(?:\/|$)/,
   why: "The eval runner imports the plugin package, the core and the model maker, by its name @que/models, and nothing from the harness or the backend.",
 };
 const langGraphSdk: Rule = {
@@ -166,7 +166,7 @@ const evalsFramework: Rule = {
 
 // One lint setup for the server: plugin, core, ontology, backend, models, harness, evals and tests.
 export default defineConfig([
-  globalIgnores(["**/node_modules"]),
+  globalIgnores(["**/node_modules", "plugin/dist"]),
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
     plugins: { js },
@@ -183,7 +183,7 @@ export default defineConfig([
 
   // The import rules. A later entry replaces an earlier one for the files it names.
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp, providers]),
-  hold(["plugin/**/*.ts"], [pluginAlone]),
+  hold(["plugin/src/**/*.ts"], [pluginAlone]),
   hold(["core/**/*.ts"], [otherApp, providers, framework]),
   hold(["ontology/**/*.ts"], [otherApp, providers, framework]),
   hold(["models/**/*.ts"], [otherApp, modelsAlone]),

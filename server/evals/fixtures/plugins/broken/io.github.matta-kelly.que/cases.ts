@@ -1,4 +1,4 @@
-import { defineCases } from "@que/plugin";
+import { defineCases } from "@mku1tra/que-plugin";
 
 // Not valid on purpose: the plugin names no capability.
 export default defineCases([

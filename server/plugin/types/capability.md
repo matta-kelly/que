@@ -1,6 +1,6 @@
 ---
 type: type
-description: "An outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in @que/plugin."
+description: "An outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in @mku1tra/que-plugin."
 ---
 The outcome someone wants, in one line, in their words.
 

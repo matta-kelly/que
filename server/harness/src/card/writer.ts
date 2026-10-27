@@ -2,7 +2,7 @@
 
 import { writeFileSync } from "node:fs";
 import { loadPlugin } from "../mount/plugins.js";
-import { cardText, checkedCard } from "@que/plugin";
+import { cardText, checkedCard } from "@mku1tra/que-plugin";
 
 /** Write the plugin in `dir` its card, from its definition and its cases. Returns the file's path. */
 export async function writeCard(dir: string): Promise<string> {

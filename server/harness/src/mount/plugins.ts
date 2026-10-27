@@ -2,8 +2,8 @@
  * Mount: read plugins at startup. Each folder it is given is a plugin;
  * mount reads its definition, its card and its skills, and touches no
  * credentials. A definition or a skill that breaks the contract
- * (validatePlugin and parseSkill in @que/plugin) fails mounting, and so does
- * one whose npm package's `@que/plugin` peer range que's own @que/plugin is
+ * (validatePlugin and parseSkill in @mku1tra/que-plugin) fails mounting, and so does
+ * one whose npm package's `@mku1tra/que-plugin` peer range que's own @mku1tra/que-plugin is
  * outside, or that names `@que/core` as its peer, and a plugin whose card (plugin.json) is not what its definition
  * makes. Then the plugins are checked as one graph (checkPlugins): a name two
  * plugins give, and a name a plugin uses that the deployment does not give,
@@ -29,7 +29,7 @@ import {
   type PluginDefinition,
   type PluginFiles,
   type Skill,
-} from "@que/plugin";
+} from "@mku1tra/que-plugin";
 
 export type MountedPlugin = { definition: PluginDefinition; skills: Skill[] };
 
@@ -38,15 +38,15 @@ type Manifest = { peerDependencies?: Record<string, string> };
 const readManifest = (file: string): Manifest =>
   JSON.parse(readFileSync(file, "utf8")) as Manifest;
 
-// The @que/plugin every plugin is handed (supply.ts), and so the version its range is checked against.
+// The @mku1tra/que-plugin every plugin is handed (supply.ts), and so the version its range is checked against.
 const PLUGIN = (
   readManifest(join(import.meta.dirname, "../../../plugin/package.json")) as {
     version: string;
   }
 ).version;
 
-// A plugin's npm package names the @que/plugin it works with as a peer. One with no package.json, or no range, works
-// with any. A prerelease of que's @que/plugin counts as its version: semver leaves it out of every range otherwise,
+// A plugin's npm package names the @mku1tra/que-plugin it works with as a peer. One with no package.json, or no range, works
+// with any. A prerelease of que's @mku1tra/que-plugin counts as its version: semver leaves it out of every range otherwise,
 // `*` included. One that names @que/core is refused: the plugin contract is not there.
 function checkRange(dir: string, file: string): void {
   if (!existsSync(file)) return;
@@ -60,15 +60,15 @@ function checkRange(dir: string, file: string): void {
   }
   if (manifest?.peerDependencies?.["@que/core"] !== undefined)
     throw new Error(
-      `mount: ${dir}: the plugin contract moved to @que/plugin: name it as the peer in ${file} ("@que/plugin": "^${PLUGIN}"), in place of @que/core`,
+      `mount: ${dir}: the plugin contract moved to @mku1tra/que-plugin: name it as the peer in ${file} ("@mku1tra/que-plugin": "^${PLUGIN}"), in place of @que/core`,
     );
-  const range = manifest?.peerDependencies?.["@que/plugin"];
+  const range = manifest?.peerDependencies?.["@mku1tra/que-plugin"];
   if (
     range !== undefined &&
     !satisfies(PLUGIN, range, { includePrerelease: true })
   )
     throw new Error(
-      `mount: ${dir}: needs @que/plugin ${range}, and que's is ${PLUGIN}`,
+      `mount: ${dir}: needs @mku1tra/que-plugin ${range}, and que's is ${PLUGIN}`,
     );
 }
 
@@ -106,8 +106,8 @@ async function readSkills(
 }
 
 /**
- * The plugin in `dir`, as mount reads it: its files, its npm package's @que/plugin range held to que's, and its
- * definition and its cases, checked against the contract (readDefinition in @que/plugin). The card's writer reads a
+ * The plugin in `dir`, as mount reads it: its files, its npm package's @mku1tra/que-plugin range held to que's, and its
+ * definition and its cases, checked against the contract (readDefinition in @mku1tra/que-plugin). The card's writer reads a
  * plugin this way too.
  */
 export async function loadPlugin(dir: string): Promise<{

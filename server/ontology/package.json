@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "que's harness ontology: its words for what runs plugins (agent, model, loop, deployment) as a basis schema that imports the plugin schema of @que/plugin, with the schema of each field. A note and a definition in code are each parsed with it.",
+  "description": "que's harness ontology: its words for what runs plugins (agent, model, loop, deployment) as a basis schema that imports the plugin schema of @mku1tra/que-plugin, with the schema of each field. A note and a definition in code are each parsed with it.",
   "exports": {
     ".": "./index.ts",
     "./fields": "./fields.ts",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@mku1tra/basis": "^0.19.0",
-    "@que/plugin": "*",
+    "@mku1tra/que-plugin": "*",
     "zod": "^4.6.5"
   }
 }

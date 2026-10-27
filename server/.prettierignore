@@ -5,3 +5,5 @@ package-lock.json
 plugin.json
 # Run state.
 .langgraph_api
+# The build of @mku1tra/que-plugin.
+plugin/dist

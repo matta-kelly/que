@@ -1,7 +1,7 @@
 /**
  * Mount, from a folder that is not inside que: a deployment that holds its
  * own plugin. The fixtures are copied to the system's temp folder first, so
- * that nothing above them can supply `@que/plugin` or `@que/core`.
+ * that nothing above them can supply `@mku1tra/que-plugin` or `@que/core`.
  * The type check of such a folder, as `just check-folder` runs it, is here too:
  * its plugin imports each name que supplies.
  */
@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { OperationFailed } from "@mku1tra/que-plugin";
 import { loadDeployment } from "../../../harness/src/mount/deployment.js";
 import { mountPlugins } from "../../../harness/src/mount/plugins.js";
 import { checkConfig } from "../../../harness/src/mount/supplied.js";
@@ -28,6 +29,22 @@ test("que mounts a deployment and its plugin from a folder outside que", async (
   assert.deepEqual(
     mounted.map((p) => p.definition.name),
     ["notes"],
+  );
+});
+
+test("a plugin outside que gets que's @mku1tra/que-plugin, its source, so an OperationFailed it throws is que's class", async () => {
+  assert.ok(
+    import.meta
+      .resolve("@mku1tra/que-plugin")
+      .endsWith("/server/plugin/src/index.ts"),
+  );
+  const [notes] = await mount("deployment");
+  const [find] = notes.definition.ops;
+  await assert.rejects(
+    find.run({ conn: undefined }, { title: "a note" }),
+    (error: Error) =>
+      error instanceof OperationFailed &&
+      error.message === "the notes are not reachable",
   );
 });
 

@@ -10,7 +10,7 @@ const repo = join(import.meta.dirname, "../../../..");
 const names = Object.keys(SUPPLIED).map((name) => `\`${name}\``);
 
 // Each list of two or more names in code type that holds a supplied name.
-// A name alone, as the README writes `@que/plugin` in its layout, is not a list.
+// A name alone, as the README writes `@mku1tra/que-plugin` in its layout, is not a list.
 const lists = (text: string) =>
   [...text.matchAll(/`[^`]+`(?:(?:, | and )`[^`]+`)+/g)]
     .map(([list]) => list)

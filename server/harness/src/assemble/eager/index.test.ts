@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { AIMessage, HumanMessage } from "langchain";
 import { assemble } from "../assemble.js";
 import { catalog, identityOnly } from "../fixture.js";
-import { nameIn } from "@que/plugin";
+import { nameIn } from "@mku1tra/que-plugin";
 import { eager } from "./index.js";
 
 const operations = [nameIn("shop", "find-orders"), nameIn("shop", "get-order")];

@@ -8,7 +8,13 @@
  */
 
 import * as z from "zod";
-import { check, fieldsOf, named, standardName, strict } from "@que/plugin";
+import {
+  check,
+  fieldsOf,
+  named,
+  standardName,
+  strict,
+} from "@mku1tra/que-plugin";
 import { types } from "./ontology.js";
 
 export { LOADING } from "@que/ontology/harness";

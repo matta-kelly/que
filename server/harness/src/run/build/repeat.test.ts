@@ -9,7 +9,7 @@ import {
   type BaseMessage,
 } from "langchain";
 import * as z from "zod";
-import { definePlugin, OperationFailed } from "@que/plugin";
+import { definePlugin, OperationFailed } from "@mku1tra/que-plugin";
 import { resolveLoop } from "@que/core";
 import type { Catalog } from "../../access/catalog.js";
 import { assemble } from "../../assemble/assemble.js";

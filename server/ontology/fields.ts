@@ -1,4 +1,4 @@
-/** The schemas of the harness's fields, and the messages they give, beside the plugin's (`@que/plugin`). */
+/** The schemas of the harness's fields, and the messages they give, beside the plugin's (`@mku1tra/que-plugin`). */
 
 import * as z from "zod";
 

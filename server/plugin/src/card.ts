@@ -217,11 +217,12 @@ export function cardOf(
 /** A card as its file holds it: two-space JSON, ending in a newline, so the same definition makes the same bytes. */
 export const cardText = (card: Card) => `${JSON.stringify(card, null, 2)}\n`;
 
+// From the package root, so the path is the same from src/ and from dist/.
 const STANDARD = JSON.parse(
   readFileSync(
     join(
       import.meta.dirname,
-      "standards/agent-plugins-1.0.0/plugin.schema.json",
+      "../standards/agent-plugins-1.0.0/plugin.schema.json",
     ),
     "utf8",
   ),

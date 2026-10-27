@@ -18,7 +18,7 @@ export const pluginFiles = (dir: string) => ({
   cases: join(dir, NAMESPACE, "cases.ts"),
   /** Its card, the standard's manifest. */
   card: join(dir, "plugin.json"),
-  /** Its npm package, when it is one: its version, and the @que/plugin it works with. */
+  /** Its npm package, when it is one: its version, and the @mku1tra/que-plugin it works with. */
   package: join(dir, "package.json"),
   /** Its skills, one folder each. The standard's place. */
   skills: join(dir, "skills"),
