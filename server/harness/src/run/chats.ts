@@ -42,6 +42,8 @@ export function chats<A extends object>(
 ) {
   const kept = new LRUCache<string, A, Chat>({
     max,
+    // A chat pushed out while its first build runs still gets that build.
+    ignoreFetchAbort: true,
     // A build that fails is not kept: the next run builds again.
     fetchMethod: (_key, _stale, { context }) =>
       build(context.user, context.agent, context.model),
