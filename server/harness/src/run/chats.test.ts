@@ -97,6 +97,19 @@ test("a chat that has not run while as many others as the bound ran gets an agen
   assert.equal(asked.length, 4);
 });
 
+test("a chat pushed out while its first build runs still gets that build", async () => {
+  let finish = () => {};
+  const slow = new Promise<void>((resolve) => (finish = resolve));
+  const agentFor = chats(async (_user, agent) => {
+    if (agent === "slow") await slow;
+    return { agent };
+  }, 1);
+  const first = agentFor(run("thread-1", { agent: "slow" }), RUN);
+  await agentFor(run("thread-2"), RUN);
+  finish();
+  assert.deepEqual(await first, { agent: "slow" });
+});
+
 test("a build that fails is not kept: the next run on that chat builds again", async () => {
   let builds = 0;
   const agentFor = chats(async () => {
