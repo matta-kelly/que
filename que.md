@@ -137,6 +137,7 @@ agent ─────────────────▶  assemble  turn its
 		- built for one unit, loading: one config on a shared base
 	- run: hands the slots to the framework, and serves the answer
 		- the only step that names a framework
+		- access and assemble run once a chat, at its first message, and the chat keeps that agent: an edit to access or to the user's instructions is in the next chat
 		- sends a trace of each run to Langfuse, when the deployment's `.env` has the Langfuse settings: each model call and each tool call, with the user, the thread, the agent config and the commit of que. With no settings it sends nothing
 		- on LangChain and the LangGraph server
 - **Backend**: what an agent runs on. Part of que. One exists

@@ -19,7 +19,7 @@ It knows nothing about any one service or any one company: everything it can do 
     - `instructions`: the text that opens the system prompt, in place of que's own role text. Left out, the prompt opens with que's role text
     - `loading`: the name of the way the model is shown its plugins, and when it gets their operations (see Environment legibility): `on-demand` or `eager`. Left out, it is `on-demand`
     - `userInstructions`: `true`, and the system prompt gets the user's own instructions, after the agent's. Left out, it gets none. The text is the one the user saved in Settings > Account, or the content of the file the deployment's `.env` names in `DEV_USER_INSTRUCTIONS` (`server/harness/src/access/instructions.ts`)
-- **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. The agent is built per user, from only the plugins that user has connected. An agent config's `plugins` can take plugins out of that set, and can add none.
+- **Per-user access**: a user connects a service in Settings > Connections. Credentials are stored encrypted in Postgres. A chat's agent is built for its user at the chat's first message, from only the plugins that user has connected then, so a service connected part way through a chat is there from the next chat. An agent config's `plugins` can take plugins out of that set, and can add none.
 - **Environment legibility**: the agent does not get every operation up front. Its system prompt explains what a plugin is and lists the ones the user can use; it opens a plugin to see what is inside and loads the operations it needs (`server/harness/src/assemble/on-demand/`, one config on the shared base in `server/harness/src/assemble/`). The harness knows the plugin contract, never a specific plugin.
 
 Built with LangChain `createAgent` on the LangGraph dev server, Next.js with assistant-ui, and Postgres.
@@ -33,13 +33,13 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
     - `core/`: the deployment, agent, loop and model contracts (`@que/core`)
     - `ontology/`: the harness schema (`@que/ontology`): agent, model, loop and deployment, which imports the plugin schema
     - `backend/`: the services the harness stands on (`identity/`, `users/`, `credentials/`)
-    - `models/`: the model maker (`@que/models`): the framework's model for a model config, and que's own model for Beam (`models/beam.ts`). The harness makes each run's model with it
+    - `models/`: the model maker (`@que/models`): the framework's model for a model config, and que's own model for Beam (`models/beam.ts`). The harness makes each chat's model with it
     - `harness/`: the harness (`@que/harness`). In `src/`, in the order the work flows, and the only way an import points:
         - `mount/`: reads the deployment and the plugins it lists
         - `card/`: writes a plugin's card from its definition (`just card`). It reads a plugin as mount does
         - `access/`: the plugins one user can use, their connections, and the users
         - `assemble/`: puts those plugins in front of the model, as one config
-        - `run/`: builds the agent per user, with the settings its loop gives (`run/build/`), sends the trace of each run to Langfuse (`run/trace.ts`), serves the graph and the `/que/*` API, and the CLI
+        - `run/`: builds a chat's agent for its user at its first run, and keeps it for the chat (`run/chats.ts`), with the settings its loop gives (`run/build/`), sends the trace of each run to Langfuse (`run/trace.ts`), serves the graph and the `/que/*` API, and the CLI
     - `evals/`: the eval runner (`@que/evals`). It reads a deployment's cases and agent configs, runs each case against a running que over HTTP, and prints the runs. When the deployment's `.env` has `QUE_JUDGE`, the name of one of its model configs, that model judges each finished run on the `good` of its case (`evals/src/judge.ts`). When the deployment's `.env` has `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, it also sends the runs to that Langfuse: the cases as one dataset, and the runs under each agent config as one experiment run (`evals/src/langfuse.ts`). It makes the judge's model with the model maker (`@que/models`), as a run makes its own. It imports the plugin package, the core and the model maker, and nothing from the harness or the backend
     - `tests/integration/`: the tests that mount folders from disk
     - `scripts/recipe-shell.mjs`: writes the shell of each justfile recipe to a file of its own, for the shell set of `scripts/check.sh` to lint. It sits here so the server's lint and format read it

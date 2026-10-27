@@ -6,9 +6,9 @@ status: running
 Access decides what one user can reach. It works per plugin: a user gets a whole plugin, or none of it.
 - [[#Catalog]] the plugins one user can use
 - [[#Credentials and connections]] the one place credentials are handled
-- [[#Narrow]] the plugins one run gets
+- [[#Narrow]] the plugins one chat gets
 - [[#Users]] the users store
-- [[#Instructions]] the user's own instructions for a run
+- [[#Instructions]] the user's own instructions for a chat
 
 - [[que]]: the harness, whose second step this is. Mount comes before it, assemble after
 - [[plugin-contract]]: the contract it reads (`credential`, `connect`, `whoami`)
@@ -52,9 +52,9 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 `instructions.ts`
 
-- the user's own instructions for a run come from one of two places
+- the user's own instructions for a chat come from one of two places
 	- the file a deployment names in `DEV_USER_INSTRUCTIONS`. A relative path is taken from the deployment's folder
-		- read whole on every run, so an edit is in the next run
+		- read whole each time a chat's agent is built, so an edit is in the next chat
 		- a file that cannot be read is an error that names it, and que stops at startup
 	- with no file named, the text saved on the user's account
 		- at most 16,000 characters. Blank text is saved as none

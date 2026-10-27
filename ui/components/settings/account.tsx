@@ -146,7 +146,7 @@ function AccountForm({ me }: { me: Me }) {
         <span className="text-muted-foreground text-xs">
           {fromFile
             ? "Set by a file of this deployment. Change the file to change them."
-            : "Given to the agents that take them, from your next message."}
+            : "Given to the agents that take them, from your next chat."}
         </span>
       </label>
       <div className="flex items-center gap-3">

@@ -67,7 +67,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 
 ### Credentials / Access
 
-Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses, and what each user gets each run.
+Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses, and what each user gets each chat.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
@@ -78,7 +78,7 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 	- `validatePlugin`: one definition, with no skills or cases. What it uses is there, and not read
 	- mount of one plugin (`just check-plugin`): with its skills and cases. What it uses is there, and not read
 	- mount of a deployment: all its plugins, and nothing unread. A name a plugin uses that the deployment does not give is a problem
-- who holds which domains, roles and logins, and what a user gets each run: que's control plane (not built), not the plugin
+- who holds which domains, roles and logins, and what a user gets each chat: que's control plane (not built), not the plugin
 
 ## What it promises
 

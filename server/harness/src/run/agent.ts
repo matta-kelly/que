@@ -25,6 +25,7 @@ import { getConnection } from "../access/connections.js";
 import { fromFile, taken } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
 import * as mounted from "../mount/mounted.js";
+import { chats } from "./chats.js";
 import { configFor } from "./config.js";
 import { build } from "./build/build.js";
 import { loadingFor } from "./loading.js";
@@ -67,24 +68,22 @@ export async function buildAgent(
   });
 }
 
-// Served by `langgraph dev`: a factory, so the server builds the agent per run
-// for that run's user (`langgraph_auth_user_id`, set by the auth hook), with
-// whatever they have connected right now, under the agent config the run
-// names (`agent`, sent in the run's configurable), on the model the run names
-// (`model`, sent the same way). Calls without a user (e.g.
-// fetching the graph schema) get no plugins. The server says what each call
-// is for in its second argument, and only a run is traced.
+// Served by `langgraph dev`: a factory, which the server calls for each run
+// and for each read of the graph. A run gets its chat's agent (run/chats.ts),
+// built at the chat's first run for that run's user (`langgraph_auth_user_id`,
+// set by the auth hook), with what they had connected then, under the agent
+// config the run names (`agent`, sent in the run's configurable), on the model
+// the run names (`model`, sent the same way). Calls without a user (e.g.
+// fetching the graph schema) get no plugins. Each run is traced as its own
+// run, on the kept agent, and only a run is traced.
+const agentFor = chats(buildAgent);
+
 export const agent = async (
   config?: { configurable?: Record<string, unknown> },
   runtime?: { accessContext?: string },
 ) =>
   traced(
-    await buildAgent(
-      (config?.configurable?.langgraph_auth_user_id as string | undefined) ??
-        "anonymous",
-      config?.configurable?.agent,
-      config?.configurable?.model,
-    ),
+    await agentFor(config, runtime),
     runOf(
       config,
       runtime,

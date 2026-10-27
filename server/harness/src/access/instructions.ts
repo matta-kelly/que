@@ -37,7 +37,7 @@ export async function fromFile(path: string): Promise<string> {
   }
 }
 
-/** The text in use and where it is from. A named file is read each time, so a change to it is in the next run. */
+/** The text in use and where it is from. A named file is read each time, so a change to it is in the next chat. */
 export async function instructionsOf(
   file: string | undefined,
   account: () => Promise<string | null>,

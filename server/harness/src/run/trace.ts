@@ -10,6 +10,7 @@
 import { CallbackHandler } from "@langfuse/langchain";
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { NodeSDK } from "@opentelemetry/sdk-node";
+import { isRun } from "./chats.js";
 
 export type Settings = {
   publicKey: string;
@@ -50,17 +51,13 @@ export function settingsFor(env: Env): Settings | undefined {
   return settings;
 }
 
-/**
- * What the trace of this call says, or undefined when the call is not a run.
- * The server calls the factory for a run with `threads.create_run`, and also
- * to read the graph, its schemas and a thread's state.
- */
+/** What the trace of this call says, or undefined when the call is not a run. */
 export function runOf(
   config: { configurable?: Record<string, unknown> } | undefined,
   runtime: { accessContext?: string } | undefined,
   agent: { name: string },
 ): Run | undefined {
-  if (runtime?.accessContext !== "threads.create_run") return undefined;
+  if (!isRun(runtime)) return undefined;
   const { langgraph_auth_user_id: user, thread_id: thread } =
     config?.configurable ?? {};
   return {
