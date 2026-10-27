@@ -1,4 +1,4 @@
-import { defineCases } from "@que/core";
+import { defineCases } from "@que/plugin";
 
 export default defineCases([
   {

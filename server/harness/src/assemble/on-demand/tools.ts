@@ -1,12 +1,12 @@
 /**
  * The on-demand tools: how the agent looks inside a plugin and brings an
  * operation into reach. They read any plugin through the plugin contract
- * (@que/core) and know nothing about a specific one.
+ * (@que/plugin) and know nothing about a specific one.
  */
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import { nameIn, OperationFailed } from "@que/core";
+import { nameIn, OperationFailed } from "@que/plugin";
 import type { Catalog } from "../../access/catalog.js";
 import { skillLine } from "../skills.js";
 

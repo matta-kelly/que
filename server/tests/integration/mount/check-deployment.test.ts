@@ -77,7 +77,7 @@ for (const [typo, name, says] of [
   [
     "a name a domain uses that the deployment does not give",
     "uses-unresolved",
-    /stray uses source-lose, and the deployment mounts no op source-lose/,
+    /stray\/plugin\.json: \/usesOps: It points at source-lose, which is not a node\./,
   ],
   [
     "a model an agent names that is not listed",

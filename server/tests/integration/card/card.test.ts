@@ -22,7 +22,7 @@ import {
   checkCard,
   definePlugin,
   validateCard,
-} from "@que/core";
+} from "@que/plugin";
 import { writeCard } from "../../../harness/src/card/writer.js";
 import { loadPlugin } from "../../../harness/src/mount/plugins.js";
 
@@ -88,7 +88,7 @@ test("validateCard refuses a card the standard's schema refuses", () => {
   );
 });
 
-test("validateCard refuses a card whose que part is not the shape que reads", () => {
+test("validateCard refuses a card that is not the shape que reads", () => {
   assert.throws(
     () =>
       validateCard(
@@ -103,7 +103,7 @@ test("validateCard refuses a card whose que part is not the shape que reads", ()
         },
         "the card",
       ),
-    /the card's io\.github\.matta-kelly\.que part is invalid:\n- format must be 2/,
+    /the card is invalid:\n- extensions\.io\.github\.matta-kelly\.que\.format must be 2/,
   );
 });
 

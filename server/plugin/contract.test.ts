@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePlugin, validatePlugin } from "./plugin.js";
-import { pluginFaults } from "./ontology.js";
+import { definePlugin, type PluginDefinition, type Role } from "./contract.ts";
+import { validatePlugin } from "./lint.ts";
 
 const notes = definePlugin({
   name: "notes",
@@ -165,7 +165,7 @@ test("validatePlugin refuses an op with no name, and one whose tool name is over
         definePlugin({ ...notes, ops: [{ ...search, name: long }] }),
       ),
     new RegExp(
-      `- notes-${long}, its tool name, is 66 characters: model APIs take at most 64\\.`,
+      `- plugin\\.json#ops/${long}: notes-${long}, its tool name, is 66 characters: model APIs take at most 64\\. \\(plugin/tool-name\\)`,
     ),
   );
 });
@@ -260,37 +260,35 @@ test("validatePlugin takes a plugin whose roles are each named by its ops", () =
   );
 });
 
-test("validatePlugin refuses an op with no role when its plugin lists roles", () => {
-  assert.throws(
-    () =>
-      validatePlugin(definePlugin({ ...notes, roles: [read], ops: [search] })),
-    /- notes-search names no role: the plugin lists roles \(notes-read\), so each op names one\./,
-  );
-});
-
-test("validatePlugin refuses an op whose role its plugin does not list", () => {
-  assert.throws(
-    () =>
-      validatePlugin(
-        definePlugin({
-          ...notes,
-          roles: [read],
-          ops: [{ ...search, role: "admin" }],
-        }),
-      ),
-    /- notes-search names the role notes-admin, which is not one of the plugin's \(notes-read\)\./,
-  );
-});
-
-test("validatePlugin refuses an op with a role when its plugin lists none", () => {
-  assert.throws(
-    () =>
-      validatePlugin(
-        definePlugin({ ...notes, ops: [{ ...search, role: "read" }] }),
-      ),
-    /- notes-search names the role notes-read, and the plugin lists none\./,
-  );
-});
+// Each role fault is reported once: op-role for an op with no role, and basis/link for a role that is not there.
+const roleFaults: [
+  string,
+  Pick<PluginDefinition, "ops"> & { roles?: Role[] },
+  string,
+][] = [
+  [
+    "an op with no role when its plugin lists roles",
+    { roles: [read], ops: [search] },
+    "plugin.json: /ops/0: ops.search names no role: the plugin lists roles (read), so each op names one. (plugin/op-role)",
+  ],
+  [
+    "an op whose role its plugin does not list",
+    { roles: [read], ops: [{ ...search, role: "admin" }] },
+    "plugin.json#ops/search: /role: It points at notes-admin, which is not a node. (basis/link)",
+  ],
+  [
+    "an op with a role when its plugin lists none",
+    { ops: [{ ...search, role: "read" }] },
+    "plugin.json#ops/search: /role: It points at notes-read, which is not a node. (basis/link)",
+  ],
+];
+for (const [fault, definition, problem] of roleFaults)
+  test(`validatePlugin refuses ${fault}, once`, () => {
+    assert.throws(
+      () => validatePlugin(definePlugin({ ...notes, ...definition })),
+      { message: `plugin notes is invalid:\n- ${problem}` },
+    );
+  });
 
 test("validatePlugin refuses a role named twice, and one with no description", () => {
   assert.throws(
@@ -369,7 +367,7 @@ test("validatePlugin refuses a plugin that uses its own op", () => {
           uses: { ops: ["notes-search"] },
         }),
       ),
-    /- notes-search is its own: a plugin uses only other plugins' ops and skills\./,
+    /- plugin\.json: \/usesOps: notes-search is its own: a plugin uses only other plugins' ops and skills\. \(plugin\/own-use\)/,
   );
 });
 
@@ -384,14 +382,40 @@ test("validatePlugin takes a plugin that keeps the contract", () => {
   );
 });
 
-test("pluginFaults finds a skill a plugin uses that is its own, given its skills' ids, as mount gives them", () => {
-  assert.deepEqual(
-    pluginFaults(
-      definePlugin({ ...notes, uses: { skills: ["notes-greet"] } }),
-      ["notes-greet"],
-    ),
-    [
-      "notes-greet is its own: a plugin uses only other plugins' ops and skills.",
-    ],
+test("validatePlugin refuses an op whose schema has no JSON Schema form, naming the op, as it refuses any fault", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({
+          ...notes,
+          ops: [
+            {
+              ...search,
+              schema: z.object({ when: z.date().describe("When") }),
+            },
+          ],
+        }),
+      ),
+    /^Error: plugin notes is invalid:\n- op notes-search's schema has no JSON Schema form/,
+  );
+});
+
+test("validatePlugin refuses an op and a role of one name, naming each by its part of the card", () => {
+  assert.throws(
+    () =>
+      validatePlugin(
+        definePlugin({
+          ...notes,
+          roles: [{ name: "search", description: "Searches." }],
+          ops: [{ ...search, role: "search" }],
+        }),
+      ),
+    {
+      message: [
+        "plugin notes is invalid:",
+        "- plugin.json#ops/search: The name notes-search is also the name of plugin.json#roles/search. (basis/unique-name)",
+        "- plugin.json#roles/search: The name notes-search is also the name of plugin.json#ops/search. (basis/unique-name)",
+      ].join("\n"),
+    },
   );
 });

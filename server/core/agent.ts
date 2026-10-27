@@ -8,8 +8,8 @@
  */
 
 import * as z from "zod";
-import { check, named, standardName, strict } from "./check.js";
-import { fieldsOf, types } from "./ontology.js";
+import { check, fieldsOf, named, standardName, strict } from "@que/plugin";
+import { types } from "./ontology.js";
 
 export { LOADING } from "@que/ontology/harness";
 export type Loading = NonNullable<AgentDefinition["loading"]>;

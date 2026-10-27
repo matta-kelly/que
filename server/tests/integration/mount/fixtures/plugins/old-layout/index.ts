@@ -1,4 +1,4 @@
-import { definePlugin } from "@que/core";
+import { definePlugin } from "@que/plugin";
 
 // At the plugin's root, where que's files sat before they moved into io.github.matta-kelly.que/.
 export default definePlugin({

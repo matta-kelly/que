@@ -1,0 +1,15 @@
+{
+  "name": "@que/plugin",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Everything a que plugin is: its contract, its card, its skills and cases, the plugin schema of que's ontology, the one check of plugins, and the source that reads plugins' cards for a lint.",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "dependencies": {
+    "@mku1tra/basis": "^0.19.0",
+    "ajv": "^8.20.0",
+    "zod": "^4.6.5"
+  }
+}

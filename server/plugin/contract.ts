@@ -4,8 +4,11 @@
  */
 
 import * as z from "zod";
-import { check, fn, named, once, standardName, strict, text } from "./check.js";
-import { fieldsOf, pluginFaults, types } from "./ontology.js";
+import { fn, once, strict } from "./check.ts";
+import { fieldsOf, standardName, text } from "./fields.ts";
+import { plugin } from "./schema.ts";
+
+const types = plugin.types;
 
 /** The one failure type. Anything a plugin throws that isn't this is a bug. */
 export class OperationFailed extends Error {
@@ -164,20 +167,4 @@ export function definePlugin<S extends z.ZodObject, Conn>(
     },
     capabilities: definition.capabilities ?? [],
   };
-}
-
-/**
- * Check a definition against the contract, throwing one error that lists
- * every problem. Types can't catch these: a plugin is loaded at runtime, and
- * names, titles and descriptions are what the model reads.
- */
-export function validatePlugin(
-  def: PluginDefinition | undefined,
-): asserts def is PluginDefinition {
-  check(PluginDefinition, def, `plugin${named(def)} is invalid`);
-  const faults = pluginFaults(def as PluginDefinition);
-  if (faults.length)
-    throw new Error(
-      `plugin ${(def as PluginDefinition).name} is invalid:\n- ${faults.join("\n- ")}`,
-    );
 }

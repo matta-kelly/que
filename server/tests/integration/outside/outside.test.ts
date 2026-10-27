@@ -1,7 +1,7 @@
 /**
  * Mount, from a folder that is not inside que: a deployment that holds its
  * own plugin. The fixtures are copied to the system's temp folder first, so
- * that nothing above them can supply `@que/core`.
+ * that nothing above them can supply `@que/plugin` or `@que/core`.
  * The type check of such a folder, as `just check-folder` runs it, is here too:
  * its plugin imports each name que supplies.
  */

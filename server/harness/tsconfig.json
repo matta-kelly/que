@@ -20,6 +20,7 @@
   },
   "include": [
     "**/*.ts",
+    "../plugin/**/*.ts",
     "../core/**/*.ts",
     "../ontology/**/*.ts",
     "../backend/**/*.ts",

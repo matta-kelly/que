@@ -1,6 +1,6 @@
 ---
 type: type
-description: "One behaviour of one capability, which the eval runner runs with the model. `Case` in @que/core."
+description: "One behaviour of one capability, which the eval runner runs with the model. `Case` in @que/plugin."
 ---
 The behaviour this case shows, in one line.
 - [[#Why]] what a failure of this case says about its capability

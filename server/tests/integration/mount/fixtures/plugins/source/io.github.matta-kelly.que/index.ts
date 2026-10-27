@@ -1,4 +1,4 @@
-import { definePlugin } from "@que/core";
+import { definePlugin } from "@que/plugin";
 import * as z from "zod";
 
 export default definePlugin({

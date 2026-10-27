@@ -1,6 +1,6 @@
 ---
 type: type
-description: "The text part of a plugin, one `SKILL.md`. `Skill` in @que/core."
+description: "The text part of a plugin, one `SKILL.md`. `Skill` in @que/plugin."
 ---
 What this skill tells the model, in one line.
 - [[#When to read it]] the question that makes the model read it

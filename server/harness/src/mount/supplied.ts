@@ -1,7 +1,7 @@
 /**
  * The packages que gives a folder outside que, the one list of them.
  * `supply.ts` hands them over at run time, and `checkConfig` maps them for the
- * type check that `just check-folder` runs. The README and `core/plugin-contract.md`
+ * type check that `just check-folder` runs. The README and `plugin/plugin-contract.md`
  * name them too, and `supplied.test.ts` holds them to this list.
  */
 
@@ -11,8 +11,8 @@ const SERVER = join(import.meta.dirname, "../../..");
 
 /** Each name, and where in `server/` the compiler finds it. */
 export const SUPPLIED: Record<string, string> = {
+  "@que/plugin": "plugin/index.ts",
   "@que/core": "core/index.ts",
-  "@que/ontology": "ontology/index.ts",
   zod: "node_modules/zod",
   "@mku1tra/basis": "node_modules/@mku1tra/basis/dist/index.d.ts",
 };

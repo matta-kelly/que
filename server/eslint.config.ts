@@ -107,9 +107,13 @@ const providers: Rule = {
   path: /^@langchain\/(?:openai|fireworks)(?:\/|$)/,
   why: "Only models/ names a provider package.",
 };
+const pluginAlone: Rule = {
+  path: /^(?!\.\/|@mku1tra\/basis$|ajv(?:\/|$)|zod(?:\/|$)|node:)/,
+  why: "@que/plugin imports only its own files, basis, ajv, zod and node: the harness and the core build on it, never the other way.",
+};
 const framework: Rule = {
   path: /langchain|langgraph/,
-  why: "The core imports no agent framework.",
+  why: "The core and the ontology import no agent framework.",
 };
 
 // Agents, loops and models are mounted by one function, mountFiles in mount/files.ts.
@@ -140,8 +144,8 @@ const tracedByTrace: Rule[] = [
 
 const evals = "evals/src";
 const evalsAlone: Rule = {
-  path: /harness|backend|@que\/(?!core|models)|^(?:\.\.\/)+models(?:\/|$)/,
-  why: "The eval runner imports the core and the model maker, by its name @que/models, and nothing from the harness or the backend.",
+  path: /harness|backend|@que\/(?!plugin|core|models)|^(?:\.\.\/)+models(?:\/|$)/,
+  why: "The eval runner imports the plugin package, the core and the model maker, by its name @que/models, and nothing from the harness or the backend.",
 };
 const langGraphSdk: Rule = {
   path: /langgraph/,
@@ -160,7 +164,7 @@ const evalsFramework: Rule = {
   why: "The eval runner names no model framework: the judge's model comes from @que/models.",
 };
 
-// One lint setup for the server: core, backend, models, harness, evals and tests.
+// One lint setup for the server: plugin, core, ontology, backend, models, harness, evals and tests.
 export default defineConfig([
   globalIgnores(["**/node_modules"]),
   {
@@ -179,6 +183,7 @@ export default defineConfig([
 
   // The import rules. A later entry replaces an earlier one for the files it names.
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp, providers]),
+  hold(["plugin/**/*.ts"], [pluginAlone]),
   hold(["core/**/*.ts"], [otherApp, providers, framework]),
   hold(["ontology/**/*.ts"], [otherApp, providers, framework]),
   hold(["models/**/*.ts"], [otherApp, modelsAlone]),

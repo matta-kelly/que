@@ -10,7 +10,7 @@ import {
   OperationFailed,
   type PluginDefinition,
   type ServiceIdentity,
-} from "@que/core";
+} from "@que/plugin";
 import { createStore } from "@que/credentials";
 
 const store = createStore();

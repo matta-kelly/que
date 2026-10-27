@@ -6,9 +6,10 @@
 
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
-import { validateCases, type Case } from "./case.js";
-import { locatePlugin, type PluginFiles } from "./layout.js";
-import { validatePlugin, type PluginDefinition } from "./plugin.js";
+import { validateCases, type Case } from "./case.ts";
+import type { PluginDefinition } from "./contract.ts";
+import { locatePlugin, type PluginFiles } from "./layout.ts";
+import { validatePlugin } from "./lint.ts";
 
 const defaultOf = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;

@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { cardOf, cardText } from "./card.js";
-import { definePlugin } from "./plugin.js";
+import { cardOf, cardText } from "./card.ts";
+import { definePlugin } from "./contract.ts";
 
 const getFabric = {
   name: "get-fabric",
@@ -105,28 +105,6 @@ test("cardOf leaves out the version, a credential and an op's role when there ar
   assert.equal(
     "role" in card.extensions["io.github.matta-kelly.que"].ops[0],
     false,
-  );
-});
-
-test("cardOf refuses an op whose schema has no JSON Schema form, naming the op", () => {
-  assert.throws(
-    () =>
-      cardOf({
-        definition: definePlugin({
-          name: "notes",
-          title: "Notes",
-          description: "How the team writes things down.",
-          ops: [
-            {
-              ...getFabric,
-              role: undefined,
-              schema: z.object({ when: z.date().describe("When") }),
-            },
-          ],
-        }),
-        cases: [],
-      }),
-    /op notes-get-fabric's schema has no JSON Schema form/,
   );
 });
 

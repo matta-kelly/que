@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { definePlugin } from "@que/core";
+import { definePlugin } from "@que/plugin";
 import type { Catalog } from "../access/catalog.js";
 
 /** A catalog with one fake plugin, for the tests in this folder. */

@@ -1,4 +1,4 @@
-import { definePlugin } from "@que/core";
+import { definePlugin } from "@que/plugin";
 
 export default definePlugin({
   name: "gamma",

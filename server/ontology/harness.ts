@@ -14,22 +14,11 @@ import {
   manyOrNone,
   one,
 } from "@mku1tra/basis";
+import { plugin, strict } from "@que/plugin";
 import * as z from "zod";
 import { isCount, isText, must, that } from "./fields.ts";
-import { plugin } from "./plugin.ts";
 
 const pluginType = plugin.types.plugin;
-
-// Closed objects, whose error names a field it does not know.
-const closed = <S extends z.ZodRawShape>(shape: S) =>
-  z.strictObject(shape, {
-    error: (issue) =>
-      issue.code === "unrecognized_keys"
-        ? issue.keys.map((key) => `has no field "${key}"`).join("; ")
-        : issue.code === "invalid_type"
-          ? "must be an object"
-          : undefined,
-  });
 
 const isAmount = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
@@ -40,12 +29,15 @@ const count = that(isCount, "a whole number above zero");
 const amount = that(isAmount, "a number of zero or more");
 
 /** What a model costs, in dollars for one million tokens. */
-export const ModelPrice = closed({
-  input: amount,
-  output: amount,
-  /** Tokens in that the provider read from its cache. Left out: they cost as `input`. */
-  cachedInput: amount.optional(),
-});
+export const ModelPrice = z.strictObject(
+  {
+    input: amount,
+    output: amount,
+    /** Tokens in that the provider read from its cache. Left out: they cost as `input`. */
+    cachedInput: amount.optional(),
+  },
+  strict(),
+);
 
 const model = defineType({
   name: "model",
@@ -97,24 +89,28 @@ const loop = defineType({
     "One way an agent handles a chat as it grows, and how far one run can go. `LoopDefinition` in @que/core.",
   fields: {
     /** `max`: in tokens. A tool result over it is not put in the chat whole. */
-    result: setting(closed({ max: some })),
+    result: setting(z.strictObject({ max: some }, strict())),
     /** `at`: the share of the model's window past which the old part of the chat is sent as a summary. `keep`: the share that is sent as it is. */
     summarize: setting(
-      closed({ at: share, keep: share }).superRefine((fields, ctx) => {
-        // Checked on what the loop runs with, so a part left out counts as que's own.
-        const { at, keep } = { ...LOOP_DEFAULTS.summarize, ...fields };
-        if (isShare(at) && isShare(keep) && keep >= at)
-          ctx.addIssue({
-            code: "custom",
-            path: ["keep"],
-            message: `must be below summarize.at, got ${keep} and ${at}`,
-          });
-      }),
+      z
+        .strictObject({ at: share, keep: share }, strict())
+        .superRefine((fields, ctx) => {
+          // Checked on what the loop runs with, so a part left out counts as que's own.
+          const { at, keep } = { ...LOOP_DEFAULTS.summarize, ...fields };
+          if (isShare(at) && isShare(keep) && keep >= at)
+            ctx.addIssue({
+              code: "custom",
+              path: ["keep"],
+              message: `must be below summarize.at, got ${keep} and ${at}`,
+            });
+        }),
     ),
     /** `max`: in characters. In the old part of a chat, a longer argument of a tool call is cut. */
-    args: setting(closed({ max: some })),
+    args: setting(z.strictObject({ max: some }, strict())),
     /** The most model calls and tool calls one run can make. */
-    limits: setting(closed({ modelCalls: some, toolCalls: some })),
+    limits: setting(
+      z.strictObject({ modelCalls: some, toolCalls: some }, strict()),
+    ),
   },
 });
 

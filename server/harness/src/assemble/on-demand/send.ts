@@ -4,7 +4,7 @@
  */
 
 import type { BaseMessage } from "langchain";
-import { nameIn } from "@que/core";
+import { nameIn } from "@que/plugin";
 import { LOAD_OPERATION } from "./tools.js";
 
 type ToolCall = { id?: string; name: string; args: Record<string, unknown> };

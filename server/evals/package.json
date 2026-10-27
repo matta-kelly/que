@@ -12,6 +12,7 @@
     "@opentelemetry/sdk-node": "0.223.0",
     "@que/core": "*",
     "@que/models": "*",
+    "@que/plugin": "*",
     "langchain": "^1.5.10"
   }
 }

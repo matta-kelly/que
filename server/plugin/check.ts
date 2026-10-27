@@ -4,11 +4,7 @@
  */
 
 import * as z from "zod";
-
-import { standardName } from "@que/ontology/fields";
-
-// The schemas of que's fields are the ontology's: a definition is parsed with what a node holds.
-export { isText, must, standardName, text, that } from "@que/ontology/fields";
+import { standardName } from "./fields.ts";
 
 /** A value that is a function. Only that is checked: what it takes and gives is the type's to say. */
 export const fn = z
@@ -67,6 +63,19 @@ function where(value: unknown, path: PropertyKey[]): string {
     .join(".");
 }
 
+/** What is wrong with a value, by a schema: each problem after the field it is in. None when it parses. */
+export const faults = (schema: z.ZodType, value: unknown): string[] =>
+  schema
+    .safeParse(value)
+    .error?.issues.map((issue) =>
+      [where(value, issue.path), issue.message].filter(Boolean).join(" "),
+    ) ?? [];
+
+/** Throw one error that lists the problems, when there are any. `what` leads the error. */
+export function refuse(what: string, problems: readonly string[]): void {
+  if (problems.length) throw new Error(`${what}:\n- ${problems.join("\n- ")}`);
+}
+
 /**
  * Check a value against a schema, throwing one error that lists every
  * problem, each one after the field it is in. `what` leads the error.
@@ -76,10 +85,6 @@ export function check<S extends z.ZodType>(
   value: unknown,
   what: string,
 ): z.output<S> {
-  const result = schema.safeParse(value);
-  if (result.success) return result.data;
-  const problems = result.error.issues.map((issue) =>
-    [where(value, issue.path), issue.message].filter(Boolean).join(" "),
-  );
-  throw new Error(`${what}:\n- ${problems.join("\n- ")}`);
+  refuse(what, faults(schema, value));
+  return schema.parse(value);
 }

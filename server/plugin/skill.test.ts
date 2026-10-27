@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSkill } from "./skill.js";
+import { parseSkill } from "./skill.ts";
 
 test("parseSkill reads a skill in the Agent Skills format, with its title from metadata", () => {
   assert.deepEqual(
@@ -74,14 +74,14 @@ test("parseSkill rejects a skill name the standard does not take", () => {
 test("parseSkill rejects a skill with no frontmatter", () => {
   assert.throws(
     () => parseSkill("notes", "greet", "Say hello."),
-    /skill notes-greet is invalid:\n- is missing \(a --- fenced YAML block at the top\)/,
+    /skill notes-greet is invalid:\n- frontmatter is missing \(a --- fenced YAML block at the top\)/,
   );
 });
 
 test("parseSkill rejects frontmatter that is not YAML", () => {
   assert.throws(
     () => parseSkill("notes", "greet", "---\nname: [greet\n---\n"),
-    /skill notes-greet is invalid:\n- frontmatter is not YAML/,
+    /skill notes-greet is invalid:\n- The frontmatter is not valid YAML/,
   );
 });
 
@@ -99,6 +99,25 @@ test("parseSkill reads a SKILL.md with \\r\\n line ends", () => {
 test("parseSkill rejects frontmatter that is YAML but not a map of fields", () => {
   assert.throws(
     () => parseSkill("notes", "greet", "---\nhello\n---\n"),
-    /skill notes-greet is invalid:\n- must be a map of fields/,
+    /skill notes-greet is invalid:\n- The frontmatter is not a set of fields\./,
+  );
+});
+
+test("parseSkill rejects a description over 1024 characters, and metadata that is not text", () => {
+  assert.throws(
+    () =>
+      parseSkill(
+        "notes",
+        "greet",
+        `---\nname: greet\ndescription: ${"a".repeat(1025)}\nmetadata:\n  title: 7\n---\n`,
+      ),
+    (error: Error) => {
+      assert.match(
+        error.message,
+        /- description must be at most 1024 characters/,
+      );
+      assert.match(error.message, /- metadata\.title /);
+      return true;
+    },
   );
 });

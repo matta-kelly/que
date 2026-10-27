@@ -1,6 +1,6 @@
 ---
 type: type
-description: "One access level of an internal service, which que holds one login for. `Role` in @que/core."
+description: "One access level of an internal service, which que holds one login for. `Role` in @que/plugin."
 ---
 What this role may do in its service, in one line.
 - [[#Login]] the login que holds for it, and what that login is allowed

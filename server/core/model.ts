@@ -10,8 +10,8 @@
 
 import * as z from "zod";
 import { maxTokensInWindow, ModelPrice } from "@que/ontology/harness";
-import { check, named, standardName, strict } from "./check.js";
-import { fieldsOf, refineBy, ruleFaults, types } from "./ontology.js";
+import { check, fieldsOf, named, standardName, strict } from "@que/plugin";
+import { refineBy, ruleFaults, types } from "./ontology.js";
 
 export { ModelPrice };
 export type ModelPrice = z.infer<typeof ModelPrice>;

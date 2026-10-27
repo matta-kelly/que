@@ -5,15 +5,8 @@
  */
 
 import * as z from "zod";
-import {
-  check,
-  isText,
-  must,
-  named,
-  standardName,
-  strict,
-  that,
-} from "./check.js";
+import { check, named, standardName, strict } from "@que/plugin";
+import { isText, must, that } from "@que/ontology/fields";
 
 // que has no agent, loop or model of its own to fall back on.
 const files = (kind: string) => {

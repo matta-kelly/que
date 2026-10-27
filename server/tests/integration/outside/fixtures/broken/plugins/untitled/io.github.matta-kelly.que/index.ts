@@ -1,4 +1,4 @@
-import { definePlugin } from "@que/core";
+import { definePlugin } from "@que/plugin";
 
 // Breaks the plugin contract on purpose: it has no description.
 export default definePlugin({

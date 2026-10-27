@@ -4,12 +4,9 @@
  * own sit in que's namespace folder, as Agent Plugins puts a client's files (§8.2).
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-
-import { NAMESPACE } from "@que/ontology/names";
-
-export { NAMESPACE };
+import { NAMESPACE } from "./names.ts";
 
 /** The files of the plugin in `dir`. */
 export const pluginFiles = (dir: string) => ({
@@ -21,7 +18,7 @@ export const pluginFiles = (dir: string) => ({
   cases: join(dir, NAMESPACE, "cases.ts"),
   /** Its card, the standard's manifest. */
   card: join(dir, "plugin.json"),
-  /** Its npm package, when it is one: its version, and the @que/core it works with. */
+  /** Its npm package, when it is one: its version, and the @que/plugin it works with. */
   package: join(dir, "package.json"),
   /** Its skills, one folder each. The standard's place. */
   skills: join(dir, "skills"),
@@ -47,3 +44,16 @@ export function locatePlugin(dir: string): PluginFiles {
     );
   throw new Error(`${dir} holds no plugin (no ${NAMESPACE}/index.ts)`);
 }
+
+/**
+ * The folders under the skills/ of the plugin in `dir`, each a skill, as Agent Plugins finds them: one level down, in
+ * name order. A plugin with no skills/ has none.
+ */
+export const skillFolders = (dir: string): string[] => {
+  const { skills } = pluginFiles(dir);
+  if (!existsSync(skills)) return [];
+  return readdirSync(skills, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+};

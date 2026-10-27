@@ -5,9 +5,12 @@
  */
 
 import * as z from "zod";
-import { check, once, standardName, strict, text } from "./check.js";
-import { fieldsOf, types } from "./ontology.js";
-import type { PluginDefinition } from "./plugin.js";
+import { check, once, strict } from "./check.ts";
+import type { PluginDefinition } from "./contract.ts";
+import { fieldsOf, standardName, text } from "./fields.ts";
+import { plugin } from "./schema.ts";
+
+const types = plugin.types;
 
 /**
  * One case: its name, which is its node's in the whole graph, the behaviour it shows, and the case's fields: the

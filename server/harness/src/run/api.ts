@@ -10,7 +10,7 @@
  */
 
 import { Hono, type Context } from "hono";
-import { OperationFailed } from "@que/core";
+import { OperationFailed } from "@que/plugin";
 import { agents, loops, models, plugins } from "../mount/mounted.js";
 import {
   connectedPlugins,

@@ -21,9 +21,12 @@ import { loadDeployment } from "../../../harness/src/mount/deployment.js";
 import * as fromDeployment from "../../../harness/src/mount/deployment.js";
 import type { FactSources } from "../../../harness/src/mount/model-facts/index.js";
 import {
+  loadPlugin,
+  mountPlugin,
   mountPlugins,
   type MountedPlugin,
 } from "../../../harness/src/mount/plugins.js";
+import { writeCard } from "../../../harness/src/card/writer.js";
 
 const fixtures = join(import.meta.dirname, "fixtures");
 const deployment = (name: string) => join(fixtures, "deployments", name);
@@ -73,49 +76,56 @@ export default defineDeployment({
   return dir;
 };
 
-// A plugin whose package.json names the @que/core it works with, as a peer.
-const needingCore = (range: string) => {
-  const dir = mkdtempSync(join(workspace, "needs-core-"));
+// A plugin whose package.json names the @que/plugin it works with, as a peer, or another package.
+const needing = (range: string, peer = "@que/plugin") => {
+  const dir = mkdtempSync(join(workspace, "needs-plugin-"));
   cpSync(join(fixtures, "plugins/beta"), dir, { recursive: true });
   writeFileSync(
     join(dir, "package.json"),
     JSON.stringify({
       name: "beta",
       type: "module",
-      peerDependencies: { "@que/core": range },
+      peerDependencies: { [peer]: range },
     }),
   );
   return dir;
 };
 
-// que's own @que/core, from the one place its version is written.
-const core = (
+// que's own @que/plugin, from the one place its version is written.
+const version = (
   JSON.parse(
     readFileSync(
-      join(import.meta.dirname, "../../../core/package.json"),
+      join(import.meta.dirname, "../../../plugin/package.json"),
       "utf8",
     ),
   ) as { version: string }
 ).version;
 
-test("stops, naming the folder, the range and que's own version, when a plugin needs another @que/core", async () => {
-  const dir = needingCore("^9.0.0");
+test("stops, naming the folder, the range and que's own version, when a plugin needs another @que/plugin", async () => {
+  const dir = needing("^9.0.0");
   await assert.rejects(mountPlugins([dir]), (error: Error) => {
     assert.ok(error.message.includes(dir));
-    assert.match(error.message, /@que\/core \^9\.0\.0/);
-    assert.ok(error.message.includes(`que's is ${core}`));
+    assert.match(error.message, /@que\/plugin \^9\.0\.0/);
+    assert.ok(error.message.includes(`que's is ${version}`));
     return true;
   });
 });
 
-test("a plugin whose @que/core range que's own version satisfies is mounted", async () => {
-  assert.deepEqual(names(await mountPlugins([needingCore(`^${core}`)])), [
+test("a plugin whose @que/plugin range que's own version satisfies is mounted", async () => {
+  assert.deepEqual(names(await mountPlugins([needing(`^${version}`)])), [
     "beta",
   ]);
 });
 
+test("stops, saying the contract moved, when a plugin names @que/core as its peer", async () => {
+  const dir = needing("^0.3.0", "@que/core");
+  await assert.rejects(mountPlugins([dir]), {
+    message: `mount: ${dir}: the plugin contract moved to @que/plugin: name it as the peer in ${join(dir, "package.json")} ("@que/plugin": "^${version}"), in place of @que/core`,
+  });
+});
+
 test("stops, naming the file, when a plugin's package.json is not JSON", async () => {
-  const dir = needingCore("*");
+  const dir = needing("*");
   writeFileSync(join(dir, "package.json"), '{ "type": "module", }');
   await assert.rejects(mountPlugins([dir]), (error: Error) => {
     assert.match(error.message, /^mount:/);
@@ -186,10 +196,52 @@ test("a domain mounts when each name it uses is a mounted connector's op or skil
   assert.deepEqual(names(await mount("uses-resolve")), ["source", "domain"]);
 });
 
-test("stops, naming the domain and the name, when a domain uses what the deployment does not give", async () => {
+test("stops, naming the domain and the name, when a domain uses an op the deployment does not give, which its own check passes", async () => {
+  await assert.doesNotReject(loadPlugin(join(fixtures, "plugins/stray")));
   await assert.rejects(
     mount("uses-unresolved"),
-    /^Error: mount: a plugin uses what the deployment does not give:\n- stray uses source-lose, and the deployment mounts no op source-lose$/,
+    /^Error: mount: the plugins break the plugin schema:\n- .*plugins\/stray\/plugin\.json: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
+  );
+});
+
+// A plugin in a folder of its own, with its card written: a definition with `fields`, and a skill, `guide`.
+const written = async (name: string, fields: string) => {
+  const dir = join(workspace, name);
+  mkdirSync(join(dir, "io.github.matta-kelly.que"), { recursive: true });
+  writeFileSync(
+    join(dir, "io.github.matta-kelly.que/index.ts"),
+    `import { definePlugin } from "@que/plugin";
+export default definePlugin({ name: "${name}", title: "${name}", description: "A plugin.", ${fields} });
+`,
+  );
+  mkdirSync(join(dir, "skills/guide"), { recursive: true });
+  writeFileSync(
+    join(dir, "skills/guide/SKILL.md"),
+    "---\nname: guide\ndescription: How to use it.\n---\nUse it.\n",
+  );
+  await writeCard(dir);
+  return dir;
+};
+
+test("stops, naming both cards, when two plugins list one capability", async () => {
+  const capability = `capabilities: [{ name: "find-fabric", title: "Find a fabric", description: "Look one up." }]`;
+  const one = await written("one", capability);
+  const two = await written("two", capability);
+  await assert.rejects(mountPlugins([one, two]), (error: Error) => {
+    assert.ok(
+      error.message.includes(
+        `${one}/plugin.json#capabilities/find-fabric: The name find-fabric is also the name of ${two}/plugin.json#capabilities/find-fabric. (basis/unique-name)`,
+      ),
+    );
+    return true;
+  });
+});
+
+test("check-plugin stops a plugin that uses its own skill", async () => {
+  const dir = await written("selfish", `uses: { skills: ["selfish-guide"] }`);
+  await assert.rejects(
+    mountPlugin(dir),
+    /\/usesSkills: selfish-guide is its own: a plugin uses only other plugins' ops and skills\. \(plugin\/own-use\)/,
   );
 });
 

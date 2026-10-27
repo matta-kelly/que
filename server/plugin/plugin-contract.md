@@ -1,6 +1,6 @@
 ---
 type: component
-description: "The plugin contract for que, in words: what a plugin is, which parts follow the Agent Plugins standard and which are que's own, and what a plugin promises. Read before writing a plugin, or before changing what the harness reads from one. The code of the contract is `plugin.ts`."
+description: "The plugin contract for que, in words: what a plugin is, which parts follow the Agent Plugins standard and which are que's own, and what a plugin promises. Read before writing a plugin, or before changing what the harness reads from one. The code of the contract is `@que/plugin`, in this folder."
 status: running
 ---
 A plugin is one concern, in one folder. It is everything an agent can get from that concern, said in a form the harness can read without knowing the domain. Its outer shape follows the open standard, Agent Plugins 1.0; que adds what the standard leaves to the client.
@@ -16,15 +16,15 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 
 ## Standard
 
-Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, made by `just card <plugin folder>` and required. A reader of cards that runs no code: `@que/ontology`'s source, which gives basis's lint each node a plugin holds; que's control plane (not built) is another. que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
+Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, made by `just card <plugin folder>` and required. A reader of cards that runs no code: `@que/plugin`'s source (`plugins`), which gives basis's lint each node a plugin holds; que's control plane (not built) is another. que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
 
 - what it is: a folder any harness can read
 	- `plugin.json`, the card: `name` (required), and `version`, `description`, `author` and the like
-		- que makes it from the definition and the cases, never by hand (`cardOf` in `@que/core`): `name` and `description` from the definition, `version` from the plugin's `package.json`
-		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in que's ontology, by its field names, each thing by its name in the plugin: `format` (2), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `uses`, `capabilities`, `cases`. Skills are not in it: their folders are the standard's
-		- checked against the standard's own schema, kept in que (`core/standards/agent-plugins-1.0.0/`), never fetched, and against que's part (`CardPart`)
+		- que makes it from the definition and the cases, never by hand (`cardOf` in `@que/plugin`): `name` and `description` from the definition, `version` from the plugin's `package.json`
+		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in the plugin schema, by its field names, each thing by its name in the plugin: `format` (2), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `uses`, `capabilities`, `cases`. Skills are not in it: their folders are the standard's
+		- checked against the standard's own schema, kept in que (`plugin/standards/agent-plugins-1.0.0/`), never fetched, and against `Card`, the one shape of a card: built from the plugin schema's types, and the source reads a card with it
 		- required: mount, the evals and `just check-plugin` fail on a plugin with no card, or one that is not, byte for byte, what its definition and its cases make, naming the first line that differs. The fix is always `just card`
-		- in the graph: each node a plugin holds is a piece of a node of que's ontology, read from the card. A thing a plugin names in itself (an op, a role, a skill) is the node `<plugin>-<name>`; a capability and a case keep their names. A note of the same name is another piece of the same node: it gives the prose, and copies no fact of the code (basis, merge)
+		- in the graph: each node a plugin holds is a piece of a node of the plugin schema, read from the card and its skills (`piecesOf`). A thing a plugin names in itself (an op, a role, a skill) is the node `<plugin>-<name>`; a capability and a case keep their names. A note of the same name is another piece of the same node: it gives the prose, and copies no fact of the code (basis, merge)
 		- no formatter touches it (`.prettierignore`): the card check holds its bytes
 	- `skills/<name>/SKILL.md`: found by folder, not listed. The Agent Skills format
 	- `mcp.json`: optional. que does not use it: ops run in que, with no server per plugin
@@ -33,15 +33,15 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 
 ## que's additions
 
-What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@que/core`'s `pluginFiles` is the one place that says where each file is, the standard's and npm's too; `readDefinition` is the one way a plugin is read. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
+What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@que/plugin`'s `pluginFiles` is the one place that says where each file is, the standard's and npm's too; `readDefinition` is the one way a plugin is read. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
-	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name. So two plugins can give one name (odoo's `find-partners`, odoo-find's `partners`): mount refuses a deployment where they do, naming both
-	- each field is defined once, in `@que/ontology`'s types: `@que/core`'s specs are built from them, and a note of the thing is checked with the same type
+	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name. So two plugins can give one name (odoo's `find-partners`, odoo-find's `partners`), and two can list one capability: mount refuses a deployment where they do, naming both (`basis/unique-name`)
+	- each field is defined once, in the plugin schema's types: the contract and the card are built from them, and a note of the thing is checked with the same type
 - **what the model can do**: operations. Each becomes a tool, named `<plugin>-<op>`, which is also its node's name, and runs in que. What one is, and what makes a good one: [[operation]]
 	- other harnesses reach them through a remote MCP server in que (not built), not on their own
 - **what the model can read**: skills, as the standard has them. Each folder under `skills/` with a `SKILL.md` is one; the definition lists none
-	- its frontmatter: `name` (its folder's), `description`, and que's title in `metadata.title`. With no title, its name is its title. The standard's other fields are taken and not read
+	- read as basis reads a note (`readNote`), by `parseSkill`, which mount and the source both use. Its frontmatter: `name` (its folder's), `description`, and que's title in `metadata.title`. With no title, its name is its title. The standard's other fields are taken and not read
 	- its id is `<plugin>-<name>`: what the model reads it by, what a domain uses it by, and its node's name
 	- a skill that breaks this fails the mount, and so does a folder under `skills/` with no `SKILL.md`: que is stricter than the standard, which skips both, so a plugin never loads half its skills, and a misnamed `SKILL.md` is never dropped unseen
 - **what it needs**: a credential, if it talks to a service. Each user gives their own. A user with no credential does not get the plugin
@@ -71,9 +71,13 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
-	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. A rule of que's ontology (`plugin/op-role`), so the lint holds a card to it as `validatePlugin` holds a definition
-- domain: lists what it uses from connectors in `uses`, each op and skill by its name in the graph (`uses: { ops: ["warehouse-get-fabric"], skills: ["warehouse-fabric-guide"] }`)
-	- the check, at mount: each name is an op or skill of a connector the deployment mounts, found by its name, not split. A plugin that names its own is refused when it mounts on its own, and by the lint (`plugin/own-use`) A domain's op or skill cannot be used, so there are no chains and no cycles; a plugin's own are its already
+	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. Each fault is reported once: an op with no role, in a plugin that lists roles, by `plugin/op-role`, which names the op as the plugin writes it (`ops.search names no role`); a role the plugin does not list is no node, so by `basis/link`
+- domain: lists what it uses from connectors in `uses`, each op and skill by its name in the graph (`uses: { ops: ["warehouse-get-fabric"], skills: ["warehouse-fabric-guide"] }`). Its node has them as two links, `usesOps` to ops and `usesSkills` to skills
+	- the check: each name is an op, or a skill, of a plugin that uses nothing (`plugin/connector-use`), so there are no chains and no cycles; a plugin uses none of its own (`plugin/own-use`), as its own are its already
+- the one check (`checkPlugins`): the cards and skills as pieces, linted by basis with the plugin schema, as lot's lint lints them, and each problem said as the lint says it
+	- `validatePlugin`: one definition, with no skills or cases. What it uses is there, and not read
+	- mount of one plugin (`just check-plugin`): with its skills and cases. What it uses is there, and not read
+	- mount of a deployment: all its plugins, and nothing unread. A name a plugin uses that the deployment does not give is a problem
 - who holds which domains, roles and logins, and what a user gets each run: que's control plane (not built), not the plugin
 
 ## What it promises
@@ -83,7 +87,7 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 ## What it never knows
 
 - which agent uses it, or how it is shown to the model
-- any agent framework. From que it imports only `@que/core`, `@que/ontology`, `zod` and `@mku1tra/basis`, and the harness supplies them: by those exact names, and any subpath of `@que/core`, they resolve to que's copy, even when the plugin installs its own. Another subpath, such as `zod/v4`, is not supplied
+- any agent framework. From que a plugin imports only `@que/plugin`, `zod` and `@mku1tra/basis`; `@que/core` is a deployment's, for its definition and its configs. The harness supplies each of them to a folder outside que: by those exact names they resolve to que's copy, even when the folder installs its own. A subpath, such as `zod/v4`, is not supplied
 - what else it needs, it brings itself: a library such as a database driver is a dependency in its own `package.json`, and the deployment installs it. A library it brings also gets que's copy of the supplied names, so it must work with que's versions of them
 - the test: if removing the folder needs a change to the harness, it was not a plugin
 
@@ -93,7 +97,7 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 <name>/
 ├── plugin.json                   the card, made by `just card` from the definition
 ├── skills/<skill>/SKILL.md       one skill each, found by folder (the standard's)
-├── package.json                  npm: its dependencies, and the @que/core it works with
+├── package.json                  npm: its dependencies, and the @que/plugin it works with
 └── io.github.matta-kelly.que/    que's files
     ├── index.ts                  the definition, as the default export (definePlugin)
     ├── client.ts                 the connection, and fakeConn: the same connection with no network, for tests
