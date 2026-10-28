@@ -8,32 +8,36 @@ export const catalog: Catalog = [
     plugin: {
       definition: definePlugin({
         name: "shop",
+        type: "plugin",
         title: "Shop",
         description: "The shop's order system.",
         ops: [
           {
-            name: "find-orders",
+            name: "shop-find-orders",
+            type: "op",
             title: "Find orders",
             description:
               "Search orders by customer name. Returns at most 20, newest first.",
-            schema: z.object({
+            input: z.object({
               customer: z.string().describe("Customer name"),
             }),
             run: async () => [],
           },
           {
-            name: "get-order",
+            name: "shop-get-order",
+            type: "op",
             title: "Get order",
             description:
-              "One order with its lines. Use find-orders for a search.",
-            schema: z.object({ id: z.number().describe("Order id") }),
+              "One order with its lines. Use shop-find-orders for a search.",
+            input: z.object({ id: z.number().describe("Order id") }),
             run: async () => ({}),
           },
         ],
       }),
       skills: [
         {
-          id: "shop-refunds",
+          name: "shop-refunds",
+          type: "skill",
           title: "Refunds",
           description: "How to refund an order.",
           body: "Refund steps.",
@@ -49,13 +53,18 @@ export const skillsOnly: Catalog = [
   {
     plugin: {
       ...catalog[0].plugin,
-      definition: { ...catalog[0].plugin.definition, ops: [] },
+      definition: {
+        ...catalog[0].plugin.definition,
+        plugin: { ...catalog[0].plugin.definition.plugin, ops: [] },
+        ops: [],
+      },
     },
   },
 ];
 
 const notes = definePlugin({
   name: "notes",
+  type: "plugin",
   title: "Notes",
   description: "How the team writes things down.",
   ops: [],
@@ -69,7 +78,8 @@ export const mixed: Catalog = [
       definition: notes,
       skills: [
         {
-          id: "notes-meetings",
+          name: "notes-meetings",
+          type: "skill",
           title: "Meetings",
           description: "How to write up a meeting.",
           body: "Meeting steps.",

@@ -1,6 +1,7 @@
 /**
- * Write each plugin folder it is given its card, `plugin.json`, made from the plugin's definition, and print
- * each file it wrote. A plugin that breaks the contract, or whose card would break the standard, stops here.
+ * Write each plugin folder it is given its card, `plugin.json`, made from the plugin's nodes, and print each file it
+ * wrote: a plugin's publish runs it. A plugin that does not mount on its own, or whose card would break the standard,
+ * stops here.
  *
  * `tsx write.ts <plugin folder>...`
  */

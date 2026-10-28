@@ -4,122 +4,142 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lintFolder } from "@mku1tra/basis";
-import * as z from "zod";
-import { cardOf, cardText, type Card } from "./card.ts";
-import { definePlugin } from "./contract.ts";
 import { plugin } from "./schema.ts";
 import { plugins } from "./source.ts";
 
-const countDrafted = {
-  name: "count-drafted",
-  description: "Counts the drafted fabrics.",
-  capability: "find-fabric",
-  input: "How many fabrics are drafted?",
-  start: "Some fabrics are drafted.",
-  good: "The answer is one number.",
-};
+// A plugin's code imports the package and zod as que's own copies, by URL, so it runs as code outside que does.
+const imports = `import { definePlugin, defineCases } from ${JSON.stringify(new URL("./index.ts", import.meta.url).href)};
+import * as z from ${JSON.stringify(import.meta.resolve("zod"))};
+`;
 
-/** The card of a warehouse plugin, as que writes it from the definition and its cases. */
-const cardWith = (cases = [countDrafted]) =>
-  cardOf({
-    definition: definePlugin({
-      name: "warehouse",
-      title: "Warehouse",
-      description: "The record of what the business has entered.",
-      roles: [{ name: "read", description: "Reads the record." }],
-      ops: [
-        {
-          name: "get-fabric",
-          title: "Get a fabric",
-          description: "Get one fabric by its code.",
-          role: "read",
-          schema: z.object({ code: z.string().describe("The fabric code") }),
-          run: async () => ({}),
-        },
-      ],
-      capabilities: [
-        {
-          name: "find-fabric",
-          title: "Find a fabric",
-          description: "List or look up fabrics.",
-        },
-      ],
-    }),
-    cases,
-  });
+const definition = (name = "warehouse") => `${imports}
+export default definePlugin({
+  name: "${name}",
+  type: "plugin",
+  title: "Warehouse",
+  description: "The record of what the business has entered.",
+  roles: [{ name: "${name}-read", type: "access-role", description: "Reads the record." }],
+  ops: [
+    {
+      name: "${name}-get-fabric",
+      type: "op",
+      title: "Get a fabric",
+      description: "Get one fabric by its code.",
+      role: "${name}-read",
+      input: z.object({ code: z.string().describe("The fabric code") }),
+      run: async () => ({}),
+    },
+  ],
+  capabilities: [
+    { name: "find-fabric", type: "capability", title: "Find a fabric", description: "List or look up fabrics." },
+  ],
+});
+`;
 
-/** A folder to lint: the warehouse plugin, with its card and one skill, and the notes it is given. */
-async function vault(
-  notes: Record<string, string> = {},
-  card: Card = cardWith(),
-) {
+const cases = (capability = "find-fabric") => `${imports}
+export default defineCases([
+  {
+    name: "count-drafted",
+    type: "case",
+    description: "Counts the drafted fabrics.",
+    capability: "${capability}",
+    input: "How many fabrics are drafted?",
+    start: "Some fabrics are drafted.",
+    good: "The answer is one number.",
+  },
+]);
+`;
+
+/** A folder to lint: the files of a warehouse plugin, under plugins/warehouse, and the notes, by path from the root. */
+async function vault(files: Record<string, string> = {}) {
   const root = await mkdtemp(join(tmpdir(), "que-source-"));
-  const dir = join(root, "plugins", "warehouse");
-  await mkdir(join(dir, "skills", "fabric-guide"), { recursive: true });
-  await writeFile(join(dir, "plugin.json"), cardText(card));
-  await writeFile(
-    join(dir, "skills", "fabric-guide", "SKILL.md"),
-    "---\nname: fabric-guide\ndescription: How to read a fabric.\nmetadata:\n  title: Fabric guide\n---\nRead it.\n",
-  );
-  for (const [path, text] of Object.entries(notes))
+  const all: Record<string, string> = {
+    // Its code is ES modules, as a deployment's is.
+    "package.json": '{ "type": "module" }\n',
+    "plugins/warehouse/io.github.matta-kelly.que/index.ts": definition(),
+    "plugins/warehouse/io.github.matta-kelly.que/cases.ts": cases(),
+    "plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md":
+      "---\nname: warehouse-fabric-guide\ndescription: How to read a fabric.\nmetadata:\n  title: Fabric guide\n---\nRead it.\n",
+    ...files,
+  };
+  for (const [path, text] of Object.entries(all)) {
+    await mkdir(join(root, path, ".."), { recursive: true });
     await writeFile(join(root, path), text);
+  }
   return root;
 }
+
+const given = (root: string) => plugins(join(root, "plugins"), root)();
 
 const lintOf = async (root: string) =>
   (
     await lintFolder(plugin, root, {
       sources: [plugins(join(root, "plugins"), root)],
-      skip: (path) => path.endsWith("SKILL.md"),
+      skip: (path) => path.startsWith("plugins/"),
     })
   ).problems;
 
-test("gives each node of a plugin from its card and its skills, each by its name in the graph", async () => {
+const at = "plugins/warehouse/io.github.matta-kelly.que";
+
+test("gives each node a plugin's code and skills give, by its real name, as code gives it", async () => {
   const root = await vault();
   try {
-    const { pieces, problems } = await plugins(join(root, "plugins"), root)();
+    const { pieces, problems } = await given(root);
     assert.deepEqual(problems, []);
     assert.deepEqual(
       pieces.map((p) => [p.path, p.name, p.fields.type]),
       [
         [
-          "plugins/warehouse/skills/fabric-guide/SKILL.md",
+          "plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md",
           "warehouse-fabric-guide",
           "skill",
         ],
-        ["plugins/warehouse/plugin.json", "warehouse", "plugin"],
+        [`${at}/index.ts`, "warehouse", "plugin"],
         [
-          "plugins/warehouse/plugin.json#ops/get-fabric",
+          `${at}/index.ts#ops/warehouse-get-fabric`,
           "warehouse-get-fabric",
           "op",
         ],
         [
-          "plugins/warehouse/plugin.json#roles/read",
+          `${at}/index.ts#roles/warehouse-read`,
           "warehouse-read",
           "access-role",
         ],
         [
-          "plugins/warehouse/plugin.json#capabilities/find-fabric",
+          `${at}/index.ts#capabilities/find-fabric`,
           "find-fabric",
           "capability",
         ],
-        [
-          "plugins/warehouse/plugin.json#cases/count-drafted",
-          "count-drafted",
-          "case",
-        ],
+        [`${at}/cases.ts#count-drafted`, "count-drafted", "case"],
       ],
     );
+    const op = pieces.find((p) => p.name === "warehouse-get-fabric")?.fields;
+    assert.equal(typeof op?.run, "function");
+    assert.equal(op?.role, "warehouse-read");
     assert.deepEqual(
-      pieces.find((p) => p.name === "warehouse-get-fabric")?.fields.role,
-      "warehouse-read",
+      pieces.find((p) => p.name === "warehouse")?.fields.skills,
+      ["warehouse-fabric-guide"],
     );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("lints a plugin's nodes with no problem, and a capability's note merges with its piece from the card", async () => {
+test("gives the same pieces whatever the folder's plugin.json holds, as no card is read", async () => {
+  const root = await vault();
+  const carded = await vault({ "plugins/warehouse/plugin.json": "{" });
+  try {
+    const names = async (folder: string) =>
+      (await given(folder)).pieces.map((p) => [p.path, p.name]);
+    assert.deepEqual(await names(carded), await names(root));
+    assert.deepEqual((await given(carded)).problems, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(carded, { recursive: true, force: true });
+  }
+});
+
+test("lints a plugin's nodes with no problem, and a capability's note merges with its piece from the code", async () => {
   const root = await vault({
     "find-fabric.md": "---\ntype: capability\n---\nWhy it matters.\n",
   });
@@ -130,7 +150,7 @@ test("lints a plugin's nodes with no problem, and a capability's note merges wit
   }
 });
 
-test("gives a note that copies a fact of the card a problem on both, naming the other", async () => {
+test("gives a note that copies a fact of the code a problem on both, naming the other", async () => {
   const root = await vault({
     "find-fabric.md":
       '---\ntype: capability\ntitle: "Find a fabric"\n---\nWhy it matters.\n',
@@ -140,11 +160,7 @@ test("gives a note that copies a fact of the card a problem on both, naming the 
       (await lintOf(root)).map((p) => [p.path, p.rule, p.field]),
       [
         ["find-fabric.md", "basis/merge", "/title"],
-        [
-          "plugins/warehouse/plugin.json#capabilities/find-fabric",
-          "basis/merge",
-          "/title",
-        ],
+        [`${at}/index.ts#capabilities/find-fabric`, "basis/merge", "/title"],
       ],
     );
   } finally {
@@ -152,113 +168,58 @@ test("gives a note that copies a fact of the card a problem on both, naming the 
   }
 });
 
-test("gives a case that names a capability no plugin has a problem on its card", async () => {
-  const root = await vault(
-    {},
-    cardWith([{ ...countDrafted, capability: "find-lace" }]),
-  );
+test("gives a case that names a capability no plugin has a problem at its case", async () => {
+  const root = await vault({ [`${at}/cases.ts`]: cases("find-lace") });
   try {
     assert.deepEqual(
       (await lintOf(root)).map((p) => [p.path, p.rule, p.field]),
-      [
-        [
-          "plugins/warehouse/plugin.json#cases/count-drafted",
-          "basis/link",
-          "/capability",
-        ],
-      ],
+      [[`${at}/cases.ts#count-drafted`, "basis/link", "/capability"]],
     );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("gives a card it cannot read a problem of its own, gives its plugin as unread, and goes on to the next plugin", async () => {
-  const root = await vault();
+test("gives a definition that cannot be read a problem of its own, and goes on to the next plugin", async () => {
+  const root = await vault({
+    [`${at}/index.ts`]: `${imports}\nexport default definePlugin({ name: "warehouse", type: "plugin", title: "Warehouse" } as never);\n`,
+    "plugins/zebra/io.github.matta-kelly.que/index.ts": definition("zebra"),
+  });
   try {
-    await writeFile(join(root, "plugins", "warehouse", "plugin.json"), "{");
-    const next = join(root, "plugins", "zebra");
-    await mkdir(next, { recursive: true });
-    await writeFile(
-      join(next, "plugin.json"),
-      cardText({ ...cardWith(), name: "zebra" }),
-    );
-    const { pieces, problems, unread } = await plugins(
-      join(root, "plugins"),
-      root,
-    )();
-    assert.deepEqual(unread, [
-      { path: "plugins/warehouse/plugin.json", name: "warehouse" },
-      {
-        path: "plugins/warehouse/plugin.json",
-        name: "warehouse-fabric-guide",
-      },
-    ]);
+    const { pieces, problems } = await given(root);
     assert.ok(pieces.some((p) => p.name === "zebra"));
-    assert.ok(pieces.every((p) => p.path.startsWith("plugins/zebra/")));
-    assert.equal(problems.length, 1);
-    assert.equal(problems[0]?.path, "plugins/warehouse/plugin.json");
-    assert.match(problems[0]?.message ?? "", /^The card cannot be read/);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("gives each name a card it cannot read holds as unread, so a link to one gives no more problems", async () => {
-  // A card of another format: JSON that is not a card que reads.
-  const old = cardWith();
-  const root = await vault(
-    {
-      "count-laces.md":
-        '---\ntype: case\ndescription: Counts the laces.\ncapability: "[[find-fabric]]"\ninput: How many laces?\nstart: Some laces.\ngood: One number.\n---\n',
-    },
-    {
-      ...old,
-      extensions: {
-        "io.github.matta-kelly.que": {
-          ...old.extensions["io.github.matta-kelly.que"],
-          format: 1 as 2,
-        },
-      },
-    },
-  );
-  try {
-    const { unread } = await plugins(join(root, "plugins"), root)();
+    assert.ok(!pieces.some((p) => p.name === "warehouse"));
     assert.deepEqual(
-      unread.map((u) => u.name),
-      [
-        "warehouse",
-        "warehouse-get-fabric",
-        "warehouse-read",
-        "find-fabric",
-        "count-drafted",
-        "warehouse-fabric-guide",
-      ],
+      problems.map((p) => p.path),
+      [`${at}/index.ts`],
     );
-    assert.deepEqual(
-      (await lintOf(root)).map((p) => [p.path, p.rule ?? "fatal"]),
-      [["plugins/warehouse/plugin.json", "fatal"]],
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("gives a skill whose name is not its folder's a problem, as que does not read it", async () => {
-  const root = await vault();
-  try {
-    await writeFile(
-      join(root, "plugins", "warehouse", "skills", "fabric-guide", "SKILL.md"),
-      "---\nname: wave\ndescription: Waves.\n---\nWave.\n",
-    );
-    const { problems, unread } = await plugins(join(root, "plugins"), root)();
     assert.match(
       problems[0]?.message ?? "",
-      /^The skill cannot be read: skill warehouse-fabric-guide is invalid:\n- name must be its folder's name, fabric-guide/,
+      /^The definition cannot be read: plugin warehouse is invalid:\n- description Invalid input/,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("gives a skill that cannot be read a problem, and its folder's name as unread, so a link to it gives no more", async () => {
+  const root = await vault({
+    "plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md":
+      "---\nname: wave\ndescription: Waves.\n---\nWave.\n",
+  });
+  try {
+    const { problems, unread } = await given(root);
+    assert.match(
+      problems[0]?.message ?? "",
+      /^The skill cannot be read: skill warehouse-fabric-guide is invalid:\n- name must be its folder's name, warehouse-fabric-guide/,
     );
     assert.deepEqual(
       unread.map((u) => u.name),
       ["warehouse-fabric-guide"],
+    );
+    assert.deepEqual(
+      (await lintOf(root)).map((p) => [p.path, p.rule ?? "fatal"]),
+      [["plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md", "fatal"]],
     );
   } finally {
     await rm(root, { recursive: true, force: true });

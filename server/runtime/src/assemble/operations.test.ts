@@ -1,20 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePlugin, nameIn, OpFailed } from "@mku1tra/que-plugin";
+import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 import { operationTools } from "./operations.js";
 
 const shop = definePlugin({
   name: "shop",
+  type: "plugin",
   title: "Shop",
   description: "The shop's order system.",
   ops: [
     {
-      name: "get-order",
+      name: "shop-get-order",
+      type: "op",
       title: "Get order",
       description: "One order with its lines.",
-      schema: z.object({ id: z.number().describe("Order id") }),
+      input: z.object({ id: z.number().describe("Order id") }),
       run: async ({ conn }, { id }) => {
         if (id < 0) throw new OpFailed("no such order");
         if (id === 0) throw new Error("bug");
@@ -30,11 +32,10 @@ const [getOrder] = operationTools(
   async (plugin) => `conn:${plugin.name}`,
 );
 
-test("an operation becomes a tool named <plugin>-<operation>, with its own title, description and arguments", () => {
-  assert.equal(getOrder.name, nameIn("shop", "get-order"));
+test("an operation becomes a tool of its op's name, with its own title, description and arguments", () => {
   assert.equal(getOrder.name, "shop-get-order");
   assert.equal(getOrder.description, "Get order: One order with its lines.");
-  assert.equal(getOrder.schema, shop.ops[0].schema);
+  assert.equal(getOrder.schema, shop.ops[0].input);
 });
 
 test("it runs with the connection it is given, and returns the result as JSON", async () => {

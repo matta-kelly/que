@@ -99,12 +99,11 @@ console.log(JSON.stringify({
   );
   for (const name of [
     "definePlugin",
-    "Op",
     "OpFailed",
     "defineCases",
-    "validatePlugin",
-    "validateCases",
+    "readPlugin",
     "plugin",
+    "plugins",
   ])
     assert.ok(loaded.exports.includes(name), `no export ${name}`);
   assert.ok(loaded.typeNote, "plugin.typeNotes holds no plugin.md");
@@ -118,14 +117,16 @@ import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 
 export default definePlugin({
   name: "notes",
+  type: "plugin",
   title: "Notes",
   description: "A plugin outside que.",
   ops: [
     {
-      name: "find",
+      name: "notes-find",
+      type: "op",
       title: "Find",
       description: "Finds a note by its title.",
-      schema: z.object({ title: z.string().describe("The note's title") }),
+      input: z.object({ title: z.string().describe("The note's title") }),
       run: async () => {
         throw new OpFailed("the notes are not reachable");
       },

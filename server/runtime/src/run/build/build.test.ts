@@ -139,7 +139,7 @@ test("with result on, an operation that is not loaded does not go out, and read_
     [
       calling("load", "load_operation", {
         plugin: "shop",
-        operation: "get-order",
+        operation: "shop-get-order",
       }),
       calling("order", "shop-get-order", { id: 1 }),
       new AIMessage("Order 1."),

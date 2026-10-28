@@ -1,6 +1,5 @@
 /**
- * The card on disk: written from a plugin's definition, checked against Agent Plugins 1.0's own schema and
- * against que's part.
+ * The card on disk: written from a plugin's nodes at publish, and checked against Agent Plugins 1.0's own schema.
  */
 
 import { test, after } from "node:test";
@@ -11,7 +10,6 @@ import {
   readFileSync,
   existsSync,
   rmSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,12 +17,11 @@ import { join } from "node:path";
 import {
   cardOf,
   cardText,
-  checkCard,
   definePlugin,
   validateCard,
+  type Card,
 } from "@mku1tra/que-plugin";
 import { writeCard } from "../../../runtime/src/card/writer.js";
-import { loadPlugin } from "../../../runtime/src/mount/plugins.js";
 
 const work = mkdtempSync(join(tmpdir(), "que-card-"));
 after(() => rmSync(work, { recursive: true, force: true }));
@@ -34,13 +31,14 @@ const source = join(import.meta.dirname, "../mount/fixtures/plugins/source");
 const good = cardOf({
   definition: definePlugin({
     name: "notes",
+    type: "plugin",
     title: "Notes",
     description: "How the team writes.",
   }),
   cases: [],
 });
 
-test("writeCard writes plugin.json from the definition, with the version its package.json gives", async () => {
+test("writeCard writes plugin.json from the plugin's nodes, with the version its package.json gives", async () => {
   const dir = join(work, "source");
   cpSync(source, dir, { recursive: true });
   writeFileSync(
@@ -56,7 +54,7 @@ test("writeCard writes plugin.json from the definition, with the version its pac
     card.extensions["io.github.matta-kelly.que"].ops.map(
       (op: { name: string }) => op.name,
     ),
-    ["find"],
+    ["source-find"],
   );
 });
 
@@ -65,6 +63,7 @@ test("writeCard stops, writing no card, on a plugin that breaks the contract", a
   cpSync(join(import.meta.dirname, "../mount/fixtures/plugins/bad"), dir, {
     recursive: true,
   });
+  writeFileSync(join(dir, "package.json"), '{ "type": "module" }\n');
   await assert.rejects(writeCard(dir), /plugin bad is invalid/);
   assert.equal(existsSync(join(dir, "plugin.json")), false);
 });
@@ -78,78 +77,16 @@ test("validateCard takes a card cardOf makes", () => {
 
 test("validateCard refuses a card the standard's schema refuses", () => {
   assert.throws(
-    () => validateCard({ ...good, name: "Notes", tools: [] }, "the card"),
+    () =>
+      validateCard(
+        { ...good, name: "Notes", tools: [] } as unknown as Card,
+        "the card",
+      ),
     (error: Error) => {
       assert.match(error.message, /^the card breaks Agent Plugins 1\.0:/);
       assert.match(error.message, /\/name must match pattern/);
       assert.match(error.message, /must NOT have additional properties/);
       return true;
     },
-  );
-});
-
-test("validateCard refuses a card that is not the shape que reads", () => {
-  assert.throws(
-    () =>
-      validateCard(
-        {
-          ...good,
-          extensions: {
-            "io.github.matta-kelly.que": {
-              ...good.extensions["io.github.matta-kelly.que"],
-              format: 1,
-            },
-          },
-        },
-        "the card",
-      ),
-    /the card is invalid:\n- extensions\.io\.github\.matta-kelly\.que\.format must be 2/,
-  );
-});
-
-// A copy of the source fixture, card and all, to change: a plugin outside que, with the package.json one has.
-const copy = (name: string) => {
-  const dir = join(work, name);
-  cpSync(source, dir, { recursive: true });
-  writeFileSync(join(dir, "package.json"), '{ "type": "module" }\n');
-  return dir;
-};
-
-// The card of the plugin in `dir`, with its description changed, so it is no longer what the definition makes.
-const staleCard = (dir: string) => {
-  const file = join(dir, "plugin.json");
-  writeFileSync(
-    file,
-    readFileSync(file, "utf8").replace("A connector,", "A stale connector,"),
-  );
-};
-
-test("checkCard takes a card that is what the definition makes", async () => {
-  const dir = copy("fresh");
-  const { definition } = await loadPlugin(dir);
-  assert.doesNotThrow(() =>
-    checkCard(dir, { definition: definition, cases: [] }),
-  );
-});
-
-test("checkCard refuses a plugin with no card, saying how to write it", async () => {
-  const dir = copy("cardless");
-  unlinkSync(join(dir, "plugin.json"));
-  const { definition } = await loadPlugin(dir);
-  assert.throws(
-    () => checkCard(dir, { definition: definition, cases: [] }),
-    (error: Error) =>
-      error.message ===
-      `${dir} has no card (plugin.json): write it with \`just card ${dir}\``,
-  );
-});
-
-test("checkCard refuses a card that is not what the definition makes, naming the first line that differs", async () => {
-  const dir = copy("stale");
-  staleCard(dir);
-  const { definition } = await loadPlugin(dir);
-  assert.throws(
-    () => checkCard(dir, { definition: definition, cases: [] }),
-    /plugin\.json is not what its definition makes \(from line 4\): write it with `just card /,
   );
 });

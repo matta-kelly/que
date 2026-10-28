@@ -34,7 +34,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 	- general goal of something that runs locally but cna be persistent  --> can mount files but it also artifact native
 	- evals / UI: impalement some feedback component --> would be nice to tie to traces at some point
 		- [component](https://www.assistant-ui.com/elements/feedback-dialog)
-	- que in the basis lens: que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis: the plugin schema in `@mku1tra/que-plugin`, and the harness schema in `@mku1tra/que-harness`, and que's code is built from their types. A plugin's things are nodes, read from its card; a note of the same name is another piece of the same node. The runtime runs the code, and the agent navigates the graph
+	- que in the basis lens: que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis: the plugin schema in `@mku1tra/que-plugin`, and the harness schema in `@mku1tra/que-harness`, and que's code is built from their types. A plugin's things are nodes, read from its code; a note of the same name is another piece of the same node. The runtime runs the code, and the agent navigates the graph
 	- que mounts itself: a que plugin (que's ontology plus skills) and a capability plugin (the rail as skills) make a builder agent that navigates the factory and builds agents in it
 	- Look into mem0 for memeory
 
@@ -137,7 +137,7 @@ agent ─────────────────▶  assemble  turn its
 			- the agent, to the LangGraph server
 			- que's API, to the UI
 			- traces, to Langfuse
-			- a plugin's card (`plugin.json`), to its author: `card/` writes it from the plugin's definition
+			- a plugin's card (`plugin.json`), at its publish: `card/` writes it from the plugin's nodes, and nothing of que's reads it
 	- composition: what each layer owns, and what it hands to the next
 		- mount (`mount/`): what exists. Loads each plugin the environment lists, checks it against the contract, and reads each agent, loop and model config. Stops when an agent names a plugin that is not mounted, or a loop or a model that is not listed. Hands on: the mounted plugins and configs
 		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog

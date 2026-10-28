@@ -1,8 +1,6 @@
 # Prose is written by hand.
 *.md
 package-lock.json
-# Made by `just card` from a plugin's definition; the card check holds it to that, byte for byte.
-plugin.json
 # Run state.
 .langgraph_api
 # The build of @mku1tra/que-plugin.

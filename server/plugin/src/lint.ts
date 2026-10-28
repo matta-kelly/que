@@ -1,92 +1,60 @@
 /**
- * The one check of plugins: their cards and skills as pieces of nodes, linted by basis with the plugin schema, as
- * lot's lint lints them. `validatePlugin` checks one definition, mount one plugin or a deployment's plugins, and each
- * says the problems as the lint says them.
+ * The one check of plugins: each node a plugin's code and skills give, as a piece, linted by basis with the plugin
+ * schema, as lot's lint lints them. Mount checks one plugin or a deployment's plugins with it, and says the problems
+ * as the lint says them.
  */
 
 import { lint, type Piece, type Problem } from "@mku1tra/basis";
-import { cardOf, type Card } from "./card.ts";
-import { faults, named, refuse } from "./check.ts";
-import { Plugin } from "./contract.ts";
-import { pluginFiles } from "./layout.ts";
-import { NAMESPACE, nameIn } from "./names.ts";
+import type { ReadPlugin } from "./read.ts";
 import { plugin } from "./schema.ts";
-import type { Skill } from "./skill.ts";
 
 /** A piece of a node a plugin gives: never a note's body, and of no source until the check or a lint gives it one. */
 type PluginPiece = Pick<Piece, "path" | "name" | "fields">;
 
+// A node as the piece it is: its name, and its fields, live values too.
+const piece = (
+  path: string,
+  { name, ...fields }: { name: string } & Record<string, unknown>,
+) => ({
+  path,
+  name,
+  fields,
+});
+
 /**
- * The pieces of a plugin's nodes, from its card and its skills, each at its file in `dir`: the plugin, its ops, roles,
- * capabilities and cases, each at its part of the card, and its skills. The one way a plugin becomes nodes: the source gives them to the lint, and
- * the check lints them.
+ * The pieces of a plugin's nodes, each at its file, by `from`: the plugin, and each op, role and capability it holds,
+ * at its definition; each case, at its cases; each skill, at its SKILL.md. Each is its node as code gives it, live
+ * values too. The plugin's skills are its folders under skills/, as Agent Plugins finds them, so its piece lists them.
+ * Each node a plugin holds is at its part of the file, so two of one name are told apart: `index.ts#ops/odoo-search`.
  */
 export function piecesOf(
-  card: Card,
-  skills: readonly Skill[],
-  dir: string,
+  read: ReadPlugin,
+  from: (path: string) => string = (path) => path,
 ): PluginPiece[] {
-  const name = card.name;
-  const part = card.extensions[NAMESPACE];
-  const files = pluginFiles(dir);
-  const pieces: PluginPiece[] = skills.map((skill) => ({
-    path: files.skill(skill.id.slice(name.length + 1)),
-    name: skill.id,
-    fields: {
-      type: "skill",
-      description: skill.description,
-      title: skill.title,
-    },
-  }));
-  // Each at the part of the card that gives it, so two of one name in one card are told apart: `plugin.json#ops/find`.
-  const piece = (of: string, fields: Record<string, unknown>, part?: string) =>
-    pieces.push({
-      path: part ? `${files.card}#${part}` : files.card,
-      name: of,
-      fields,
-    });
-  piece(name, {
-    type: "plugin",
-    description: card.description,
-    title: part.title,
-    ...(part.credential === undefined ? {} : { credential: part.credential }),
-    ops: part.ops.map((op) => nameIn(name, op.name)),
-    skills: skills.map((skill) => skill.id),
-    capabilities: part.capabilities.map((c) => c.name),
-    roles: part.roles.map((role) => nameIn(name, role.name)),
-    usesOps: part.uses.ops,
-    usesSkills: part.uses.skills,
-    cases: part.cases.map((c) => c.name),
+  const { files, definition, cases, skills, skillNames } = read;
+  const at = (file: string, part?: string) =>
+    part ? `${from(file)}#${part}` : from(file);
+  const pieces: PluginPiece[] = skills.map(({ body, ...skill }) => {
+    void body;
+    return piece(from(files.skill(skill.name)), skill);
   });
-  for (const op of part.ops)
-    piece(
-      nameIn(name, op.name),
-      {
-        type: "op",
-        description: op.description,
-        title: op.title,
-        ...(op.role === undefined ? {} : { role: nameIn(name, op.role) }),
-        input: op.input,
-      },
-      `ops/${op.name}`,
+  if (definition) {
+    const { plugin, ops, roles, capabilities } = definition;
+    pieces.push(
+      piece(at(files.definition), { ...plugin, skills: skillNames }),
+      ...ops.map((op) => piece(at(files.definition, `ops/${op.name}`), op)),
+      ...roles.map((role) =>
+        piece(at(files.definition, `roles/${role.name}`), role),
+      ),
+      ...capabilities.map((capability) =>
+        piece(
+          at(files.definition, `capabilities/${capability.name}`),
+          capability,
+        ),
+      ),
     );
-  for (const role of part.roles)
-    piece(
-      nameIn(name, role.name),
-      {
-        type: "access-role",
-        description: role.description,
-      },
-      `roles/${role.name}`,
-    );
-  for (const { name: capability, ...fields } of part.capabilities)
-    piece(
-      capability,
-      { type: "capability", ...fields },
-      `capabilities/${capability}`,
-    );
-  for (const { name: kase, ...fields } of part.cases)
-    piece(kase, { type: "case", ...fields }, `cases/${kase}`);
+  }
+  pieces.push(...cases.map((kase) => piece(at(files.cases, kase.name), kase)));
   return pieces;
 }
 
@@ -112,32 +80,3 @@ export function checkPlugins(
 /** A problem, as basis's lint says it: `<path>: <field>: <message> (<rule>)`. */
 export const sayProblem = ({ path, field, message, rule }: Problem) =>
   `${path}:${field ? ` ${field}:` : ""} ${message}${rule ? ` (${rule})` : ""}`;
-
-// What the plugin schema finds wrong with a definition that keeps the contract: its card's pieces, checked alone. An op
-// schema with no JSON Schema form has no card, and is a fault of its own.
-function ruleFaults(definition: Plugin): string[] {
-  let card: Card;
-  try {
-    card = cardOf({ definition, cases: [] });
-  } catch (error) {
-    return [(error as Error).message];
-  }
-  return checkPlugins(piecesOf(card, [], ""), [
-    ...definition.uses.ops,
-    ...definition.uses.skills,
-  ]).map(sayProblem);
-}
-
-/**
- * Check a definition against the contract and the plugin schema, throwing one error that lists every problem. Types
- * can't catch these: a plugin is loaded at runtime, and names, titles and descriptions are what the model reads. The
- * schema's rules read a definition that keeps the contract. It is checked alone, with no skills or cases: what it
- * uses is another plugin's, which a deployment gives.
- */
-export function validatePlugin(def: Plugin | undefined): asserts def is Plugin {
-  const contract = faults(Plugin, def);
-  refuse(
-    `plugin${named(def)} is invalid`,
-    contract.length ? contract : ruleFaults(def as Plugin),
-  );
-}

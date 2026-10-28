@@ -100,7 +100,7 @@ export async function mountDeployment(
   const agents = await mountAgents(files);
   const loops = await mountLoops(loopFiles);
   const models = await mountModels(modelFiles, sources);
-  const mounted = plugins.map((p) => p.definition.name);
+  const mounted = plugins.map((p) => p.definition.plugin.name);
   for (const agent of agents) {
     const unmounted = agent.plugins.filter((name) => !mounted.includes(name));
     if (unmounted.length)

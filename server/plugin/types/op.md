@@ -7,7 +7,7 @@ What this op does, in one line: a verb and its object.
 - [[#Role]] the role whose login it runs with, when its plugin lists roles
 
 - [[op-contract]]: what makes a good op: its tool card, its answers, and what a write promises
-- its code: the plugin's `io.github.matta-kelly.que/ops/`, which holds its tool card and its input. Its node is `<plugin>-<op>`, its tool name, from the card, and this note, of that name, gives the prose
+- its code: the plugin's `io.github.matta-kelly.que/ops/`, which holds its tool card, its input and its run. Its name is its tool name, and this note, of that name, gives the prose
 
 ---
 ## Use

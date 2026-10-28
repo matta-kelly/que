@@ -12,14 +12,16 @@ import { onDemand } from "../../assemble/on-demand/index.js";
 
 const shop = definePlugin({
   name: "shop",
+  type: "plugin",
   title: "Shop",
   description: "The shop's order system.",
   ops: [
     {
-      name: "get-order",
+      name: "shop-get-order",
+      type: "op",
       title: "Get order",
       description: "One order with its lines.",
-      schema: z.object({ id: z.number().describe("Order id") }),
+      input: z.object({ id: z.number().describe("Order id") }),
       run: async (_, { id }) => {
         if (id < 0) throw new OpFailed("no such order");
         return { id };
@@ -28,7 +30,8 @@ const shop = definePlugin({
   ],
 });
 const refunds = {
-  id: "shop-refunds",
+  name: "shop-refunds",
+  type: "skill" as const,
   title: "Refunds",
   description: "How to refund an order.",
   body: "Refund steps.",

@@ -20,16 +20,22 @@ const OWN =
 const pluginList = (catalog: Catalog) =>
   [
     "## Plugins",
-    ...catalog.map(({ plugin: { definition: plugin }, identity }) =>
-      [
-        `### ${plugin.title} (\`${plugin.name}\`)`,
-        plugin.description,
-        ...(identity
-          ? [
-              `You're connected as ${identity.name} (${plugin.title} user ${identity.id}); "me"/"mine" in ${plugin.title} means this user.`,
-            ]
-          : []),
-      ].join("\n"),
+    ...catalog.map(
+      ({
+        plugin: {
+          definition: { plugin },
+        },
+        identity,
+      }) =>
+        [
+          `### ${plugin.title} (\`${plugin.name}\`)`,
+          plugin.description,
+          ...(identity
+            ? [
+                `You're connected as ${identity.name} (${plugin.title} user ${identity.id}); "me"/"mine" in ${plugin.title} means this user.`,
+              ]
+            : []),
+        ].join("\n"),
     ),
   ].join("\n\n");
 

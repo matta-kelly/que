@@ -8,13 +8,7 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -60,34 +54,13 @@ test("a plugin in the old layout fails, saying where que's files go", () => {
   );
 });
 
-test("a plugin whose card is not what its definition makes fails, saying how to write it", () => {
-  const dir = join(work, "stale");
+test("a plugin passes whatever its folder's plugin.json holds, as no card is read", () => {
+  const dir = join(work, "carded");
   cpSync(plugin("source"), dir, { recursive: true });
   writeFileSync(join(dir, "package.json"), '{ "type": "module" }\n');
-  const card = join(dir, "plugin.json");
-  writeFileSync(
-    card,
-    readFileSync(card, "utf8").replace("A connector,", "A stale connector,"),
-  );
+  writeFileSync(join(dir, "plugin.json"), "not a card\n");
   const { status, stderr } = check(dir);
-  assert.equal(status, 1);
-  assert.match(
-    stderr,
-    /^mount: .*plugin\.json is not what its definition makes \(from line \d+\): write it with `just card /m,
-  );
-});
-
-test("a plugin with no card fails, saying how to write it", () => {
-  const dir = join(work, "cardless");
-  cpSync(plugin("source"), dir, { recursive: true });
-  writeFileSync(join(dir, "package.json"), '{ "type": "module" }\n');
-  rmSync(join(dir, "plugin.json"));
-  const { status, stderr } = check(dir);
-  assert.equal(status, 1);
-  assert.match(
-    stderr,
-    /^mount: .*cardless has no card \(plugin\.json\): write it with `just card /m,
-  );
+  assert.equal(status, 0, stderr);
 });
 
 test("a plugin whose skill breaks the contract fails", () => {
@@ -95,6 +68,15 @@ test("a plugin whose skill breaks the contract fails", () => {
   assert.equal(status, 1);
   assert.match(
     stderr,
-    /^mount: fileless-skill has a folder under skills\/ with no SKILL\.md: ghost\./m,
+    /skills\/ghost\/SKILL\.md: The skill cannot be read: skills\/ghost has no SKILL\.md\./,
+  );
+});
+
+test("a plugin whose case names a capability the plugin does not hold fails", () => {
+  const { status, stderr } = check(plugin("bad-cases"));
+  assert.equal(status, 1);
+  assert.match(
+    stderr,
+    /cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)/,
   );
 });

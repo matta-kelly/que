@@ -4,14 +4,16 @@ import { definePlugin, OpFailed, plugin } from "@mku1tra/que-plugin";
 
 export default definePlugin({
   name: "notes",
+  type: "plugin",
   title: "Notes",
   description: "A plugin that sits in its deployment's folder, outside que.",
   ops: [
     {
-      name: "find",
+      name: "notes-find",
+      type: "op",
       title: "Find",
       description: "Finds a note by its title.",
-      schema: z.object({
+      input: z.object({
         title: z.string().describe("The note's title"),
         // basis, supplied by que like zod.
         folder: Name.optional().describe("The folder the note is in"),

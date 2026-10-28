@@ -6,7 +6,7 @@
 
 import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
-import { nameIn, OpFailed } from "@mku1tra/que-plugin";
+import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
 import { skillLine } from "../skills.js";
 
@@ -17,11 +17,11 @@ export const LOAD_OPERATION = "load_operation";
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];
 
 const find = (catalog: Catalog, name: string) =>
-  catalog.find(({ plugin }) => plugin.definition.name === name)?.plugin;
+  catalog.find(({ plugin }) => plugin.definition.plugin.name === name)?.plugin;
 
 const noPlugin = (catalog: Catalog, name: string) =>
   new OpFailed(
-    `no plugin "${name}". Plugins: ${catalog.map(({ plugin }) => plugin.definition.name).join(", ")}`,
+    `no plugin "${name}". Plugins: ${catalog.map(({ plugin }) => plugin.definition.plugin.name).join(", ")}`,
   );
 
 function openPlugin(catalog: Catalog, hasOperations: boolean): StructuredTool {
@@ -31,8 +31,8 @@ function openPlugin(catalog: Catalog, hasOperations: boolean): StructuredTool {
       if (!plugin) throw noPlugin(catalog, name);
       const { definition, skills } = plugin;
       return [
-        `# ${definition.title} (\`${definition.name}\`)`,
-        definition.description,
+        `# ${definition.plugin.title} (\`${definition.plugin.name}\`)`,
+        definition.plugin.description,
         ...(definition.ops.length
           ? [
               "## Operations",
@@ -70,12 +70,12 @@ function loadOperation(catalog: Catalog): StructuredTool {
         throw new OpFailed(
           `no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`,
         );
-      return `Loaded. Call it as the tool \`${nameIn(name, operation)}\`; its arguments are in that tool's definition.`;
+      return `Loaded. Call it as the tool \`${operation}\`; its arguments are in that tool's definition.`;
     },
     {
       name: LOAD_OPERATION,
       description:
-        "Load Operation: makes one operation callable. From your next step it is a tool named <plugin>-<operation>, " +
+        "Load Operation: makes one operation callable. From your next step it is a tool of the operation's name, " +
         "with its full description and arguments, and it stays for the rest of the conversation. " +
         "Load each operation you need before calling it; you can load several at once.",
       schema: z.object({

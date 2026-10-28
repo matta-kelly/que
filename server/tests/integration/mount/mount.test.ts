@@ -26,12 +26,11 @@ import {
   mountPlugins,
   type MountedPlugin,
 } from "../../../runtime/src/mount/plugins.js";
-import { writeCard } from "../../../runtime/src/card/writer.js";
 
 const fixtures = join(import.meta.dirname, "fixtures");
 const deployment = (name: string) => join(fixtures, "deployments", name);
 const names = (mounted: MountedPlugin[]) =>
-  mounted.map((p) => p.definition.name);
+  mounted.map((p) => p.definition.plugin.name);
 
 const mount = async (name: string) =>
   mountPlugins((await loadDeployment(deployment(name))).plugins);
@@ -152,7 +151,8 @@ test("a mounted plugin has its skills", async () => {
   const mounted = await mount("two");
   assert.deepEqual(mounted[1].skills, [
     {
-      id: "alpha-greet",
+      name: "alpha-greet",
+      type: "skill",
       title: "Greet",
       description: "How to greet a customer.",
       body: "Say hello.",
@@ -179,8 +179,7 @@ test("stops, naming the deployment folder, when the definition breaks the contra
 test("stops, naming the skill, when a listed plugin has a skill that breaks the contract", async () => {
   await assert.rejects(mount("misnamed-skill"), (error: Error) => {
     assert.match(error.message, /^mount:/);
-    assert.match(error.message, /misnamed-skill-nameless/);
-    assert.ok(error.cause instanceof Error);
+    assert.match(error.message, /skill nameless is invalid/);
     return true;
   });
 });
@@ -188,7 +187,7 @@ test("stops, naming the skill, when a listed plugin has a skill that breaks the 
 test("stops, naming the folder, when a folder under skills/ has no SKILL.md", async () => {
   await assert.rejects(
     mount("fileless-skill"),
-    /^Error: mount: fileless-skill has a folder under skills\/ with no SKILL\.md: ghost\./,
+    /^Error: mount: .*fileless-skill cannot be read:\n- .*skills\/ghost\/SKILL\.md: The skill cannot be read: skills\/ghost has no SKILL\.md\./,
   );
 });
 
@@ -200,37 +199,36 @@ test("stops, naming the domain and the name, when a domain uses an op the deploy
   await assert.doesNotReject(loadPlugin(join(fixtures, "plugins/stray")));
   await assert.rejects(
     mount("uses-unresolved"),
-    /^Error: mount: the plugins break the plugin schema:\n- .*plugins\/stray\/plugin\.json: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
+    /^Error: mount: the plugins break the plugin schema:\n- .*plugins\/stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
   );
 });
 
-// A plugin in a folder of its own, with its card written: a definition with `fields`, and a skill, `guide`.
+// A plugin in a folder of its own: a definition with `fields`, and a skill, `<name>-guide`.
 const written = async (name: string, fields: string) => {
   const dir = join(workspace, name);
   mkdirSync(join(dir, "io.github.matta-kelly.que"), { recursive: true });
   writeFileSync(
     join(dir, "io.github.matta-kelly.que/index.ts"),
     `import { definePlugin } from "@mku1tra/que-plugin";
-export default definePlugin({ name: "${name}", title: "${name}", description: "A plugin.", ${fields} });
+export default definePlugin({ name: "${name}", type: "plugin", title: "${name}", description: "A plugin.", ${fields} });
 `,
   );
-  mkdirSync(join(dir, "skills/guide"), { recursive: true });
+  mkdirSync(join(dir, `skills/${name}-guide`), { recursive: true });
   writeFileSync(
-    join(dir, "skills/guide/SKILL.md"),
-    "---\nname: guide\ndescription: How to use it.\n---\nUse it.\n",
+    join(dir, `skills/${name}-guide/SKILL.md`),
+    `---\nname: ${name}-guide\ndescription: How to use it.\n---\nUse it.\n`,
   );
-  await writeCard(dir);
   return dir;
 };
 
-test("stops, naming both cards, when two plugins list one capability", async () => {
-  const capability = `capabilities: [{ name: "find-fabric", title: "Find a fabric", description: "Look one up." }]`;
+test("stops, naming both definitions, when two plugins list one capability", async () => {
+  const capability = `capabilities: [{ name: "find-fabric", type: "capability", title: "Find a fabric", description: "Look one up." }]`;
   const one = await written("one", capability);
   const two = await written("two", capability);
   await assert.rejects(mountPlugins([one, two]), (error: Error) => {
     assert.ok(
       error.message.includes(
-        `${one}/plugin.json#capabilities/find-fabric: The name find-fabric is also the name of ${two}/plugin.json#capabilities/find-fabric. (basis/unique-name)`,
+        `${one}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric: The name find-fabric is also the name of ${two}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric. (basis/unique-name)`,
       ),
     );
     return true;
@@ -238,7 +236,7 @@ test("stops, naming both cards, when two plugins list one capability", async () 
 });
 
 test("check-plugin stops a plugin that uses its own skill", async () => {
-  const dir = await written("selfish", `uses: { skills: ["selfish-guide"] }`);
+  const dir = await written("selfish", `usesSkills: ["selfish-guide"]`);
   await assert.rejects(
     mountPlugin(dir),
     /\/usesSkills: selfish-guide is its own: a plugin uses only other plugins' ops and skills\. \(plugin\/own-use\)/,
@@ -265,30 +263,17 @@ test("stops, naming the folder, when a listed folder holds no plugin", async () 
   });
 });
 
-test("stops, saying how to write it, when a listed plugin has no card", async () => {
-  const dir = mkdtempSync(join(workspace, "cardless-"));
+test("mounts a plugin whatever its folder's plugin.json holds, as no card is read", async () => {
+  const dir = mkdtempSync(join(workspace, "carded-"));
   cpSync(join(fixtures, "plugins/gamma"), dir, { recursive: true });
-  rmSync(join(dir, "plugin.json"));
-  await assert.rejects(
-    mountPlugins([dir]),
-    /^Error: mount: .* has no card \(plugin\.json\): write it with `just card /,
-  );
+  writeFileSync(join(dir, "plugin.json"), "not a card\n");
+  assert.deepEqual(names(await mountPlugins([dir])), ["gamma"]);
 });
 
-test("stops, naming the first line that differs, when a listed plugin's card is not what its definition makes", async () => {
-  const dir = mkdtempSync(join(workspace, "stale-"));
-  cpSync(join(fixtures, "plugins/gamma"), dir, { recursive: true });
-  writeFileSync(join(dir, "plugin.json"), "{}\n");
-  await assert.rejects(
-    mountPlugins([dir]),
-    /^Error: mount: .*plugin\.json is not what its definition makes \(from line 1\)/,
-  );
-});
-
-test("stops, naming the plugin and the case, when a plugin's cases break the contract: its card is made from them", async () => {
+test("stops, naming the case and its capability, when a plugin's case names a capability no plugin has", async () => {
   await assert.rejects(
     mount("bad-cases"),
-    /^Error: mount: .*bad-cases: cases of plugin bad-cases are invalid:\n- refund-asked\.capability names "refund", which plugin bad-cases does not have/,
+    /^Error: mount: the plugins break the plugin schema:\n- .*bad-cases\/io\.github\.matta-kelly\.que\/cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)$/,
   );
 });
 

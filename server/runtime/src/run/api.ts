@@ -27,15 +27,15 @@ export const app = new Hono();
 const userIdOf = (c: Context) =>
   (c.get("auth" as never) as { user: { identity: string } }).user.identity;
 const find = (name: string) =>
-  plugins.find((p) => p.definition.name === name)?.definition;
+  plugins.find((p) => p.definition.plugin.name === name)?.definition.plugin;
 const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
   const connected = await connectedPlugins(userIdOf(c));
   return c.json(
     plugins
-      .filter((p) => p.definition.credential)
-      .map(({ definition: plugin }) => ({
+      .filter((p) => p.definition.plugin.credential)
+      .map(({ definition: { plugin } }) => ({
         name: plugin.name,
         title: plugin.title,
         description: plugin.description,

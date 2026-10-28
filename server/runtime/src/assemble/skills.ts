@@ -12,12 +12,12 @@ export const READ_SKILL = "read_skill";
 
 /** A skill in one line, the way a list of skills shows it. */
 export const skillLine = (s: Skill) =>
-  `- ${s.id}: ${s.title}. ${s.description}`;
+  `- ${s.name}: ${s.title}. ${s.description}`;
 
 function readSkill(catalog: Catalog): StructuredTool {
   const skills = new Map(
     catalog.flatMap(({ plugin }) =>
-      plugin.skills.map((s) => [s.id, s] as const),
+      plugin.skills.map((s) => [s.name, s] as const),
     ),
   );
   return tool(

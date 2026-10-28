@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { nameIn, OpFailed } from "@mku1tra/que-plugin";
+import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
 import {
   besideNothing,
@@ -45,9 +45,9 @@ test("open_plugin fails, naming the plugins that exist, when asked for one that 
 test("load_operation says which tool the operation became", async () => {
   const text = await call("load_operation", {
     plugin: "shop",
-    operation: "find-orders",
+    operation: "shop-find-orders",
   });
-  assert.ok(text.includes(nameIn("shop", "find-orders")));
+  assert.ok(text.includes("`shop-find-orders`"));
 });
 
 test("load_operation fails, naming the operations that exist, when asked for one that does not", async () => {

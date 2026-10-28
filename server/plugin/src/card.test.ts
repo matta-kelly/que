@@ -5,11 +5,12 @@ import { cardOf, cardText } from "./card.ts";
 import { definePlugin } from "./contract.ts";
 
 const getFabric = {
-  name: "get-fabric",
+  name: "warehouse-get-fabric",
+  type: "op" as const,
   title: "Get a fabric",
   description: "One fabric by its code.",
-  role: "read",
-  schema: z.object({
+  role: "warehouse-read",
+  input: z.object({
     code: z.string().describe("The fabric code"),
     limit: z.number().int().default(5).describe("How many"),
   }),
@@ -18,22 +19,30 @@ const getFabric = {
 
 const warehouse = definePlugin({
   name: "warehouse",
+  type: "plugin",
   title: "Warehouse",
   description: "The record.",
   credential: z.object({ url: z.string().describe("The database URL") }),
   connect: async () => ({}),
-  roles: [{ name: "read", description: "Reads the record." }],
+  roles: [
+    {
+      name: "warehouse-read",
+      type: "access-role",
+      description: "Reads the record.",
+    },
+  ],
   ops: [getFabric],
   capabilities: [
     {
       name: "find-fabric",
+      type: "capability",
       title: "Find a fabric",
       description: "Look one up.",
     },
   ],
 });
 
-test("cardOf makes the standard's fields, and que's part as the plugin's ontology nodes", () => {
+test("cardOf makes the standard's fields, and que's part as the plugin's nodes, each live value as data", () => {
   assert.deepEqual(cardOf({ definition: warehouse, cases: [] }, "0.1.0"), {
     $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
     name: "warehouse",
@@ -41,7 +50,7 @@ test("cardOf makes the standard's fields, and que's part as the plugin's ontolog
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        format: 2,
+        format: 3,
         title: "Warehouse",
         credential: {
           type: "object",
@@ -52,10 +61,10 @@ test("cardOf makes the standard's fields, and que's part as the plugin's ontolog
         },
         ops: [
           {
-            name: "get-fabric",
+            name: "warehouse-get-fabric",
             title: "Get a fabric",
             description: "One fabric by its code.",
-            role: "read",
+            role: "warehouse-read",
             input: {
               type: "object",
               properties: {
@@ -72,8 +81,9 @@ test("cardOf makes the standard's fields, and que's part as the plugin's ontolog
             },
           },
         ],
-        roles: [{ name: "read", description: "Reads the record." }],
-        uses: { ops: [], skills: [] },
+        roles: [{ name: "warehouse-read", description: "Reads the record." }],
+        usesOps: [],
+        usesSkills: [],
         capabilities: [
           {
             name: "find-fabric",
@@ -91,6 +101,7 @@ test("cardOf leaves out the version, a credential and an op's role when there ar
   const card = cardOf({
     definition: definePlugin({
       name: "notes",
+      type: "plugin",
       title: "Notes",
       description: "How the team writes things down.",
       ops: [{ ...getFabric, role: undefined }],
@@ -122,13 +133,14 @@ test("cardOf writes a schema with an id out in its place, with no $ref", () => {
   const card = cardOf({
     definition: definePlugin({
       name: "notes",
+      type: "plugin",
       title: "Notes",
       description: "How the team writes things down.",
       ops: [
         {
           ...getFabric,
           role: undefined,
-          schema: z.object({
+          input: z.object({
             code: z.string().meta({ id: "Code" }).describe("A code"),
           }),
         },
@@ -146,13 +158,14 @@ test("cardOf keeps a field named $ref, as only the places a schema sits are writ
   const card = cardOf({
     definition: definePlugin({
       name: "notes",
+      type: "plugin",
       title: "Notes",
       description: "How the team writes things down.",
       ops: [
         {
           ...getFabric,
           role: undefined,
-          schema: z.object({ $ref: z.string().describe("A reference") }),
+          input: z.object({ $ref: z.string().describe("A reference") }),
         },
       ],
     }),
@@ -173,19 +186,20 @@ test("cardOf refuses an op whose schema is recursive, as a $ref in a card points
       cardOf({
         definition: definePlugin({
           name: "notes",
+          type: "plugin",
           title: "Notes",
           description: "How the team writes things down.",
           ops: [
             {
               ...getFabric,
               role: undefined,
-              schema: z.object({ tree: Node.describe("A tree") }),
+              input: z.object({ tree: Node.describe("A tree") }),
             },
           ],
         }),
         cases: [],
       }),
-    /op notes-get-fabric's schema needs a \$ref in JSON Schema \(#[^:]*: it is recursive, or not in the schema\)/,
+    /op warehouse-get-fabric's input needs a \$ref in JSON Schema \(#[^:]*: it is recursive, or not in the schema\)/,
   );
 });
 
@@ -195,13 +209,14 @@ test("cardOf refuses a $ref left under a keyword the card does not write out", (
       cardOf({
         definition: definePlugin({
           name: "notes",
+          type: "plugin",
           title: "Notes",
           description: "How the team writes things down.",
           ops: [
             {
               ...getFabric,
               role: undefined,
-              schema: z
+              input: z
                 .object({ code: z.string().describe("A code") })
                 .meta({ unevaluatedProperties: { $ref: "#/$defs/Code" } }),
             },
@@ -209,7 +224,7 @@ test("cardOf refuses a $ref left under a keyword the card does not write out", (
         }),
         cases: [],
       }),
-    /op notes-get-fabric's schema keeps a \$ref to #\/\$defs\/ under a keyword the card does not write out/,
+    /op warehouse-get-fabric's input keeps a \$ref to #\/\$defs\/ under a keyword the card does not write out/,
   );
 });
 
@@ -217,13 +232,14 @@ test("cardOf keeps a description that names a $ref", () => {
   const card = cardOf({
     definition: definePlugin({
       name: "notes",
+      type: "plugin",
       title: "Notes",
       description: "How the team writes things down.",
       ops: [
         {
           ...getFabric,
           role: undefined,
-          schema: z.object({
+          input: z.object({
             code: z.string().describe('Not a "#/$defs/Code" ref'),
           }),
         },
@@ -241,13 +257,14 @@ test("cardOf keeps a default that holds a $ref, as a default is data, not a sche
   const card = cardOf({
     definition: definePlugin({
       name: "notes",
+      type: "plugin",
       title: "Notes",
       description: "How the team writes things down.",
       ops: [
         {
           ...getFabric,
           role: undefined,
-          schema: z.object({
+          input: z.object({
             link: z
               .object({ $ref: z.string().describe("A reference") })
               .default({ $ref: "#top" })
@@ -275,6 +292,7 @@ test("cardOf keeps a default that holds a $ref, as a default is data, not a sche
 test("cardOf puts each case on the card, by its name, as the plugin's case nodes", () => {
   const countDrafted = {
     name: "count-drafted",
+    type: "case" as const,
     description: "Counts the drafted fabrics.",
     capability: "find-fabric",
     input: "How many fabrics are drafted?",
@@ -282,7 +300,9 @@ test("cardOf puts each case on the card, by its name, as the plugin's case nodes
     good: "The answer is one number.",
   };
   const card = cardOf({ definition: warehouse, cases: [countDrafted] });
+  const { type, ...written } = countDrafted;
+  assert.equal(type, "case");
   assert.deepEqual(card.extensions["io.github.matta-kelly.que"].cases, [
-    countDrafted,
+    written,
   ]);
 });

@@ -12,20 +12,18 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 - [[#Layout]] the folder, and the three kinds of proof
 
 - [[op-contract]]: what an operation is, and what makes a good one
-- `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the cards. Not all of it is built: the control plane, and roles on cc's connectors
+- `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the plugins. Not all of it is built: the control plane, and roles on cc's connectors
 
 ## Standard
 
-Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, made by `just card <plugin folder>` and required. A reader of cards that runs no code: `@mku1tra/que-plugin`'s source (`plugins`), which gives basis's lint each node a plugin holds; que's control plane (not built) is another. que reads its definition from `io.github.matta-kelly.que/index.ts` (`definePlugin`).
+Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification)). Built: skills, found by folder; que's files in its namespace folder; and the card, `plugin.json`, written by `just card <plugin folder>` when the plugin is published. que reads a plugin from its code: its definition, `io.github.matta-kelly.que/index.ts` (`definePlugin`), its cases and its skills (`readPlugin`). Mount, the evals and `@mku1tra/que-plugin`'s source (`plugins`), which gives basis's lint each node a plugin holds, all read it so.
 
 - what it is: a folder any harness can read
 	- `plugin.json`, the card: `name` (required), and `version`, `description`, `author` and the like
-		- que makes it from the definition and the cases, never by hand (`cardOf` in `@mku1tra/que-plugin`): `name` and `description` from the definition, `version` from the plugin's `package.json`
-		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in the plugin schema, by its field names, each thing by its name in the plugin: `format` (2), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `uses`, `capabilities`, `cases`. Skills are not in it: their folders are the standard's
-		- checked against the standard's own schema, kept in que (`plugin/standards/agent-plugins-1.0.0/`), never fetched, and against `Card`, the one shape of a card: built from the plugin schema's types, and the source reads a card with it
-		- required: mount, the evals and `just check-plugin` fail on a plugin with no card, or one that is not, byte for byte, what its definition and its cases make, naming the first line that differs. The fix is always `just card`
-		- in the graph: each node a plugin holds is a piece of a node of the plugin schema, read from the card and its skills (`piecesOf`). A thing a plugin names in itself (an op, a role, a skill) is the node `<plugin>-<name>`; a capability and a case keep their names. A note of the same name is another piece of the same node: it gives the prose, and copies no fact of the code (basis, merge)
-		- no formatter touches it (`.prettierignore`): the card check holds its bytes
+		- a bridge: que writes it from the plugin's nodes at publish (`cardOf` in `@mku1tra/que-plugin`, run by `just card`), for a harness that runs no code. It is never committed, and nothing of que's reads it back: mount, the evals and the lint read the code, whatever a `plugin.json` in the folder holds
+		- `name` and `description` from the plugin node, `version` from the plugin's `package.json`
+		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in the plugin schema, by their real names and fields, each live value as data: `format` (3), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `usesOps`, `usesSkills`, `capabilities`, `cases`. A function is left out. Skills are not in it: their folders are the standard's
+		- checked against the standard's own schema when it is written, kept in que (`plugin/standards/agent-plugins-1.0.0/`), never fetched
 	- `skills/<name>/SKILL.md`: found by folder, not listed. The Agent Skills format
 	- `mcp.json`: optional. que does not use it: ops run in que, with no server per plugin
 	- `extensions`: data for one client, under the client's reverse-domain name
@@ -33,16 +31,21 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 
 ## que's additions
 
-What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@mku1tra/que-plugin`'s `pluginFiles` is the one place that says where each file is, the standard's and npm's too; `readDefinition` is the one way a plugin is read. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
+What the standard leaves to the client, que defines. Its files sit in que's namespace folder, `io.github.matta-kelly.que/` (the standard puts a client's files in a folder named for its namespace); `@mku1tra/que-plugin`'s `pluginFiles` is the one place that says where each file is, the standard's and npm's too; `readPlugin` is the one way a plugin is read. Its definition, `io.github.matta-kelly.que/index.ts`, holds every que fact.
+
+- **the contract is the plugin schema's types**: each thing in code is its node, as the type `op`, `plugin`, `access-role`, `capability` or `case` parses it: its real name, its type, and its fields, live values too (an op's `input` and `run`, a plugin's `credential`, `connect` and `whoami`). `Op`, `Plugin` and the other names in `@mku1tra/que-plugin` are the types' nodes as TypeScript types, not a second definition
+	- `definePlugin` takes the plugin's fields and the nodes it holds (its ops, roles and capabilities), parses each with its type once, and gives the plugin node, which lists them by name, and each node as given. A fault throws, listing each one after its place (`ops.odoo-search title is missing`)
+	- `defineCases` does the same for the cases
+	- in the graph: each node is a piece of a node of the plugin schema, as code gives it (`piecesOf`), at its file and part (`index.ts#ops/odoo-search`). The plugin's skills are its folders under `skills/`, so its piece lists them. A note of the same name is another piece of the same node: it gives the prose, and copies no fact of the code (basis, merge)
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
-	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes, and the start of each tool name. So two plugins can give one name (odoo's `find-partners`, odoo-find's `partners`), and two can list one capability: mount refuses a deployment where they do, naming both (`basis/unique-name`)
-	- each field is defined once, in the plugin schema's types: the contract and the card are built from them, and a note of the thing is checked with the same type
-- **what the model can do**: operations. Each becomes a tool, named `<plugin>-<op>`, which is also its node's name, and runs in que. What one is, and what makes a good one: [[op-contract]]
+	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes. Each thing a plugin holds (an op, a role, a skill, a capability, a case) has its real name, unique in the whole graph: by convention it starts with the plugin's name (`odoo-find-partners`). Two things of one name, in one plugin or two, fail the mount, naming both (`basis/unique-name`)
+	- each field is defined once, in the plugin schema's types: code is parsed with them, the card is written from the nodes they parse, and a note of the thing is checked with the same type
+- **what the model can do**: operations. Each becomes a tool, named by the op's name, which is also its node's name, and runs in que. What one is, and what makes a good one: [[op-contract]]
 	- other harnesses reach them through a remote MCP server in que (not built), not on their own
 - **what the model can read**: skills, as the standard has them. Each folder under `skills/` with a `SKILL.md` is one; the definition lists none
 	- read as basis reads a note (`readNote`), by `parseSkill`, which mount and the source both use. Its frontmatter: `name` (its folder's), `description`, and que's title in `metadata.title`. With no title, its name is its title. The standard's other fields are taken and not read
-	- its id is `<plugin>-<name>`: what the model reads it by, what a domain uses it by, and its node's name
+	- its name is its folder's: what the model reads it by, what a domain uses it by, and its node's name. So its folder has its real name (`skills/warehouse-fabric-guide/`)
 	- a skill that breaks this fails the mount, and so does a folder under `skills/` with no `SKILL.md`: que is stricter than the standard, which skips both, so a plugin never loads half its skills, and a misnamed `SKILL.md` is never dropped unseen
 - **what it needs**: a credential, if it talks to a service. Each user gives their own. A user with no credential does not get the plugin
 	- `connect` turns a credential into a connection. The connection is what the operations get, never the credential
@@ -56,12 +59,13 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 		- `input`: what the user says
 		- `start`: what is true before the run
 		- `good`: one statement, true or false after the run
-	- cases sit beside the definition, in `io.github.matta-kelly.que/cases.ts`, and are on the card. No agent is given one
-	- mount reads them with the definition (`readDefinition`), as the card is made from both: a case that breaks the contract fails the mount
+	- cases sit beside the definition, in `io.github.matta-kelly.que/cases.ts` (`defineCases`). No agent is given one
+	- mount reads them with the definition (`readPlugin`): a case that breaks the contract fails the mount, and so does one whose capability no plugin of the deployment holds (`basis/link`)
+	- a case's plugin is the one that holds its capability, its own (`just check-plugin`): the evals run it with that plugin, and stop on a capability no plugin of the deployment holds, or two do
 	- a case runs against the real service. A case that changes data changes real data
 - **kind**: two kinds of plugin, by what they touch
 	- connector: one service
-	- domain: across services. The contract knows one by its `uses`
+	- domain: across services. The contract knows one by its `usesOps` and `usesSkills`
 - a plugin carries only the parts it uses: skills only, operations only, or both
 - what the definition does not list, the harness does not read, but for skills: each folder under `skills/` is one
 
@@ -71,12 +75,11 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
-	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. Each fault is reported once: an op with no role, in a plugin that lists roles, by `plugin/op-role`, which names the op as the plugin writes it (`ops.search names no role`); a role the plugin does not list is no node, so by `basis/link`
-- domain: lists what it uses from connectors in `uses`, each op and skill by its name in the graph (`uses: { ops: ["warehouse-get-fabric"], skills: ["warehouse-fabric-guide"] }`). Its node has them as two links, `usesOps` to ops and `usesSkills` to skills
+	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. Each fault is reported once: an op with no role, in a plugin that lists roles, and an op whose role is another plugin's, by `plugin/op-role` (`warehouse-search names no role`); a role that is no node, by `basis/link`
+- domain: lists what it uses from connectors, each op and skill by its name, in two links: `usesOps` to ops and `usesSkills` to skills (`usesOps: ["warehouse-get-fabric"], usesSkills: ["warehouse-fabric-guide"]`)
 	- the check: each name is an op, or a skill, of a plugin that uses nothing (`plugin/connector-use`), so there are no chains and no cycles; a plugin uses none of its own (`plugin/own-use`), as its own are its already
-- the one check (`checkPlugins`): the cards and skills as pieces, linted by basis with the plugin schema, as lot's lint lints them, and each problem said as the lint says it
-	- `validatePlugin`: one definition, with no skills or cases. What it uses is there, and not read
-	- mount of one plugin (`just check-plugin`): with its skills and cases. What it uses is there, and not read
+- the one check (`checkPlugins`): each node the code and skills give, as pieces, linted by basis with the plugin schema, as lot's lint lints them, and each problem said as the lint says it
+	- mount of one plugin (`just check-plugin`): with its skills and cases. What it uses is there, and not read. Each case's capability resolves against the plugin's own, so a case about a capability its plugin does not hold fails (`basis/link`)
 	- mount of a deployment: all its plugins, and nothing unread. A name a plugin uses that the deployment does not give is a problem
 - who holds which domains, roles and logins, and what a user gets each chat: que's control plane (not built), not the plugin
 
@@ -95,7 +98,7 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 
 ```
 <name>/
-├── plugin.json                   the card, made by `just card` from the definition
+├── plugin.json                   the card, written by `just card` at publish, never committed
 ├── skills/<skill>/SKILL.md       one skill each, found by folder (the standard's)
 ├── package.json                  npm: its dependencies, and the @mku1tra/que-plugin it works with
 └── io.github.matta-kelly.que/    que's files
@@ -106,13 +109,12 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
     ├── ops/
     │   ├── <entity>.ts           the read and write operations of one entity
     │   └── <entity>.test.ts      their tests, against fakeConn
-    ├── cases.ts                  the cases (defineCases), by capability
-    └── index.test.ts             contract checks only: validatePlugin, validateCases
+    └── cases.ts                  the cases (defineCases), by capability
 ```
 
 - a definition at the plugin's root fails the mount, saying que's files moved into the namespace folder
 
 - three kinds of proof, one home each
-	- contract checks: the same for every plugin. As [[op-contract]] gains a rule that code can check, `validatePlugin` checks it, and every plugin gets it
+	- contract checks: the same for every plugin, and none written by it. `definePlugin` and `defineCases` parse with the types when the code is imported, and `just check-plugin` lints the plugin with the schema's rules. As [[op-contract]] gains a rule that code can check, the plugin schema holds it (a field of a type, or a rule), and every plugin gets it
 	- op tests: one behaviour of one operation, named `<operation>: <behaviour>`, with no network. Each write operation has two more: the same call twice answers `unchanged`, and a value that is not allowed fails with the allowed ones
 	- cases: one behaviour of one capability, with the model, against the real service

@@ -115,7 +115,7 @@ check-folder folder:
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
 # Mount one plugin on its own, with no network, then type check its code and run its tests, as check-folder does.
-# The folder is a plugin: one that would not mount (its definition, its card, its skills) stops here, with mount's error.
+# The folder is a plugin: one that would not mount (its definition, its cases, its skills) stops here, with mount's error.
 # What a domain uses is checked by the deployment that lists it.
 check-plugin folder:
     #!/usr/bin/env bash
@@ -126,8 +126,9 @@ check-plugin folder:
     podman exec -u node -w "{{root}}/server" "$c" npx tsx runtime/src/mount/check-plugin.ts "$dir"
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
-# Write a plugin folder its card, plugin.json, made from its definition, with que's supplied packages handed to it.
-# A plugin that breaks the contract, or whose card would break Agent Plugins 1.0, stops here and writes nothing.
+# Write a plugin folder its card, plugin.json, made from its nodes, with que's supplied packages handed to it: a plugin's
+# publish runs it, and the card is never committed. A plugin that does not mount on its own, or whose card would break
+# Agent Plugins 1.0, stops here and writes nothing.
 card folder:
     #!/usr/bin/env bash
     set -euo pipefail

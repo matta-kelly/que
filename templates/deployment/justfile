@@ -20,7 +20,7 @@ logs:
 check:
     just --justfile {{que}}/justfile check-deployment {{here}}
 
-# write a plugin its card, plugin.json, from its definition: after a change to its definition or its version, and after a que update that changes what a card holds
+# write a plugin its card, plugin.json, from its nodes: when the plugin is published. The card is never committed, and nothing of que's reads it
 card plugin:
     #!/usr/bin/env bash
     set -euo pipefail

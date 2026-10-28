@@ -18,14 +18,16 @@ import { build } from "./build.js";
 
 const shop = definePlugin({
   name: "shop",
+  type: "plugin",
   title: "Shop",
   description: "The shop's order system.",
   ops: [
     {
-      name: "get-order",
+      name: "shop-get-order",
+      type: "op",
       title: "Get order",
       description: "One order with its lines.",
-      schema: z.object({ id: z.number().describe("Order id") }),
+      input: z.object({ id: z.number().describe("Order id") }),
       run: async (_, { id }) => {
         if (id < 0) throw new OpFailed("no such order");
         return { id };

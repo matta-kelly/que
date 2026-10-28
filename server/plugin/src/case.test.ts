@@ -1,23 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { definePlugin } from "./contract.ts";
-import { defineCases, validateCases } from "./case.ts";
-
-const notes = definePlugin({
-  name: "notes",
-  title: "Notes",
-  description: "How the team writes things down.",
-  capabilities: [
-    {
-      name: "write-up",
-      title: "Write up a meeting",
-      description: "A person asks for the notes of a meeting and gets them.",
-    },
-  ],
-});
+import { defineCases, readCases } from "./case.ts";
 
 const asked = {
   name: "write-up-asked",
+  type: "case" as const,
   description: "A behaviour of its capability.",
   capability: "write-up",
   input: "Write up the meeting of today.",
@@ -25,73 +12,28 @@ const asked = {
   good: "The answer holds the notes of the meeting of today.",
 };
 
-test("validateCases lists a case with a bad name, and a name used twice", () => {
+test("defineCases gives each case as its node", () => {
+  assert.deepEqual(defineCases([asked]), [asked]);
+});
+
+test("defineCases lists every fault, each after the case it is in", () => {
   assert.throws(
     () =>
-      validateCases(
-        notes,
-        defineCases([{ ...asked, name: "no spaces" }, asked, asked]),
-      ),
-    (error: Error) => {
-      assert.match(
-        error.message,
-        /- no spaces\.name must be lowercase letters and digits/,
-      );
-      assert.match(error.message, /- write-up-asked is used twice/);
-      return true;
+      defineCases([
+        { ...asked, good: "" },
+        { ...asked, name: "write-up-told", start: "" },
+      ]),
+    {
+      message: [
+        "cases are invalid:",
+        "- write-up-asked good is missing",
+        "- write-up-told start is missing",
+      ].join("\n"),
     },
   );
 });
 
-test("validateCases lists a case with an empty input, start or good, and one with no name or capability", () => {
-  assert.throws(
-    () =>
-      validateCases(notes, [
-        { ...asked, input: "", start: "  ", good: "" },
-        {
-          ...asked,
-          name: undefined,
-          description: "A behaviour of its capability.",
-          capability: undefined,
-        },
-      ] as never),
-    (error: Error) => {
-      assert.match(error.message, /cases of plugin notes are invalid/);
-      assert.match(error.message, /- 1\.name is missing/);
-      assert.match(
-        error.message,
-        /- 1\.capability Invalid input: expected string, received undefined/,
-      );
-      assert.match(error.message, /- write-up-asked\.input is missing/);
-      assert.match(error.message, /- write-up-asked\.start is missing/);
-      assert.match(error.message, /- write-up-asked\.good is missing/);
-      return true;
-    },
-  );
-});
-
-test("validateCases lists a case with a field that is not one of the five, and one that holds a function", () => {
-  assert.throws(
-    () =>
-      validateCases(notes, [
-        { ...asked, grader: "exact" },
-        { ...asked, name: "write-up-judged", good: () => true },
-      ] as never),
-    (error: Error) => {
-      assert.match(error.message, /- write-up-asked has no field "grader"/);
-      assert.match(error.message, /- write-up-judged\.good must be text/);
-      return true;
-    },
-  );
-});
-
-test("validateCases lists a case that names a capability its plugin does not have", () => {
-  assert.throws(
-    () =>
-      validateCases(
-        notes,
-        defineCases([{ ...asked, capability: "summarize" }]),
-      ),
-    /- write-up-asked\.capability names "summarize", which plugin notes does not have/,
-  );
+test("readCases reads cases by their shape, as another copy of the package makes them, and lists each fault", () => {
+  assert.deepEqual(readCases([{ ...asked }]), { cases: [asked], faults: [] });
+  assert.deepEqual(readCases({}), { cases: [], faults: ["must be an array"] });
 });

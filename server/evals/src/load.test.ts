@@ -16,6 +16,7 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
         {
           plugin: "shop",
           name: "find-order-by-customer",
+          type: "case" as const,
           description:
             "Finds the order of a customer by name, and gives its state.",
           capability: "find-order",
@@ -26,6 +27,7 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
         {
           plugin: "shop",
           name: "find-order-not-asked",
+          type: "case" as const,
           description: "Calls no operation when no order is asked for.",
           capability: "find-order",
           input: "What can you do?",
@@ -82,11 +84,24 @@ test("stops on an agent that leaves out its plugins, so no run is planned under 
   });
 });
 
-test("stops, naming the plugin, on cases that break the contract", async () => {
+test("stops, naming the case and its capability, on a case whose capability no plugin of the deployment holds", async () => {
   await assert.rejects(load(deployment("broken")), (error: Error) => {
     assert.match(error.message, /^eval:/);
-    assert.match(error.message, /cases of plugin broken are invalid/);
+    assert.match(
+      error.message,
+      /case refund-asked names the capability refund, which no plugin of the deployment holds/,
+    );
     assert.ok(error.cause instanceof Error);
+    return true;
+  });
+});
+
+test("stops, naming both plugins, when two plugins of the deployment hold one capability", async () => {
+  await assert.rejects(load(deployment("capability-twice")), (error: Error) => {
+    assert.match(
+      error.message,
+      /the plugins shop and shop-twin both hold the capability find-order/,
+    );
     return true;
   });
 });

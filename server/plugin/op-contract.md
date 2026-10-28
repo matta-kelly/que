@@ -3,7 +3,7 @@ type: component
 description: "What an operation is in que, and what makes a good one: its tool card, how it answers, and what a write promises. Read before writing or reviewing an operation. The code is `Op` in `@mku1tra/que-plugin`."
 status: running
 ---
-An operation is one thing the model can do in a plugin. The harness turns each one into a tool, named `<plugin>-<operation>`.
+An operation is one thing the model can do in a plugin. The harness turns each one into a tool, named by the op's name.
 - [[#Tool card]] what the model reads before it calls
 - [[#Input]] what it takes
 - [[#Answer]] what comes back
@@ -15,23 +15,23 @@ An operation is one thing the model can do in a plugin. The harness turns each o
 
 The model knows only what the card says, so the card is the whole interface.
 
-- `name`: a verb and its object, lowercase words with hyphens between them (`get-company`, `find-partners`). The harness puts the plugin name in front: the tool, and the op's node, is `odoo-get-company`
+- `name`: the plugin's name, then a verb and its object, lowercase words with hyphens between them (`odoo-get-company`, `odoo-find-partners`). It is the tool's name and the op's node's name, unique in the graph
 - `title`: a few words, for people
 - `description`
 	- when to use it
-	- which operation to use in its place (`To search by name, use find-partners instead`)
+	- which operation to use in its place (`To search by name, use odoo-find-partners instead`)
 	- what it returns
 	- its limits: caps, and what it does not cover
 
 ## Input
 
-- the schema is a zod object, and every field is described
+- `input` is a zod object, every field is described, and a model API can take it as JSON Schema: the op type holds each of these
 - a field with a few allowed values is an enum, not free text
 - a value that is not allowed fails with the list of allowed ones, so the next call can be right
 
 ## Answer
 
-- nothing found is a normal answer, not a failure. It says what was looked for, and where to look instead (`Odoo id 12 is not a company: it's a buyer of Acme; call get-company with id 7`)
+- nothing found is a normal answer, not a failure. It says what was looked for, and where to look instead (`Odoo id 12 is not a company: it's a buyer of Acme; call odoo-get-company with id 7`)
 - a list is capped. When more match, the answer says how to get the next page
 - a real failure is one kind of error, `OpFailed`, with a message that says which failure it was (timeout, unreachable, refused, the service's own error), so the model can tell the user what to do. Any other error is a bug in the plugin
 - every call to a service has a time limit

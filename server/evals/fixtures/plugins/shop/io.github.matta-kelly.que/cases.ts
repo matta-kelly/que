@@ -3,6 +3,7 @@ import { defineCases } from "@mku1tra/que-plugin";
 export default defineCases([
   {
     name: "find-order-by-customer",
+    type: "case",
     description: "Finds the order of a customer by name, and gives its state.",
     capability: "find-order",
     input: "Where is the order of Ada?",
@@ -11,6 +12,7 @@ export default defineCases([
   },
   {
     name: "find-order-not-asked",
+    type: "case",
     description: "Calls no operation when no order is asked for.",
     capability: "find-order",
     input: "What can you do?",

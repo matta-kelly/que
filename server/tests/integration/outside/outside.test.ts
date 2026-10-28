@@ -27,7 +27,7 @@ const mount = async (deployment: string) =>
 test("que mounts a deployment and its plugin from a folder outside que", async () => {
   const mounted = await mount("deployment");
   assert.deepEqual(
-    mounted.map((p) => p.definition.name),
+    mounted.map((p) => p.definition.plugin.name),
     ["notes"],
   );
 });

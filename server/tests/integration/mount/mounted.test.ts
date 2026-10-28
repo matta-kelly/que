@@ -15,7 +15,7 @@ test("que mounts, at startup, the deployment the environment names", async () =>
   );
   const { plugins } = await import("../../../runtime/src/mount/mounted.js");
   assert.deepEqual(
-    plugins.map((p) => p.definition.name),
+    plugins.map((p) => p.definition.plugin.name),
     ["gamma", "alpha"],
   );
 });

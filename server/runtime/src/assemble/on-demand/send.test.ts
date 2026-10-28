@@ -21,10 +21,10 @@ test("a failed load_operation loads nothing", () => {
 
 test("operations stay loaded for the rest of the chat", () => {
   const messages = [
-    load("1", "shop", "find-orders"),
+    load("1", "shop", "shop-find-orders"),
     result("1", "Loaded."),
     new HumanMessage("and another"),
-    load("2", "shop", "get-order"),
+    load("2", "shop", "shop-get-order"),
     result("2", "Loaded."),
   ];
   assert.deepEqual([...loadedOperations(messages)].sort(), [

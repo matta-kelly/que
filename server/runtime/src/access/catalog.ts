@@ -13,13 +13,13 @@ export type Catalog = { plugin: MountedPlugin; identity?: ServiceIdentity }[];
 
 export async function catalogFor(userId: string): Promise<Catalog> {
   const access = await Promise.all(
-    plugins.map((p) => hasAccess(p.definition, userId)),
+    plugins.map((p) => hasAccess(p.definition.plugin, userId)),
   );
   const available = plugins.filter((_, i) => access[i]);
   return Promise.all(
     available.map(async (plugin) => ({
       plugin,
-      identity: await getServiceIdentity(plugin.definition, userId),
+      identity: await getServiceIdentity(plugin.definition.plugin, userId),
     })),
   );
 }

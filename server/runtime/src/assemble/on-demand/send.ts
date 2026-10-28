@@ -4,7 +4,6 @@
  */
 
 import type { BaseMessage } from "langchain";
-import { nameIn } from "@mku1tra/que-plugin";
 import { LOAD_OPERATION } from "./tools.js";
 
 type ToolCall = { id?: string; name: string; args: Record<string, unknown> };
@@ -27,9 +26,7 @@ export function loadedOperations(messages: BaseMessage[]): Set<string> {
     messages
       .flatMap((m) => (m as { tool_calls?: ToolCall[] }).tool_calls ?? [])
       .filter((call) => call.name === LOAD_OPERATION && succeeded.has(call.id!))
-      .map((call) =>
-        nameIn(String(call.args.plugin), String(call.args.operation)),
-      ),
+      .map((call) => String(call.args.operation)),
   );
 }
 

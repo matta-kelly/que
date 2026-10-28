@@ -1,3 +1,5 @@
 .env
 node_modules
 .que/
+# A plugin's card, written at its publish (`just card`), never committed.
+plugin.json

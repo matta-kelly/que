@@ -1,7 +1,6 @@
 /**
- * The schemas of a plugin's fields, and the messages they give: what a node of the plugin schema holds, and what a
- * definition, a card and a skill are parsed with, and the helpers the harness's fields are built from. One place for
- * each field, so a note, a card and a definition are checked by one schema.
+ * The schemas of a plugin's fields, and the messages they give: what the plugin schema's types and a skill's
+ * frontmatter are built from, and the helpers the harness's fields are built from. One place for each field.
  */
 
 import { Name, type Type } from "@mku1tra/basis";
@@ -49,11 +48,6 @@ export const standardName = text
       `must be lowercase letters and digits, with single hyphens between them, got ${JSON.stringify(input)}`,
   })
   .max(64, { error: "must be at most 64 characters" });
-
-/** A JSON Schema, as a card writes one: what a credential or an op's input takes. */
-export const JsonSchema = z.record(z.string(), z.unknown(), {
-  error: "must be a JSON Schema object",
-});
 
 // The Agent Skills frontmatter que reads. Its other fields (license, compatibility, allowed-tools) are allowed and
 // not read. que's title is in `metadata`, the standard's place for a client's own fields.

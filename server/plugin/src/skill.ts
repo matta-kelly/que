@@ -4,34 +4,25 @@
  */
 
 import { readNote } from "@mku1tra/basis";
-import * as z from "zod";
+import type * as z from "zod";
 import { check } from "./check.ts";
-import { fieldsOf, SkillFrontmatter, text } from "./fields.ts";
-import { nameIn } from "./names.ts";
+import { SkillFrontmatter } from "./fields.ts";
 import { plugin } from "./schema.ts";
 
-// The title and the description are what the model reads to choose a skill. Its id is its node's name,
-// `<plugin>-<folder>` (nameIn).
-export const Skill = z.object({
-  id: z.string(),
-  ...fieldsOf(plugin.types.skill),
-  description: text,
-  body: z.string(),
-});
-
-export type Skill = z.infer<typeof Skill>;
+/**
+ * A skill node, and its body: the text the model reads. Its title and description are what the model reads to choose
+ * it. Its name is its folder's, the Agent Skills name, and its node's.
+ */
+export type Skill = z.output<typeof plugin.types.skill.schema> & {
+  body: string;
+};
 
 /**
  * Turn the text of `skills/<folder>/SKILL.md` into a skill, throwing when it has no frontmatter, or frontmatter with
  * no name, a name that is not the folder's, or no description. With no `metadata.title`, its title is its name.
  */
-export function parseSkill(
-  pluginName: string,
-  folder: string,
-  file: string,
-): Skill {
-  const id = nameIn(pluginName, folder);
-  const what = `skill ${id} is invalid`;
+export function parseSkill(folder: string, file: string): Skill {
+  const what = `skill ${folder} is invalid`;
   // Line ends may be \r\n: the body is kept with \n.
   const lines = file.replace(/\r\n/g, "\n");
   const read = readNote(`${folder}/SKILL.md`, lines);
@@ -49,14 +40,17 @@ export function parseSkill(
     read.note.fields,
     what,
   );
-  return check(
-    Skill,
-    {
-      id,
-      title: front.metadata?.title ?? front.name,
-      description: front.description,
-      body: read.note.body.trim(),
-    },
-    what,
-  );
+  return {
+    ...check(
+      plugin.types.skill.schema,
+      {
+        name: front.name,
+        type: "skill",
+        title: front.metadata?.title ?? front.name,
+        description: front.description,
+      },
+      what,
+    ),
+    body: read.note.body.trim(),
+  };
 }

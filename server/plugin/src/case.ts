@@ -1,57 +1,45 @@
 /**
- * What a case is: one behaviour of one capability, written down so it can be
- * checked. A case is data about a plugin, on its card: mount reads it with
- * the definition, and no agent is given one.
+ * What a case is: one behaviour of one capability, written down so it can be checked. A case is a node, given in a
+ * plugin's `cases.ts` beside its definition; no agent is given one. Its capability is a link, so the plugin that holds
+ * that capability is the case's, in the graph.
  */
 
-import * as z from "zod";
-import { check, once, strict } from "./check.ts";
-import type { Plugin } from "./contract.ts";
-import { fieldsOf, standardName, text } from "./fields.ts";
+import type * as z from "zod";
+import { faults, refuse } from "./check.ts";
 import { plugin } from "./schema.ts";
 
-const types = plugin.types;
+/**
+ * One case: its name, the behaviour it shows (its description), the capability it is about, what the user says, what
+ * is true before the run, and one statement that is true or false after it.
+ */
+export type Case = z.output<typeof plugin.types.case.schema>;
 
 /**
- * One case: its name, which is its node's in the whole graph, the behaviour it shows, and the case's fields: the
- * capability of its plugin it is about, what the user says, what is true before the run, and one statement that is true
- * or false after it.
+ * A plugin's cases, each parsed with the case type, once. Throws one error that lists every fault, each after the case
+ * it is in. Its capability is the lint's to resolve.
  */
-export const Case = z.strictObject(
-  {
-    name: standardName,
-    /** The behaviour it shows, in one line. */
-    description: text,
-    ...fieldsOf(types.case),
-  },
-  strict(),
-);
-
-export type Case = z.infer<typeof Case>;
-
 export function defineCases(cases: Case[]): Case[] {
-  return cases;
+  const read = readCases(cases);
+  refuse("cases are invalid", read.faults);
+  return read.cases;
 }
 
 /**
- * Check the cases of a plugin against the contract, throwing one error that
- * lists every problem. A plugin's own test calls this, as it calls
- * `validatePlugin`.
+ * What a plugin's cases module gives as its default export, read as its cases: each parsed with the case type, or
+ * each fault, after the case it is in. By its shape, not by which copy of this package made it.
  */
-export function validateCases(definition: Plugin, cases: Case[]): void {
-  const capabilities = new Set(definition.capabilities.map((c) => c.name));
-  const known = fieldsOf(types.case).capability.refine(
-    (capability) => !capability.trim() || capabilities.has(capability),
-    {
-      error: (issue) =>
-        `names "${String(issue.input)}", which plugin ${definition.name} does not have`,
-    },
+export function readCases(value: unknown): { cases: Case[]; faults: string[] } {
+  if (!Array.isArray(value)) return { cases: [], faults: ["must be an array"] };
+  const found = value.flatMap((kase: { name?: unknown } | undefined, i) =>
+    faults(plugin.types.case.schema, kase).map(
+      (fault) =>
+        `${typeof kase?.name === "string" && kase.name.trim() ? kase.name : i} ${fault}`,
+    ),
   );
-  check(
-    z
-      .array(Case.extend({ capability: known }))
-      .superRefine(once((c) => c.name)),
-    cases,
-    `cases of plugin ${definition.name} are invalid`,
-  );
+  return found.length
+    ? { cases: [], faults: found }
+    : {
+        cases: value.map((kase) => plugin.types.case.schema.parse(kase)),
+        faults: [],
+      };
 }

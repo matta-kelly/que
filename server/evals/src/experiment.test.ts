@@ -5,6 +5,7 @@ import { experiments } from "./experiment.js";
 const byCustomer = {
   plugin: "shop",
   name: "find-order-by-customer",
+  type: "case" as const,
   description: "A behaviour of its capability.",
   capability: "find-order",
   input: "Where is the order of Ada?",
@@ -14,6 +15,7 @@ const byCustomer = {
 const notAsked = {
   plugin: "shop",
   name: "find-order-not-asked",
+  type: "case" as const,
   description: "A behaviour of its capability.",
   capability: "find-order",
   input: "What can you do?",
