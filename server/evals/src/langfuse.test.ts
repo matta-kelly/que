@@ -60,6 +60,8 @@ const open = {
     {
       kind: "call" as const,
       name: "shop-find-orders",
+      type: "loop" as const,
+      description: "A loop of a test.",
       args: { customer: "Ada" },
     },
     {
@@ -77,7 +79,14 @@ const chat = {
   run: "chat@abc1234 2026-10-13T07:47:11Z",
   metadata: {
     agent: "chat",
-    config: { name: "chat", plugins: [], model: "small", loop: "long-chat" },
+    config: {
+      name: "chat",
+      type: "agent" as const,
+      description: "An agent of a test.",
+      plugins: [],
+      model: "small",
+      loop: "long-chat",
+    },
     commit: "abc1234",
     deployment: "shop",
   },
@@ -92,7 +101,14 @@ const lean = {
   run: "lean@abc1234 2026-10-13T07:47:11Z",
   metadata: {
     agent: "lean",
-    config: { name: "lean", plugins: [], model: "small", loop: "long-chat" },
+    config: {
+      name: "lean",
+      type: "agent" as const,
+      description: "An agent of a test.",
+      plugins: [],
+      model: "small",
+      loop: "long-chat",
+    },
     commit: "abc1234",
     deployment: "shop",
   },
@@ -305,6 +321,8 @@ test("sends one trace for each run of an experiment, on its item of the dataset,
           agent: "chat",
           config: {
             name: "chat",
+            type: "agent" as const,
+            description: "An agent of a test.",
             plugins: [],
             model: "small",
             loop: "long-chat",
@@ -328,6 +346,8 @@ test("sends one trace for each run of an experiment, on its item of the dataset,
           agent: "chat",
           config: {
             name: "chat",
+            type: "agent" as const,
+            description: "An agent of a test.",
             plugins: [],
             model: "small",
             loop: "long-chat",

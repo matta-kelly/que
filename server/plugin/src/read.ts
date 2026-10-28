@@ -9,7 +9,12 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { readCases, type Case } from "./case.ts";
 import { readDefinition, type Definition } from "./contract.ts";
-import { pluginFiles, skillFolders, type PluginFiles } from "./layout.ts";
+import {
+  locatePlugin,
+  pluginFiles,
+  skillFolders,
+  type PluginFiles,
+} from "./layout.ts";
 import { parseSkill, type Skill } from "./skill.ts";
 
 /** A file of a plugin that cannot be read, and why: fatal, as basis's loader says a note it cannot read. */
@@ -17,6 +22,8 @@ export type Unreadable = { path: string; message: string; fatal: true };
 
 /** A plugin, as read from its folder: what could be read, and a problem for each file that could not. */
 export type ReadPlugin = {
+  /** Its folder. */
+  dir: string;
   files: PluginFiles;
   /** Its definition, when its module gives one. */
   definition?: Definition;
@@ -33,10 +40,14 @@ const defaultOf = async (file: string): Promise<unknown> =>
 const reason = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
-/** The plugin in `dir`: its definition, its cases and its skills, each read as far as it can be. */
+/**
+ * The plugin in `dir`: its definition, its cases and its skills, each read as far as it can be. A folder with no
+ * definition is a problem at the folder, and nothing more is read.
+ */
 export async function readPlugin(dir: string): Promise<ReadPlugin> {
   const files = pluginFiles(dir);
   const read: ReadPlugin = {
+    dir,
     files,
     cases: [],
     skills: [],
@@ -45,6 +56,13 @@ export async function readPlugin(dir: string): Promise<ReadPlugin> {
   };
   const unreadable = (path: string, message: string) =>
     read.problems.push({ path, message, fatal: true });
+
+  try {
+    locatePlugin(dir);
+  } catch (error) {
+    unreadable(dir, reason(error));
+    return { ...read, skillNames: [] };
+  }
 
   try {
     const given = readDefinition(await defaultOf(files.definition));

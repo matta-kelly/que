@@ -41,7 +41,12 @@ test("gives back the messages of the run, in que's own form", async () => {
       {
         from: "agent",
         text: "",
-        calls: [{ name: "open_plugin", args: { plugin: "shop" } }],
+        calls: [
+          {
+            name: "open_plugin",
+            args: { plugin: "shop" },
+          },
+        ],
       },
       {
         from: "tool",

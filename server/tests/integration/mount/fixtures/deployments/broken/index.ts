@@ -1,8 +1,12 @@
+import { defineDeployment } from "@mku1tra/que-harness";
+
 // Breaks the contract on purpose: plugins must be a list.
-export default {
+export default defineDeployment({
   name: "broken",
-  plugins: "../../plugins/alpha",
-  agents: ["../../agents/bare.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
-};
+  type: "deployment",
+  description: "The broken deployment of a fixture.",
+  plugins: "alpha",
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
+} as never);

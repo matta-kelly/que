@@ -1,9 +1,10 @@
 import { defineModel } from "@mku1tra/que-harness";
 
-// Beam, Reflection's model. To run on it, list this file in `models` in index.ts, and set BEAM_API_KEY in
-// the .env. que fills in its `window` from Reflection, and its `price` from models.dev.
+// Beam, Reflection's model. To run on it, name it in `models` in index.ts, and set BEAM_API_KEY in the .env. que fills in its `window` from Reflection, and its `price` from models.dev.
 export default defineModel({
   name: "beam",
+  type: "model",
+  description: "Beam, Reflection's model.",
   id: "beam:Beam-1.0-501B-A23B",
   // The most tokens the model may give in one reply: the most Beam gives.
   maxTokens: 131_072,

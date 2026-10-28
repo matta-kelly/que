@@ -13,16 +13,19 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OpFailed } from "@mku1tra/que-plugin";
-import { loadDeployment } from "../../../runtime/src/mount/deployment.js";
-import { mountPlugins } from "../../../runtime/src/mount/plugins.js";
+import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 import { checkConfig } from "../../../runtime/src/mount/supplied.js";
 
 const outside = mkdtempSync(join(tmpdir(), "que-outside-"));
-cpSync(join(import.meta.dirname, "fixtures"), outside, { recursive: true });
+// Its plugins are installed as links, and copied as they are, so they point into the copy.
+cpSync(join(import.meta.dirname, "fixtures"), outside, {
+  recursive: true,
+  verbatimSymlinks: true,
+});
 after(() => rmSync(outside, { recursive: true, force: true }));
 
 const mount = async (deployment: string) =>
-  mountPlugins((await loadDeployment(join(outside, deployment))).plugins);
+  (await mountDeployment(join(outside, deployment))).plugins;
 
 test("que mounts a deployment and its plugin from a folder outside que", async () => {
   const mounted = await mount("deployment");

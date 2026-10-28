@@ -7,3 +7,7 @@ dist
 next-env.d.ts
 # A deployment's run state: the saved copy of its models' facts.
 .que/
+# A test deployment's installed plugins: links into its fixtures, as npm links a workspace's packages.
+!server/tests/integration/mount/fixtures/deployments/node_modules
+!server/evals/fixtures/deployments/node_modules
+!server/tests/integration/outside/fixtures/*/node_modules

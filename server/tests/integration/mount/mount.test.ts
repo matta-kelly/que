@@ -1,7 +1,7 @@
 /**
- * Mount, against real folders: the deployments and plugins in fixtures/.
- * No network: mounting reads
- * definitions and skills and opens no connection.
+ * Mount, against real folders: the deployments and plugins in fixtures/. A deployment's plugins are installed by name,
+ * as links in fixtures/deployments/node_modules. No network: mounting reads definitions and skills and opens no
+ * connection, and each model's facts are in its file, or come from the sources a test hands in.
  */
 
 import { after, test } from "node:test";
@@ -17,13 +17,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadDeployment } from "../../../runtime/src/mount/deployment.js";
-import * as fromDeployment from "../../../runtime/src/mount/deployment.js";
+import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 import type { FactSources } from "../../../runtime/src/mount/model-facts/index.js";
 import {
   loadPlugin,
   mountPlugin,
-  mountPlugins,
   type MountedPlugin,
 } from "../../../runtime/src/mount/plugins.js";
 
@@ -33,42 +31,36 @@ const names = (mounted: MountedPlugin[]) =>
   mounted.map((p) => p.definition.plugin.name);
 
 const mount = async (name: string) =>
-  mountPlugins((await loadDeployment(deployment(name))).plugins);
+  (await mountDeployment(deployment(name))).plugins;
 
-test("a listed folder can be an absolute path", async () => {
-  assert.deepEqual(names(await mount("absolute")), ["beta"]);
-});
-
-// A deployment in an npm workspace, as a repo of deployments is: a plugin of
-// the repo is an npm package, linked into the root's node_modules, and the
-// deployment sits in a folder under the root.
+// A deployment in an npm workspace, as a repo of deployments is: a plugin of the repo is an npm package, linked into
+// the root's node_modules, and the deployment sits in a folder under the root.
 const workspace = mkdtempSync(join(tmpdir(), "que-mount-by-name-"));
 after(() => rmSync(workspace, { recursive: true, force: true }));
 writeFileSync(join(workspace, "package.json"), '{ "type": "module" }\n');
-cpSync(join(fixtures, "plugins/beta"), join(workspace, "plugins/beta"), {
-  recursive: true,
-});
-writeFileSync(
-  join(workspace, "plugins/beta/package.json"),
-  '{ "name": "beta", "type": "module" }\n',
-);
 mkdirSync(join(workspace, "node_modules"));
-symlinkSync(
-  join(workspace, "plugins/beta"),
-  join(workspace, "node_modules/beta"),
-);
-const byName = (plugins: string[]) => {
+const install = (name: string, dir: string) =>
+  symlinkSync(dir, join(workspace, "node_modules", name));
+install("beta", join(fixtures, "plugins/beta"));
+
+// A deployment in the workspace that names `plugins`, with the agent, loop and model of the deployment two.
+const deploymentWith = (plugins: string[]) => {
   const dir = mkdtempSync(join(workspace, "deployment-"));
-  const fixture = (path: string) => JSON.stringify(join(fixtures, path));
+  for (const folder of ["agents", "loops", "models"])
+    cpSync(join(deployment("two"), folder), join(dir, folder), {
+      recursive: true,
+    });
   writeFileSync(
     join(dir, "index.ts"),
     `import { defineDeployment } from "@mku1tra/que-harness";
 export default defineDeployment({
   name: "by-name",
+  type: "deployment",
+  description: "A deployment in a workspace.",
   plugins: ${JSON.stringify(plugins)},
-  agents: [${fixture("agents/bare.ts")}],
-  loops: [${fixture("loops/long-chat.ts")}],
-  models: [${fixture("models/small.ts")}],
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
 });
 `,
   );
@@ -102,7 +94,7 @@ const version = (
 
 test("stops, naming the folder, the range and que's own version, when a plugin needs another @mku1tra/que-plugin", async () => {
   const dir = needing("^9.0.0");
-  await assert.rejects(mountPlugins([dir]), (error: Error) => {
+  await assert.rejects(mountPlugin(dir), (error: Error) => {
     assert.ok(error.message.includes(dir));
     assert.match(error.message, /@mku1tra\/que-plugin \^9\.0\.0/);
     assert.ok(error.message.includes(`que's is ${version}`));
@@ -111,14 +103,14 @@ test("stops, naming the folder, the range and que's own version, when a plugin n
 });
 
 test("a plugin whose @mku1tra/que-plugin range que's own version satisfies is mounted", async () => {
-  assert.deepEqual(names(await mountPlugins([needing(`^${version}`)])), [
+  assert.deepEqual(names([await mountPlugin(needing(`^${version}`))]), [
     "beta",
   ]);
 });
 
 test("stops, saying the contract moved, when a plugin names @que/core as its peer", async () => {
   const dir = needing("^0.3.0", "@que/core");
-  await assert.rejects(mountPlugins([dir]), {
+  await assert.rejects(mountPlugin(dir), {
     message: `mount: ${dir}: the plugin contract moved to @mku1tra/que-plugin: name it as the peer in ${join(dir, "package.json")} ("@mku1tra/que-plugin": "^${version}"), in place of @que/core`,
   });
 });
@@ -126,23 +118,26 @@ test("stops, saying the contract moved, when a plugin names @que/core as its pee
 test("stops, naming the file, when a plugin's package.json is not JSON", async () => {
   const dir = needing("*");
   writeFileSync(join(dir, "package.json"), '{ "type": "module", }');
-  await assert.rejects(mountPlugins([dir]), (error: Error) => {
+  await assert.rejects(mountPlugin(dir), (error: Error) => {
     assert.match(error.message, /^mount:/);
     assert.ok(error.message.includes(join(dir, "package.json")));
     return true;
   });
 });
 
-test("a listed plugin can be the name of its npm package, found as Node finds an import from the deployment's folder", async () => {
-  const { plugins } = await loadDeployment(byName(["beta"]));
-  assert.deepEqual(names(await mountPlugins(plugins)), ["beta"]);
+test("a plugin is found by its name, as Node finds an import of its npm package from the deployment's folder", async () => {
+  const { plugins } = await mountDeployment(deploymentWith(["beta"]));
+  assert.deepEqual(names(plugins), ["beta"]);
 });
 
-test("stops, naming the plugin and the deployment folder, when a listed name is not installed", async () => {
-  const dir = byName(["nowhere"]);
-  await assert.rejects(loadDeployment(dir), (error: Error) => {
-    assert.match(error.message, /"nowhere"/);
-    assert.ok(error.message.includes(dir));
+test("stops, naming the plugin and the deployment's index.ts, when a plugin it names is not installed", async () => {
+  const dir = deploymentWith(["nowhere"]);
+  await assert.rejects(mountDeployment(dir), (error: Error) => {
+    assert.ok(
+      error.message.includes(
+        `${join(dir, "index.ts")}: The plugin nowhere is not installed`,
+      ),
+    );
     return true;
   });
 });
@@ -168,10 +163,12 @@ test("stops, naming the folder and the fault, when a listed plugin breaks the pl
   });
 });
 
-test("stops, naming the deployment folder, when the definition breaks the contract", async () => {
-  await assert.rejects(loadDeployment(deployment("broken")), (error: Error) => {
-    assert.match(error.message, /deployments\/broken/);
-    assert.match(error.message, /plugins must be an array/);
+test("stops, naming the deployment's index.ts, when its definition breaks the contract", async () => {
+  await assert.rejects(mount("broken"), (error: Error) => {
+    assert.match(
+      error.message,
+      /deployments\/broken\/index\.ts: The deployment cannot be read: deployment broken is invalid:\n- plugins /,
+    );
     return true;
   });
 });
@@ -199,7 +196,7 @@ test("stops, naming the domain and the name, when a domain uses an op the deploy
   await assert.doesNotReject(loadPlugin(join(fixtures, "plugins/stray")));
   await assert.rejects(
     mount("uses-unresolved"),
-    /^Error: mount: the plugins break the plugin schema:\n- .*plugins\/stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
+    /^Error: mount: deployment .*uses-unresolved breaks the harness schema:\n- .*plugins\/stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
   );
 });
 
@@ -213,6 +210,10 @@ const written = async (name: string, fields: string) => {
 export default definePlugin({ name: "${name}", type: "plugin", title: "${name}", description: "A plugin.", ${fields} });
 `,
   );
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name, type: "module" }),
+  );
   mkdirSync(join(dir, `skills/${name}-guide`), { recursive: true });
   writeFileSync(
     join(dir, `skills/${name}-guide/SKILL.md`),
@@ -225,14 +226,19 @@ test("stops, naming both definitions, when two plugins list one capability", asy
   const capability = `capabilities: [{ name: "find-fabric", type: "capability", title: "Find a fabric", description: "Look one up." }]`;
   const one = await written("one", capability);
   const two = await written("two", capability);
-  await assert.rejects(mountPlugins([one, two]), (error: Error) => {
-    assert.ok(
-      error.message.includes(
-        `${one}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric: The name find-fabric is also the name of ${two}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric. (basis/unique-name)`,
-      ),
-    );
-    return true;
-  });
+  install("one", one);
+  install("two", two);
+  await assert.rejects(
+    mountDeployment(deploymentWith(["one", "two"])),
+    (error: Error) => {
+      assert.ok(
+        error.message.includes(
+          `${one}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric: The name find-fabric is also the name of ${two}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric. (basis/unique-name)`,
+        ),
+      );
+      return true;
+    },
+  );
 });
 
 test("check-plugin stops a plugin that uses its own skill", async () => {
@@ -247,7 +253,7 @@ test("stops, saying where que's files go, when a plugin's definition is at its r
   await assert.rejects(mount("old-layout"), (error: Error) => {
     assert.match(
       error.message,
-      /^mount: .*plugins\/old-layout: que's files are in io\.github\.matta-kelly\.que\/, not at the plugin's root/,
+      /plugins\/old-layout: que's files are in io\.github\.matta-kelly\.que\/, not at the plugin's root/,
     );
     return true;
   });
@@ -257,7 +263,7 @@ test("stops, naming the folder, when a listed folder holds no plugin", async () 
   await assert.rejects(mount("hollow"), (error: Error) => {
     assert.match(
       error.message,
-      /^mount: .*plugins\/hollow holds no plugin \(no io\.github\.matta-kelly\.que\/index\.ts\)$/,
+      /plugins\/hollow holds no plugin \(no io\.github\.matta-kelly\.que\/index\.ts\)/,
     );
     return true;
   });
@@ -267,35 +273,32 @@ test("mounts a plugin whatever its folder's plugin.json holds, as no card is rea
   const dir = mkdtempSync(join(workspace, "carded-"));
   cpSync(join(fixtures, "plugins/gamma"), dir, { recursive: true });
   writeFileSync(join(dir, "plugin.json"), "not a card\n");
-  assert.deepEqual(names(await mountPlugins([dir])), ["gamma"]);
+  assert.deepEqual(names([await mountPlugin(dir)]), ["gamma"]);
 });
 
 test("stops, naming the case and its capability, when a plugin's case names a capability no plugin has", async () => {
   await assert.rejects(
     mount("bad-cases"),
-    /^Error: mount: the plugins break the plugin schema:\n- .*bad-cases\/io\.github\.matta-kelly\.que\/cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)$/,
+    /^Error: mount: deployment .*bad-cases breaks the harness schema:\n- .*bad-cases\/io\.github\.matta-kelly\.que\/cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)$/,
   );
 });
 
-test("stops, naming the file, when an agent breaks the contract, with the contract's own error as its cause", async () => {
+test("stops, naming the file, when an agent breaks the contract, with the contract's own error", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-bad")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /agents\/modelless\.ts/);
-      assert.ok(error.cause instanceof Error);
-      assert.match(error.cause.message, /^agent modelless is invalid/);
-      return true;
-    },
+    mountDeployment(deployment("agent-bad")),
+    /agents\/modelless\.ts: The agent cannot be read: agent modelless is invalid:/,
   );
 });
 
 test("stops, naming the name, when two agents have one name", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agents-one-name")),
+    mountDeployment(deployment("agents-one-name")),
     (error: Error) => {
       assert.match(error.message, /^mount:/);
-      assert.match(error.message, /two agents are named "chat"/);
+      assert.match(
+        error.message,
+        /agents\/chat-again\.ts: The name chat is also the name of .*agents\/chat\.ts\. \(basis\/unique-name\)/,
+      );
       return true;
     },
   );
@@ -303,35 +306,37 @@ test("stops, naming the name, when two agents have one name", async () => {
 
 test("stops, naming the agent and the plugin, when an agent names a plugin the deployment does not mount", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-names-unmounted")),
+    mountDeployment(deployment("agent-names-unmounted")),
     (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /wants-delta/);
-      assert.match(error.message, /delta/);
+      assert.match(
+        error.message,
+        /agents\/wants-delta\.ts: \/plugins: names the plugin delta, which the deployment does not mount \(basis\/link\)/,
+      );
       return true;
     },
   );
 });
 
-test("stops, naming the agent and the loop, when an agent names a loop the deployment does not list", async () => {
+test("stops, naming the agent and the loop, when an agent names a loop the deployment does not give", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-loop-unlisted")),
+    mountDeployment(deployment("agent-loop-unlisted")),
     (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /"looped"/);
-      assert.match(error.message, /"long-chat"/);
+      assert.match(
+        error.message,
+        /agents\/looped\.ts: \/loop: names the loop long-chat, which no file in the deployment's loops\/ gives \(basis\/link\)/,
+      );
       return true;
     },
   );
 });
 
-test("a deployment is mounted with its models, in the order it lists them", async () => {
-  const mounted = await fromDeployment.mountDeployment(
-    deployment("models-two"),
-  );
+test("a deployment is mounted with its models, in the order it names them", async () => {
+  const mounted = await mountDeployment(deployment("models-two"));
   assert.deepEqual(mounted.models, [
     {
       name: "big",
+      type: "model",
+      description: "The big model of a fixture.",
       id: "fireworks:big-model",
       window: 1_000_000,
       maxTokens: 100_000,
@@ -339,6 +344,8 @@ test("a deployment is mounted with its models, in the order it lists them", asyn
     },
     {
       name: "small",
+      type: "model",
+      description: "The small model of a fixture.",
       id: "fireworks:small-model",
       window: 64_000,
       maxTokens: 8_000,
@@ -347,23 +354,16 @@ test("a deployment is mounted with its models, in the order it lists them", asyn
   ]);
 });
 
-test("stops at startup, naming the deployment, when it lists no model", async () => {
+test("stops at startup, naming the deployment, when it names no model", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("models-none")),
-    (error: Error) => {
-      assert.match(error.message, /^mount: .*deployments\/models-none/);
-      assert.match(
-        error.message,
-        /deployment models-none is invalid:\n- models is missing: list at least one model config/,
-      );
-      return true;
-    },
+    mountDeployment(deployment("models-none")),
+    /deployments\/models-none\/index\.ts: The deployment cannot be read: deployment models-none is invalid:\n- models /,
   );
 });
 
 test("stops, naming the model and the provider, when a model has a provider que does not have", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("model-provider")),
+    mountDeployment(deployment("model-provider")),
     (error: Error) => {
       assert.match(error.message, /^mount:/);
       assert.match(error.message, /"elsewhere"/);
@@ -374,66 +374,58 @@ test("stops, naming the model and the provider, when a model has a provider que 
   );
 });
 
-test("stops, naming the agent and the model, when an agent names a model the deployment does not list", async () => {
+test("stops, naming the agent and the model, when an agent names a model the deployment does not give", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("agent-model-unlisted")),
+    mountDeployment(deployment("agent-model-unlisted")),
     (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /"lean"/);
-      assert.match(error.message, /"small"/);
-      assert.match(error.message, /Models: big/);
+      assert.match(
+        error.message,
+        /agents\/lean\.ts: \/model: names the model small, which no file in the deployment's models\/ gives \(basis\/link\)/,
+      );
       return true;
     },
   );
 });
 
-test("stops when MODEL is set, and says to list a model file", async () => {
+test("stops when MODEL is set, and says a model is a file of its own", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("two"), {
+    mountDeployment(deployment("two"), {
       MODEL: "fireworks:some-model",
     }),
     (error: Error) => {
       assert.match(error.message, /^mount: MODEL is set/);
-      assert.match(error.message, /`models`/);
+      assert.match(error.message, /models\//);
       return true;
     },
   );
-  await fromDeployment.mountDeployment(deployment("two"), {});
+  await mountDeployment(deployment("two"), {});
 });
 
-test("stops, naming the file, when a loop breaks the contract, with the contract's own error as its cause", async () => {
+test("stops, naming the file, when a loop breaks the contract, with the contract's own error", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(deployment("loop-bad")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /loops\/endless\.ts/);
-      assert.ok(error.cause instanceof Error);
-      assert.match(error.cause.message, /^loop endless is invalid/);
-      return true;
-    },
+    mountDeployment(deployment("loop-bad")),
+    /loops\/endless\.ts: The loop cannot be read: loop endless is invalid:/,
   );
 });
 
-test("stops, naming the file, on a model file that is missing, breaks the contract, or has the name of another", async () => {
+test("stops, naming the file, on a model no file gives, one that breaks the contract, or one with the name of another", async () => {
   const stopsWith = (name: string, ...patterns: RegExp[]) =>
-    assert.rejects(
-      fromDeployment.mountDeployment(deployment(name)),
-      (error: Error) => {
-        assert.match(error.message, /^mount:/);
-        for (const pattern of patterns) assert.match(error.message, pattern);
-        return true;
-      },
-    );
-  await stopsWith("model-file-missing", /models\/nope\.ts holds no model/);
-  await stopsWith("models-one-name", /two models are named "small"/);
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("model-bad")),
-    (error: Error) => {
-      assert.match(error.message, /^mount: .*models\/bad-price\.ts/);
-      assert.ok(error.cause instanceof Error);
-      assert.match(error.cause.message, /^model bad-price is invalid/);
+    assert.rejects(mountDeployment(deployment(name)), (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      for (const pattern of patterns) assert.match(error.message, pattern);
       return true;
-    },
+    });
+  await stopsWith(
+    "model-file-missing",
+    /index\.ts: \/models: names the model nope, which no file in the deployment's models\/ gives \(basis\/link\)/,
+  );
+  await stopsWith(
+    "models-one-name",
+    /The name small is also the name of .*models\/small\.ts\. \(basis\/unique-name\)/,
+  );
+  await stopsWith(
+    "model-bad",
+    /models\/bad-price\.ts: The model cannot be read: model bad-price is invalid:/,
   );
 });
 
@@ -465,27 +457,39 @@ function sources(gives: {
   return made;
 }
 
+test("mount asks no source for a model in models/ the deployment does not name, and mounts", async () => {
+  const dir = deploymentWith(["beta"]);
+  // A model of Beam with no window or price, as one is with BEAM_API_KEY unset: not named, so not run.
+  writeFileSync(
+    join(dir, "models/beam.ts"),
+    `import { defineModel } from "@mku1tra/que-harness";
+export default defineModel({ name: "beam", type: "model", description: "Beam.", id: "beam:Beam-1.0", maxTokens: 1000 });
+`,
+  );
+  const none = sources({});
+  const mounted = await mountDeployment(dir, {}, none);
+  assert.deepEqual(
+    mounted.models.map((model) => model.name),
+    ["small"],
+  );
+  assert.deepEqual(none.asked, []);
+});
+
 test("mount asks no source for a model whose file writes its window and price", async () => {
   const none = sources({});
-  const mounted = await fromDeployment.mountDeployment(
-    deployment("models-two"),
-    {},
-    none,
-  );
+  const mounted = await mountDeployment(deployment("models-two"), {}, none);
   assert.equal(mounted.models.length, 2);
   assert.deepEqual(none.asked, []);
 });
 
 test("a deployment is mounted with its models whole, in the order it lists them", async () => {
   const given = sources({ window: 200_000, price: { input: 3, output: 4 } });
-  const mounted = await fromDeployment.mountDeployment(
-    deployment("models-bare"),
-    {},
-    given,
-  );
+  const mounted = await mountDeployment(deployment("models-bare"), {}, given);
   assert.deepEqual(mounted.models, [
     {
       name: "big",
+      type: "model",
+      description: "The big model of a fixture.",
       id: "fireworks:big-model",
       window: 1_000_000,
       maxTokens: 100_000,
@@ -493,6 +497,8 @@ test("a deployment is mounted with its models whole, in the order it lists them"
     },
     {
       name: "bare",
+      type: "model",
+      description: "The bare model of a fixture.",
       id: "fireworks:accounts/fireworks/models/bare-model",
       window: 200_000,
       maxTokens: 8_000,
@@ -506,7 +512,7 @@ test("a deployment is mounted with its models whole, in the order it lists them"
 
 test("stops, naming the model, the fact, the reason and the field, when a model has no window or no price", async () => {
   await assert.rejects(
-    fromDeployment.mountDeployment(
+    mountDeployment(
       deployment("models-bare"),
       {},
       sources({ price: { input: 3, output: 4 } }),
@@ -519,7 +525,7 @@ test("stops, naming the model, the fact, the reason and the field, when a model 
     },
   );
   await assert.rejects(
-    fromDeployment.mountDeployment(
+    mountDeployment(
       deployment("models-bare"),
       {},
       sources({ window: 200_000 }),
@@ -533,17 +539,15 @@ test("stops, naming the model, the fact, the reason and the field, when a model 
   );
   // What a source gave before mount stopped is still kept: the sources are told mount is done.
   const half = sources({ window: 200_000 });
-  await assert.rejects(
-    fromDeployment.mountDeployment(deployment("models-bare"), {}, half),
-  );
+  await assert.rejects(mountDeployment(deployment("models-bare"), {}, half));
   assert.equal(half.done_, 1);
   // A window from the source that maxTokens does not fit in stops mount too.
   await assert.rejects(
-    fromDeployment.mountDeployment(
+    mountDeployment(
       deployment("models-bare"),
       {},
       sources({ window: 4_000, price: { input: 3, output: 4 } }),
     ),
-    /^Error: mount: .*model bare: maxTokens must not be above its window/,
+    /models\/bare\.ts: \/maxTokens: must not be above its window, got 8000 and 4000 \(harness\/max-tokens-in-window\)/,
   );
 });

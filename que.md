@@ -74,7 +74,7 @@ agent ─────────────────▶  assemble  turn its
 ## Parts (packages)
 
 - **Environment**: a named set of plugins, and nothing more. The seam with the harness
-	- written in the deployment's definition, as `plugins`: each one a folder path, or the name of its npm package
+	- named in the deployment's definition, as `plugins`: each one the name of its npm package, installed where Node finds an import from the deployment's folder
 	- kept in a folder outside que. que names no environment
 	- what a company knows goes in as a plugin too: a plugin can hold skills only
 	- one promise from the harness: it mounts what is listed, and nothing else
@@ -92,17 +92,17 @@ agent ─────────────────▶  assemble  turn its
 			- extension: plugin → harness. Not a plugin, it is harness code
 			- test: if removing the folder needs a harness change, it was an extension
 - **Agent**: a harness config over part of an environment
-	- written as a file of its own, made with `defineAgent`. The deployment's definition lists its agent files, as `agents`
-		- it holds a `name`, `plugins`, `model` and `loop`, which are required, and `instructions`, `loading` and `userInstructions`, which are optional: left out, que's role text, `on-demand`, and no user instructions
-		- a deployment can list several. A run names the one it wants, and a run that names none gets the first
-		- a deployment lists at least one agent, one model and one loop. que owns no config of its own
+	- written as a file of its own in the deployment's `agents/`, made with `defineAgent`. The deployment's definition names its agents, as `agents`
+		- it holds a `name`, `type`, `description`, `model` and `loop`, which are required, and `plugins`, and `instructions`, `loading` and `userInstructions`, which are optional: left out, que's role text, `on-demand`, and no user instructions
+		- a deployment can name several. A run names the one it wants, and a run that names none gets the first
+		- a deployment names at least one agent, one model and one loop. que owns no config of its own
 		- a unit goes in the config when it has two variants
 	- a config is made of units, not slots
 		- slot: where a thing lands in a model request (prompt, tools, middleware)
 		- unit: one decision that can change while the others stay the same. One unit can write to more than one slot
 		- a unit is written in que's own types, as the plugin contract is
 	- what the agent is
-		- model. A model config is a file with a name, the provider's model, and the most tokens of one reply. A deployment lists several in `models`
+		- model. A model config is a file in `models/` with a name, the provider's model, and the most tokens of one reply. A deployment names several in `models`
 			- the file holds the choices. que fills in what is true of the model at startup: its window from the provider, and its price from a public model database. A value written in the file wins
 			- which one a run gets: the one the run names, else the one the agent config names
 			- the chat UI has a picker for the agent and one for the model, and keeps the pick with the thread
@@ -114,7 +114,7 @@ agent ─────────────────▶  assemble  turn its
 		- loading: what the model is shown of the environment, and when. It is how this agent gets the harness's one job done, to make the environment legible
 			- it sets the text that explains the environment, the tools for finding the way around, and which operations go out with each request
 			- two variants, named in `loading`: `on-demand`, where the model opens a plugin, then loads an operation or reads a skill; and `eager`, with every operation in reach from the first message
-		- [[loop-policy|loop policy]]. A loop config is a file with a name and settings. A deployment lists several in `loops`, and an agent config names one in `loop`
+		- [[loop-policy|loop policy]]. A loop config is a file in `loops/` with a name and settings. A deployment names several in `loops`, and an agent config names one in `loop`
 			- every agent is LangChain `createAgent`, and each setting that acts adds one middleware to it
 			- a big tool result goes to a file store, and the model reads it back with `read_file`
 			- a summary of a long chat replaces the old part of the thread
@@ -139,7 +139,7 @@ agent ─────────────────▶  assemble  turn its
 			- traces, to Langfuse
 			- a plugin's card (`plugin.json`), at its publish: `card/` writes it from the plugin's nodes, and nothing of que's reads it
 	- composition: what each layer owns, and what it hands to the next
-		- mount (`mount/`): what exists. Loads each plugin the environment lists, checks it against the contract, and reads each agent, loop and model config. Stops when an agent names a plugin that is not mounted, or a loop or a model that is not listed. Hands on: the mounted plugins and configs
+		- mount (`mount/`): what exists. Reads the deployment, each agent, loop and model config and each plugin it names (`readDeployment`), gives each model the facts its file does not write, and lints them as one graph with the harness schema. Stops on any problem: a file that cannot be read, a name that is no node (a plugin an agent names that is not mounted, a loop or a model the deployment does not give), a rule. Hands on: the graph's nodes, the mounted plugins and configs
 		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog
 		- assemble (`assemble/`): the agent. The catalog and the agent's units in, the slots out (prompt, tools, middleware). Built for one unit, loading: one config on a shared base. Hands on: the agent
 		- run (`run/`): serving the agent. Hands the slots to the framework, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names a framework: LangChain and the LangGraph server
@@ -158,7 +158,7 @@ agent ─────────────────▶  assemble  turn its
 		- model: `FIREWORKS_API_KEY`, the key of the one provider que has
 		- traces: `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. All three, or none
 - **Deployment**: one live instance: an environment and its agent config, on que's harness and a backend
-	- one folder holds its definition (`index.ts`: the environment's `plugins`, and the lists of its `agents`, `loops` and `models`), the files of its own those lists name, and its backend settings (`.env`), and starts que with `just start`
+	- one folder holds its definition (`index.ts`: the names of its `plugins`, `agents`, `loops` and `models`), a file for each agent, loop and model in `agents/`, `loops/` and `models/`, its plugins installed as npm packages, and its backend settings (`.env`), and starts que with `just start`
 	- the code names it the same way: `defineDeployment`, `QUE_DEPLOYMENT`
 	- how to start, stop and check one is in the README
 

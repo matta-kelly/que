@@ -91,7 +91,13 @@ async function run(
     connect: async () => undefined,
   });
   const agent = build(
-    resolveLoop({ name: "bare", result: false, summarize: false }),
+    resolveLoop({
+      name: "bare",
+      type: "loop" as const,
+      description: "A loop of a test.",
+      result: false,
+      summarize: false,
+    }),
     {
       model,
       window: 100_000,

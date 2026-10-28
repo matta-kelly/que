@@ -4,6 +4,8 @@ import { ChatBeam, chatModel } from "./index.js";
 
 const small = {
   name: "small",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:small-model",
   window: 64_000,
   maxTokens: 8_000,
@@ -26,6 +28,8 @@ test("the model made for a beam config is Beam's, with the id and the maxTokens 
   process.env.BEAM_API_KEY ??= "none";
   const made = await chatModel({
     name: "beam",
+    type: "model" as const,
+    description: "A model of a test.",
     id: "beam:Beam-1.0-501B-A23B",
     window: 1_048_576,
     maxTokens: 131_072,
@@ -55,6 +59,8 @@ test("the model made for a config sends the config's effort as reasoning_effort"
   );
   const beam = await chatModel({
     name: "beam",
+    type: "model" as const,
+    description: "A model of a test.",
     id: "beam:Beam-1.0-501B-A23B",
     window: 1_048_576,
     maxTokens: 131_072,

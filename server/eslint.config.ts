@@ -124,19 +124,16 @@ const runtimeAlone: Rule = {
   why: "@que/runtime imports, of que's packages, only @mku1tra/que-plugin, @mku1tra/que-harness, @que/chat-model and the backend (@que/credentials, @que/identity, @que/users), each by its name: it builds on them, and no package imports it.",
 };
 
-// Agents, loops and models are mounted by one function, mountFiles in mount/files.ts.
-const oneMount: Rule[] = [
-  mustImport(
-    /^\.\/files\.js$/,
-    "Agents, loops and models are mounted by one function: import it from ./files.js.",
-  ),
+// A deployment's files are read by one function, readDeployment in @mku1tra/que-harness: mount imports no file and
+// looks for none.
+const oneReader: Rule[] = [
   {
     code: "ImportExpression",
-    why: "Agents, loops and models are mounted by one function: mount/files.ts imports the file.",
+    why: "A deployment's files are read by one function: readDeployment in @mku1tra/que-harness imports each file.",
   },
   {
     code: "Identifier[name='existsSync']",
-    why: "Agents, loops and models are mounted by one function: mount/files.ts looks for the file.",
+    why: "A deployment's files are read by one function: readDeployment in @mku1tra/que-harness looks for each file.",
   },
 ];
 
@@ -262,7 +259,7 @@ export default defineConfig([
     tests,
   ),
   hold(
-    [`${src}/mount/{agents,loops,models}.ts`],
+    [`${src}/mount/models.ts`],
     [
       otherApp,
       providers,
@@ -270,7 +267,7 @@ export default defineConfig([
       direction("mount"),
       deepagents,
       langfuse,
-      ...oneMount,
+      ...oneReader,
     ],
   ),
   hold(

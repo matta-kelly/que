@@ -1,9 +1,11 @@
 import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
-  name: "broken",
-  plugins: ["../../plugins/broken"],
-  agents: ["../../agents/chat.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  name: "broken-deployment",
+  type: "deployment",
+  description: "The broken-deployment deployment of a fixture.",
+  plugins: ["broken"],
+  agents: ["chat"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

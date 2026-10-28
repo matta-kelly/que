@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import { lintFolder } from "@mku1tra/basis";
+import { lint, lintFolder, type Piece } from "@mku1tra/basis";
 import { plugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
 import * as exported from "./index.ts";
@@ -92,41 +92,162 @@ test("a model whose id is not provider:model, and a loop that keeps more than it
   assert.equal(keep?.message, "must be below summarize.at, got 0.6 and 0.5");
 });
 
-test("a deployment links its plugins, agents, loops and models, at least one of each", () => {
+test("a deployment links its agents, loops and models, at least one of each, and its plugins, none or more", () => {
   const landl = {
     name: "landl",
     type: "deployment",
     description: "The landl deployment.",
-    plugins: ["warehouse"],
     agents: ["chat"],
     loops: ["long-chat"],
     models: ["glm-flash"],
   };
   assert.deepEqual(harness.parse("deployment", landl), landl);
-  for (const link of ["plugins", "agents", "loops", "models"]) {
-    assert.deepEqual(issueOf("deployment", without(landl, link))?.path, [link]);
+  for (const link of ["agents", "loops", "models"])
     assert.equal(
       issueOf("deployment", { ...landl, [link]: [] })?.code,
       "too_small",
     );
-  }
 });
 
-/** A type's name as code writes it: `access-role` is `AccessRole`. */
-const pascal = (name: string) =>
-  name
-    .split("-")
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join("");
+// The pieces of a deployment named landl, with one agent, chat, one loop and one model, and each node changed by
+// `fields`.
+const deploymentOf = (
+  fields: Record<string, Record<string, unknown>> = {},
+): Piece[] =>
+  [
+    {
+      name: "landl",
+      type: "deployment",
+      description: "The landl deployment.",
+      agents: ["chat"],
+      loops: ["long-chat"],
+      models: ["glm-flash"],
+    },
+    { ...chat, plugins: [] },
+    glmFlash,
+    longChat,
+  ].map(({ name, ...node }) => ({
+    path: `${name}.ts`,
+    name,
+    fields: { ...node, ...fields[name] },
+  }));
 
-test("each type of the harness schema is a schema the package exports by its name in PascalCase", () => {
-  for (const { name } of Object.values(harness.types)) {
-    const code = (exported as Record<string, unknown>)[pascal(name)];
-    assert.ok(
-      code instanceof z.ZodType,
-      `no export ${pascal(name)} for the type ${name}`,
-    );
-  }
+const said = (pieces: Piece[]) =>
+  lint(harness, pieces).problems.map(({ path, rule, field, message }) => [
+    path,
+    rule,
+    field,
+    message,
+  ]);
+
+test("a deployment whose agent runs on its model and in its loop has no problem", () => {
+  assert.deepEqual(said(deploymentOf()), []);
+});
+
+test("an agent's link to a plugin, model or loop that is no node says where the deployment would give it", () => {
+  assert.deepEqual(
+    said(
+      deploymentOf({
+        chat: { plugins: ["delta"], model: "big", loop: "short-run" },
+      }),
+    ),
+    [
+      [
+        "chat.ts",
+        "basis/link",
+        "/plugins",
+        "names the plugin delta, which the deployment does not mount",
+      ],
+      [
+        "chat.ts",
+        "basis/link",
+        "/model",
+        "names the model big, which no file in the deployment's models/ gives",
+      ],
+      [
+        "chat.ts",
+        "basis/link",
+        "/loop",
+        "names the loop short-run, which no file in the deployment's loops/ gives",
+      ],
+    ],
+  );
+});
+
+test("an agent the deployment names, on a model the deployment does not name, fails harness/named", () => {
+  const big = { ...glmFlash, name: "big" };
+  assert.deepEqual(
+    said([
+      ...deploymentOf({ chat: { model: "big" } }),
+      { path: "big.ts", name: "big", fields: without(big, "name") },
+    ]),
+    [
+      [
+        "landl.ts",
+        "harness/named",
+        "/agents/0",
+        "the agent chat names the model big, which the deployment does not name. Models: glm-flash",
+      ],
+    ],
+  );
+});
+
+test("an agent the deployment names, in a loop the deployment does not name, fails harness/named", () => {
+  const shortRun = { ...longChat, name: "short-run" };
+  assert.deepEqual(
+    said([
+      ...deploymentOf({ chat: { loop: "short-run" } }),
+      {
+        path: "short-run.ts",
+        name: "short-run",
+        fields: without(shortRun, "name"),
+      },
+    ]),
+    [
+      [
+        "landl.ts",
+        "harness/named",
+        "/agents/0",
+        "the agent chat names the loop short-run, which the deployment does not name. Loops: long-chat",
+      ],
+    ],
+  );
+});
+
+test("an agent the deployment names, with a plugin the deployment does not name, fails harness/named", () => {
+  const warehouse = {
+    name: "warehouse",
+    type: "plugin",
+    description: "The record.",
+    title: "Warehouse",
+  };
+  assert.deepEqual(
+    said([
+      ...deploymentOf({ chat: { plugins: ["warehouse"] } }),
+      {
+        path: "warehouse.ts",
+        name: "warehouse",
+        fields: without(warehouse, "name"),
+      },
+    ]),
+    [
+      [
+        "landl.ts",
+        "harness/named",
+        "/agents/0",
+        "the agent chat names plugins the deployment does not name: warehouse",
+      ],
+    ],
+  );
+});
+
+test("a model whose maxTokens is above its window fails harness/max-tokens-in-window", () => {
+  assert.deepEqual(
+    said(deploymentOf({ "glm-flash": { window: 1000 } })).map(
+      ([path, rule]) => [path, rule],
+    ),
+    [["glm-flash.ts", "harness/max-tokens-in-window"]],
+  );
 });
 
 test("each type note of the harness schema gives only prose, and is one node with its type's code", async () => {

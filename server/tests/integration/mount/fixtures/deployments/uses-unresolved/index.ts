@@ -2,8 +2,10 @@ import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
   name: "uses-unresolved",
-  plugins: ["../../plugins/source", "../../plugins/stray"],
-  agents: ["../../agents/bare.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  type: "deployment",
+  description: "The uses-unresolved deployment of a fixture.",
+  plugins: ["source", "stray"],
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

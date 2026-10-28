@@ -20,6 +20,8 @@ const ENV = { FIREWORKS_API_KEY: "a-key" };
 
 const glm = {
   name: "glm-flash",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:accounts/fireworks/models/glm-5p3-flash",
   maxTokens: 100,
 };

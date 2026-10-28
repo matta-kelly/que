@@ -1,75 +1,30 @@
 /**
- * Mount: read a deployment from disk. A deployment is a folder whose index.ts
- * has its definition as the default export. A definition that breaks the
- * contract (validateDeployment in @mku1tra/que-harness) fails mounting, and so does an
- * agent config or a loop config that breaks its own, and an agent config that
- * names a plugin the deployment does not mount, or a loop or a model it does
- * not list. So does a model config that breaks its own or has no window or no
- * price from its file or a source, and a `MODEL` setting, which que no longer
- * reads.
+ * Mount: read a deployment from disk and run on its graph. A deployment is a folder whose index.ts has its definition
+ * as the default export, with its agents, loops and models in files of their own under agents/, loops/ and models/,
+ * and its plugins installed by name (readDeployment in @mku1tra/que-harness). Mount gives each model the facts its
+ * file does not write (models.ts), lints the whole deployment with the harness schema as one graph, and fails on any
+ * problem: a file that cannot be read, a link that does not resolve (a plugin, model or loop an agent names that the
+ * deployment does not give), a rule (an agent's model or loop the deployment does not name, a maxTokens above the
+ * window). Then it runs on the graph's nodes. A `MODEL` setting, which que no longer reads, fails too.
  */
 
 import "./supply.js";
-import { existsSync, realpathSync } from "node:fs";
-import { createRequire } from "node:module";
-import { isAbsolute, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import {
-  validateDeployment,
+  harness,
+  lintDeployment,
+  piecesOf,
+  readDeployment,
   type Agent,
   type Loop,
   type MountedModel,
 } from "@mku1tra/que-harness";
-import { mountAgents } from "./agents.js";
-import { mountLoops } from "./loops.js";
+import { sayProblem } from "@mku1tra/que-plugin";
 import { factSources, type FactSources } from "./model-facts/index.js";
-import { mountModels } from "./models.js";
+import { factPieces } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
-import { mountPlugins, type MountedPlugin } from "./plugins.js";
+import { checkRange, type MountedPlugin } from "./plugins.js";
 
-// A listed plugin is a folder path, or the name of its npm package, found as Node finds an import
-// from the deployment's folder: in the first `node_modules` up from it that has it.
-function pluginFolder(dir: string, listed: string): string {
-  if (isAbsolute(listed) || listed.startsWith(".")) return resolve(dir, listed);
-  const lookup = createRequire(join(dir, "index.ts")).resolve.paths(listed);
-  const found = lookup
-    ?.map((modules) => join(modules, listed))
-    .find((folder) => existsSync(join(folder, "package.json")));
-  if (!found)
-    throw new Error(
-      `mount: deployment ${dir}: the plugin "${listed}" is not installed: no node_modules from this folder up holds an npm package of that name`,
-    );
-  return realpathSync(found);
-}
-
-export async function loadDeployment(dir: string): Promise<{
-  name: string;
-  plugins: string[];
-  agents: string[];
-  loops: string[];
-  models: string[];
-}> {
-  const index = join(dir, "index.ts");
-  if (!existsSync(index))
-    throw new Error(`mount: deployment ${dir} has no index.ts`);
-  const definition = (
-    (await import(pathToFileURL(index).href)) as { default?: unknown }
-  ).default;
-  try {
-    validateDeployment(definition);
-  } catch (error) {
-    throw new Error(`mount: deployment ${dir}: ${(error as Error).message}`, {
-      cause: error,
-    });
-  }
-  return {
-    name: definition.name,
-    plugins: definition.plugins.map((listed) => pluginFolder(dir, listed)),
-    agents: definition.agents.map((file) => resolve(dir, file)),
-    loops: definition.loops.map((file) => resolve(dir, file)),
-    models: definition.models.map((file) => resolve(dir, file)),
-  };
-}
+const { types } = harness;
 
 export async function mountDeployment(
   dir: string,
@@ -88,41 +43,47 @@ export async function mountDeployment(
 }> {
   if (env.MODEL !== undefined)
     throw new Error(
-      "mount: MODEL is set, and que no longer reads it: a model is a file of its own, listed in `models` in the deployment",
+      "mount: MODEL is set, and que no longer reads it: a model is a file of its own, in the deployment's models/",
     );
-  const {
-    plugins: folders,
-    agents: files,
-    loops: loopFiles,
-    models: modelFiles,
-  } = await loadDeployment(dir);
-  const plugins = await mountPlugins(folders);
-  const agents = await mountAgents(files);
-  const loops = await mountLoops(loopFiles);
-  const models = await mountModels(modelFiles, sources);
-  const mounted = plugins.map((p) => p.definition.plugin.name);
-  for (const agent of agents) {
-    const unmounted = agent.plugins.filter((name) => !mounted.includes(name));
-    if (unmounted.length)
-      throw new Error(
-        `mount: deployment ${dir}: the agent "${agent.name}" names plugins the deployment does not mount: ${unmounted.join(", ")}`,
-      );
-  }
-  // An agent names a loop and a model by name, and each has to be one the deployment lists.
-  for (const [kind, configs] of [
-    ["loop", loops],
-    ["model", models],
-  ] as const) {
-    const listed = configs.map((config) => config.name);
-    for (const agent of agents) {
-      const named = agent[kind];
-      if (!listed.includes(named))
-        throw new Error(
-          `mount: deployment ${dir}: the agent "${agent.name}" names the ${kind} "${named}", which the deployment does not list. ${kind === "loop" ? "Loops" : "Models"}: ${listed.join(", ")}`,
-        );
-    }
-  }
-  return { plugins, agents, loops, models };
+  const read = await readDeployment(dir);
+  for (const plugin of read.plugins)
+    checkRange(plugin.dir, plugin.files.package);
+  const unreadable = piecesOf(read).problems;
+  if (unreadable.length)
+    throw new Error(
+      `mount: deployment ${dir} cannot be read:\n- ${unreadable.map(sayProblem).join("\n- ")}`,
+    );
+  const { problems, graph } = lintDeployment(
+    read,
+    // Only the models the deployment names: another file in models/ is not run, and is asked for nothing.
+    await factPieces(
+      read.models.filter(({ node }) =>
+        read.deployment!.models.includes(node.name),
+      ),
+      sources,
+    ),
+  );
+  if (problems.length)
+    throw new Error(
+      `mount: deployment ${dir} breaks the harness schema:\n- ${problems.map(sayProblem).join("\n- ")}`,
+    );
+  // No problem: each node the deployment names is in the graph.
+  const deployment = graph.get(read.deployment!.name, types.deployment)!;
+  const named = <T extends (typeof types)[keyof typeof types]>(
+    names: string[],
+    type: T,
+  ) => names.map((name) => graph.get(name, type)!);
+  return {
+    plugins: (deployment.plugins ?? []).map((name) => {
+      const plugin = read.plugins.find(
+        (p) => p.definition!.plugin.name === name,
+      )!;
+      return { definition: plugin.definition!, skills: plugin.skills };
+    }),
+    agents: named(deployment.agents, types.agent),
+    loops: named(deployment.loops, types.loop),
+    models: named(deployment.models, types.model) as MountedModel[],
+  };
 }
 
 export async function mountFromEnv(env: {

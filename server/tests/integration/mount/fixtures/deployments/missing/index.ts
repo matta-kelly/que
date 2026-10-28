@@ -2,8 +2,10 @@ import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
   name: "missing",
-  plugins: ["../../plugins/nope"],
-  agents: ["../../agents/bare.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  type: "deployment",
+  description: "The missing deployment of a fixture.",
+  plugins: ["nope"],
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

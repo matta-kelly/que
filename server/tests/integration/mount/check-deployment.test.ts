@@ -17,7 +17,11 @@ import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 
 const server = join(import.meta.dirname, "../../..");
 const fixtures = mkdtempSync(join(tmpdir(), "que-check-deployment-"));
-cpSync(join(import.meta.dirname, "fixtures"), fixtures, { recursive: true });
+// Its plugins are installed as links, and copied as they are, so they point into the copy.
+cpSync(join(import.meta.dirname, "fixtures"), fixtures, {
+  recursive: true,
+  verbatimSymlinks: true,
+});
 // As a deployment's own folder is: out of que's, its files are modules only by this.
 writeFileSync(join(fixtures, "package.json"), '{ "type": "module" }\n');
 after(() => rmSync(fixtures, { recursive: true, force: true }));
@@ -60,19 +64,19 @@ test("a deployment that mounts passes, and the folder of each plugin it lists is
 // The typos of matta-kelly/que#102 (a path, a plugin, a loop), and a model, each in a fixture of its own.
 for (const [typo, name, says] of [
   [
-    "a config path that holds no file",
+    "an agent no file gives",
     "agent-file-missing",
-    /nope\.ts holds no agent/,
+    /\/agents: names the agent nope, which no file in the deployment's agents\/ gives/,
   ],
   [
-    "a plugin an agent names that is not listed",
+    "a plugin an agent names that the deployment does not mount",
     "agent-names-unmounted",
-    /names plugins the deployment does not mount: delta/,
+    /names the plugin delta, which the deployment does not mount/,
   ],
   [
-    "a loop an agent names that is not listed",
+    "a loop an agent names that the deployment does not give",
     "agent-loop-unlisted",
-    /names the loop "long-chat", which the deployment does not list/,
+    /names the loop long-chat, which no file in the deployment's loops\/ gives/,
   ],
   [
     "a name a domain uses that the deployment does not give",
@@ -80,9 +84,9 @@ for (const [typo, name, says] of [
     /stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\./,
   ],
   [
-    "a model an agent names that is not listed",
+    "a model an agent names that the deployment does not give",
     "agent-model-unlisted",
-    /names the model "small", which the deployment does not list/,
+    /names the model small, which no file in the deployment's models\/ gives/,
   ],
 ] as const) {
   test(`fails with mount's error on ${typo}`, async () => {

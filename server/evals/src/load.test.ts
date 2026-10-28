@@ -11,7 +11,7 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
   assert.deepEqual(
     { deployment: name, cases, agents },
     {
-      deployment: "shop",
+      deployment: "shop-deployment",
       cases: [
         {
           plugin: "shop",
@@ -38,18 +38,24 @@ test("loads the name of a deployment, the cases of each plugin it lists, each wi
       agents: [
         {
           name: "chat",
+          type: "agent" as const,
+          description: "The chat agent of a fixture.",
           plugins: ["shop", "notes"],
           model: "small",
           loop: "long-chat",
         },
         {
           name: "lean",
+          type: "agent" as const,
+          description: "The lean agent of a fixture.",
           plugins: ["shop", "notes"],
           model: "small",
           loop: "long-chat",
         },
         {
           name: "notes-only",
+          type: "agent" as const,
+          description: "The notes-only agent of a fixture.",
           plugins: ["notes"],
           model: "small",
           loop: "long-chat",
@@ -63,12 +69,16 @@ test("loads the model configs of a deployment, as written, in order", async () =
   assert.deepEqual((await load(deployment("shop"))).models, [
     {
       name: "small",
+      type: "model" as const,
+      description: "The small model of a fixture.",
       id: "fireworks:accounts/fireworks/models/small-model",
       window: 128_000,
       maxTokens: 8_000,
     },
     {
       name: "big",
+      type: "model" as const,
+      description: "The big model of a fixture.",
       id: "fireworks:accounts/fireworks/models/big-model",
       window: 1_000_000,
       maxTokens: 64_000,
@@ -76,20 +86,12 @@ test("loads the model configs of a deployment, as written, in order", async () =
   ]);
 });
 
-test("stops on an agent that leaves out its plugins, so no run is planned under every plugin", async () => {
-  await assert.rejects(load(deployment("pluginless")), (error: Error) => {
-    assert.match(error.message, /^eval:/);
-    assert.match(error.message, /agent pluginless is invalid:\n- plugins /);
-    return true;
-  });
-});
-
 test("stops, naming the case and its capability, on a case whose capability no plugin of the deployment holds", async () => {
   await assert.rejects(load(deployment("broken")), (error: Error) => {
     assert.match(error.message, /^eval:/);
     assert.match(
       error.message,
-      /case refund-asked names the capability refund, which no plugin of the deployment holds/,
+      /cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)/,
     );
     assert.ok(error.cause instanceof Error);
     return true;
@@ -100,7 +102,7 @@ test("stops, naming both plugins, when two plugins of the deployment hold one ca
   await assert.rejects(load(deployment("capability-twice")), (error: Error) => {
     assert.match(
       error.message,
-      /the plugins shop and shop-twin both hold the capability find-order/,
+      /shop\/io\.github\.matta-kelly\.que\/index\.ts#capabilities\/find-order: The name find-order is also the name of .*shop-twin\/io\.github\.matta-kelly\.que\/index\.ts#capabilities\/find-order\. \(basis\/unique-name\)/,
     );
     return true;
   });

@@ -1,9 +1,8 @@
 /**
- * The harness schema of que's ontology: what runs plugins. An agent, the
- * model it runs on, the loop it runs in, and the deployment that lists them.
- * Its links point at the types of the plugin schema, which it imports.
- * Each field is defined here once: a note and a definition in code are parsed with it. A deployment's definition is
- * the one exception: it lists files, and its node links the things those files define.
+ * The harness schema of que's ontology: what runs plugins. An agent, the model it runs on, the loop it runs in, and
+ * the deployment that names them. Its links point at the types of the plugin schema, which it imports. Each type is the
+ * contract: a definition in code is parsed with it (define.ts), and a note of the same name gives the prose. A link
+ * that does not resolve says what to do, in que's words.
  */
 
 import {
@@ -35,7 +34,7 @@ const count = that(isCount, "a whole number above zero");
 const amount = that(isAmount, "a number of zero or more");
 
 /** What a model costs, in dollars for one million tokens. */
-export const ModelPrice = z.strictObject(
+const price = z.strictObject(
   {
     input: amount,
     output: amount,
@@ -60,7 +59,7 @@ const model = defineType({
     /** The most tokens the model takes in. Left out: read from the provider at mount. */
     window: count.optional(),
     /** Left out: read from a model database at mount. */
-    price: ModelPrice.optional(),
+    price: price.optional(),
     /**
      * How hard the model thinks before it answers: the provider's own word for a level, sent as `reasoning_effort`.
      * Left out: none is sent, and the model thinks at its provider's default.
@@ -123,17 +122,35 @@ const loop = defineType({
 /** The ways que has of loading the environment for the model: what it is shown, and when. */
 export const LOADING = ["on-demand", "eager"] as const;
 
+/** A link's own message, as basis's link kinds take it. */
+type LinkMessage = NonNullable<
+  NonNullable<Parameters<typeof one>[1]>["message"]
+>;
+
+// What a link to a thing the deployment does not give says: the folder a thing of that kind is found in.
+const found =
+  (kind: string, folder: string): LinkMessage =>
+  (failure) =>
+    failure.kind === "not-a-node"
+      ? `names the ${kind} ${failure.target}, which no file in the deployment's ${folder}/ gives`
+      : undefined;
+
 const agent = defineType({
   name: "agent",
   description:
     "One way a deployment's plugins are run: the plugins, the model, the loop and the instructions. `Agent` in @mku1tra/que-harness.",
   fields: {
-    /** The plugins the agent gets, out of the ones the deployment mounts. None is `[]`. */
-    plugins: manyOrNone(() => pluginType),
-    /** The model it runs on, one the deployment lists. A run can name another. */
-    model: one(() => model),
-    /** The loop it runs in, one the deployment lists. */
-    loop: one(() => loop),
+    /** The plugins the agent gets, out of the ones the deployment mounts. Left out or `[]`: none. */
+    plugins: manyOrNone(() => pluginType, {
+      message: (failure) =>
+        failure.kind === "not-a-node"
+          ? `names the plugin ${failure.target}, which the deployment does not mount`
+          : undefined,
+    }),
+    /** The model it runs on, one the deployment names. A run can name another. */
+    model: one(() => model, { message: found("model", "models") }),
+    /** The loop it runs in, one the deployment names. */
+    loop: one(() => loop, { message: found("loop", "loops") }),
     /** Opens the system prompt, in place of que's own role text. Left out: que's role text. */
     instructions: that(isText, "text that is not empty").optional(),
     /** How the model is shown the environment, and when. Left out: `on-demand`. */
@@ -145,15 +162,25 @@ const agent = defineType({
   },
 });
 
+// What a deployment that names none of a kind says: que has no agent, loop or model of its own to fall back on.
+const atLeastOne =
+  (kind: string, folder: string): LinkMessage =>
+  (failure, graph) =>
+    failure.kind === "missing"
+      ? `is missing: name at least one ${kind}, given by a file in ${folder}/`
+      : found(kind, folder)(failure, graph);
+
 const deployment = defineType({
   name: "deployment",
   description:
-    "The plugins, agents, loops and models one deployment runs. `Deployment` in @mku1tra/que-harness, which lists the files that define them.",
+    "The plugins, agents, loops and models one deployment runs, each by its name. `Deployment` in @mku1tra/que-harness.",
   fields: {
-    plugins: many(() => pluginType),
-    agents: many(() => agent),
-    loops: many(() => loop),
-    models: many(() => model),
+    /** Each by its name, the name of its npm package, found as Node finds an import from the deployment's folder. */
+    plugins: manyOrNone(() => pluginType),
+    /** The first is the one a run gets when it names none. */
+    agents: many(() => agent, { message: atLeastOne("agent", "agents") }),
+    loops: many(() => loop, { message: atLeastOne("loop", "loops") }),
+    models: many(() => model, { message: atLeastOne("model", "models") }),
   },
 });
 
@@ -173,6 +200,52 @@ export const maxTokensInWindow = defineRule({
       : [],
 });
 
+/**
+ * Each agent a deployment names runs with what the deployment names: its plugins, its model and its loop. One that is
+ * no node, basis/link says, so each fault is said once. It holds in any graph, the deployment's own or one with more.
+ */
+export const named = defineRule({
+  name: "named",
+  description:
+    "Each agent a deployment names gets plugins, a model and a loop the deployment names.",
+  on: deployment,
+  check: (node, graph) =>
+    node.agents.flatMap((name, i) => {
+      const found = graph.get(name, agent);
+      if (!found) return [];
+      const field = `/agents/${i}`;
+      const plugins = node.plugins ?? [];
+      const unnamed = (found.plugins ?? []).filter(
+        (plugin) => !plugins.includes(plugin) && graph.get(plugin, pluginType),
+      );
+      return [
+        ...(unnamed.length
+          ? [
+              {
+                field,
+                message: `the agent ${name} names plugins the deployment does not name: ${unnamed.join(", ")}`,
+              },
+            ]
+          : []),
+        ...(
+          [
+            ["model", node.models, model],
+            ["loop", node.loops, loop],
+          ] as const
+        ).flatMap(([kind, listed, type]) =>
+          listed.includes(found[kind]) || !graph.get(found[kind], type)
+            ? []
+            : [
+                {
+                  field,
+                  message: `the agent ${name} names the ${kind} ${found[kind]}, which the deployment does not name. ${kind === "loop" ? "Loops" : "Models"}: ${listed.join(", ")}`,
+                },
+              ],
+        ),
+      ];
+    }),
+});
+
 export const harness = defineSchema({
   name: "harness",
   description:
@@ -180,5 +253,5 @@ export const harness = defineSchema({
   types: { agent, model, loop, deployment },
   imports: [plugin],
   typeNotes: new URL("../types/harness/", import.meta.url),
-  rules: [maxTokensInWindow],
+  rules: [maxTokensInWindow, named],
 });

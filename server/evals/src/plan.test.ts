@@ -24,19 +24,32 @@ const notAsked = {
 };
 const chat = {
   name: "chat",
+  type: "agent" as const,
+  description: "An agent of a test.",
   plugins: ["shop", "notes"],
   model: "small",
   loop: "long-chat",
 };
 const lean = {
   name: "lean",
+  type: "agent" as const,
+  description: "An agent of a test.",
   plugins: ["shop"],
   model: "small",
   loop: "long-chat",
 };
-const bare = { name: "bare", plugins: [], model: "small", loop: "long-chat" };
+const bare = {
+  name: "bare",
+  type: "agent" as const,
+  description: "An agent of a test.",
+  plugins: [],
+  model: "small",
+  loop: "long-chat",
+};
 const notesOnly = {
   name: "notes-only",
+  type: "agent" as const,
+  description: "An agent of a test.",
   plugins: ["notes"],
   model: "small",
   loop: "long-chat",

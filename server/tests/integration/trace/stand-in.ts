@@ -150,13 +150,20 @@ export function reportingAgent() {
     }),
   );
   model.respond(new AIMessage("Well."));
-  return build(resolveLoop({ name: "test" }), {
-    model,
-    window: 100_000,
-    systemPrompt: "You help the sales team.",
-    tools: [report],
-    middleware: [],
-  });
+  return build(
+    resolveLoop({
+      name: "test",
+      type: "loop" as const,
+      description: "A loop of a test.",
+    }),
+    {
+      model,
+      window: 100_000,
+      systemPrompt: "You help the sales team.",
+      tools: [report],
+      middleware: [],
+    },
+  );
 }
 
 /**

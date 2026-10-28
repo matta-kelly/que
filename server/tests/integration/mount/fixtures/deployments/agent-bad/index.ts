@@ -2,8 +2,10 @@ import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
   name: "agent-bad",
-  plugins: ["../../plugins/gamma", "../../plugins/alpha"],
-  agents: ["../../agents/modelless.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  type: "deployment",
+  description: "The agent-bad deployment of a fixture.",
+  plugins: ["gamma", "alpha"],
+  agents: ["modelless"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

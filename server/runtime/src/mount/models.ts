@@ -1,20 +1,11 @@
 /**
- * Mount: read a deployment's model configs at startup, and make each one
- * whole. A model file holds choices; what it does not write of the model's
- * window and price is asked of the sources (the provider, and a model
- * database). A model that breaks the contract (validateModel in @mku1tra/que-harness)
- * fails mounting, and so do two of one name, a model of a provider que has no
- * chat model for, and a model with no window or no price from any place.
+ * Mount: make each of a deployment's models whole. A model file holds choices; what it does not write of the model's
+ * window and price is asked of the sources (the provider, and a model database), and given as a second piece of its
+ * node, so the lint checks the model it ends with. A model of a provider que has no chat model for fails mounting, and
+ * so does a model with no window or no price from any place.
  */
 
-import {
-  mountedModel,
-  providerOf,
-  validateModel,
-  type ModelFacts,
-  type MountedModel,
-} from "@mku1tra/que-harness";
-import { mountFiles } from "./files.js";
+import { providerOf, type Model, type Placed } from "@mku1tra/que-harness";
 import { beamWindow } from "./model-facts/beam.js";
 import { fireworksWindow, type WindowAnswer } from "./model-facts/fireworks.js";
 import type { FactSources } from "./model-facts/index.js";
@@ -48,22 +39,24 @@ export const PROVIDERS: Record<
   },
 };
 
-export async function mountModels(
-  files: string[],
+/**
+ * The facts of each model that its file does not write, as pieces of its node: the window from its provider, and the
+ * price from a model database (FactSources). A source is asked only for what the file does not write. Throws, naming
+ * the model, on a provider que has no chat model for, and on a fact no source gives.
+ */
+export async function factPieces(
+  models: Placed<Model>[],
   sources: FactSources,
-): Promise<MountedModel[]> {
-  const models = await mountFiles(files, "model", validateModel);
-  for (const model of models) {
+): Promise<{ path: string; name: string; fields: Record<string, unknown> }[]> {
+  for (const { node: model } of models)
     if (!Object.hasOwn(PROVIDERS, providerOf(model)))
       throw new Error(
         `mount: the model "${model.name}" has the provider "${providerOf(model)}", which que does not have. Providers: ${Object.keys(PROVIDERS).join(", ")}`,
       );
-  }
-  const mounted: MountedModel[] = [];
+  const pieces = [];
   try {
-    for (const model of models) {
-      // A source is asked only for what the file does not write.
-      const facts: ModelFacts = {};
+    for (const { file, node: model } of models) {
+      const facts: Record<string, unknown> = {};
       const none = (fact: "window" | "price", reason: string) =>
         new Error(
           `mount: the model "${model.name}" has no ${fact}: ${reason}, and none is in its file or in the saved copy. Write \`${fact}\` in the model file`,
@@ -78,15 +71,16 @@ export async function mountModels(
         if ("reason" in answer) throw none("price", answer.reason);
         facts.price = answer.price;
       }
-      try {
-        mounted.push(mountedModel(model, facts));
-      } catch (error) {
-        throw new Error(`mount: ${(error as Error).message}`, { cause: error });
-      }
+      if (Object.keys(facts).length)
+        pieces.push({
+          path: `${file}#facts`,
+          name: model.name,
+          fields: { type: "model", ...facts },
+        });
     }
   } finally {
     // Also when a model stops mount: what a source gave before that is kept for the next start.
     await sources.done();
   }
-  return mounted;
+  return pieces;
 }

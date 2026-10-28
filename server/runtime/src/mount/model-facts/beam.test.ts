@@ -84,7 +84,13 @@ test("a beam model gets its window from Reflection with BEAM_API_KEY, and its pr
     { BEAM_API_KEY: "a-key" },
     fetch,
   );
-  const beam = { name: "beam", id: `beam:${MODEL}`, maxTokens: 131_072 };
+  const beam = {
+    name: "beam",
+    type: "model" as const,
+    description: "A model of a test.",
+    id: `beam:${MODEL}`,
+    maxTokens: 131_072,
+  };
   assert.deepEqual(await sources.window(beam), { window: 1_048_576 });
   assert.deepEqual(await sources.price(beam), {
     price: { input: 0, output: 0, cachedInput: 0 },

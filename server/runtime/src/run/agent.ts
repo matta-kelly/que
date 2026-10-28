@@ -49,7 +49,7 @@ export async function buildAgent(
     users.get(userId).catch(() => undefined),
     catalogFor(userId),
   ]);
-  const catalog = narrow(reachable, config.plugins);
+  const catalog = narrow(reachable, config.plugins ?? []);
   // A call with no user has no text of theirs.
   const own = user && (await userInstructions(userId)).text;
 

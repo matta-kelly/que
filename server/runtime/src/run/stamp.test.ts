@@ -22,13 +22,20 @@ const ping = tool(async () => "pong", {
 async function run(replies: AIMessage[]) {
   const model = fakeModel();
   for (const reply of replies) model.respond(reply);
-  const graph = build(resolveLoop({ name: "loop" }), {
-    model,
-    window: 60_000,
-    systemPrompt: "You help the sales team.",
-    tools: [ping],
-    middleware: [stamp("small")],
-  });
+  const graph = build(
+    resolveLoop({
+      name: "loop",
+      type: "loop" as const,
+      description: "A loop of a test.",
+    }),
+    {
+      model,
+      window: 60_000,
+      systemPrompt: "You help the sales team.",
+      tools: [ping],
+      middleware: [stamp("small")],
+    },
+  );
   const { messages } = (await graph.invoke({
     messages: [new HumanMessage("Ping the shop.")],
   })) as { messages: BaseMessage[] };

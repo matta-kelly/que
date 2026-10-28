@@ -1,52 +1,16 @@
 /**
- * The contract for an agent config: one way a deployment's plugins are run.
- * It has a name and the plugins the agent gets, and says the model it runs
- * on, its instructions, how it is shown the environment, and the loop it
- * runs in, and if it takes the user's own instructions. A config is a
- * file of its own, and a deployment lists it. Framework-free, as the plugin
- * contract is.
+ * An agent config: one way a deployment's plugins are run. A node of the agent type: its plugins, the model it runs
+ * on, the loop it runs in, its instructions, how it is shown the environment, and if it takes the user's own
+ * instructions. A config is a file of its own, in the deployment's agents/. Framework-free, as the plugin contract is.
  */
 
-import * as z from "zod";
-import {
-  check,
-  fieldsOf,
-  named,
-  standardName,
-  strict,
-} from "@mku1tra/que-plugin";
-import { types } from "./ontology.ts";
+import { defineNode, type NodeOf } from "./define.ts";
 
 export { LOADING } from "./schema.ts";
+
+/** What `defineAgent` returns, and an agent file exports as its default. */
+export type Agent = NodeOf<"agent">;
+
 export type Loading = NonNullable<Agent["loading"]>;
 
-const fields = fieldsOf(types.agent);
-
-/** What `defineAgent` returns, and an agent file exports as its default. `name`, `plugins`, `model` and `loop` are needed; each other field says what it is when left out. */
-export const Agent = z.strictObject(
-  {
-    /** What a run names to get this config. */
-    name: standardName,
-    ...fields,
-    /** The plugins it gets, by name: `[]` is none, and a config says so. */
-    plugins: fields.plugins.unwrap(),
-  },
-  strict({
-    legibility: 'the field "legibility" is now named `loading`',
-    packages: 'the field "packages" is now named `plugins`',
-  }),
-);
-
-export type Agent = z.infer<typeof Agent>;
-
-export function defineAgent(definition: Agent): Agent {
-  return definition;
-}
-
-/**
- * Check a config against the contract, throwing one error that lists every
- * problem. Types can't catch these: a config is loaded at runtime.
- */
-export function validateAgent(def: unknown): asserts def is Agent {
-  check(Agent, def, `agent${named(def)} is invalid`);
-}
+export const defineAgent = defineNode("agent");

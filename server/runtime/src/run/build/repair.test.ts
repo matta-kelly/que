@@ -30,22 +30,29 @@ async function run(chat: BaseMessage[]) {
   const model = fakeModel();
   model.respond(new AIMessage("Hi."));
   const sent: BaseMessage[][] = [];
-  const graph = build(resolveLoop({ name: "loop" }), {
-    model,
-    window: 60_000,
-    systemPrompt: "You help the sales team.",
-    tools: [ping],
-    middleware: [
-      // Last in the list, so it sees a request as the model gets it.
-      createMiddleware({
-        name: "Seen",
-        wrapModelCall: (request, handler) => {
-          sent.push([...request.messages]);
-          return handler(request);
-        },
-      }),
-    ],
-  });
+  const graph = build(
+    resolveLoop({
+      name: "loop",
+      type: "loop" as const,
+      description: "A loop of a test.",
+    }),
+    {
+      model,
+      window: 60_000,
+      systemPrompt: "You help the sales team.",
+      tools: [ping],
+      middleware: [
+        // Last in the list, so it sees a request as the model gets it.
+        createMiddleware({
+          name: "Seen",
+          wrapModelCall: (request, handler) => {
+            sent.push([...request.messages]);
+            return handler(request);
+          },
+        }),
+      ],
+    },
+  );
   const { messages } = (await graph.invoke({ messages: chat })) as {
     messages: BaseMessage[];
   };

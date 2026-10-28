@@ -41,6 +41,7 @@ const pieces = (
   } = {},
 ) =>
   piecesOf({
+    dir: name,
     files: pluginFiles(name),
     definition: definePlugin({
       name,
@@ -69,6 +70,7 @@ const definitionOf = (name: string) =>
 
 test("piecesOf gives each node as code gives it, and the plugin's skills as its folders", () => {
   const given = piecesOf({
+    dir: "odoo",
     files: pluginFiles("odoo"),
     definition: definePlugin({
       name: "odoo",

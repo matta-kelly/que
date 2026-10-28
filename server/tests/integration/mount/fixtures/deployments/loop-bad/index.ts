@@ -2,8 +2,10 @@ import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
   name: "loop-bad",
-  plugins: ["../../plugins/gamma", "../../plugins/alpha"],
-  loops: ["../../loops/endless.ts"],
-  agents: ["../../agents/bare.ts"],
-  models: ["../../models/small.ts"],
+  type: "deployment",
+  description: "The loop-bad deployment of a fixture.",
+  plugins: ["gamma", "alpha"],
+  loops: ["endless"],
+  agents: ["bare"],
+  models: ["small"],
 });

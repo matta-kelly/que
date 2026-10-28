@@ -1,9 +1,11 @@
 import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
-  name: "misnamed-skill",
-  plugins: ["../../plugins/misnamed-skill"],
-  agents: ["../../agents/bare.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  name: "misnamed-skill-deployment",
+  type: "deployment",
+  description: "The misnamed-skill-deployment deployment of a fixture.",
+  plugins: ["misnamed-skill"],
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

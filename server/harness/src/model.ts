@@ -1,44 +1,20 @@
 /**
- * The contract for a model config: one model a deployment's agents can run
- * on. A model is a file of its own, and a deployment lists it. The file holds
- * the choices: a name, the provider's own name for the model, and how much it
- * may give in one reply. What is true of the model (how much it takes in, and
- * what it costs) is a fact: the file can write one, and what it leaves out is
- * filled in when the deployment is mounted. Framework-free, as the plugin
- * contract is.
+ * A model config: one model a deployment's agents can run on. A node of the model type, in a file of its own in the
+ * deployment's models/. The file holds the choices: a name, the provider's own name for the model, and how much it may
+ * give in one reply. What is true of the model (how much it takes in, and what it costs) is a fact: the file can write
+ * one, and what it leaves out is filled in when the deployment is mounted. Framework-free, as the plugin contract is.
  */
 
-import * as z from "zod";
-import {
-  check,
-  fieldsOf,
-  named,
-  standardName,
-  strict,
-} from "@mku1tra/que-plugin";
-import { refineBy, ruleFaults, types } from "./ontology.ts";
-import { maxTokensInWindow, ModelPrice } from "./schema.ts";
-
-export { ModelPrice };
-export type ModelPrice = z.infer<typeof ModelPrice>;
+import { defineNode, type NodeOf } from "./define.ts";
 
 /** What `defineModel` returns, and a model file exports as its default. */
-export const Model = z
-  .strictObject(
-    {
-      /** What an agent config or a run names to get this model. */
-      name: standardName,
-      ...fieldsOf(types.model),
-    },
-    strict(),
-  )
-  // Its rule's faults are listed with its fields', in one error.
-  .superRefine(refineBy(maxTokensInWindow));
+export type Model = NodeOf<"model">;
 
-export type Model = z.infer<typeof Model>;
+/** What a model costs, in dollars for one million tokens. */
+export type ModelPrice = NonNullable<Model["price"]>;
 
 /** What is true of a model, as a source outside the file gives it. */
-export type ModelFacts = { window?: number; price?: ModelPrice };
+export type ModelFacts = Pick<Model, "window" | "price">;
 
 /** A model with every field: what a deployment's models are once mounted. */
 export type MountedModel = Model & {
@@ -46,9 +22,7 @@ export type MountedModel = Model & {
   price: ModelPrice;
 };
 
-export function defineModel(definition: Model): Model {
-  return definition;
-}
+export const defineModel = defineNode("model");
 
 /** The provider of a model: the part of its id before the first colon. */
 export const providerOf = (model: Pick<Model, "id">) =>
@@ -57,33 +31,3 @@ export const providerOf = (model: Pick<Model, "id">) =>
 /** The provider's own name for a model: the part of its id after the first colon. */
 export const providerModelOf = (model: Pick<Model, "id">) =>
   model.id.slice(model.id.indexOf(":") + 1);
-
-/**
- * A model with every field: each value of its file, and a fact where the file
- * has none. Throws when a fact is in neither, and when the file's `maxTokens`
- * does not fit in the window the model ends with.
- */
-export function mountedModel(
-  definition: Model,
-  facts: ModelFacts,
-): MountedModel {
-  const window = definition.window ?? facts.window;
-  const price = definition.price ?? facts.price;
-  if (window === undefined)
-    throw new Error(`model ${definition.name} has no window`);
-  if (price === undefined)
-    throw new Error(`model ${definition.name} has no price`);
-  // The window it ends with, from its file or the facts, held to the same rule a model's file is.
-  const faults = ruleFaults(maxTokensInWindow, { ...definition, window });
-  if (faults.length)
-    throw new Error(`model ${definition.name}: ${faults.join("; ")}`);
-  return { ...definition, window, price };
-}
-
-/**
- * Check a model against the contract, throwing one error that lists every
- * problem. Types can't catch these: a model is loaded at runtime.
- */
-export function validateModel(def: unknown): asserts def is Model {
-  check(Model, def, `model${named(def)} is invalid`);
-}

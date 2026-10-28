@@ -12,7 +12,8 @@
  * `tsx check-deployment.ts <deployment folder>`
  */
 
-import { loadDeployment, mountDeployment } from "./deployment.js";
+import { readDeployment } from "@mku1tra/que-harness";
+import { mountDeployment } from "./deployment.js";
 import type { FactSources } from "./model-facts/index.js";
 import { savedFacts } from "./model-facts/saved.js";
 
@@ -40,4 +41,5 @@ try {
   console.error((error as Error).message);
   process.exit(1);
 }
-for (const folder of (await loadDeployment(dir)).plugins) console.log(folder);
+for (const plugin of (await readDeployment(dir)).plugins)
+  console.log(plugin.dir);

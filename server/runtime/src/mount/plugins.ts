@@ -3,7 +3,7 @@
  * cases) and its skills (readPlugin in @mku1tra/que-plugin), and touches no credentials. A file that cannot be read
  * fails mounting, and so does a plugin whose npm package's `@mku1tra/que-plugin` peer range que's own
  * @mku1tra/que-plugin is outside, or that names `@que/core` as its peer. Then the plugins are checked as one graph
- * (checkPlugins): a name two plugins give, and a name a plugin uses that the deployment does not give, fail mounting.
+ * (checkPlugins). A deployment's plugins are mounted with it, in its graph (deployment.ts).
  * A card (plugin.json) in the folder is not read.
  */
 
@@ -40,7 +40,7 @@ const PLUGIN = (
 // A plugin's npm package names the @mku1tra/que-plugin it works with as a peer. One with no package.json, or no range, works
 // with any. A prerelease of que's @mku1tra/que-plugin counts as its version: semver leaves it out of every range otherwise,
 // `*` included. One that names @que/core is refused: the plugin contract is not there.
-function checkRange(dir: string, file: string): void {
+export function checkRange(dir: string, file: string): void {
   if (!existsSync(file)) return;
   let manifest: Manifest | null;
   try {
@@ -102,7 +102,7 @@ function judge(read: Read[], unread: string[] = []): MountedPlugin[] {
 
 /**
  * The plugin in `dir`, mounted on its own, with its skills and cases. What it uses is not resolved here, as only the
- * whole deployment gives it (mountPlugins): it is there, and not read. Each case's capability is resolved against the
+ * whole deployment gives it (mountDeployment): it is there, and not read. Each case's capability is resolved against the
  * plugin's own: a case is about a capability of its plugin.
  */
 export async function mountPlugin(dir: string): Promise<MountedPlugin> {
@@ -110,11 +110,4 @@ export async function mountPlugin(dir: string): Promise<MountedPlugin> {
   const { usesOps = [], usesSkills = [] } = read.definition.plugin;
   const [mounted] = judge([read], [...usesOps, ...usesSkills]);
   return mounted;
-}
-
-/** The plugins a deployment lists, mounted as one graph: each name a plugin uses is one of theirs. */
-export async function mountPlugins(dirs: string[]): Promise<MountedPlugin[]> {
-  const read: Read[] = [];
-  for (const dir of dirs) read.push(await loadPlugin(dir));
-  return judge(read);
 }

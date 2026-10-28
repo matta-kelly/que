@@ -11,5 +11,8 @@
     "@mku1tra/basis": "^0.22.0",
     "@mku1tra/que-plugin": "*",
     "zod": "^4.6.5"
+  },
+  "bin": {
+    "que-harness": "./src/command.ts"
   }
 }

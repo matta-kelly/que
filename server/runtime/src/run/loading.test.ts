@@ -8,6 +8,8 @@ test("an agent that names no loading gets on-demand", () => {
   assert.equal(
     loadingFor({
       name: "chat",
+      type: "agent" as const,
+      description: "An agent of a test.",
       plugins: [],
       model: "small",
       loop: "long-chat",
@@ -20,6 +22,8 @@ test("an agent that names eager gets eager", () => {
   assert.equal(
     loadingFor({
       name: "chat",
+      type: "agent" as const,
+      description: "An agent of a test.",
       plugins: [],
       model: "small",
       loop: "long-chat",

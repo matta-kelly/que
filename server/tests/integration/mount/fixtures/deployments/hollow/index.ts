@@ -1,9 +1,11 @@
 import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
-  name: "hollow",
-  plugins: ["../../plugins/hollow"],
-  agents: ["../../agents/bare.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  name: "hollow-deployment",
+  type: "deployment",
+  description: "The hollow-deployment deployment of a fixture.",
+  plugins: ["hollow"],
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

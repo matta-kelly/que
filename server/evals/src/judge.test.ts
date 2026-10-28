@@ -33,6 +33,8 @@ const notAsked = {
 };
 const small = {
   name: "small",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:accounts/fireworks/models/small-model",
   window: 128_000,
   maxTokens: 8_000,
@@ -43,6 +45,8 @@ const open = {
     {
       kind: "call" as const,
       name: "shop-find-orders",
+      type: "loop" as const,
+      description: "A loop of a test.",
       args: { customer: "Ada" },
     },
     {
@@ -167,6 +171,8 @@ test("the judge's own model is a run's: a beam config gives verdicts, and each c
   process.env.FIREWORKS_API_KEY ??= "none";
   const beam = {
     name: "beam",
+    type: "model" as const,
+    description: "A model of a test.",
     id: "beam:Beam-1.0-501B-A23B",
     maxTokens: 131_072,
     effort: "high",

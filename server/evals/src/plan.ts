@@ -30,7 +30,7 @@ export function plan(
 
   return cases.flatMap((c) =>
     chosen.map((agent): Planned =>
-      agent.plugins.includes(c.plugin)
+      (agent.plugins ?? []).includes(c.plugin)
         ? { case: c, agent: agent.name }
         : {
             case: c,

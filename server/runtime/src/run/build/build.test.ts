@@ -104,6 +104,8 @@ const text = (message: BaseMessage) =>
 
 const everySetting: Loop = {
   name: "all",
+  type: "loop" as const,
+  description: "A loop of a test.",
   result: { max: 100 },
   summarize: { at: 0.5, keep: 0.1 },
   args: { max: 10 },
@@ -135,7 +137,11 @@ test("with result on, an operation that is not loaded does not go out, and read_
     },
   });
   const { sent, result } = await run(
-    { name: "long-chat" },
+    {
+      name: "long-chat",
+      type: "loop" as const,
+      description: "A loop of a test.",
+    },
     [
       calling("load", "load_operation", {
         plugin: "shop",
@@ -167,7 +173,12 @@ test("with result on, an operation that is not loaded does not go out, and read_
 
 test("a result over result.max is stored, the chat has its head, its tail and its path, and the model gets read_file and no other tool of files", async () => {
   const { result, sent } = await run(
-    { name: "big-results", result: { max: 100 } },
+    {
+      name: "big-results",
+      type: "loop" as const,
+      description: "A loop of a test.",
+      result: { max: 100 },
+    },
     [calling("big", "shop-report", { rows: 200 }), new AIMessage("Well.")],
   );
   assert.deepEqual(sent[0].tools.sort(), ["read_file", "shop-report"]);
@@ -186,16 +197,26 @@ test("a result over result.max is stored, the chat has its head, its tail and it
 });
 
 test("a result under result.max, and any result with result off, is in the chat whole", async () => {
-  const under = await run({ name: "big-results", result: { max: 100 } }, [
-    calling("small", "shop-report", { rows: 5 }),
-    new AIMessage("Well."),
-  ]);
+  const under = await run(
+    {
+      name: "big-results",
+      type: "loop" as const,
+      description: "A loop of a test.",
+      result: { max: 100 },
+    },
+    [calling("small", "shop-report", { rows: 5 }), new AIMessage("Well.")],
+  );
   assert.equal(text(resultOf(under.result.messages, "small")), rows(5));
 
-  const off = await run({ name: "whole", result: false }, [
-    calling("big", "shop-report", { rows: 5000 }),
-    new AIMessage("Well."),
-  ]);
+  const off = await run(
+    {
+      name: "whole",
+      type: "loop" as const,
+      description: "A loop of a test.",
+      result: false,
+    },
+    [calling("big", "shop-report", { rows: 5000 }), new AIMessage("Well.")],
+  );
   assert.equal(text(resultOf(off.result.messages, "big")), rows(5000));
   assert.deepEqual(Object.keys(off.result.files ?? {}), []);
 });
@@ -214,6 +235,8 @@ test("a chat past summarize.at of the window is replaced by a summary and what i
   const { sent, result } = await run(
     {
       name: "early",
+      type: "loop" as const,
+      description: "A loop of a test.",
       result: false,
       summarize: { at: 0.5, keep: 0.25 },
     },

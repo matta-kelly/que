@@ -12,11 +12,11 @@ import type { Source } from "@mku1tra/basis";
 import { pluginFiles } from "./layout.ts";
 import { piecesOf } from "./lint.ts";
 import { NAMESPACE } from "./names.ts";
-import { readPlugin } from "./read.ts";
+import { readPlugin, type ReadPlugin } from "./read.ts";
 
 /** What a source gives basis's lint, in lists this reader fills. */
 type Given = Awaited<ReturnType<Source>>;
-type Loaded = { [K in keyof Given]: Given[K][number][] };
+export type Loaded = { [K in keyof Given]: Given[K][number][] };
 
 /** Every plugin folder under `folder`: each one whose que folder holds a definition. Installed packages are not walked. */
 async function pluginFolders(folder: string): Promise<string[]> {
@@ -36,24 +36,37 @@ async function pluginFolders(folder: string): Promise<string[]> {
 }
 
 /**
+ * What one plugin gives a lint, each path by `from`: a piece of each of its nodes (piecesOf), a problem for each file
+ * that cannot be read, and each skill that cannot be read as unread, by its folder's name, so a link to it is no
+ * problem.
+ */
+export function loadedOf(
+  read: ReadPlugin,
+  from: (path: string) => string = (path) => path,
+): Loaded {
+  const given = new Set(read.skills.map((skill) => skill.name));
+  return {
+    pieces: piecesOf(read, from),
+    problems: read.problems.map((p) => ({ ...p, path: from(p.path) })),
+    unread: read.skillNames
+      .filter((name) => !given.has(name))
+      .map((name) => ({ path: from(read.files.skill(name)), name })),
+  };
+}
+
+/**
  * The source of the plugins under `folder`, for the lint of the folder `root`: each path is from `root`. A file that
- * cannot be read is a problem of its own, and the lint goes on. A skill that cannot be read is there, by its folder's
- * name, so a link to it is no problem.
+ * cannot be read is a problem of its own, and the lint goes on (loadedOf).
  */
 export function plugins(folder: string, root: string): Source {
   const from = (path: string) => relative(root, path).split(sep).join("/");
   return async function quePlugins(): Promise<Loaded> {
     const all: Loaded = { pieces: [], problems: [], unread: [] };
     for (const dir of await pluginFolders(folder)) {
-      const read = await readPlugin(dir);
-      all.pieces.push(...piecesOf(read, from));
-      all.problems.push(
-        ...read.problems.map((p) => ({ ...p, path: from(p.path) })),
-      );
-      const given = new Set(read.skills.map((skill) => skill.name));
-      for (const name of read.skillNames)
-        if (!given.has(name))
-          all.unread.push({ path: from(read.files.skill(name)), name });
+      const one = loadedOf(await readPlugin(dir), from);
+      all.pieces.push(...one.pieces);
+      all.problems.push(...one.problems);
+      all.unread.push(...one.unread);
     }
     return all;
   };

@@ -1,13 +1,11 @@
 import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
-  name: "shop",
-  plugins: ["../../plugins/shop", "../../plugins/notes"],
-  agents: [
-    "../../agents/chat.ts",
-    "../../agents/lean.ts",
-    "../../agents/notes-only.ts",
-  ],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts", "../../models/big.ts"],
+  name: "shop-deployment",
+  type: "deployment",
+  description: "The shop-deployment deployment of a fixture.",
+  plugins: ["shop", "notes"],
+  agents: ["chat", "lean", "notes-only"],
+  loops: ["long-chat"],
+  models: ["small", "big"],
 });

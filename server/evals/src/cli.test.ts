@@ -140,25 +140,25 @@ test("with Langfuse set, the command prints the report, sends each agent's runs 
       })),
       [
         {
-          item: "shop.shop.find-order-by-customer",
+          item: "shop-deployment.shop.find-order-by-customer",
           agent: "chat",
           commit: "abc1234",
           level: undefined,
         },
         {
-          item: "shop.shop.find-order-not-asked",
+          item: "shop-deployment.shop.find-order-not-asked",
           agent: "chat",
           commit: "abc1234",
           level: undefined,
         },
         {
-          item: "shop.shop.find-order-by-customer",
+          item: "shop-deployment.shop.find-order-by-customer",
           agent: "lean",
           commit: "abc1234",
           level: "ERROR",
         },
         {
-          item: "shop.shop.find-order-not-asked",
+          item: "shop-deployment.shop.find-order-not-asked",
           agent: "lean",
           commit: "abc1234",
           level: "ERROR",
@@ -316,14 +316,14 @@ test("with a judge set, the command prints a verdict under each run, and sends e
       })),
       [
         {
-          item: "shop.shop.find-order-by-customer",
+          item: "shop-deployment.shop.find-order-by-customer",
           name: "good",
           dataType: "BOOLEAN",
           value: 1,
           comment: "The answer says what the agent finds.",
         },
         {
-          item: "shop.shop.find-order-not-asked",
+          item: "shop-deployment.shop.find-order-not-asked",
           name: "good",
           dataType: "BOOLEAN",
           value: 0,

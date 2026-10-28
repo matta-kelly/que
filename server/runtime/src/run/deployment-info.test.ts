@@ -4,6 +4,8 @@ import { deploymentInfo } from "./deployment-info.js";
 
 const big = {
   name: "big",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:big-model",
   window: 1_000_000,
   maxTokens: 100_000,
@@ -11,15 +13,30 @@ const big = {
 };
 const small = {
   name: "small",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:small-model",
   window: 64_000,
   maxTokens: 8_000,
   price: { input: 0.5, output: 1, cachedInput: 0.1 },
 };
-const longChat = { name: "long-chat" };
-const chat = { name: "chat", plugins: [], model: "big", loop: "long-chat" };
+const longChat = {
+  name: "long-chat",
+  type: "loop" as const,
+  description: "A loop of a test.",
+};
+const chat = {
+  name: "chat",
+  type: "agent" as const,
+  description: "An agent of a test.",
+  plugins: [],
+  model: "big",
+  loop: "long-chat",
+};
 const lean = {
   name: "lean",
+  type: "agent" as const,
+  description: "An agent of a test.",
   plugins: [],
   model: "small",
   loop: "long-chat",
@@ -57,11 +74,23 @@ test("a model has its name, window, maxTokens and price, and no provider id", ()
 test("an agent has the share its loop summarizes at, and none when it does not summarize", () => {
   const loops = [
     longChat,
-    { name: "early", summarize: { at: 0.5, keep: 0.1 } },
-    { name: "whole", summarize: false as const },
+    {
+      name: "early",
+      type: "loop" as const,
+      description: "A loop of a test.",
+      summarize: { at: 0.5, keep: 0.1 },
+    },
+    {
+      name: "whole",
+      type: "loop" as const,
+      description: "A loop of a test.",
+      summarize: false as const,
+    },
   ];
   const on = (loop: string) => ({
     name: loop,
+    type: "agent" as const,
+    description: "An agent of a test.",
     plugins: [],
     model: "big",
     loop,

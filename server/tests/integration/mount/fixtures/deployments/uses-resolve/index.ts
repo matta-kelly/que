@@ -2,8 +2,10 @@ import { defineDeployment } from "@mku1tra/que-harness";
 
 export default defineDeployment({
   name: "uses-resolve",
-  plugins: ["../../plugins/source", "../../plugins/domain"],
-  agents: ["../../agents/bare.ts"],
-  loops: ["../../loops/long-chat.ts"],
-  models: ["../../models/small.ts"],
+  type: "deployment",
+  description: "The uses-resolve deployment of a fixture.",
+  plugins: ["source", "domain"],
+  agents: ["bare"],
+  loops: ["long-chat"],
+  models: ["small"],
 });

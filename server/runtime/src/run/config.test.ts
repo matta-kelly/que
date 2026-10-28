@@ -4,6 +4,8 @@ import { configFor } from "./config.js";
 
 const chat = {
   name: "chat",
+  type: "agent" as const,
+  description: "An agent of a test.",
   plugins: ["odoo"],
   model: "big",
   loop: "long-chat",
@@ -11,6 +13,8 @@ const chat = {
 };
 const lean = {
   name: "lean",
+  type: "agent" as const,
+  description: "An agent of a test.",
   plugins: [],
   model: "small",
   loop: "short-run",

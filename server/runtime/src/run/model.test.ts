@@ -4,6 +4,8 @@ import { modelFor } from "./model.js";
 
 const big = {
   name: "big",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:big-model",
   window: 1_000_000,
   maxTokens: 100_000,
@@ -11,13 +13,22 @@ const big = {
 };
 const small = {
   name: "small",
+  type: "model" as const,
+  description: "A model of a test.",
   id: "fireworks:small-model",
   window: 64_000,
   maxTokens: 8_000,
   price: { input: 0.5, output: 1, cachedInput: 0.1 },
 };
 
-const chat = { name: "chat", plugins: [], model: "small", loop: "long-chat" };
+const chat = {
+  name: "chat",
+  type: "agent" as const,
+  description: "An agent of a test.",
+  plugins: [],
+  model: "small",
+  loop: "long-chat",
+};
 
 test("the model of a run: the one the run names, then its agent's, and never the first listed", () => {
   assert.equal(modelFor([big, small], chat, "big"), big);

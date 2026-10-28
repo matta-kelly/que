@@ -46,6 +46,8 @@ const getTime = tool(({ city }) => `It is 14:05 in ${city}.`, {
 
 const model = await chatModel({
   name: "beam",
+  type: "model",
+  description: "Beam's model, for the smoke check.",
   id: "beam:Beam-1.0-501B-A23B",
   window: 1_048_576,
   maxTokens: 131_072,
