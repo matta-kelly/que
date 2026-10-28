@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { definePlugin, type AccessRole, type Op } from "./contract.ts";
+import type { Case } from "./case.ts";
+import {
+  definePlugin,
+  type AccessRole,
+  type Capability,
+  type Op,
+} from "./contract.ts";
 import { pluginFiles } from "./layout.ts";
 import { checkPlugins, piecesOf } from "./lint.ts";
 import type { Skill } from "./skill.ts";
@@ -38,9 +44,12 @@ const pieces = (
     usesSkills?: string[];
     roles?: AccessRole[];
     ops?: Op[];
+    capabilities?: Capability[];
+    cases?: Case[];
   } = {},
-) =>
-  piecesOf({
+) => {
+  const { cases = [], ...held } = fields;
+  return piecesOf({
     dir: name,
     files: pluginFiles(name),
     definition: definePlugin({
@@ -49,13 +58,14 @@ const pieces = (
       title: name,
       description: "A plugin.",
       ops: [find(name)],
-      ...fields,
+      ...held,
     }),
-    cases: [],
+    cases,
     skills: [guide(name)],
     skillNames: [`${name}-guide`],
     problems: [],
   });
+};
 
 const said = (problems: ReturnType<typeof checkPlugins>) =>
   problems.map(({ path, rule, field, message }) => [
@@ -193,6 +203,54 @@ test("checkPlugins finds an op whose role is no node once, by basis/link", () =>
         "basis/link",
         "/role",
         "It points at notes-admin, which is not a node.",
+      ],
+    ],
+  );
+});
+
+const capabilityOf = (name: string): Capability => ({
+  name,
+  type: "capability",
+  title: name,
+  description: "An outcome.",
+});
+
+const caseOf = (capability: string): Case => ({
+  name: `${capability}-asked`,
+  type: "case",
+  description: "A behaviour of its capability.",
+  capability,
+  input: "Do it.",
+  start: "Any.",
+  good: "It is done.",
+});
+
+test("checkPlugins takes a plugin whose cases are each about a capability it lists", () => {
+  assert.deepEqual(
+    checkPlugins(
+      pieces("odoo", {
+        capabilities: [capabilityOf("find-company")],
+        cases: [caseOf("find-company")],
+      }),
+    ),
+    [],
+  );
+});
+
+test("checkPlugins finds a case about another plugin's capability, in the deployment's graph", () => {
+  assert.deepEqual(
+    said(
+      checkPlugins([
+        ...pieces("warehouse", { capabilities: [capabilityOf("find-fabric")] }),
+        ...pieces("odoo", { cases: [caseOf("find-fabric")] }),
+      ]),
+    ),
+    [
+      [
+        definitionOf("odoo"),
+        "plugin/case-capability",
+        "/cases/0",
+        "find-fabric-asked is about find-fabric, which odoo does not list: a case is about a capability of the plugin that holds it.",
       ],
     ],
   );

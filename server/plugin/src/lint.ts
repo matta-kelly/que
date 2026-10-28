@@ -24,7 +24,8 @@ const piece = (
 /**
  * The pieces of a plugin's nodes, each at its file, by `from`: the plugin, and each op, role and capability it holds,
  * at its definition; each case, at its cases; each skill, at its SKILL.md. Each is its node as code gives it, live
- * values too. The plugin's skills are its folders under skills/, as Agent Plugins finds them, so its piece lists them.
+ * values too. The plugin's skills are its folders under skills/, as Agent Plugins finds them, and its cases are those
+ * of its cases.ts, so its piece lists them.
  * Each node a plugin holds is at its part of the file, so two of one name are told apart: `index.ts#ops/odoo-search`.
  */
 export function piecesOf(
@@ -41,7 +42,11 @@ export function piecesOf(
   if (definition) {
     const { plugin, ops, roles, capabilities } = definition;
     pieces.push(
-      piece(at(files.definition), { ...plugin, skills: skillNames }),
+      piece(at(files.definition), {
+        ...plugin,
+        skills: skillNames,
+        cases: cases.map((kase) => kase.name),
+      }),
       ...ops.map((op) => piece(at(files.definition, `ops/${op.name}`), op)),
       ...roles.map((role) =>
         piece(at(files.definition, `roles/${role.name}`), role),

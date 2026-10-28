@@ -101,13 +101,29 @@ function heldIn(list: unknown, field: Held, type: Kind) {
   };
 }
 
+// The lists of a plugin that its folder gives, not its code: its skills, by their folders, and its cases, by its
+// cases.ts. A list given in code would be dropped for the folder's, so it is a fault.
+const fromFolder = (plugin: unknown): string[] =>
+  typeof plugin === "object" && plugin !== null
+    ? [
+        ...("skills" in plugin
+          ? [
+              "skills are found by folder, in skills/: a plugin's code gives none",
+            ]
+          : []),
+        ...("cases" in plugin
+          ? ["cases are found in cases.ts: a plugin's code gives none"]
+          : []),
+      ]
+    : [];
+
 /**
  * A plugin and the nodes it holds, each parsed with its type, once. The plugin's lists of what it holds are their
  * names. Throws one error that lists every fault, each after the field it is in. Links and the plugin schema's rules are
  * the lint's: a definition is parsed alone, and what it names may be another's.
  */
 export function definePlugin<S extends z.ZodObject, Conn>(
-  definition: Omit<Plugin<S, Conn>, Held | "skills"> & {
+  definition: Omit<Plugin<S, Conn>, Held | "skills" | "cases"> & {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ops?: Op<Conn, any>[];
     roles?: AccessRole[];
@@ -129,6 +145,7 @@ export function definePlugin<S extends z.ZodObject, Conn>(
   refuse(
     `plugin${typeof own.name === "string" ? ` ${own.name}` : ""} is invalid`,
     [
+      ...fromFolder(own),
       ...faultsOf("", "plugin", plugin),
       ...held.ops.faults,
       ...held.roles.faults,
@@ -165,6 +182,7 @@ export function readDefinition(
     ),
   );
   const found = [
+    ...fromFolder(given.plugin).map((fault) => `plugin ${fault}`),
     ...faultsOf("plugin", "plugin", given.plugin),
     ...lists.flatMap((list) => list.faults),
   ];

@@ -25,6 +25,16 @@ test("lint prints each problem of a deployment's graph at its file, and ends wit
   );
 });
 
+test("lint finds a case about another plugin's capability, in the deployment's graph", async () => {
+  assert.deepEqual(
+    await command(["lint", "deployments/case-elsewhere"], fixtures),
+    {
+      out: "deployments/node_modules/stranger/io.github.matta-kelly.que/index.ts: /cases/0: hold-it-asked is about hold-it, which stranger does not list: a case is about a capability of the plugin that holds it. (plugin/case-capability)",
+      code: 1,
+    },
+  );
+});
+
 test("the command takes only lint and a folder, and says so", async () => {
   assert.deepEqual(await command(["check"], fixtures), {
     out: "usage: que-harness lint <deployment folder>",

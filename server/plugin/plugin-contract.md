@@ -36,7 +36,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 - **the contract is the plugin schema's types**: each thing in code is its node, as the type `op`, `plugin`, `access-role`, `capability` or `case` parses it: its real name, its type, and its fields, live values too (an op's `input` and `run`, a plugin's `credential`, `connect` and `whoami`). `Op`, `Plugin` and the other names in `@mku1tra/que-plugin` are the types' nodes as TypeScript types, not a second definition
 	- `definePlugin` takes the plugin's fields and the nodes it holds (its ops, roles and capabilities), parses each with its type once, and gives the plugin node, which lists them by name, and each node as given. A fault throws, listing each one after its place (`ops.odoo-search title is missing`)
 	- `defineCases` does the same for the cases
-	- in the graph: each node is a piece of a node of the plugin schema, as code gives it (`piecesOf`), at its file and part (`index.ts#ops/odoo-search`). The plugin's skills are its folders under `skills/`, so its piece lists them. A note of the same name is another piece of the same node: it gives the prose, and copies no fact of the code (basis, merge)
+	- in the graph: each node is a piece of a node of the plugin schema, as code gives it (`piecesOf`), at its file and part (`index.ts#ops/odoo-search`). The plugin's skills are its folders under `skills/`, and its cases those of its `cases.ts`, so its piece lists them. A note of the same name is another piece of the same node: it gives the prose, and copies no fact of the code (basis, merge)
 
 - **who it is**: a name, a title, and a description that says what it is and when to use it. The only required part
 	- the name is lowercase letters and digits, with single hyphens between them (`fabric-to-odoo`), at most 64 characters: a name the standard takes. Each thing a plugin holds (an op, a role, a skill, a capability, a case) has its real name, unique in the whole graph: by convention it starts with the plugin's name (`odoo-find-partners`). Two things of one name, in one plugin or two, fail the mount, naming both (`basis/unique-name`)
@@ -61,7 +61,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 		- `good`: one statement, true or false after the run
 	- cases sit beside the definition, in `io.github.matta-kelly.que/cases.ts` (`defineCases`). No agent is given one
 	- mount reads them with the definition (`readPlugin`): a case that breaks the contract fails the mount, and so does one whose capability no plugin of the deployment holds (`basis/link`)
-	- a case's plugin is the one that holds its capability, its own (`just check-plugin`): the evals run it with that plugin, and stop on a capability no plugin of the deployment holds, or two do
+	- a case's plugin is the one whose `cases.ts` holds it: the plugin's piece lists its cases (`cases`), and the case is about a capability that plugin lists, in any graph, a lone plugin's or a deployment's (`plugin/case-capability`; a capability that is no node is `basis/link`). The evals run it with that plugin
 	- a case runs against the real service. A case that changes data changes real data
 - **kind**: two kinds of plugin, by what they touch
 	- connector: one service

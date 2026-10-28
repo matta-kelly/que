@@ -164,6 +164,40 @@ test("readDefinition lists each fault of a value that is not a definition, after
   );
 });
 
+test("definePlugin refuses skills and cases on the plugin: its folder gives them", () => {
+  assert.throws(
+    () =>
+      definePlugin({
+        ...notes,
+        skills: ["notes-guide"],
+        cases: ["notes-typo"],
+      } as never),
+    {
+      message: [
+        "plugin notes is invalid:",
+        "- skills are found by folder, in skills/: a plugin's code gives none",
+        "- cases are found in cases.ts: a plugin's code gives none",
+      ].join("\n"),
+    },
+  );
+});
+
+test("readDefinition refuses skills and cases on the plugin node: its folder gives them", () => {
+  const definition = definePlugin(notes);
+  assert.deepEqual(
+    readDefinition({
+      ...definition,
+      plugin: { ...definition.plugin, skills: [], cases: ["notes-typo"] },
+    }),
+    {
+      faults: [
+        "plugin skills are found by folder, in skills/: a plugin's code gives none",
+        "plugin cases are found in cases.ts: a plugin's code gives none",
+      ],
+    },
+  );
+});
+
 test("readDefinition gives a fault when the plugin node's list of what it holds is not the nodes it holds", () => {
   const definition = definePlugin({ ...notes, ops: [search] });
   assert.deepEqual(

@@ -17,18 +17,13 @@ import { sayProblem, type Case, type ReadPlugin } from "@mku1tra/que-plugin";
 
 export type LoadedCase = Case & { plugin: string };
 
-// Each case, with the plugin that holds its capability: a case's plugin is its capability's, in the graph. The lint
-// has held each capability to one plugin.
+// Each case, with the plugin it was read from: the one whose cases.ts holds it. The lint has held its capability to be
+// one that plugin lists (plugin/case-capability).
 function casesOf(plugins: ReadPlugin[]): LoadedCase[] {
-  const holder = new Map(
-    plugins.flatMap(({ definition }) =>
-      (definition?.plugin.capabilities ?? []).map(
-        (capability) => [capability, definition!.plugin.name] as const,
-      ),
-    ),
-  );
-  return plugins.flatMap(({ cases }) =>
-    cases.map((c) => ({ plugin: holder.get(c.capability)!, ...c })),
+  return plugins.flatMap(({ definition, cases }) =>
+    definition
+      ? cases.map((c) => ({ plugin: definition.plugin.name, ...c }))
+      : [],
   );
 }
 

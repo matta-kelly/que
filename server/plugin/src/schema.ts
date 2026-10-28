@@ -119,6 +119,8 @@ const pluginType = defineType({
     // What a domain uses from connectors: their ops, and their skills.
     usesOps: manyOrNone(() => op),
     usesSkills: manyOrNone(() => skill),
+    // The cases in its cases.ts, found by their file, as its skills are by their folders.
+    cases: manyOrNone(() => kase),
   },
 });
 
@@ -224,6 +226,29 @@ const connectorUse = defineRule({
   },
 });
 
+// A case is about a capability of the plugin whose cases.ts holds it: the evals run it with that plugin. A capability
+// that is no node, basis/link reports, so each fault is said once.
+const caseCapability = defineRule({
+  name: "case-capability",
+  description:
+    "Each case a plugin holds is about a capability the plugin lists.",
+  on: pluginType,
+  check: (node, graph) =>
+    (node.cases ?? []).flatMap((name, i) => {
+      const found = graph.get(name, kase);
+      return found &&
+        !(node.capabilities ?? []).includes(found.capability) &&
+        graph.get(found.capability, capability)
+        ? [
+            {
+              field: `/cases/${i}`,
+              message: `${name} is about ${found.capability}, which ${node.name} does not list: a case is about a capability of the plugin that holds it.`,
+            },
+          ]
+        : [];
+    }),
+});
+
 export const plugin = defineSchema({
   name: "plugin",
   description:
@@ -242,5 +267,5 @@ export const plugin = defineSchema({
   exports: () => import("./index.ts"),
   // The frontmatter of an Agent Skills SKILL.md: the standard's shape, which no type defines.
   bridges: ["SkillFrontmatter"],
-  rules: [toolName, opRole, ownUse, connectorUse],
+  rules: [toolName, opRole, ownUse, connectorUse, caseCapability],
 });
