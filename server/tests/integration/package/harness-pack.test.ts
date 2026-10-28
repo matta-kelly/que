@@ -13,6 +13,7 @@ import {
   cpSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
   symlinkSync,
@@ -100,6 +101,17 @@ test("the tarball holds the build, the type notes, the manifest and the license,
       ...notes,
     ].sort(),
   );
+});
+
+// npm corrects a manifest it would publish, and warns that it did: one npm pkg fix leaves as it is publishes as written.
+test("its manifest is what npm pkg fix leaves, so a publish corrects nothing in it", () => {
+  const copy = join(outside, "manifest");
+  mkdirSync(copy);
+  cpSync(join(pkg, "package.json"), join(copy, "package.json"));
+  run("npm", ["pkg", "fix", "--loglevel=error"], copy);
+  const read = (folder: string) =>
+    JSON.parse(readFileSync(join(folder, "package.json"), "utf8")) as unknown;
+  assert.deepEqual(read(copy), read(pkg));
 });
 
 test("plain Node imports it by name in a folder that installed the tarball", () => {

@@ -20,7 +20,7 @@
     }
   },
   "bin": {
-    "que-harness": "./dist/command.js"
+    "que-harness": "dist/command.js"
   },
   "files": [
     "dist",
