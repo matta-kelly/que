@@ -99,7 +99,8 @@ test("a node with a field not on its type fails, on that field", () => {
   assert.equal(issue?.code, "unrecognized_keys");
 });
 
-test("each type note of the plugin schema gives only prose, and is one node with its type's code", async () => {
+// A folder's lint runs basis/one-definition over the package's exports, as the CLI does: the in-memory lint calls no code.
+test("the lint of the plugin schema's folder finds no problem: each type note gives only prose, and each zod object the package exports is part of a type or a bridge", async () => {
   const folder = fileURLToPath(plugin.typeNotes!);
   assert.deepEqual((await lintFolder(plugin, folder)).problems, []);
 });

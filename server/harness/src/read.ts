@@ -6,7 +6,7 @@
  * still read.
  */
 
-import { existsSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -61,7 +61,8 @@ function pluginFolder(dir: string, name: string): string | undefined {
   // Node's own lookup (require.resolve.paths) gives none for a name that is one of Node's modules, such as `domain`.
   for (let at = dir; ; at = dirname(at)) {
     const folder = join(at, "node_modules", name);
-    if (existsSync(join(folder, "package.json"))) return realpathSync(folder);
+    // The folder as found, through its link: a path in the deployment's folder, which its lint takes.
+    if (existsSync(join(folder, "package.json"))) return folder;
     if (dirname(at) === at) return undefined;
   }
 }

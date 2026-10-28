@@ -253,5 +253,7 @@ export const harness = defineSchema({
   types: { agent, model, loop, deployment },
   imports: [plugin],
   typeNotes: new URL("../types/harness/", import.meta.url),
+  // What the package exports, for basis/one-definition: each zod object in it is part of a type.
+  exports: () => import("./index.ts"),
   rules: [maxTokensInWindow, named],
 });

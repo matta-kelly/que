@@ -1,16 +1,27 @@
 #!/usr/bin/env node
 /**
  * The command of @mku1tra/que-harness: `que-harness lint <deployment folder>` lints the deployment as one graph, with
- * the harness schema (lintDeployment), from its code alone: no model fact is asked for, and no network is read. Prints
+ * the harness schema, from its code alone (the source `deployment`): no note of the folder is read, no model fact is
+ * asked for, and no network is read. It lints as a folder's lint does (lintFolder), so it runs basis's rules over the
+ * schemas themselves too: their type notes, and each zod object their packages export (basis/one-definition). Prints
  * each problem at its file, from the folder it is run in, and ends with a fault when there is one.
  */
 
 import { realpathSync } from "node:fs";
-import { relative, resolve, sep } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sayProblem } from "@mku1tra/que-plugin";
+import { lintFolder } from "@mku1tra/basis";
+import { harness } from "./schema.ts";
 import { readDeployment } from "./read.ts";
-import { lintDeployment } from "./source.ts";
+import { deployment } from "./source.ts";
+
+// The folder that holds both folders.
+const holding = (one: string, other: string): string => {
+  let at = one;
+  while (relative(at, other).startsWith("..")) at = dirname(at);
+  return at;
+};
 
 const USAGE = "usage: que-harness lint <deployment folder>";
 
@@ -22,11 +33,17 @@ export async function command(
   const [verb, folder, ...rest] = args;
   if (verb !== "lint" || folder === undefined || rest.length)
     return { out: USAGE, code: 2 };
-  const { problems } = lintDeployment(
-    await readDeployment(resolve(cwd, folder)),
-  );
-  const from = (path: string) =>
-    path.startsWith(sep) ? relative(cwd, path) || "." : path;
+  const dir = resolve(cwd, folder);
+  // The folder linted holds the deployment and each plugin it installs, which can sit in a node_modules above it. Its
+  // code is given by the source; no note of it is read.
+  const root = (await readDeployment(dir)).plugins
+    .map((plugin) => plugin.dir)
+    .reduce(holding, dir);
+  const { problems } = await lintFolder(harness, root, {
+    sources: [deployment(dir, root)],
+    skip: () => true,
+  });
+  const from = (path: string) => relative(cwd, resolve(root, path)) || ".";
   return problems.length
     ? {
         out: problems

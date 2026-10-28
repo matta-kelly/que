@@ -12,6 +12,7 @@
  * `tsx check-deployment.ts <deployment folder>`
  */
 
+import { realpathSync } from "node:fs";
 import { readDeployment } from "@mku1tra/que-harness";
 import { mountDeployment } from "./deployment.js";
 import type { FactSources } from "./model-facts/index.js";
@@ -41,5 +42,6 @@ try {
   console.error((error as Error).message);
   process.exit(1);
 }
+// Each by its real folder: a plugin is installed as a link, and its code is checked where it is.
 for (const plugin of (await readDeployment(dir)).plugins)
-  console.log(plugin.dir);
+  console.log(realpathSync(plugin.dir));

@@ -238,5 +238,9 @@ export const plugin = defineSchema({
   },
   // From the package root, so the path is the same from src/ and from dist/.
   typeNotes: new URL("../types/", import.meta.url),
+  // What the package exports, for basis/one-definition: each zod object in it is part of a type, or a bridge.
+  exports: () => import("./index.ts"),
+  // The frontmatter of an Agent Skills SKILL.md: the standard's shape, which no type defines.
+  bridges: ["SkillFrontmatter"],
   rules: [toolName, opRole, ownUse, connectorUse],
 });

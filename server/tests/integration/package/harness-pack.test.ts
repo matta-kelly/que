@@ -11,9 +11,11 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   cpSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -135,4 +137,57 @@ test("its command runs from the folder's node_modules/.bin, and says how to use 
   );
   assert.equal(status, 2);
   assert.equal(stderr.trim(), "usage: que-harness lint <deployment folder>");
+});
+
+// A deployment in the folder, and a plugin of its own repo, linked into its node_modules as npm workspaces link one:
+// what a deployment that installs que-harness has.
+const deploymentWith = (plugins: string[]) => {
+  const files: Record<string, string> = {
+    "plugins/notes/package.json": '{ "name": "notes", "type": "module" }\n',
+    "plugins/notes/io.github.matta-kelly.que/index.ts": `import { definePlugin } from "@mku1tra/que-plugin";
+export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down." });
+`,
+    "deployment/index.ts": `import { defineDeployment } from "@mku1tra/que-harness";
+export default defineDeployment({ name: "outside", type: "deployment", description: "A deployment.", plugins: ["notes"], agents: ["chat"], loops: ["long-chat"], models: ["small"] });
+`,
+    "deployment/agents/chat.ts": `import { defineAgent } from "@mku1tra/que-harness";
+export default defineAgent({ name: "chat", type: "agent", description: "The agent a chat gets.", plugins: ${JSON.stringify(plugins)}, model: "small", loop: "long-chat" });
+`,
+    "deployment/loops/long-chat.ts": `import { defineLoop } from "@mku1tra/que-harness";
+export default defineLoop({ name: "long-chat", type: "loop", description: "A loop." });
+`,
+    "deployment/models/small.ts": `import { defineModel } from "@mku1tra/que-harness";
+export default defineModel({ name: "small", type: "model", description: "A model.", id: "fireworks:small", maxTokens: 1000 });
+`,
+  };
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(join(outside, path, ".."), { recursive: true });
+    writeFileSync(join(outside, path), text);
+  }
+  rmSync(join(outside, "node_modules/notes"), { force: true });
+  symlinkSync("../plugins/notes", join(outside, "node_modules/notes"));
+};
+
+const lint = () =>
+  spawnSync(
+    join(outside, "node_modules/.bin/que-harness"),
+    ["lint", "deployment"],
+    { cwd: outside, env, encoding: "utf8" },
+  );
+
+test("its command lints a deployment and a linked plugin, and finds no problem in a sound one", () => {
+  deploymentWith(["notes"]);
+  const { status, stdout, stderr } = lint();
+  assert.equal(status, 0, stderr);
+  assert.equal(stdout.trim(), "no problem");
+});
+
+test("its command prints a problem of a deployment at its file, and ends with a fault", () => {
+  deploymentWith(["notes", "delta"]);
+  const { status, stderr } = lint();
+  assert.equal(status, 1);
+  assert.equal(
+    stderr.trim(),
+    "deployment/agents/chat.ts: /plugins: names the plugin delta, which the deployment does not mount (basis/link)",
+  );
 });
