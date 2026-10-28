@@ -1,18 +1,44 @@
 {
   "name": "@mku1tra/que-harness",
-  "version": "0.0.0",
-  "private": true,
-  "description": "What runs que's plugins: the agent, loop, model and deployment contracts, and the harness schema of que's ontology (agent, model, loop and deployment), which imports the plugin schema of @mku1tra/que-plugin.",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
+  "version": "0.1.0",
+  "description": "What runs que's plugins: the harness schema of que's ontology (agent, model, loop and deployment), which imports the plugin schema of @mku1tra/que-plugin, and whose types are the contract of a deployment and its configs; the reader of a deployment, the source that gives its graph to a lint, and the command that lints it.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matta-kelly/que.git",
+    "directory": "server/harness"
   },
-  "dependencies": {
-    "@mku1tra/basis": "^0.22.0",
-    "@mku1tra/que-plugin": "*",
-    "zod": "^4.6.5"
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    ".": {
+      "@mku1tra/que-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   },
   "bin": {
-    "que-harness": "./src/command.ts"
+    "que-harness": "./dist/command.js"
+  },
+  "files": [
+    "dist",
+    "types"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "npm run build && cp ../../LICENSE LICENSE"
+  },
+  "peerDependencies": {
+    "@mku1tra/basis": "^0.22.0",
+    "@mku1tra/que-plugin": "^0.6.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

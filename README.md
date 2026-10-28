@@ -29,8 +29,8 @@ Built with LangChain `createAgent` on the LangGraph dev server, Next.js with ass
 Two apps in one repo. Each has its own `package.json`, lockfile, lint and format config, and neither imports from the other.
 
 - `server/`: the plugin package, the harness package, the backend, the model maker, the runtime and the eval runner
-    - `plugin/`: everything a plugin is (`@mku1tra/que-plugin`, published on npm: see [The plugin package](#the-plugin-package)). In `src/`: the contract (`contract.ts`), its skills and cases, where a plugin's files are (`layout.ts`), how one is read (`read.ts`), its card (`card.ts`), the plugin schema (`schema.ts`), the one check of plugins (`lint.ts`) and the source of plugins for a lint (`source.ts`). Beside `src/`: the Agent Plugins schema a card is checked against (`standards/`), the type notes (`types/`), and `plugin-contract.md`, the plugin contract in words. The plugins themselves are in deployments
-    - `harness/`: what runs plugins (`@mku1tra/que-harness`). In `src/`: the harness schema (`schema.ts`): agent, model, loop and deployment, which imports the plugin schema; how code gives a node of it (`define.ts`, with `deployment.ts`, `agent.ts`, `loop.ts` and `model.ts`, each type's node in code and its helpers); how a deployment is read (`read.ts`); its pieces, the source and the lint of its graph (`source.ts`); and the command, `que-harness lint` (`command.ts`). Beside `src/`: the type notes (`types/harness/`)
+    - `plugin/`: everything a plugin is (`@mku1tra/que-plugin`, published on npm: see [The published packages](#the-published-packages)). In `src/`: the contract (`contract.ts`), its skills and cases, where a plugin's files are (`layout.ts`), how one is read (`read.ts`), its card (`card.ts`), the plugin schema (`schema.ts`), the one check of plugins (`lint.ts`) and the source of plugins for a lint (`source.ts`). Beside `src/`: the Agent Plugins schema a card is checked against (`standards/`), the type notes (`types/`), and `plugin-contract.md`, the plugin contract in words. The plugins themselves are in deployments
+    - `harness/`: what runs plugins (`@mku1tra/que-harness`, published on npm: see [The published packages](#the-published-packages)). In `src/`: the harness schema (`schema.ts`): agent, model, loop and deployment, which imports the plugin schema; how code gives a node of it (`define.ts`, with `deployment.ts`, `agent.ts`, `loop.ts` and `model.ts`, each type's node in code and its helpers); how a deployment is read (`read.ts`); its pieces, the source and the lint of its graph (`source.ts`); and the command, `que-harness lint` (`command.ts`). Beside `src/`: the type notes (`types/harness/`)
     - `backend/`: the services the runtime stands on (`identity/`, `users/`, `credentials/`)
     - `chat-model/`: the model maker (`@que/chat-model`): the framework's model for a model config, and que's own model for Beam (`chat-model/beam.ts`). The runtime makes each chat's model with it
     - `runtime/`: the runtime (`@que/runtime`). In `src/`, in the order the work flows, and the only way an import points:
@@ -61,14 +61,14 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 5. Set `QUE_HOME` to this repo's folder, and run `just start` in the deployment. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder and its repo
 6. Open http://localhost:3000 and connect the deployment's services in Settings > Connections
 
-## The plugin package
+## The published packages
 
-`server/plugin` is published on npm as `@mku1tra/que-plugin`, so a plugin installs it by version. que's other packages are private.
+`server/plugin` is published on npm as `@mku1tra/que-plugin`, so a plugin installs it by version, and `server/harness` as `@mku1tra/que-harness`, so a deployment does, with its command, `que-harness lint <deployment folder>`. que's other packages are private.
 
-- npm gets JavaScript: `npm pack` builds `src/` to `dist/` first (`prepack`). Inside que it resolves to `src/` with no build, by que's condition `@mku1tra/que-source` (`server/.npmrc`, and `customConditions` in server/tsconfig.base.json)
-- `server/tests/integration/package/` holds the tarball to its file list, and installs it in an empty folder and imports it with plain Node
-- a release: set the version in `server/plugin/package.json`, push, then tag that commit `que-plugin-v<version>` and push the tag. `.github/workflows/publish.yml` runs the server set and publishes it, by trusted publishing. que's own tags, `v*`, publish nothing
-- by hand, once: the first version is published in the dev container, signed in to npm there as the owner of `@mku1tra`: `podman exec -it -u node -w "$PWD/server/plugin" <container> sh -c 'npm login && npm publish'`. Trusted publishing can only be set on a package that exists. Then, on npmjs.com, the package's Trusted Publisher is GitHub Actions, `matta-kelly/que`, workflow `publish.yml`. On GitHub, a tag ruleset lets only an admin make a `que-plugin-v*` tag
+- npm gets JavaScript: `npm pack` builds each package's `src/` to `dist/` first (`prepack`). Inside que it resolves to `src/` with no build, by que's condition `@mku1tra/que-source` (`server/.npmrc`, and `customConditions` in server/tsconfig.base.json)
+- `server/tests/integration/package/` holds each tarball to its file list, and installs it in an empty folder and imports it with plain Node
+- a release: set the version in the package's `package.json`, push, then tag that commit `que-plugin-v<version>` or `que-harness-v<version>` and push the tag. `.github/workflows/publish.yml` runs the server set and publishes it, by trusted publishing. que's own tags, `v*`, publish nothing
+- by hand, once for each package: its first version is published in the dev container, signed in to npm there as the owner of `@mku1tra`: `podman exec -it -u node -w "$PWD/server/<plugin or harness>" <container> sh -c 'npm login && npm publish'`. Trusted publishing can only be set on a package that exists. Then, on npmjs.com, the package's Trusted Publisher is GitHub Actions, `matta-kelly/que`, workflow `publish.yml`. On GitHub, a tag ruleset lets only an admin make a `que-plugin-v*` or `que-harness-v*` tag
 
 ## Commands
 

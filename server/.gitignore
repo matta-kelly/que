@@ -3,3 +3,7 @@
 .langgraph_api
 # The copy of the repo's LICENSE that `npm pack` puts in the tarball of @mku1tra/que-plugin.
 plugin/LICENSE
+# The copy of the repo's LICENSE that `npm pack` puts in the tarball of @mku1tra/que-harness.
+harness/LICENSE
+# The copy of the plugin package harness-pack.test.ts packs, while it runs.
+.pack-plugin-*
