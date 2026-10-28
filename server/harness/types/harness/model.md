@@ -1,6 +1,5 @@
 ---
 type: type
-description: "One model a deployment's agents can run on. `Model` in @mku1tra/que-harness."
 ---
 What this model is for, in one line: the agents that run on it, and why.
 - [[#Choice]] why this model: its price, its window, and what it does well

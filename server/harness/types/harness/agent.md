@@ -1,6 +1,5 @@
 ---
 type: type
-description: "One way a deployment's plugins are run: the plugins, the model, the loop and the instructions. `Agent` in @mku1tra/que-harness."
 ---
 What this agent is for, in one line: who uses it, and for what.
 - [[#Plugins]] why it gets these plugins, and not others

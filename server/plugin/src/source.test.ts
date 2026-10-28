@@ -66,11 +66,13 @@ async function vault(
   return root;
 }
 
-const lintOf = (root: string) =>
-  lintFolder(plugin, root, {
-    sources: [plugins(join(root, "plugins"), root)],
-    skip: (path) => path.endsWith("SKILL.md"),
-  });
+const lintOf = async (root: string) =>
+  (
+    await lintFolder(plugin, root, {
+      sources: [plugins(join(root, "plugins"), root)],
+      skip: (path) => path.endsWith("SKILL.md"),
+    })
+  ).problems;
 
 test("gives each node of a plugin from its card and its skills, each by its name in the graph", async () => {
   const root = await vault();

@@ -106,7 +106,7 @@ export function checkPlugins(
     unread
       .filter((name) => !given.has(name))
       .map((name) => ({ path: "", name })),
-  );
+  ).problems;
 }
 
 /** A problem, as basis's lint says it: `<path>: <field>: <message> (<rule>)`. */

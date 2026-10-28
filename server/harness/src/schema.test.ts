@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { lintFolder } from "@mku1tra/basis";
 import { plugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
 import * as exported from "./index.ts";
@@ -125,4 +127,9 @@ test("each type of the harness schema is a schema the package exports by its nam
       `no export ${pascal(name)} for the type ${name}`,
     );
   }
+});
+
+test("each type note of the harness schema gives only prose, and is one node with its type's code", async () => {
+  const folder = fileURLToPath(harness.typeNotes!);
+  assert.deepEqual((await lintFolder(harness, folder)).problems, []);
 });

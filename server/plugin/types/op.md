@@ -1,6 +1,5 @@
 ---
 type: type
-description: "One operation a plugin exposes: a tool the model calls, which runs in que. `Op` in @mku1tra/que-plugin."
 ---
 What this op does, in one line: a verb and its object.
 - [[#Use]] when the model calls it, and which op to call in its place

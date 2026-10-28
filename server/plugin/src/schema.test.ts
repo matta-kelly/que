@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { lintFolder } from "@mku1tra/basis";
 import * as z from "zod";
 import * as exported from "./index.ts";
 import { plugin } from "./schema.ts";
@@ -113,4 +115,9 @@ test("each type of the plugin schema is a schema the package exports by its name
       `no export ${pascal(name)} for the type ${name}`,
     );
   }
+});
+
+test("each type note of the plugin schema gives only prose, and is one node with its type's code", async () => {
+  const folder = fileURLToPath(plugin.typeNotes!);
+  assert.deepEqual((await lintFolder(plugin, folder)).problems, []);
 });
