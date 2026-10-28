@@ -1,9 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lintFolder } from "@mku1tra/basis";
+import { command } from "./command.ts";
 import { harness } from "./schema.ts";
 import { deployment } from "./source.ts";
 
@@ -75,6 +83,71 @@ test("gives the deployment, each config its folders give and each plugin it name
     assert.deepEqual(await lintOf(root), []);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("gives a plugin linked from a node_modules above the deployment, as an npm workspace links it, at its real path, and the deployment lints clean", async () => {
+  // A workspace that holds the deployment, whose plugin is in the deployment's repo, linked from the workspace's own
+  // node_modules: none is in the deployment's folder.
+  const workspace = await mkdtemp(join(tmpdir(), "que-workspace-"));
+  const root = join(workspace, "landl");
+  const plugin = "node_modules/notes";
+  try {
+    for (const [path, text] of Object.entries(files(["notes"]))) {
+      const at = join(root, path.replace(plugin, "plugins/notes"));
+      await mkdir(join(at, ".."), { recursive: true });
+      await writeFile(at, text);
+    }
+    await mkdir(join(workspace, "node_modules"));
+    await symlink(
+      join("..", "landl", "plugins", "notes"),
+      join(workspace, plugin),
+    );
+    const { pieces, problems } = await deployment(root, root)();
+    assert.deepEqual(problems, []);
+    assert.deepEqual(
+      pieces.filter((p) => p.fields.type === "plugin").map((p) => p.path),
+      ["plugins/notes/io.github.matta-kelly.que/index.ts"],
+    );
+    assert.deepEqual(await lintOf(root), []);
+    assert.deepEqual(await command(["lint", "landl"], workspace), {
+      out: "no problem",
+      code: 0,
+    });
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("gives a plugin whose real folder is outside the folder linted a problem at the definition, and none of its pieces", async () => {
+  // A plugin installed in a node_modules above the deployment, whose folder is not in the deployment's folder.
+  const workspace = await mkdtemp(join(tmpdir(), "que-workspace-"));
+  const root = join(workspace, "landl");
+  const plugin = "node_modules/notes";
+  try {
+    for (const [path, text] of Object.entries(files(["notes"]))) {
+      const at = path.startsWith(plugin)
+        ? join(workspace, path)
+        : join(root, path);
+      await mkdir(join(at, ".."), { recursive: true });
+      await writeFile(at, text);
+    }
+    assert.deepEqual(
+      (await lintOf(root)).map((p) => [p.path, p.rule ?? "fatal", p.message]),
+      [
+        [
+          "index.ts",
+          "fatal",
+          `The plugin notes is in ${await realpath(join(workspace, plugin))}, outside the folder linted: lint from a folder that holds it, as que-harness lint does.`,
+        ],
+      ],
+    );
+    assert.deepEqual(await command(["lint", "landl"], workspace), {
+      out: "no problem",
+      code: 0,
+    });
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
   }
 });
 

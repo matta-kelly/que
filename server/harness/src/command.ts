@@ -33,17 +33,18 @@ export async function command(
   const [verb, folder, ...rest] = args;
   if (verb !== "lint" || folder === undefined || rest.length)
     return { out: USAGE, code: 2 };
-  const dir = resolve(cwd, folder);
-  // The folder linted holds the deployment and each plugin it installs, which can sit in a node_modules above it. Its
-  // code is given by the source; no note of it is read.
-  const root = (await readDeployment(dir)).plugins
+  // The folder linted holds the deployment and the real folder of each plugin it installs, wherever npm put the link
+  // to it: each path the source gives is in it. Its code is given by the source; no note of it is read.
+  const read = await readDeployment(resolve(cwd, folder));
+  const root = read.plugins
     .map((plugin) => plugin.dir)
-    .reduce(holding, dir);
+    .reduce(holding, read.dir);
   const { problems } = await lintFolder(harness, root, {
-    sources: [deployment(dir, root)],
+    sources: [deployment(read.dir, root)],
     skip: () => true,
   });
-  const from = (path: string) => relative(cwd, resolve(root, path)) || ".";
+  const here = realpathSync(cwd);
+  const from = (path: string) => relative(here, resolve(root, path)) || ".";
   return problems.length
     ? {
         out: problems

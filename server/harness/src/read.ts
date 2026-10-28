@@ -2,11 +2,12 @@
  * Read a deployment from its folder: its definition (index.ts), each agent, loop and model in a file of its own,
  * found by folder (agents/, loops/, models/), as Agent Plugins finds a plugin's skills, and each plugin it names,
  * found as Node finds an import of that name from the deployment's folder (readPlugin). Mount, the evals, the source
- * and the command read a deployment this way. What cannot be read is a problem, said at its file, and the rest is
- * still read.
+ * and the command read a deployment this way. Each path is a real path, through each link, as basis compares folders:
+ * the place the code is, wherever npm put a link to it. What cannot be read is a problem, said at its file, and the
+ * rest is still read.
  */
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
@@ -25,6 +26,7 @@ export type Placed<N> = { file: string; node: N };
 
 /** A deployment, as read from its folder: what could be read, and a problem for each file that could not. */
 export type ReadDeployment = {
+  /** Its folder, as its real path. */
   dir: string;
   /** Its definition's file. */
   index: string;
@@ -33,8 +35,8 @@ export type ReadDeployment = {
   agents: Placed<Agent>[];
   loops: Placed<Loop>[];
   models: Placed<Model>[];
-  /** Each plugin it names that is installed, in the order it names them. */
-  plugins: ReadPlugin[];
+  /** Each plugin it names that is installed, in the order it names them, with the name it gives it. */
+  plugins: (ReadPlugin & { name: string })[];
   problems: Unreadable[];
   /** The names of what could not be read: a link to one is not a problem. */
   unread: { path: string; name: string }[];
@@ -50,19 +52,28 @@ export const FOLDERS = {
 const defaultOf = async (file: string): Promise<unknown> =>
   ((await import(pathToFileURL(file).href)) as { default?: unknown }).default;
 
+// A path as its real path, through each link. A path that is not there is kept.
+const realPathOf = (path: string): string => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+};
+
 const reason = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 /**
  * The folder of the plugin `name`: its npm package, found as Node finds an import from the deployment's folder, in the
- * first `node_modules` up from it that has it. None when no folder up from it has it.
+ * first `node_modules` up from it that has it, as its real path: the folder its code is in, not the link npm made to
+ * it. None when no folder up from it has it.
  */
 function pluginFolder(dir: string, name: string): string | undefined {
   // Node's own lookup (require.resolve.paths) gives none for a name that is one of Node's modules, such as `domain`.
   for (let at = dir; ; at = dirname(at)) {
     const folder = join(at, "node_modules", name);
-    // The folder as found, through its link: a path in the deployment's folder, which its lint takes.
-    if (existsSync(join(folder, "package.json"))) return folder;
+    if (existsSync(join(folder, "package.json"))) return realpathSync(folder);
     if (dirname(at) === at) return undefined;
   }
 }
@@ -81,8 +92,9 @@ const configFiles = (folder: string): string[] =>
         .sort()
     : [];
 
-/** The deployment in `dir`: its definition, its configs and its plugins, each read as far as it can be. */
-export async function readDeployment(dir: string): Promise<ReadDeployment> {
+/** The deployment in the folder `given`: its definition, its configs and its plugins, each read as far as it can be. */
+export async function readDeployment(given: string): Promise<ReadDeployment> {
+  const dir = realPathOf(given);
   const index = join(dir, "index.ts");
   const read: ReadDeployment = {
     dir,
@@ -140,7 +152,7 @@ export async function readDeployment(dir: string): Promise<ReadDeployment> {
     const plugin = await readPlugin(folder);
     // A plugin whose definition cannot be read is there, by the name the deployment gives it.
     if (!plugin.definition) read.unread.push({ path: index, name });
-    read.plugins.push(plugin);
+    read.plugins.push({ ...plugin, name });
   }
   return read;
 }

@@ -4,6 +4,7 @@
  * does a folder's lint through `deployment`, the source: one graph of the deployment.
  */
 
+import { realpathSync } from "node:fs";
 import { relative, sep } from "node:path";
 import {
   lint,
@@ -51,11 +52,33 @@ export function piecesOf(
   return out;
 }
 
-/** The source of the deployment in `dir`, for the lint of the folder `root`: each path is from `root`. */
+/**
+ * The source of the deployment in `dir`, for the lint of the folder `root`: each path is a real path (readDeployment),
+ * from `root`'s real path, as basis places a piece. A plugin whose real folder is outside `root` gives none of its
+ * pieces, which would have no path from it: a problem at the deployment's definition names it, and its name is unread.
+ */
 export function deployment(dir: string, root: string): Source {
-  const from = (path: string) => relative(root, path).split(sep).join("/");
   return async function queDeployment() {
-    return piecesOf(await readDeployment(dir), from);
+    const real = realpathSync(root);
+    const from = (path: string) => relative(real, path).split(sep).join("/");
+    const read = await readDeployment(dir);
+    const outside = read.plugins.filter(
+      (plugin) =>
+        from(plugin.dir) === ".." || from(plugin.dir).startsWith("../"),
+    );
+    const given = piecesOf(
+      { ...read, plugins: read.plugins.filter((p) => !outside.includes(p)) },
+      from,
+    );
+    for (const plugin of outside) {
+      given.problems.push({
+        path: from(read.index),
+        message: `The plugin ${plugin.name} is in ${plugin.dir}, outside the folder linted: lint from a folder that holds it, as que-harness lint does.`,
+        fatal: true,
+      });
+      given.unread.push({ path: from(read.index), name: plugin.name });
+    }
+    return given;
   };
 }
 

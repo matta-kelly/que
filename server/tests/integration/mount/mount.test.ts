@@ -1,7 +1,8 @@
 /**
  * Mount, against real folders: the deployments and plugins in fixtures/. A deployment's plugins are installed by name,
- * as links in fixtures/deployments/node_modules. No network: mounting reads definitions and skills and opens no
- * connection, and each model's facts are in its file, or come from the sources a test hands in.
+ * as links in fixtures/deployments/node_modules, and each is read, and named, at its real folder in fixtures/plugins.
+ * No network: mounting reads definitions and skills and opens no connection, and each model's facts are in its file,
+ * or come from the sources a test hands in.
  */
 
 import { after, test } from "node:test";
@@ -157,7 +158,7 @@ test("a mounted plugin has its skills", async () => {
 
 test("stops, naming the folder and the fault, when a listed plugin breaks the plugin contract", async () => {
   await assert.rejects(mount("bad"), (error: Error) => {
-    assert.match(error.message, /node_modules\/bad\//);
+    assert.match(error.message, /plugins\/bad\//);
     assert.match(error.message, /description/);
     return true;
   });
@@ -196,7 +197,7 @@ test("stops, naming the domain and the name, when a domain uses an op the deploy
   await assert.doesNotReject(loadPlugin(join(fixtures, "plugins/stray")));
   await assert.rejects(
     mount("uses-unresolved"),
-    /^Error: mount: deployment .*uses-unresolved breaks the harness schema:\n- .*node_modules\/stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
+    /^Error: mount: deployment .*uses-unresolved breaks the harness schema:\n- .*plugins\/stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
   );
 });
 
@@ -233,7 +234,7 @@ test("stops, naming both definitions, when two plugins list one capability", asy
     (error: Error) => {
       assert.ok(
         error.message.includes(
-          `${join(workspace, "node_modules/one")}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric: The name find-fabric is also the name of ${join(workspace, "node_modules/two")}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric. (basis/unique-name)`,
+          `${one}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric: The name find-fabric is also the name of ${two}/io.github.matta-kelly.que/index.ts#capabilities/find-fabric. (basis/unique-name)`,
         ),
       );
       return true;
@@ -253,7 +254,7 @@ test("stops, saying where que's files go, when a plugin's definition is at its r
   await assert.rejects(mount("old-layout"), (error: Error) => {
     assert.match(
       error.message,
-      /node_modules\/old-layout: que's files are in io\.github\.matta-kelly\.que\/, not at the plugin's root/,
+      /plugins\/old-layout: que's files are in io\.github\.matta-kelly\.que\/, not at the plugin's root/,
     );
     return true;
   });
@@ -263,7 +264,7 @@ test("stops, naming the folder, when a listed folder holds no plugin", async () 
   await assert.rejects(mount("hollow"), (error: Error) => {
     assert.match(
       error.message,
-      /node_modules\/hollow holds no plugin \(no io\.github\.matta-kelly\.que\/index\.ts\)/,
+      /plugins\/hollow holds no plugin \(no io\.github\.matta-kelly\.que\/index\.ts\)/,
     );
     return true;
   });

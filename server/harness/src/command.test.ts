@@ -29,7 +29,7 @@ test("lint finds a case about another plugin's capability, in the deployment's g
   assert.deepEqual(
     await command(["lint", "deployments/case-elsewhere"], fixtures),
     {
-      out: "deployments/node_modules/stranger/io.github.matta-kelly.que/index.ts: /cases/0: hold-it-asked is about hold-it, which stranger does not list: a case is about a capability of the plugin that holds it. (plugin/case-capability)",
+      out: "plugins/stranger/io.github.matta-kelly.que/index.ts: /cases/0: hold-it-asked is about hold-it, which stranger does not list: a case is about a capability of the plugin that holds it. (plugin/case-capability)",
       code: 1,
     },
   );
