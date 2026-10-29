@@ -23,7 +23,7 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 	- `plugin.json`, the card: `name` (required), and `version`, `description`, `author` and the like
 		- a bridge: que writes it from the plugin's nodes at publish (`cardOf` in `@mku1tra/que-plugin`, run by `just card`), for a harness that runs no code. It is never committed, and nothing of que's reads it back: mount, the evals and the lint read the code, whatever a `plugin.json` in the folder holds
 		- `name` and `description` from the plugin node, `version` from the plugin's `package.json`
-		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in the plugin schema, by their real names and fields, each live value as data: `format` (3), `title`, `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `usesOps`, `usesSkills`, `capabilities`, `cases`. A function is left out. Skills are not in it: their folders are the standard's
+		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in the plugin schema, by their real names and fields, each live value as data: `format` (4), `title`, `kind` (`connector` when the plugin leaves it out), `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role`), `roles`, `usesOps`, `usesSkills`, `capabilities`, `cases`. A function is left out. Skills are not in it: their folders are the standard's
 		- checked against the standard's own schema when it is written, kept in que (`plugin/standards/agent-plugins-1.0.0/`), never fetched
 	- `skills/<name>/SKILL.md`: found by folder, not listed. The Agent Skills format
 	- `mcp.json`: optional. que does not use it: ops run in que, with no server per plugin
@@ -65,21 +65,22 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 	- mount reads them with the definition (`readPlugin`): a case that breaks the contract fails the mount, and so does one whose capability no plugin of the deployment holds (`basis/link`)
 	- a case's plugin is the one whose `cases.ts` holds it: the plugin's piece lists its cases (`cases`), and the case is about a capability that plugin lists, in any graph, a lone plugin's or a deployment's (`plugin/case-capability`; a capability that is no node is `basis/link`). The evals run it with that plugin
 	- a case runs against the real service. A case that changes data changes real data
-- **kind**: two kinds of plugin, by what they touch
+- **kind**: two kinds of plugin, by what they touch. The plugin says its kind (`kind`: `"connector"` or `"domain"`), and is a connector when it leaves it out. The card says it too
 	- connector: one service. It holds what the service needs: the credential, the roles, the logins, and the failure that says what is missing. Each of its ops stands alone ([[op-contract#Kinds]])
-	- domain: across services. What it uses, it uses through the connectors. The contract knows a domain by its `usesOps` and `usesSkills`
-		- designed, not built (the plugin-interoperability design, in kinetic): the plugin says its kind (`kind`, a connector when left out); a domain has no `credential`, no `connect` and no `roles`; a user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, saying what to connect
+	- domain: across services. What it uses, it uses through the connectors
+		- the check: a domain gives no `credential`, no `connect` and no `roles`, each field said (`plugin/domain-connection`); a plugin that lists what it uses (`usesOps`, `usesSkills`) and does not say `kind: "domain"` fails, as a domain says its kind (`plugin/domain-uses`)
+		- designed, not built (the plugin-interoperability design, in kinetic): a user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, saying what to connect
 - a plugin carries only the parts it uses: skills only, operations only, or both
 - what the definition does not list, the harness does not read, but for skills: each folder under `skills/` is one
 
 ### Credentials / Access
 
-Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses (the plugin-interoperability design, in kinetic), each op and skill listing what it uses, and what each user gets each chat.
+Built: the kind, roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses (the plugin-interoperability design, in kinetic), each op and skill listing what it uses, and what each user gets each chat.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
 	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. Each fault is reported once: an op with no role, in a plugin that lists roles, and an op whose role is another plugin's, by `plugin/op-role` (`warehouse-search names no role`); a role that is no node, by `basis/link`
-- domain: lists what it uses from connectors, each op and skill by its name, in two links: `usesOps` to ops and `usesSkills` to skills (`usesOps: ["warehouse-get-fabric"], usesSkills: ["warehouse-fabric-guide"]`)
+- domain (`kind: "domain"`): lists what it uses from connectors, each op and skill by its name, in two links: `usesOps` to ops and `usesSkills` to skills (`usesOps: ["warehouse-get-fabric"], usesSkills: ["warehouse-fabric-guide"]`)
 	- the check: each name is an op, or a skill, of a plugin that uses nothing (`plugin/connector-use`), so there are no chains and no cycles; a plugin uses none of its own (`plugin/own-use`), as its own are its already
 	- designed, not built: each domain op lists the connector ops it calls, each skill lists the ops it uses in its frontmatter (`allowed-tools`), and the plugin's `usesOps` is made from both, never written ([[op-contract#Uses]]). `usesSkills` stays written
 - one definition: the plugin schema gives basis its package's exports (`exports`), and a root's lint (lot's, que's check, `basis lint` of a deployment's root) fails each zod object exported that is no part of a type nor a bridge it names, and each bridge that excuses nothing (`basis/one-definition`)

@@ -17,7 +17,7 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 
 ## Kinds
 
-The kind of an op is the kind of its plugin. Today the contract knows a domain by its `usesOps` and `usesSkills`. Designed, not built: the plugin says its kind (`kind`), and is a connector when it leaves it out
+The kind of an op is the kind of its plugin. The plugin says its kind (`kind`), and is a connector when it leaves it out ([[plugin-contract]])
 
 - connector op: one action on its plugin's service, with its plugin's connection. It stands alone: it calls no other op. Built
 - domain op: a fixed procedure across services. It calls the connector ops it lists, through que, and has no connection of its own. Use one where the order of the steps must not depend on the model, as a write in more than one service. Where the model must judge, a skill guides it through the connector ops instead. Not built

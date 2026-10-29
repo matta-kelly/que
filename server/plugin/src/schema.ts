@@ -15,7 +15,7 @@ import {
 } from "@mku1tra/basis";
 import * as z from "zod";
 import { fn } from "./check.ts";
-import { text } from "./fields.ts";
+import { must, text } from "./fields.ts";
 
 // A zod object, of zod or of zod/mini: both are of zod's core class, as basis reads one.
 const isObject = (value: unknown): value is z.core.$ZodObject =>
@@ -106,6 +106,10 @@ const pluginType = defineType({
     "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `Plugin` in @mku1tra/que-plugin.",
   fields: {
     title: text,
+    // What it touches: one service (a connector, when left out), or many, through the connectors (a domain).
+    kind: z
+      .enum(["connector", "domain"], { error: must('"connector" or "domain"') })
+      .optional(),
     // When it talks to a service: the credential it needs, how it turns one into a connection, and who that is.
     credential: credential.optional(),
     connect: fn.optional(),
@@ -182,6 +186,45 @@ const usesOf = (node: { usesOps?: string[]; usesSkills?: string[] }) => [
   ...(node.usesOps ?? []).map((name) => ({ name, field: "/usesOps" })),
   ...(node.usesSkills ?? []).map((name) => ({ name, field: "/usesSkills" })),
 ];
+
+// A domain reaches a service only through a connector's ops: the connection is the connector's. Each field it gives is
+// said once.
+const domainConnection = defineRule({
+  name: "domain-connection",
+  description:
+    "A domain holds no connection: no credential, no connect and no roles.",
+  on: pluginType,
+  check: (node) =>
+    node.kind === "domain"
+      ? [
+          ["credential", node.credential !== undefined] as const,
+          ["connect", node.connect !== undefined] as const,
+          ["roles", !!node.roles?.length] as const,
+        ]
+          .filter(([, held]) => held)
+          .map(([field]) => ({
+            field: `/${field}`,
+            message: `${node.name} is a domain, and gives ${field}: a domain holds no connection, it uses the connectors' ops.`,
+          }))
+      : [],
+});
+
+// What a plugin uses makes it a domain, and a domain says so: a plugin that leaves out its kind is a connector.
+const domainUses = defineRule({
+  name: "domain-uses",
+  description:
+    "Only a plugin that says kind domain lists what it uses (usesOps and usesSkills).",
+  on: pluginType,
+  check: (node) =>
+    node.kind === "domain"
+      ? []
+      : (["usesOps", "usesSkills"] as const)
+          .filter((field) => node[field]?.length)
+          .map((field) => ({
+            field: `/${field}`,
+            message: `${node.name} lists what it uses in ${field}, and does not say kind "domain": a domain says its kind.`,
+          })),
+});
 
 // Its own ops and skills are a plugin's already: what it uses is another plugin's.
 const ownUse = defineRule({
@@ -267,5 +310,13 @@ export const plugin = defineSchema({
   exports: () => import("./index.ts"),
   // The frontmatter of an Agent Skills SKILL.md: the standard's shape, which no type defines.
   bridges: ["SkillFrontmatter"],
-  rules: [toolName, opRole, ownUse, connectorUse, caseCapability],
+  rules: [
+    toolName,
+    opRole,
+    domainConnection,
+    domainUses,
+    ownUse,
+    connectorUse,
+    caseCapability,
+  ],
 });

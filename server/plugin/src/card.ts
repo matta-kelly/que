@@ -25,7 +25,7 @@ export const CARD_SCHEMA =
   "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 /** The version of que's part of a card. It changes when that part's shape does. */
-export const CARD_FORMAT = 3;
+export const CARD_FORMAT = 4;
 
 /** A node as a card holds it: its fields, with no type. */
 type Written<N> = Omit<N, "type">;
@@ -40,6 +40,7 @@ export type Card = {
     [NAMESPACE]: {
       format: typeof CARD_FORMAT;
       title: string;
+      kind: "connector" | "domain";
       credential?: Schema;
       ops: {
         name: string;
@@ -185,6 +186,8 @@ export function cardOf(
       [NAMESPACE]: {
         format: CARD_FORMAT,
         title: plugin.title,
+        // A plugin that leaves out its kind is a connector: a reader that runs no code is told so.
+        kind: plugin.kind ?? "connector",
         ...(plugin.credential === undefined
           ? {}
           : {
