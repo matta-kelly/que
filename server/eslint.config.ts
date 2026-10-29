@@ -100,12 +100,13 @@ const credentials: Rule = {
   why: "A way of loading does not reach for credentials.",
 };
 const chatModelAlone: Rule = {
-  path: /^(?!\.\/|@mku1tra\/que-harness$|langchain$|@langchain\/|node:)/,
-  why: "@que/chat-model imports only its own files, @mku1tra/que-harness, LangChain and node: the runtime and the eval runner both import it, never the other way.",
+  path: /^(?!\.\/|@mku1tra\/que-harness$|langchain$|@langchain\/|@earendil-works\/pi-ai(?:\/|$)|node:)/,
+  why: "@que/chat-model imports only its own files, @mku1tra/que-harness, LangChain, pi-ai and node: the runtime and the eval runner both import it, never the other way.",
 };
 const providers: Rule = {
-  path: /^@langchain\/(?:openai|fireworks)(?:\/|$)/,
-  why: "Only chat-model/ names a provider package.",
+  // pi-ai's faux provider calls no service: a test scripts a model with it.
+  path: /^@langchain\/(?:openai|fireworks)(?:\/|$)|^@earendil-works\/pi-ai\/providers\/(?!faux$)/,
+  why: "Only chat-model/ names a provider package, or a provider of pi-ai's.",
 };
 const pluginAlone: Rule = {
   path: /^(?!\.\/|@mku1tra\/basis$|ajv(?:\/|$)|zod(?:\/|$)|node:)/,
