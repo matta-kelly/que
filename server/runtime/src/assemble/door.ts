@@ -34,10 +34,12 @@ export function door(connect: Connect): Call {
         return await op.run({ conn }, input);
       } catch (error) {
         // A failed call shows on its span: status ERROR, and the throw as an exception event.
-        span.recordException(error as Error);
+        // A throw that is no Error is recorded as its text.
+        const thrown = error instanceof Error ? error : String(error);
+        span.recordException(thrown);
         span.setStatus({
           code: SpanStatusCode.ERROR,
-          message: (error as Error).message,
+          message: typeof thrown === "string" ? thrown : thrown.message,
         });
         throw error;
       } finally {
