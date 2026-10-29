@@ -1,15 +1,40 @@
 ---
 type: component
-description: "What an operation is in que, and what makes a good one: its tool card, how it answers, and what a write promises. Read before writing or reviewing an operation. The code is `Op` in `@mku1tra/que-plugin`."
+description: "What an operation is in que, its two kinds, what it runs with and what it uses, and what makes a good one: its tool card, how it answers, and what a write promises. Read before writing or reviewing an operation. The code is `Op` in `@mku1tra/que-plugin`."
 status: running
 ---
-An operation is one thing the model can do in a plugin. The harness turns each one into a tool, named by the op's name.
+op: a function of a plugin that que gives the model as one tool, and runs for one user.
+- [[#Kinds]] a connector op and a domain op
+- [[#Context]] what an op runs with
+- [[#Uses]] what an op calls, said in its definition
 - [[#Tool card]] what the model reads before it calls
 - [[#Input]] what it takes
 - [[#Answer]] what comes back
 - [[#Writes]] what an operation that changes data promises
 
 - [[plugin-contract]]: the contract an operation is part of
+- [[plugin-interoperability-design]]: the design of the domain op, its context and uses. Not built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
+
+## Kinds
+
+The kind of an op is the kind of its plugin.
+
+- connector op: one action on its plugin's service, with its plugin's connection. It stands alone: it calls no other op. Built
+- domain op: a fixed procedure across services. It calls the connector ops it lists, through que, and has no connection of its own. Use one where the order of the steps must not depend on the model, as a write in more than one service. Where the model must judge, a skill guides it through the connector ops instead. Not built
+
+## Context
+
+What `run(ctx, params)` gets as `ctx`.
+
+- connector op: `{ conn }`, the connection to its service, logged in for the user. Built
+- domain op: `{ ops }`, one function for each op it lists, by the op's name. Each one runs that op through que, with that op's login for the user. The domain op never sees a login. Not built
+- `params` is the input, parsed with the op's `input`
+
+## Uses
+
+- a domain op lists the connector ops it calls (`uses`). It can call only those. Not built: today the plugin lists what its ops and skills use, as one list (`usesOps`, [[plugin-contract#Credentials / Access]])
+- a connector op lists nothing: it stands alone
+- the plugin's list is the sum of its ops' and skills' lists, made from them and never written. Not built
 
 ## Tool card
 
