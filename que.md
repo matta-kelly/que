@@ -133,7 +133,7 @@ agent ─────────────────▶  assemble  turn its
 		- in
 			- plugins, through the plugin contract (`@mku1tra/que-plugin`)
 			- the deployment's definition and its agent, loop and model configs, written against `@mku1tra/que-harness`
-			- the backend: users, credentials and identity (`@que/users`, `@que/credentials`, `@que/identity`)
+			- the backend: users, credentials, identity and thread records (`@que/users`, `@que/credentials`, `@que/identity`, `@que/threads`)
 			- models (`@que/chat-model`)
 		- out
 			- the agent, to the LangGraph server

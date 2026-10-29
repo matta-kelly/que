@@ -8,9 +8,11 @@
   },
   "scripts": {
     "start": "tsx src/run/cli.ts",
-    "server": "langgraphjs dev --port 2024 --no-browser"
+    "server": "langgraphjs dev --port 2024 --no-browser",
+    "serve": "tsx src/listen.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^2.1.5",
     "@langchain/core": "^1.2.17",
     "@langchain/langgraph-sdk": "^1.11.2",
     "@langfuse/langchain": "^5.13.1",
@@ -22,6 +24,7 @@
     "@que/chat-model": "*",
     "@que/credentials": "*",
     "@que/identity": "*",
+    "@que/threads": "*",
     "@que/users": "*",
     "deepagents": "^1.14.2",
     "hono": "^4.13.8",

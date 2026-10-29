@@ -1,15 +1,16 @@
 /**
- * Connections API, served by the LangGraph server alongside the agent
- * (langgraph.json → http.app). Lists plugins that need a credential and
- * whether the user has connected them; saves and removes credentials.
+ * Connections API, served by que's server (serve.ts), and by the LangGraph
+ * server alongside the agent (langgraph.json → http.app). Lists plugins that
+ * need a credential and whether the user has connected them; saves and
+ * removes credentials.
  * Credential values are never returned.
  *
- * The caller is the user resolved by the auth hook (src/run/auth.ts). Also serves
+ * The caller is the signed-in user (run/signed-in.ts). Also serves
  * the signed-in user's profile with their own instructions, the user list, and what the deployment lists:
  * the agents and models a run can name.
  */
 
-import { Hono, type Context } from "hono";
+import { Hono } from "hono";
 import { OpFailed } from "@mku1tra/que-plugin";
 import { agents, loops, models, plugins } from "../mount/mounted.js";
 import {
@@ -20,18 +21,18 @@ import {
 import { accepted } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
 import { deploymentInfo } from "./deployment-info.js";
+import { signedIn, type SignedIn } from "./signed-in.js";
 
-export const app = new Hono();
+export const app = new Hono<SignedIn>();
 
-// The signed-in user's id, set by the LangGraph auth hook.
-const userIdOf = (c: Context) =>
-  (c.get("auth" as never) as { user: { identity: string } }).user.identity;
+app.use("/que/*", signedIn);
+
 const find = (name: string) =>
   plugins.find((p) => p.definition.plugin.name === name)?.definition.plugin;
 const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
-  const connected = await connectedPlugins(userIdOf(c));
+  const connected = await connectedPlugins(c.get("userId"));
   return c.json(
     plugins
       .filter((p) => p.definition.plugin.credential)
@@ -52,7 +53,7 @@ app.put("/que/connections/:plugin", async (c) => {
   const plugin = find(c.req.param("plugin"));
   if (!plugin) return c.json({ error: "unknown plugin" }, 404);
   try {
-    await setCredential(plugin, userIdOf(c), (await c.req.json()).values);
+    await setCredential(plugin, c.get("userId"), (await c.req.json()).values);
   } catch (error) {
     if (error instanceof OpFailed) return c.json({ error: error.message }, 400);
     throw error;
@@ -63,7 +64,7 @@ app.put("/que/connections/:plugin", async (c) => {
 app.delete("/que/connections/:plugin", async (c) => {
   const plugin = find(c.req.param("plugin"));
   if (!plugin) return c.json({ error: "unknown plugin" }, 404);
-  await removeCredential(plugin, userIdOf(c));
+  await removeCredential(plugin, c.get("userId"));
   return c.json({ ok: true });
 });
 
@@ -77,7 +78,7 @@ const profile = async (userId: string) => {
 };
 
 app.get("/que/me", async (c) => {
-  const me = await profile(userIdOf(c));
+  const me = await profile(c.get("userId"));
   return me ? c.json(me) : c.json({ error: "not found" }, 404);
 });
 
@@ -101,12 +102,12 @@ app.patch("/que/me", async (c) => {
   ) {
     return c.json({ error: "picture must be an image under ~300 KB" }, 400);
   }
-  await users.update(userIdOf(c), {
+  await users.update(c.get("userId"), {
     name,
     avatarUrl,
     instructions: change?.text,
   });
-  return c.json(await profile(userIdOf(c)));
+  return c.json(await profile(c.get("userId")));
 });
 
 app.get("/que/users", async (c) => c.json(await users.list()));
