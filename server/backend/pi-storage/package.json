@@ -1,0 +1,16 @@
+{
+  "name": "@que/pi-storage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/storage.ts"
+  },
+  "dependencies": {
+    "@earendil-works/pi-durable": "1.4.0"
+  },
+  "devDependencies": {
+    "@earendil-works/chord": "1.4.0",
+    "@electric-sql/pglite": "0.5.8"
+  }
+}
