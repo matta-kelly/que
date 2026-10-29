@@ -78,17 +78,23 @@ const input = (threadId: string, messages: Message[]) => ({
 });
 
 /**
- * The AG-UI events of an SSE body, each `data:` line one event. With `drop`,
- * the client drops its connection at the first event `until` holds for.
+ * The AG-UI events of an SSE body, each `data:` line one event. At the first
+ * event `at.until` holds for, `at.then` is called; with `at.drop`, the client
+ * then drops its connection.
  */
 async function eventsOf(
   response: Response,
-  drop?: { until: (event: Event) => boolean; controller: AbortController },
+  at?: {
+    until: (event: Event) => boolean;
+    then?: () => void;
+    drop?: AbortController;
+  },
 ): Promise<Event[]> {
   const events: Event[] = [];
   if (!response.body) return events;
   const decoder = new TextDecoder();
   let rest = "";
+  let reached = false;
   try {
     for await (const chunk of response.body) {
       rest += decoder.decode(chunk as Uint8Array, { stream: true });
@@ -103,26 +109,45 @@ async function eventsOf(
         if (!data) continue;
         const event = JSON.parse(data) as Event;
         events.push(event);
-        if (drop?.until(event)) {
-          drop.controller.abort();
-          return events;
+        if (!reached && at?.until(event)) {
+          reached = true;
+          at.then?.();
+          if (at.drop) {
+            at.drop.abort();
+            return events;
+          }
         }
       }
     }
   } catch (error) {
-    if (!drop?.controller.signal.aborted) throw error;
+    if (!at?.drop?.signal.aborted) throw error;
   }
   return events;
 }
 
-/** A run, sent as a client sends it: its input, and the events it streams back whole. */
-const run = async (threadId: string, messages: Message[]) => {
-  const sent = input(threadId, messages);
+/**
+ * A run's POST, sent as a client sends it: to the thread `threadId`, with an
+ * input that names the thread `named`. Its input, and the response.
+ */
+const send = async (
+  threadId: string,
+  messages: Message[],
+  named = threadId,
+  signal?: AbortSignal,
+) => {
+  const sent = input(named, messages);
   const response = await fetch(`${base}/threads/${threadId}/runs`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(sent),
+    signal,
   });
+  return { sent, response };
+};
+
+/** A run, sent as a client sends it: its input, and the events it streams back whole. */
+const run = async (threadId: string, messages: Message[], named = threadId) => {
+  const { sent, response } = await send(threadId, messages, named);
   return { sent, events: await eventsOf(response) };
 };
 
@@ -151,6 +176,26 @@ const frame = (event: Event | undefined) => ({
   threadId: event?.threadId,
   runId: event?.runId,
 });
+
+/** The types of the events in order, each run of one type given once. */
+const typesOf = (events: Event[]) =>
+  events.map((e) => e.type).filter((type, i, types) => type !== types[i - 1]);
+
+/**
+ * The thread's user and assistant messages, read from GET /threads/:id until
+ * there are `count` of them, for ten seconds at most: the last ones read.
+ */
+async function heldMessages(threadId: string, count: number) {
+  const deadline = Date.now() + 10_000;
+  let held: Message[] = [];
+  while (Date.now() < deadline && held.length < count) {
+    await new Promise((wait) => setTimeout(wait, 100));
+    held = (await messagesOf(threadId)).filter(
+      (m) => m.role === "user" || m.role === "assistant",
+    );
+  }
+  return held;
+}
 
 /**
  * The thread's assistant message once it holds `answer`, read from GET
@@ -234,18 +279,16 @@ test("a client that drops its connection while the answer streams does not stop 
   ).join(" ");
   faux.setResponses([fauxAssistantMessage(fauxText(answer))]);
   const controller = new AbortController();
-  const response = await fetch(`${base}/threads/${id}/runs`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(
-      input(id, [{ id: randomUUID(), role: "user", content: "Tell me more" }]),
-    ),
-    signal: controller.signal,
-  });
+  const { response } = await send(
+    id,
+    [{ id: randomUUID(), role: "user", content: "Tell me more" }],
+    id,
+    controller.signal,
+  );
   // The client goes at the first piece of the text, before the rest has streamed.
   const seen = await eventsOf(response, {
     until: (event) => event.type === "TEXT_MESSAGE_CONTENT",
-    controller,
+    drop: controller,
   });
   assert.ok(joined(seen, "TEXT_MESSAGE_CONTENT").length < answer.length);
 
@@ -285,4 +328,181 @@ test("the ids a viewer gets while the answer streams are the ids GET /threads/:i
   );
   // Each assistant message has an id of its own.
   assert.notEqual(thenId, helloId);
+});
+
+test("a good run streams its events in AG-UI's order: the run opens, the reasoning streams and ends, the text streams and ends, the run finishes", async () => {
+  const id = await thread();
+  faux.setResponses([
+    fauxAssistantMessage([
+      fauxThinking("Ana asks the time, which I do not know."),
+      fauxText("I do not know the time, Ana."),
+    ]),
+  ]);
+  const { events } = await run(id, [
+    { id: randomUUID(), role: "user", content: "What time is it?" },
+  ]);
+  assert.deepEqual(typesOf(events), [
+    "RUN_STARTED",
+    "REASONING_START",
+    "REASONING_MESSAGE_START",
+    "REASONING_MESSAGE_CONTENT",
+    "REASONING_MESSAGE_END",
+    "REASONING_END",
+    "TEXT_MESSAGE_START",
+    "TEXT_MESSAGE_CONTENT",
+    "TEXT_MESSAGE_END",
+    "RUN_FINISHED",
+  ]);
+
+  // An answer with no reasoning streams no reasoning events.
+  faux.setResponses([fauxAssistantMessage(fauxText("It is late, Ana."))]);
+  const plain = await run(id, [
+    { id: randomUUID(), role: "user", content: "Guess" },
+  ]);
+  assert.deepEqual(typesOf(plain.events), [
+    "RUN_STARTED",
+    "TEXT_MESSAGE_START",
+    "TEXT_MESSAGE_CONTENT",
+    "TEXT_MESSAGE_END",
+    "RUN_FINISHED",
+  ]);
+});
+
+test("a POST whose body is not a RunAgentInput gets 400", async () => {
+  const id = await thread();
+  const statusOf = async (body: string) =>
+    (
+      await fetch(`${base}/threads/${id}/runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+      })
+    ).status;
+  assert.deepEqual(
+    {
+      notJson: await statusOf("Hi"),
+      empty: await statusOf("{}"),
+      messagesNotAList: await statusOf(
+        JSON.stringify({ ...input(id, []), messages: "Hi" }),
+      ),
+    },
+    { notJson: 400, empty: 400, messagesNotAList: 400 },
+  );
+});
+
+test("a run's RUN_STARTED and RUN_FINISHED name the thread of the URL, also when the body names another thread", async () => {
+  const id = await thread();
+  const other = await thread();
+  const hi = () => [{ id: randomUUID(), role: "user", content: "Hi" }];
+  const threadIds = (events: Event[]) => [
+    events.at(0)?.threadId,
+    events.at(-1)?.threadId,
+  ];
+
+  faux.setResponses([fauxAssistantMessage(fauxText("Hello, Ana."))]);
+  const named = await run(id, hi(), other);
+  faux.setResponses([fauxAssistantMessage(fauxText("Hello again."))]);
+  const unknown = await run(id, hi(), randomUUID());
+
+  assert.deepEqual(
+    { named: threadIds(named.events), unknown: threadIds(unknown.events) },
+    { named: [id, id], unknown: [id, id] },
+  );
+});
+
+test("a model call that fails ends the run with AG-UI's RUN_ERROR, which holds the error's message, in the place of RUN_FINISHED", async () => {
+  const fails = async (errorMessage: string) => {
+    const id = await thread();
+    faux.setResponses([
+      fauxAssistantMessage([], { stopReason: "error", errorMessage }),
+    ]);
+    const { events } = await run(id, [
+      { id: randomUUID(), role: "user", content: "Hi" },
+    ]);
+    const last = events.at(-1);
+    return {
+      last: { type: last?.type, message: last?.message },
+      finished: events.some((e) => e.type === "RUN_FINISHED"),
+    };
+  };
+  assert.deepEqual(
+    {
+      overloaded: await fails("The model is overloaded."),
+      refused: await fails("401 Unauthorized: the API key is not valid."),
+    },
+    {
+      overloaded: {
+        last: { type: "RUN_ERROR", message: "The model is overloaded." },
+        finished: false,
+      },
+      refused: {
+        last: {
+          type: "RUN_ERROR",
+          message: "401 Unauthorized: the API key is not valid.",
+        },
+        finished: false,
+      },
+    },
+  );
+});
+
+test("two messages sent close together on one thread run one after the other: each viewer gets only its own run, under its own ids, and GET /threads/:id has both, in order", async () => {
+  const id = await thread();
+  // Long enough, at the faux's pace, to stream for about a second.
+  const first = Array.from(
+    { length: 40 },
+    (_, i) => `Part ${i + 1} of the first answer.`,
+  ).join(" ");
+  const second = "The second answer, after the first.";
+  faux.setResponses([
+    fauxAssistantMessage(fauxText(first)),
+    fauxAssistantMessage(fauxText(second)),
+  ]);
+  const one = { id: randomUUID(), role: "user", content: "Tell me a lot" };
+  const two = { id: randomUUID(), role: "user", content: "And one more" };
+
+  // Viewer A sends; viewer B sends while A's answer streams.
+  const a = await send(id, [one]);
+  let streaming = () => {};
+  const busy = new Promise<void>((started) => (streaming = started));
+  const aEvents = eventsOf(a.response, {
+    until: (event) => event.type === "TEXT_MESSAGE_CONTENT",
+    then: () => streaming(),
+  });
+  await busy;
+  const b = await run(id, [one, two]);
+  const aRun = { sent: a.sent, events: await aEvents };
+
+  const seen = ({ events }: { events: Event[] }) => ({
+    first: frame(events.at(0)),
+    text: joined(events, "TEXT_MESSAGE_CONTENT"),
+    last: frame(events.at(-1)),
+  });
+  assert.deepEqual(
+    { a: seen(aRun), b: seen(b) },
+    {
+      a: {
+        first: { type: "RUN_STARTED", threadId: id, runId: a.sent.runId },
+        text: first,
+        last: { type: "RUN_FINISHED", threadId: id, runId: a.sent.runId },
+      },
+      b: {
+        first: { type: "RUN_STARTED", threadId: id, runId: b.sent.runId },
+        text: second,
+        last: { type: "RUN_FINISHED", threadId: id, runId: b.sent.runId },
+      },
+    },
+  );
+
+  // Each answer is held under the id its viewer streamed it with.
+  assert.deepEqual(
+    (await heldMessages(id, 4)).map((m) => [m.role, m.id, m.content]),
+    [
+      ["user", one.id, one.content],
+      ["assistant", assistantId(aRun.events), first],
+      ["user", two.id, two.content],
+      ["assistant", assistantId(b.events), second],
+    ],
+  );
+  assert.notEqual(assistantId(aRun.events), assistantId(b.events));
 });
