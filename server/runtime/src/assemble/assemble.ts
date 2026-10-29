@@ -13,7 +13,7 @@ import {
 import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
-import type { PlacedOp } from "./door.js";
+import type { BoundCall } from "./door.js";
 import { operationTools } from "./operations.js";
 import { systemPrompt } from "./prompt.js";
 import { skillTools } from "./skills.js";
@@ -41,7 +41,7 @@ export function assemble(
   }: {
     user?: { name: string; email: string; instructions?: string };
     catalog: Catalog;
-    call: (op: PlacedOp, params: unknown) => Promise<unknown>;
+    call: BoundCall;
     instructions?: string;
   },
 ) {

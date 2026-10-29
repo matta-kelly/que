@@ -19,6 +19,9 @@ export type Call = (
   user: string,
 ) => Promise<unknown>;
 
+/** The door's call bound to one user, as a run hands it to its tools. */
+export type BoundCall = (op: PlacedOp, params: unknown) => Promise<unknown>;
+
 /** The door, on access asked by op: its `call`. */
 export function door(connect: Connect): Call {
   // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
