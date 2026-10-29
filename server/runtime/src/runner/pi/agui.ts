@@ -57,8 +57,9 @@ function textOf(message: Message | undefined) {
 }
 
 /**
- * One run's translation: `of` gives the AG-UI events of each agent event, and
- * `id` the id of the assistant message that streams or ended last.
+ * One run's translation: `of` gives the AG-UI events of each agent event,
+ * `id` the id of the assistant message that streams or ended last, and
+ * `error` the message of a model call that failed.
  */
 export function aguiRun() {
   let run = "";
@@ -68,6 +69,7 @@ export function aguiRun() {
   let sent: number[] = [];
   let text = false;
   let reasoning: string | undefined;
+  let error: string | undefined;
 
   const closeReasoning = (): AGUIEvent[] => {
     if (!reasoning) return [];
@@ -159,6 +161,8 @@ export function aguiRun() {
       case "message_end": {
         if (!AssistantEntry.is(event.entry)) return [];
         const message = event.entry.model?.[0] as AssistantMessage | undefined;
+        if (message?.stopReason === "error")
+          error = message.errorMessage ?? "the model call failed";
         return [
           ...(message?.content ?? []).flatMap(rest),
           ...closeReasoning(),
@@ -172,7 +176,7 @@ export function aguiRun() {
     }
   };
 
-  return { of, id: () => id };
+  return { of, id: () => id, error: () => error };
 }
 
 /** A conversation's user and assistant messages, as AG-UI messages with their ids. */

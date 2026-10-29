@@ -17,6 +17,7 @@ import {
   MemoryStorage,
   watchEvents,
   type Conversation,
+  type SubmissionId,
 } from "@earendil-works/pi-durable";
 import type { AGUIEvent } from "@ag-ui/core";
 import { fireworks } from "@que/chat-model";
@@ -56,41 +57,60 @@ function conversationOf(thread: string, model: Model) {
 
 /**
  * Sends the user's message on the thread's conversation, and gives `send` the
- * answer as AG-UI events until the run ends. The run does not depend on
- * `send`: it goes on, and its ids are recorded, when no one reads it.
+ * answer as AG-UI events until its run ends: the run the message starts, which
+ * waits for a run that goes on the conversation already. The run does not
+ * depend on `send`: it goes on, and its ids are recorded, when no one reads
+ * it. What it gives is the message of a model call that failed, if one did.
  */
 export async function run(
   thread: string,
   model: Model,
   message: { id: string; content: string },
   send: (event: AGUIEvent) => Promise<void>,
-) {
+): Promise<{ error?: string }> {
   const conversation = await conversationOf(thread, model);
   const events = await watchEvents(harness, conversation.id, context);
-  const agui = aguiRun();
-  const ended = new Promise<void>((end) =>
-    events.start(async (batch) => {
-      for (const event of batch) {
-        for (const out of agui.of(event)) await send(out);
-        if (event.type === "message_end" && AssistantEntry.is(event.entry))
-          await conversation.submit(
-            { type: "write", entry: idEntry(event.entry.id, agui.id()) },
-            context,
-          );
-        if (event.type === "run_end") end();
-      }
-    }),
-  );
-  await conversation.submit(
-    {
-      type: "input",
-      content: message.content,
-      entry: userEntry(message.id),
-    },
-    context,
-  );
-  await ended;
-  await events.stop();
+  try {
+    const agui = aguiRun();
+    // The listener starts before the submission, so it sees the run start; it reads the submission's id once it has one.
+    let given!: (id: SubmissionId) => void;
+    const own = new Promise<SubmissionId>((resolve) => (given = resolve));
+    let mine = false;
+    const ended = new Promise<void>((end) =>
+      events.start(async (batch) => {
+        const id = await own;
+        for (const event of batch) {
+          if (event.type === "run_start") mine = event.inputs.includes(id);
+          if (!mine) continue;
+          for (const out of agui.of(event)) await send(out);
+          if (event.type === "message_end" && AssistantEntry.is(event.entry))
+            await conversation.submit(
+              { type: "write", entry: idEntry(event.entry.id, agui.id()) },
+              context,
+            );
+          if (event.type === "run_end") {
+            mine = false;
+            end();
+          }
+        }
+      }),
+    );
+    const submission = await conversation.submit(
+      {
+        type: "input",
+        content: message.content,
+        entry: userEntry(message.id),
+      },
+      context,
+    );
+    given(submission.id);
+    const closed = await Promise.race([ended, events.closed]);
+    return closed
+      ? { error: `the run's watch ended before the run did: ${closed.reason}` }
+      : { error: agui.error() };
+  } finally {
+    await events.stop();
+  }
 }
 
 /** The thread's messages, as AG-UI messages: none before its first run. */

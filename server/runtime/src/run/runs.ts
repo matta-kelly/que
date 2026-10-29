@@ -2,7 +2,8 @@
  * The run route, on the thread routes: POST /threads/:id/runs takes AG-UI's
  * RunAgentInput, sends its last message on the thread's conversation, and
  * streams the answer back as AG-UI events over SSE. A client that drops its
- * connection does not stop the run: stopping is a call of its own.
+ * connection does not stop the run: stopping is a call of its own. A run
+ * whose model call fails ends with RUN_ERROR, in the place of RUN_FINISHED.
  *
  * The thread runs the deployment's first agent, on its model.
  */
@@ -24,9 +25,14 @@ export function runs(store: ThreadStore) {
   routes.post("/:id/runs", async (c) => {
     const thread = await store.get(c.get("userId"), c.req.param("id"));
     if (!thread) return c.json({ error: "not found" }, 404);
-    const { threadId, runId, messages } = RunAgentInputSchema.parse(
-      await c.req.json(),
+    const input = RunAgentInputSchema.safeParse(
+      await c.req.json().catch(() => undefined),
     );
+    if (!input.success)
+      return c.json({ error: "the body is not a RunAgentInput" }, 400);
+    const { runId, messages } = input.data;
+    // The run is on the thread the URL names, whatever thread the body names.
+    const threadId = thread.id;
     const last = messages.at(-1);
     if (last?.role !== "user")
       return c.json({ error: "the last message is not the user's" }, 400);
@@ -36,13 +42,17 @@ export function runs(store: ThreadStore) {
       const send = (event: AGUIEvent) =>
         sse.writeSSE({ data: JSON.stringify(event) });
       await send({ type: EventType.RUN_STARTED, threadId, runId });
-      await run(
-        thread.id,
+      const { error } = await run(
+        threadId,
         model,
         { id: last.id, content: contentToText(last.content) },
         send,
       );
-      await send({ type: EventType.RUN_FINISHED, threadId, runId });
+      await send(
+        error === undefined
+          ? { type: EventType.RUN_FINISHED, threadId, runId }
+          : { type: EventType.RUN_ERROR, message: error },
+      );
     });
   });
 

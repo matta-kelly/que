@@ -105,8 +105,8 @@ const chatModelAlone: Rule = {
 };
 const providers: Rule = {
   // pi-ai's faux provider calls no service: a test scripts a model with it.
-  path: /^@langchain\/(?:openai|fireworks)(?:\/|$)|^@earendil-works\/pi-ai\/providers\/(?!faux$)/,
-  why: "Only chat-model/ names a provider package, or a provider of pi-ai's.",
+  path: /^@langchain\/(?:openai|fireworks)(?:\/|$)|^@earendil-works\/pi-ai\/(?:providers\/(?!faux$)|bedrock-provider$|api\/)/,
+  why: "Only chat-model/ names a provider package, or a provider or provider API of pi-ai's.",
 };
 const pluginAlone: Rule = {
   path: /^(?!\.\/|@mku1tra\/basis$|ajv(?:\/|$)|zod(?:\/|$)|node:)/,
