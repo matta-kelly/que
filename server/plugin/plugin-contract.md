@@ -74,14 +74,14 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 
 ### Credentials / Access
 
-Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses (the plugin-interoperability design, in kinetic), each domain op listing what it uses, and what each user gets each chat.
+Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses (the plugin-interoperability design, in kinetic), each op and skill listing what it uses, and what each user gets each chat.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
 	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. Each fault is reported once: an op with no role, in a plugin that lists roles, and an op whose role is another plugin's, by `plugin/op-role` (`warehouse-search names no role`); a role that is no node, by `basis/link`
 - domain: lists what it uses from connectors, each op and skill by its name, in two links: `usesOps` to ops and `usesSkills` to skills (`usesOps: ["warehouse-get-fabric"], usesSkills: ["warehouse-fabric-guide"]`)
 	- the check: each name is an op, or a skill, of a plugin that uses nothing (`plugin/connector-use`), so there are no chains and no cycles; a plugin uses none of its own (`plugin/own-use`), as its own are its already
-	- designed, not built: each domain op lists the connector ops it calls, and the plugin's `usesOps` is made from its ops' lists, never written ([[op-contract#Uses]]). What a skill uses is for a later issue
+	- designed, not built: each domain op lists the connector ops it calls, each skill lists the ops it uses in its frontmatter (`allowed-tools`), and the plugin's `usesOps` is made from both, never written ([[op-contract#Uses]]). `usesSkills` stays written
 - one definition: the plugin schema gives basis its package's exports (`exports`), and a root's lint (lot's, que's check, `basis lint` of a deployment's root) fails each zod object exported that is no part of a type nor a bridge it names, and each bridge that excuses nothing (`basis/one-definition`)
 - each definition is a piece: a root's lint fails each definition that a schema's exports give, at any depth, of which no source gives a piece of its name and type (`basis/definition-piece`). A package that exports its plugins' definitions, as a deployment's repo can, lints with a source that reads them (`plugins`, or the harness's `deploymentSources`). The plugin schema's own exports hold no definition
 - the check is a root's lint: each node the code and skills give, as pieces, linted by basis with the plugin schema from a root, as lot's lint lints them, and each problem said as the lint says it (`sayProblem`). A lint starts only at a root, the first folder up from the plugin with a `basis.config.ts` (basis's `rootOf`)
