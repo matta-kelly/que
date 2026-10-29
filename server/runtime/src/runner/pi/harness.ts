@@ -22,12 +22,7 @@ import type { AGUIEvent } from "@ag-ui/core";
 import { fireworks } from "@que/chat-model";
 import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
 import * as mounted from "../../mount/mounted.js";
-import {
-  aguiRun,
-  MessageIdEntry,
-  messagesOf,
-  UserMessageEntry,
-} from "./agui.js";
+import { aguiRun, idEntry, messagesOf, userEntry } from "./agui.js";
 
 export const models = createModels();
 models.setProvider(fireworks(mounted.models));
@@ -79,13 +74,7 @@ export async function run(
         for (const out of agui.of(event)) await send(out);
         if (event.type === "message_end" && AssistantEntry.is(event.entry))
           await conversation.submit(
-            {
-              type: "write",
-              entry: {
-                kind: MessageIdEntry.kind,
-                data: { entry: event.entry.id, id: agui.id() },
-              },
-            },
+            { type: "write", entry: idEntry(event.entry.id, agui.id()) },
             context,
           );
         if (event.type === "run_end") end();
@@ -96,7 +85,7 @@ export async function run(
     {
       type: "input",
       content: message.content,
-      entry: { kind: UserMessageEntry.kind, data: { id: message.id } },
+      entry: userEntry(message.id),
     },
     context,
   );

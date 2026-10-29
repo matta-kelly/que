@@ -27,10 +27,22 @@ import {
   type EntryRecord,
 } from "@earendil-works/pi-durable";
 
-export const UserMessageEntry = defineEntry<{ id: string }>("que.user");
-export const MessageIdEntry = defineEntry<{ entry: number; id: string }>(
+const UserMessageEntry = defineEntry<{ id: string }>("que.user");
+const MessageIdEntry = defineEntry<{ entry: number; id: string }>(
   "que.message-id",
 );
+
+/** The entry a user message is placed as: one that holds the client's id. */
+export const userEntry = (id: string) => ({
+  kind: UserMessageEntry.kind,
+  data: { id },
+});
+
+/** The write that records an assistant message's id against its entry. */
+export const idEntry = (entry: number, id: string) => ({
+  kind: MessageIdEntry.kind,
+  data: { entry, id },
+});
 
 type Block = AssistantMessage["content"][number];
 
