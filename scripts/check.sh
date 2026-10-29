@@ -224,6 +224,14 @@ check_shell() {
 check_notes() {
   step "notes: install" server install
   step "notes: lint, from the repo's root" . env NODE_OPTIONS=--conditions=@mku1tra/que-source server/node_modules/.bin/basis lint .
+  # Each root also passes alone, not only through the root's import: another graph can import it alone.
+  local dir
+  for dir in server/plugin/types server/harness/types/harness; do
+    step "notes: lint, from $dir alone" . env NODE_OPTIONS=--conditions=@mku1tra/que-source server/node_modules/.bin/basis lint "$dir"
+  done
+  # The template deployment has no install: it is handed que's packages, as mount hands them (server/runtime/src/mount/supply.ts).
+  step "notes: lint, from templates/deployment alone" . env NODE_OPTIONS=--conditions=@mku1tra/que-source \
+    server/node_modules/.bin/tsx --import "$root/server/runtime/src/mount/supply.ts" server/node_modules/.bin/basis lint templates/deployment
 }
 
 case "${1:-}" in
