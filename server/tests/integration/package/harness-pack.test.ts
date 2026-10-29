@@ -89,9 +89,10 @@ test("the tarball holds the build, the type notes, the manifest and the license,
   const modules = readdirSync(join(pkg, "src"))
     .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
     .map((file) => file.slice(0, -".ts".length));
-  const notes = readdirSync(join(pkg, "types/harness")).map(
-    (note) => `types/harness/${note}`,
-  );
+  // The type notes, and not the config that makes their folder a root: that is the repo's.
+  const notes = readdirSync(join(pkg, "types/harness"))
+    .filter((file) => file.endsWith(".md"))
+    .map((note) => `types/harness/${note}`);
   assert.deepEqual(
     files,
     [

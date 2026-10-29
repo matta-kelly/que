@@ -1,0 +1,13 @@
+{
+  "name": "que-notes",
+  "description": "The schema of que's own notes: the repo's graph, linted from the repo's root, which a graph above imports as a workspace. Never published.",
+  "private": true,
+  "type": "module",
+  "exports": "./schema.ts",
+  "peerDependencies": {
+    "@mku1tra/basis": "^0.28.0",
+    "@mku1tra/it": "^0.7.0",
+    "@mku1tra/que-harness": "^0.1.1",
+    "@mku1tra/que-plugin": "^0.6.0"
+  }
+}

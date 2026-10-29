@@ -24,7 +24,8 @@
   },
   "files": [
     "dist",
-    "types"
+    "types",
+    "!types/harness/basis.config.ts"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",

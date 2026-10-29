@@ -24,6 +24,7 @@ jobs:
       server: ${{ steps.plan.outputs.server }}
       ui: ${{ steps.plan.outputs.ui }}
       shell: ${{ steps.plan.outputs.shell }}
+      notes: ${{ steps.plan.outputs.notes }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -92,10 +93,25 @@ jobs:
           node-version: 22
       - run: scripts/check.sh shell
 
+  notes:
+    needs: [changes]
+    if: needs.changes.outputs.notes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The whole repo: the notes are everywhere in it, and the lint reads them from its root.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: scripts/check.sh notes
+
   # The one result of a run. It always starts, so it is never left pending:
   # a set's job that the change did not need is skipped, and a skipped job passes here.
   checks:
-    needs: [changes, server, ui, shell]
+    needs: [changes, server, ui, shell, notes]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -105,11 +121,12 @@ jobs:
           SERVER: ${{ needs.server.result }}
           UI: ${{ needs.ui.result }}
           SHELL_SET: ${{ needs.shell.result }}
+          NOTES: ${{ needs.notes.result }}
         run: |
-          echo "changes=$CHANGES server=$SERVER ui=$UI shell=$SHELL_SET"
+          echo "changes=$CHANGES server=$SERVER ui=$UI shell=$SHELL_SET notes=$NOTES"
           # A failed `changes` skips every set, which must not read as a pass.
           [ "$CHANGES" = success ] || exit 1
-          for result in "$SERVER" "$UI" "$SHELL_SET"; do
+          for result in "$SERVER" "$UI" "$SHELL_SET" "$NOTES"; do
             case "$result" in
               success | skipped) ;;
               *) exit 1 ;;

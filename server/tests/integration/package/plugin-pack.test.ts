@@ -70,7 +70,10 @@ test("the tarball holds the build, the standard's schema, the type notes, the ma
   const modules = readdirSync(join(pkg, "src"))
     .filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"))
     .map((file) => file.slice(0, -".ts".length));
-  const notes = readdirSync(join(pkg, "types")).map((note) => `types/${note}`);
+  // The type notes, and not the config that makes their folder a root: that is the repo's.
+  const notes = readdirSync(join(pkg, "types"))
+    .filter((file) => file.endsWith(".md"))
+    .map((note) => `types/${note}`);
   assert.deepEqual(
     files,
     [

@@ -6,6 +6,7 @@
 #   scripts/check.sh server    the server set, whatever changed
 #   scripts/check.sh ui        the UI set, whatever changed
 #   scripts/check.sh shell     the shell set, whatever changed
+#   scripts/check.sh notes     the notes set, whatever changed
 #   scripts/check.sh --plan    print which sets the change needs, and run none
 #
 # Runs where Node is: in the dev container, or in a pipeline job. The shell set fetches its own tools.
@@ -30,15 +31,21 @@ plan() {
   need_server=false
   need_ui=false
   need_shell=false
+  need_notes=false
   local paths path
   if ! paths=$(changed); then
     echo "Cannot tell what changed against $base: every set runs." >&2
     need_server=true
     need_ui=true
     need_shell=true
+    need_notes=true
     return
   fi
   while read -r path; do
+    # The notes set reads every note, and the server's code gives the schemas they are linted with.
+    case "$path" in
+      *.md | basis.config.ts | server/*) need_notes=true ;;
+    esac
     case "$path" in
       "") ;;
       # The shell set runs it, and the server set lints and formats it.
@@ -46,7 +53,7 @@ plan() {
       server/*) need_server=true ;;
       ui/*) need_ui=true ;;
       # The check set itself, and the pipeline that calls it.
-      scripts/check.sh | .github/*) need_server=true need_ui=true need_shell=true ;;
+      scripts/check.sh | .github/*) need_server=true need_ui=true need_shell=true need_notes=true ;;
       # The shell set reads the scripts and the justfile. No app set reads them: every app step runs inside server/ or ui/.
       scripts/* | justfile) need_shell=true ;;
       # No set reads these.
@@ -54,7 +61,8 @@ plan() {
       */*) need_server=true need_ui=true ;;
       # The README names what que supplies, and a server test holds it to the list.
       README.md) need_server=true ;;
-      *.md | LICENSE | .gitignore) ;;
+      # No app set reads these. The notes set reads the notes and the root's config, above.
+      *.md | basis.config.ts | LICENSE | .gitignore) ;;
       *) need_server=true need_ui=true ;;
     esac
   done <<<"$paths"
@@ -208,13 +216,23 @@ check_shell() {
   step "shell: lint" . shell_lint
 }
 
+# Each folder of notes is the root of one graph, with its own basis.config.ts: the repo's root (que's notes, of the
+# schema que-notes), and each schema's folder of type notes. The root's lint reads each note once: its own, and the
+# type notes through the plugin and harness schemas it imports. The CLI is the server's install, and no npm starts it,
+# so it is given server/.npmrc's source condition: que's packages resolve to their source.
+check_notes() {
+  step "notes: install" server install
+  step "notes: lint, from the repo's root" . env NODE_OPTIONS=--conditions=@mku1tra/que-source server/node_modules/.bin/basis lint .
+}
+
 case "${1:-}" in
-  server) need_server=true need_ui=false need_shell=false ;;
-  ui) need_server=false need_ui=true need_shell=false ;;
-  shell) need_server=false need_ui=false need_shell=true ;;
+  server) need_server=true need_ui=false need_shell=false need_notes=false ;;
+  ui) need_server=false need_ui=true need_shell=false need_notes=false ;;
+  shell) need_server=false need_ui=false need_shell=true need_notes=false ;;
+  notes) need_server=false need_ui=false need_shell=false need_notes=true ;;
   "" | --plan) plan ;;
   *)
-    echo "usage: scripts/check.sh [server|ui|shell|--plan]" >&2
+    echo "usage: scripts/check.sh [server|ui|shell|notes|--plan]" >&2
     exit 2
     ;;
 esac
@@ -223,10 +241,11 @@ if [ "${1:-}" = --plan ]; then
   echo "server=$need_server"
   echo "ui=$need_ui"
   echo "shell=$need_shell"
+  echo "notes=$need_notes"
   exit 0
 fi
 
-if ! $need_server && ! $need_ui && ! $need_shell; then
+if ! $need_server && ! $need_ui && ! $need_shell && ! $need_notes; then
   echo "The change touches no file that a set reads: no set runs."
   exit 0
 fi
@@ -237,4 +256,5 @@ why="the change touches no file it reads"
 if $need_server; then check_server; else echo "== server: not run, $why"; fi
 if $need_ui; then check_ui; else echo "== ui: not run, $why"; fi
 if $need_shell; then check_shell; else echo "== shell: not run, $why"; fi
+if $need_notes; then check_notes; else echo "== notes: not run, $why"; fi
 echo "check passed"

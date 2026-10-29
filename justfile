@@ -155,7 +155,7 @@ _check-folders container +folders:
     done
     echo "check passed"
 
-# Check que's own code: the sets that read a file the change touched. `just check server`, `just check ui` or `just check shell` runs one set, whatever changed
+# Check que's own code: the sets that read a file the change touched. `just check server`, `just check ui`, `just check shell` or `just check notes` runs one set, whatever changed
 check *set:
     #!/usr/bin/env bash
     set -euo pipefail

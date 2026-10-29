@@ -22,7 +22,8 @@
   "files": [
     "dist",
     "standards",
-    "types"
+    "types",
+    "!types/basis.config.ts"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
