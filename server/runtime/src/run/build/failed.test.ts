@@ -40,6 +40,12 @@ const shop = definePlugin({
           .refine((s) => !s.includes(" "), "ids has no spaces")
           .transform((s) => s.split(","))
           .describe("Order ids, comma-separated"),
+        // A transform that throws on text that is no JSON.
+        meta: z
+          .string()
+          .transform((s): unknown => JSON.parse(s))
+          .optional()
+          .describe("Order metadata, as JSON"),
       }),
       run: async (_, { ids }) => ({ tagged: ids }),
     },
@@ -151,6 +157,8 @@ const commaIds = fc.string({ unit: fc.constantFrom("a", "b", ",", " ") });
 const modelArguments = fc.oneof(
   fc.record({ ids: commaIds }),
   fc.record({ ids: commaIds, extra: fc.jsonValue() }),
+  fc.record({ ids: commaIds, meta: fc.string() }),
+  fc.record({ ids: commaIds, meta: fc.json() }),
   fc.record({ ids: fc.jsonValue() }),
   fc.dictionary(fc.string(), fc.jsonValue()),
 );
@@ -171,4 +179,24 @@ test("given any arguments, when the model calls an op whose input has a refine a
     }),
     { numRuns: 50 },
   );
+});
+
+test("a call whose transform throws is a failed call with the throw's message, and the run goes on", async () => {
+  // A run that stops gives its error, so the stop shows in the assertion.
+  const outcome = await results(eager, [
+    { name: "shop-tag-orders", args: { ids: "a", meta: "{" } },
+    { name: "shop-tag-orders", args: { ids: "a,b" } },
+  ]).catch((error: unknown) => error);
+  assert.ok(Array.isArray(outcome), `the run stopped on ${String(outcome)}`);
+  const [failed, answered] = outcome;
+  assert.equal(failed.status, "error");
+  assert.match(String(failed.content), /^Error: /);
+  assert.ok(
+    String(failed.content).includes(
+      "Expected property name or '}' in JSON at position 1",
+    ),
+    String(failed.content),
+  );
+  assert.notEqual(answered.status, "error");
+  assert.equal(answered.content, JSON.stringify({ tagged: ["a", "b"] }));
 });

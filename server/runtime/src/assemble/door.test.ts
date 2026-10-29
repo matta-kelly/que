@@ -10,6 +10,7 @@ import {
 } from "@opentelemetry/sdk-trace";
 import fc from "fast-check";
 import * as z from "zod";
+import * as zm from "zod/mini";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import { storeOn } from "@que/credentials";
 import { accessOn } from "../access/access.js";
@@ -80,14 +81,32 @@ const shop = definePlugin({
           .refine((s) => !s.includes(" "), "ids has no spaces")
           .transform((s) => s.split(","))
           .describe("Order ids, comma-separated"),
+        // A transform that throws on text that is no JSON.
+        meta: z
+          .string()
+          .transform((s): unknown => JSON.parse(s))
+          .optional()
+          .describe("Order metadata, as JSON"),
       }),
       run: async (_ctx, { ids }) => ids,
+    },
+    {
+      name: "shop-void-order",
+      type: "op",
+      title: "Void order",
+      description: "Voids one order.",
+      input: z.object({ id: z.number().describe("Order id") }),
+      run: async () => {
+        // A throw that is no Error: a bug.
+        throw "the till is jammed";
+      },
     },
   ],
 });
 const getOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[0] };
 const listOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[1] };
 const tagOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[2] };
+const voidOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[3] };
 
 /** Access that gives a connection named by what it was asked for. */
 const named = door(
@@ -230,6 +249,8 @@ const commaIds = fc.string({ unit: fc.constantFrom("a", "b", ",", " ") });
 const anyArguments = fc.oneof(
   fc.record({ ids: commaIds }),
   fc.record({ ids: commaIds, extra: fc.jsonValue() }),
+  fc.record({ ids: commaIds, meta: fc.string() }),
+  fc.record({ ids: commaIds, meta: fc.json() }),
   fc.record({ ids: fc.jsonValue() }),
   fc.dictionary(fc.string(), fc.jsonValue()),
   fc.anything(),
@@ -254,5 +275,76 @@ test("given any arguments, when an op whose input has a refine and a transform i
           `the door gave ${JSON.stringify(outcome.result)}, which is not the op's result`,
         );
     }),
+  );
+});
+
+/** The message JSON.parse throws for this text, in this runtime. */
+const parseFailure = (text: string) => {
+  try {
+    JSON.parse(text);
+  } catch (error) {
+    return (error as Error).message;
+  }
+  throw new Error(`${text} is JSON`);
+};
+
+test("given a transform that throws, when the op is called, then the door throws an OpFailed with the throw's message", async () => {
+  await assert.rejects(
+    () => named(tagOrders, { ids: "a", meta: "{" }, "ana"),
+    (error) =>
+      error instanceof OpFailed && error.message.includes(parseFailure("{")),
+  );
+  await assert.rejects(
+    () => named(tagOrders, { ids: "b", meta: "[1," }, "ana"),
+    (error) =>
+      error instanceof OpFailed && error.message.includes(parseFailure("[1,")),
+  );
+});
+
+const mini = definePlugin({
+  name: "mini",
+  type: "plugin",
+  title: "Mini",
+  description: "Orders, with inputs made with zod/mini.",
+  ops: [
+    {
+      name: "mini-get-order",
+      type: "op",
+      title: "Get order",
+      description: "One order.",
+      input: zm.object({ id: zm.number().check(zm.describe("Order id")) }),
+      run: async (_ctx, { id }) => ({ id }),
+    },
+  ],
+});
+const miniGetOrder: PlacedOp = { plugin: mini.plugin, op: mini.ops[0] };
+
+test("given an op whose input is made with zod/mini, when it is called, then a good call gives the result and an extra field is an OpFailed that names it", async () => {
+  const answer = (params: unknown) =>
+    named(miniGetOrder, params, "ana").catch((error: Error) => error);
+
+  assert.deepEqual(await answer({ id: 4 }), { id: 4 });
+  assert.deepEqual(await answer({ id: 7 }), { id: 7 });
+  const extra = await answer({ id: 4, color: "red" });
+  assert.ok(extra instanceof OpFailed, `the door gave ${String(extra)}`);
+  assert.match(extra.message, /\bcolor\b/);
+});
+
+test("given a run that throws no Error, when the op is called, then the throw comes out as it is, and its span has status ERROR and the throw recorded", async () => {
+  spans.reset();
+
+  const thrown = await named(voidOrder, { id: 4 }, "ana").catch(
+    (error: unknown) => error,
+  );
+
+  assert.equal(thrown, "the till is jammed");
+  const [span] = spans.getFinishedSpans();
+  assert.equal(span.status.code, SpanStatusCode.ERROR);
+  assert.deepEqual(
+    span.events.map((event) => [
+      event.name,
+      event.attributes?.["exception.message"],
+    ]),
+    [["exception", "the till is jammed"]],
   );
 });

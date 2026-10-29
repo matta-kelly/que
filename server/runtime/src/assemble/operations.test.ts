@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
+import * as zm from "zod/mini";
 import { toJsonSchema } from "@langchain/core/utils/json_schema";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
@@ -170,4 +171,49 @@ test("the tool shows the input side of its op's input: a transform from a string
       additionalProperties: false,
     },
   );
+});
+
+test("an op whose input is made with zod/mini becomes a tool that shows its input side, with no other fields, and runs", async () => {
+  const mini = definePlugin({
+    name: "mini",
+    type: "plugin",
+    title: "Mini",
+    description: "Orders, with inputs made with zod/mini.",
+    ops: [
+      {
+        name: "mini-get-order",
+        type: "op",
+        title: "Get order",
+        description: "One order.",
+        input: zm.object({ id: zm.number().check(zm.describe("Order id")) }),
+        run: async (_ctx, { id }) => ({ id }),
+      },
+    ],
+  });
+
+  // A build that throws gives its error, so it shows in the assertion.
+  let built: unknown;
+  try {
+    built = operationTools(
+      [{ plugin: { definition: mini, skills: [] } }],
+      (op, params) => call(op, params, "ana"),
+    );
+  } catch (error) {
+    built = error;
+  }
+  assert.ok(Array.isArray(built), `building the tool threw ${String(built)}`);
+  const [getOrder] = built as ReturnType<typeof operationTools>;
+
+  assert.deepEqual(
+    { ...getOrder.schema, $schema: undefined },
+    {
+      $schema: undefined,
+      type: "object",
+      properties: { id: { type: "number", description: "Order id" } },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  );
+  assert.equal(await getOrder.invoke({ id: 4 }), JSON.stringify({ id: 4 }));
+  assert.equal(await getOrder.invoke({ id: 7 }), JSON.stringify({ id: 7 }));
 });
