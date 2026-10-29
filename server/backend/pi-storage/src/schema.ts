@@ -6,7 +6,8 @@
  * - `pi.ids`: the one id namespace of every record. It starts at 2: id 1 is the root conversation's.
  *   A sequence keeps each id it gave, also one that was never stored, so an id is never given twice.
  * - `pi.commit_seqs`: the sequence of each commit.
- * - `pi.entries`: each entry, by the conversation it is in, with the sequence of the commit that wrote it.
+ * - `pi.entries`: each entry, by the conversation it is in, with its `head` and the sequence of the commit that wrote it.
+ *   Its record is JSON text, not jsonb: jsonb refuses U+0000 and a lone surrogate, which JSON.stringify escapes.
  */
 export const SETUP = `
   DO $$
@@ -28,8 +29,9 @@ export const SETUP = `
     CREATE TABLE IF NOT EXISTS pi.entries (
       id              bigint PRIMARY KEY,
       conversation_id bigint NOT NULL,
+      head            bigint,
       commit_seq      bigint NOT NULL,
-      record          jsonb  NOT NULL
+      record          text   NOT NULL
     );
     CREATE INDEX IF NOT EXISTS entries_by_conversation
       ON pi.entries (conversation_id, id);

@@ -12,22 +12,34 @@ import {
   type EntryQuery,
   type EntryRecord,
   type Page,
-  type ScanOrder,
   type Seq,
 } from "@earendil-works/pi-durable";
+import { scanStart } from "./scan.ts";
 import type { Queryable } from "./storage.ts";
 
+// The record is JSON text, not jsonb: JSON.stringify escapes U+0000 and a lone surrogate, which jsonb refuses.
+// What the queries read of it has a column of its own.
 export async function writeEntry(
   db: Queryable,
   entry: EntryRecord,
   seq: Seq,
 ): Promise<void> {
   await db.query(
-    `INSERT INTO pi.entries (id, conversation_id, commit_seq, record)
-     VALUES ($1, $2, $3, $4)`,
-    [entry.id, entry.conversationId, seq, JSON.stringify(entry)],
+    `INSERT INTO pi.entries (id, conversation_id, head, commit_seq, record)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      entry.id,
+      entry.conversationId,
+      entry.head ?? null,
+      seq,
+      JSON.stringify(entry),
+    ],
   );
 }
+
+type Row = { record: string; commit_seq: number | string };
+
+const record = (row: Row) => JSON.parse(row.record) as EntryRecord;
 
 // The visible entries of a conversation in [min, max], either bound open when null, in id order, at most `limit`.
 // An ancestor's visible entries are older than the fork that inherits them, so id order is history order.
@@ -41,7 +53,7 @@ async function visible(
   }: { min: number | null; max: number | null; headOnly?: boolean },
   order: "ASC" | "DESC",
   limit: number,
-) {
+): Promise<Row[]> {
   const known = await db.query("SELECT 1 FROM pi.conversations WHERE id = $1", [
     conversationId,
   ]);
@@ -62,7 +74,7 @@ async function visible(
     JOIN chain ON e.conversation_id = chain.conversation_id
     WHERE (chain.upper IS NULL OR e.id <= chain.upper)
       AND ($3::bigint IS NULL OR e.id >= $3)
-      AND (NOT $4::boolean OR e.record ? 'head')
+      AND (NOT $4::boolean OR e.head IS NOT NULL)
     ORDER BY e.id ${order} LIMIT $5`,
     [conversationId, max, min, headOnly, limit],
   );
@@ -75,7 +87,7 @@ export async function entry(
   id: EntryId,
   conversationId?: ConversationId,
 ): Promise<{ entry: EntryRecord; commitSeq: Seq } | undefined> {
-  const rows =
+  const rows: Row[] =
     conversationId === undefined
       ? (
           await db.query(
@@ -86,7 +98,7 @@ export async function entry(
       : await visible(db, conversationId, { min: id, max: id }, "DESC", 1);
   return rows[0] === undefined
     ? undefined
-    : { entry: rows[0].record, commitSeq: Number(rows[0].commit_seq) as Seq };
+    : { entry: record(rows[0]), commitSeq: Number(rows[0].commit_seq) as Seq };
 }
 
 /** The newest visible entry with a `head`, at or below `atOrBefore`. */
@@ -102,7 +114,7 @@ export async function findLatestHeadMarker(
     "DESC",
     1,
   );
-  return rows[0]?.record;
+  return rows[0] && (record(rows[0]) as EntryRecord & { head: EntryId });
 }
 
 /** The visible entries in the query's bounds, in its order, after the cursor's id. The cursor holds its order. */
@@ -112,16 +124,12 @@ export async function scanEntries(
   limit: number,
   cursor: Cursor | undefined,
 ): Promise<Page<EntryRecord, Cursor>> {
-  const order =
-    cursor === undefined
-      ? (query.order ?? "descending")
-      : cursorOrder(cursor, query.order);
+  const { order, after } = scanStart(query.order, cursor, "descending");
   const descending = order === "descending";
   let max: number | null = query.maxEntryId ?? null;
   let min: number | null = query.minEntryId ?? null;
   // The cursor narrows the bound on the side the scan moves away from.
-  if (cursor !== undefined) {
-    const after = cursor.after as number;
+  if (after !== undefined) {
     if (descending) max = Math.min(max ?? after, after - 1);
     else min = Math.max(min ?? after, after + 1);
   }
@@ -132,26 +140,8 @@ export async function scanEntries(
     descending ? "DESC" : "ASC",
     limit + 1,
   );
-  const items = rows.slice(0, limit).map((row) => row.record as EntryRecord);
+  const items = rows.slice(0, limit).map(record);
   return rows.length > limit
     ? { items, next: { after: items.at(-1)!.id, order } }
     : { items };
-}
-
-// The order an entry cursor continues: the one it was made with. A cursor that is not one, or another order, throws.
-function cursorOrder(
-  cursor: Cursor,
-  requested: ScanOrder | undefined,
-): ScanOrder {
-  const { after, order } = cursor;
-  if (
-    !Number.isSafeInteger(after) ||
-    (order !== "ascending" && order !== "descending")
-  )
-    throw new StorageRequestError("Invalid storage cursor");
-  if (requested !== undefined && requested !== order)
-    throw new StorageRequestError(
-      `The cursor continues a ${order} scan; the query asks for ${requested}`,
-    );
-  return order;
 }
