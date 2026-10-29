@@ -128,9 +128,11 @@ const run = async (threadId: string, messages: Message[]) => {
 
 /** The messages GET /threads/:id gives for the thread. */
 const messagesOf = async (threadId: string) =>
-  (((await (await fetch(`${base}/threads/${threadId}`)).json()) as {
-    messages?: Message[];
-  }).messages ?? []);
+  (
+    (await (await fetch(`${base}/threads/${threadId}`)).json()) as {
+      messages?: Message[];
+    }
+  ).messages ?? [];
 
 /** The deltas of the events of one type, joined. */
 const joined = (events: Event[], type: string) =>
