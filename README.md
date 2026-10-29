@@ -46,7 +46,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `ui/`: the chat UI (see `ui/README.md`)
 - `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config (que holds no config of its own: a deployment keeps its own copy), its `.env.example`, and its `justfile`: `start`, `stop`, `logs`, `check` and `eval`
 - `scripts/db.sh`: the Postgres container
-- `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in
+- `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in, with that repo's packages installed in it from its lockfile
 - `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
 - `scripts/masked-return.just`: a justfile whose every recipe hides a failure, which the shell set of `scripts/check.sh` must find before it lints the real one
 - `basis.config.ts`: the config of the lint of que's notes, from the repo's root (see [Notes](#notes))
@@ -69,7 +69,7 @@ Needs podman and [just](https://just.systems). Node runs only inside the dev con
 2. In it, copy `.env.example` to `.env` and fill it in. A deployment's settings and secrets are kept there, and none in this repo
 3. Name its plugins in its `index.ts`, each by the name of its npm package, found as Node finds an import from the deployment's folder: in the first `node_modules` up from it that holds it. A plugin of the same repo (a repo's own `plugins/`) is linked into that `node_modules` by npm workspaces. que reads, and names, each plugin at its real folder, where its code is, through the link npm made to it, and the deployment's root holds that folder: a plugin outside it is a problem at the deployment's `index.ts`. A plugin needs a `package.json` with its name and `"type": "module"`. A plugin keeps que's files in `io.github.matta-kelly.que/`; its card is written by `just card <plugin folder>` when it is published, and never committed. A plugin names the `@mku1tra/que-plugin` it works with as a peer dependency (`"peerDependencies": { "@mku1tra/que-plugin": "^0.7.0" }`), and mount refuses it when que's own `@mku1tra/que-plugin` (`server/plugin/package.json`) is outside that range
 4. The UI needs no settings: it talks to the agent server that `just up` starts. To point it at another, copy `ui/.env.example` to `ui/.env.local` and set it there
-5. Set `QUE_HOME` to this repo's folder, and run `just start` in the deployment. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder and its repo
+5. Set `QUE_HOME` to this repo's folder, and run `just start` in the deployment. The first run builds the dev container and installs each app's packages. Starting a deployment from a new folder makes the container again, so that it can see that folder and its repo. The container installs that repo's packages from its lockfile, and again when the lockfile changes, so each file of the deployment and its plugins imports from the repo's own install
 6. Open http://localhost:3000 and connect the deployment's services in Settings > Connections
 
 ## The published packages
