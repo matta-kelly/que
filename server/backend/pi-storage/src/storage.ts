@@ -5,7 +5,6 @@
 
 import type {
   ConversationRecord,
-  Cursor,
   Id,
   Seq,
   Storage,
@@ -102,9 +101,9 @@ export function storageOn(db: Queryable): Storage {
       const items = rows
         .slice(0, limit)
         .map((row) => row.record as ConversationRecord);
-      const next: Cursor | undefined =
-        rows.length > limit ? { after: items.at(-1)!.id } : undefined;
-      return next === undefined ? { items } : { items, next };
+      return rows.length > limit
+        ? { items, next: { after: items.at(-1)!.id } }
+        : { items };
     },
     async close() {
       closed = true;
