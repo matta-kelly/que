@@ -4,7 +4,10 @@ import { PGlite } from "@electric-sql/pglite";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
   ROOT_CONVERSATION_ID,
+  StorageRequestError,
   type ConversationId,
+  type EntryId,
+  type EntryRecord,
   type Storage,
 } from "@earendil-works/pi-durable";
 import {
@@ -287,6 +290,88 @@ test("a read that fails while a commit is open leaves the commit whole", async (
         7,
         8,
       ]);
+    });
+  }
+});
+
+test("an entry whose text holds U+0000 or a lone surrogate commits, and reads give back the same text", async (t) => {
+  for (const [name, text] of [
+    ["U+0000", "before\u0000after"],
+    ["a lone high surrogate", "before\ud800after"],
+    ["a lone low surrogate", "before\udc00after"],
+  ] as const) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the root conversation
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await storage.commit([conversation(ROOT_CONVERSATION_ID)], context);
+      const id = await storage.mintId<EntryId>();
+      // the text in a model message, in data as a value, and in data as a key
+      const written: EntryRecord = {
+        id,
+        conversationId: ROOT_CONVERSATION_ID,
+        kind: "message",
+        model: [{ role: "user", content: text, timestamp: 1 }],
+        data: { text, [text]: "key" },
+      };
+
+      // when: the entry is committed, and read by id and by a scan
+      await storage.commit([{ type: "entry", value: written }], context);
+      const byId = await storage.entry(id, context);
+      const scanned = await storage.scanEntries(
+        { conversationId: ROOT_CONVERSATION_ID },
+        10,
+        undefined,
+        context,
+      );
+
+      // then: both reads give back the entry exactly as written
+      assert.deepStrictEqual(byId?.entry, written, "entry gave other text");
+      assert.deepStrictEqual(
+        scanned.items,
+        [written],
+        "scanEntries gave other text",
+      );
+    });
+  }
+});
+
+test("scanEntries with an order that is not one of pi's rejects with a StorageRequestError", async (t) => {
+  for (const order of ["bogus", "Ascending"]) {
+    await t.test(order, async (t) => {
+      // given: a storage that holds the root conversation and one entry
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await storage.commit([conversation(ROOT_CONVERSATION_ID)], context);
+      const id = await storage.mintId<EntryId>();
+      await storage.commit(
+        [
+          {
+            type: "entry",
+            value: { id, conversationId: ROOT_CONVERSATION_ID, kind: "note" },
+          },
+        ],
+        context,
+      );
+
+      // when: a scan with no cursor asks for that order
+      const scan = storage.scanEntries(
+        {
+          conversationId: ROOT_CONVERSATION_ID,
+          order: order as "ascending",
+        },
+        10,
+        undefined,
+        context,
+      );
+
+      // then: it rejects as pi's scanStart does
+      await assert.rejects(scan, (error: unknown) => {
+        assert.ok(
+          error instanceof StorageRequestError,
+          `expected a StorageRequestError, got ${error}`,
+        );
+        assert.match(error.message, /Invalid scan order/);
+        return true;
+      });
     });
   }
 });
