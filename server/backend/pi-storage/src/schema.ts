@@ -6,6 +6,7 @@
  * - `pi.ids`: the one id namespace of every record. It starts at 2: id 1 is the root conversation's.
  *   A sequence keeps each id it gave, also one that was never stored, so an id is never given twice.
  * - `pi.commit_seqs`: the sequence of each commit.
+ * - `pi.entries`: each entry, by the conversation it is in, with the sequence of the commit that wrote it.
  */
 export const SETUP = `
   DO $$
@@ -24,5 +25,13 @@ export const SETUP = `
       ON pi.conversations (owner_conversation_id, id);
     CREATE INDEX IF NOT EXISTS conversations_by_owner_task
       ON pi.conversations (owner_task_id, id);
+    CREATE TABLE IF NOT EXISTS pi.entries (
+      id              bigint PRIMARY KEY,
+      conversation_id bigint NOT NULL,
+      commit_seq      bigint NOT NULL,
+      record          jsonb  NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS entries_by_conversation
+      ON pi.entries (conversation_id, id);
   END
   $$`;

@@ -1,14 +1,23 @@
 /**
- * pi's `Storage` on Postgres: its conversations, and the commit, id and close they need.
- * Entries, tasks, submissions and documents are not written yet.
+ * pi's `Storage` on Postgres: its conversations and entries, and the commit, id and close they need.
+ * Tasks, submissions and documents are not written yet.
  */
 
+import type { Context } from "@earendil-works/chord/context";
 import type {
+  ConversationId,
   ConversationRecord,
+  EntryId,
   Id,
   Seq,
   Storage,
 } from "@earendil-works/pi-durable";
+import {
+  entry,
+  findLatestHeadMarker,
+  scanEntries,
+  writeEntry,
+} from "./entries.ts";
 import { SETUP } from "./schema.ts";
 
 /** What the storage runs its queries on: a pg client, PGlite, or anything with the same `query`. */
@@ -48,32 +57,37 @@ export function storageOn(db: Queryable): Storage {
         await open();
         await db.query("BEGIN");
         try {
-          for (const write of writes) {
-            if (write.type !== "conversation") notImplemented();
-            const { id, owner } = write.value;
-            const { rows } = await db.query(
-              `INSERT INTO pi.conversations (id, owner_conversation_id, owner_task_id, record)
-             VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING RETURNING id`,
-              [
-                id,
-                owner?.conversationId ?? null,
-                owner?.taskId ?? null,
-                JSON.stringify(write.value),
-              ],
-            );
-            if (rows.length === 0)
-              throw new Error(`ID ${id} already belongs to conversation`);
-            // A stored id the sequence has not reached moves it past that id, so mintId never gives it.
-            await db.query(
-              "SELECT setval('pi.ids', $1) FROM pi.ids WHERE $1 >= last_value + is_called::int",
-              [id],
-            );
-          }
+          // The sequence first: each entry holds the sequence of the commit that wrote it.
           const { rows } = await db.query(
             "SELECT nextval('pi.commit_seqs') AS seq",
           );
+          const seq = Number(rows[0].seq) as Seq;
+          for (const write of writes) {
+            if (write.type === "conversation") {
+              const { id, owner } = write.value;
+              const { rows } = await db.query(
+                `INSERT INTO pi.conversations (id, owner_conversation_id, owner_task_id, record)
+               VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING RETURNING id`,
+                [
+                  id,
+                  owner?.conversationId ?? null,
+                  owner?.taskId ?? null,
+                  JSON.stringify(write.value),
+                ],
+              );
+              if (rows.length === 0)
+                throw new Error(`ID ${id} already belongs to conversation`);
+            } else if (write.type === "entry") {
+              await writeEntry(db, write.value, seq);
+            } else notImplemented();
+            // A stored id the sequence has not reached moves it past that id, so mintId never gives it.
+            await db.query(
+              "SELECT setval('pi.ids', $1) FROM pi.ids WHERE $1 >= last_value + is_called::int",
+              [write.value.id],
+            );
+          }
           await db.query("COMMIT");
-          return Number(rows[0].seq) as Seq;
+          return seq;
         } catch (error) {
           await db.query("ROLLBACK");
           throw error;
@@ -120,9 +134,24 @@ export function storageOn(db: Queryable): Storage {
     async close() {
       closed = true;
     },
-    entry: notImplemented,
-    findLatestHeadMarker: notImplemented,
-    scanEntries: notImplemented,
+    // Two forms: (id, context), or (conversationId, id, context) for an entry visible through that conversation.
+    entry: (first: number, second: unknown, third?: Context) =>
+      inTurn(async () => {
+        await open();
+        return third === undefined
+          ? entry(db, first as EntryId)
+          : entry(db, second as EntryId, first as ConversationId);
+      }),
+    findLatestHeadMarker: (conversationId, atOrBefore) =>
+      inTurn(async () => {
+        await open();
+        return findLatestHeadMarker(db, conversationId, atOrBefore);
+      }),
+    scanEntries: (query, limit, cursor) =>
+      inTurn(async () => {
+        await open();
+        return scanEntries(db, query, limit, cursor);
+      }),
     task: notImplemented,
     scanTasks: notImplemented,
     submission: notImplemented,
