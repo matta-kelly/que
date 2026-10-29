@@ -413,9 +413,11 @@ test("a run's RUN_STARTED and RUN_FINISHED name the thread of the URL, also when
 test("a model call that fails ends the run with AG-UI's RUN_ERROR, which holds the error's message, in the place of RUN_FINISHED", async () => {
   const fails = async (errorMessage: string) => {
     const id = await thread();
-    faux.setResponses([
-      fauxAssistantMessage([], { stopReason: "error", errorMessage }),
-    ]);
+    // Each call fails the same way, also each retry pi makes of a retryable
+    // error: more failures queued than pi's retries (3) take.
+    const failure = () =>
+      fauxAssistantMessage([], { stopReason: "error", errorMessage });
+    faux.setResponses(Array.from({ length: 10 }, () => failure));
     const { events } = await run(id, [
       { id: randomUUID(), role: "user", content: "Hi" },
     ]);
@@ -427,7 +429,9 @@ test("a model call that fails ends the run with AG-UI's RUN_ERROR, which holds t
   };
   assert.deepEqual(
     {
+      // Retryable for pi: it calls again, and each call fails the same way.
       overloaded: await fails("The model is overloaded."),
+      // Not retryable: the run ends at the first failure.
       refused: await fails("401 Unauthorized: the API key is not valid."),
     },
     {
