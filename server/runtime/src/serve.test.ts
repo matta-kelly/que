@@ -109,6 +109,6 @@ test("/que/* answers as the signed-in user: /que/me is each user's own row", asy
   );
 });
 
-test("/ok answers", async () => {
-  assert.equal((await as("ana@example.com", "/ok")).status, 200);
+test("/ok answers with no identity", async () => {
+  assert.equal((await as(undefined, "/ok")).status, 200);
 });
