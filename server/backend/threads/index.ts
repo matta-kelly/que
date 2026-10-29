@@ -49,7 +49,13 @@ export function createStore(
   databaseUrl = process.env.DATABASE_URL,
 ): ThreadStore {
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
-  return storeOn(new pg.Pool({ connectionString: databaseUrl }));
+  const pool = new pg.Pool({ connectionString: databaseUrl });
+  // A connection that sits idle in the pool can still be lost (Postgres restarts, or the network drops). The pool
+  // drops it and says so with an "error" event, which, with no listener, would end the process (node-postgres, Pool).
+  pool.on("error", (error) =>
+    console.error("que: an idle Postgres connection was lost:", error.message),
+  );
+  return storeOn(pool);
 }
 
 /** The store, on a database it sets up first (`SETUP`). */
