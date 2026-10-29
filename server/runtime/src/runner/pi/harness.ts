@@ -52,6 +52,10 @@ function conversationOf(thread: string, model: Model) {
       context,
     );
   conversations.set(thread, made);
+  // A conversation that could not be made is not kept: the thread's next run makes it again.
+  made.catch(() => {
+    if (conversations.get(thread) === made) conversations.delete(thread);
+  });
   return made;
 }
 
@@ -83,9 +87,14 @@ export async function run(
           if (event.type === "run_start") mine = event.inputs.includes(id);
           if (!mine) continue;
           for (const out of agui.of(event)) await send(out);
-          if (event.type === "message_end" && AssistantEntry.is(event.entry))
+          const kept = agui.kept();
+          if (
+            event.type === "message_end" &&
+            AssistantEntry.is(event.entry) &&
+            kept
+          )
             await conversation.submit(
-              { type: "write", entry: idEntry(event.entry.id, agui.id()) },
+              { type: "write", entry: idEntry(event.entry.id, kept) },
               context,
             );
           if (event.type === "run_end") {

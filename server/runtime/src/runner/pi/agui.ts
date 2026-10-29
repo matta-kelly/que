@@ -57,9 +57,11 @@ function textOf(message: Message | undefined) {
 }
 
 /**
- * One run's translation: `of` gives the AG-UI events of each agent event,
- * `id` the id of the assistant message that streams or ended last, and
- * `error` the message of a model call that failed.
+ * One run's translation: `of` gives the AG-UI events of each agent event;
+ * `kept` the id of the assistant message that ended last, if it is one of
+ * the viewer's messages; and `error` the message of the run's last model
+ * call, if it failed. pi writes each failed attempt as an entry of its own and
+ * then retries, so only the last one says how the run ended.
  */
 export function aguiRun() {
   let run = "";
@@ -70,6 +72,7 @@ export function aguiRun() {
   let text = false;
   let reasoning: string | undefined;
   let error: string | undefined;
+  let kept: string | undefined;
 
   const closeReasoning = (): AGUIEvent[] => {
     if (!reasoning) return [];
@@ -161,22 +164,27 @@ export function aguiRun() {
       case "message_end": {
         if (!AssistantEntry.is(event.entry)) return [];
         const message = event.entry.model?.[0] as AssistantMessage | undefined;
-        if (message?.stopReason === "error")
-          error = message.errorMessage ?? "the model call failed";
-        return [
+        const out: AGUIEvent[] = [
           ...(message?.content ?? []).flatMap(rest),
           ...closeReasoning(),
           ...(text
             ? [{ type: EventType.TEXT_MESSAGE_END, messageId: id } as const]
             : []),
         ];
+        const failed = message?.stopReason === "error";
+        error = failed
+          ? (message.errorMessage ?? "the model call failed")
+          : undefined;
+        // A failed attempt the viewer got no text of is not one of its messages.
+        kept = failed && !text ? undefined : id;
+        return out;
       }
       default:
         return [];
     }
   };
 
-  return { of, id: () => id, error: () => error };
+  return { of, kept: () => kept, error: () => error };
 }
 
 /** A conversation's user and assistant messages, as AG-UI messages with their ids. */

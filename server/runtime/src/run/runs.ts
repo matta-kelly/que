@@ -42,12 +42,13 @@ export function runs(store: ThreadStore) {
       const send = (event: AGUIEvent) =>
         sse.writeSSE({ data: JSON.stringify(event) });
       await send({ type: EventType.RUN_STARTED, threadId, runId });
+      // A run that cannot start (its conversation, its watch or its submission fails) ends with RUN_ERROR too.
       const { error } = await run(
         threadId,
         model,
         { id: last.id, content: contentToText(last.content) },
         send,
-      );
+      ).catch((failed: Error) => ({ error: failed.message }));
       await send(
         error === undefined
           ? { type: EventType.RUN_FINISHED, threadId, runId }
