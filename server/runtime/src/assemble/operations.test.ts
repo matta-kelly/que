@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
+import { toJsonSchema } from "@langchain/core/utils/json_schema";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 import { door, type PlacedOp } from "./door.js";
@@ -73,4 +74,47 @@ test("the tool runs through the call it is given, with its op, the op's plugin a
     { op: { plugin: shop.plugin, op: shop.ops[0] }, params: { id: 4 } },
     { op: { plugin: shop.plugin, op: shop.ops[0] }, params: { id: 7 } },
   ]);
+});
+
+test("an op whose input has a transform gets the transformed value in run when called through its tool, and the tool's input is the op's", async () => {
+  const seen: unknown[] = [];
+  const tags = definePlugin({
+    name: "tags",
+    type: "plugin",
+    title: "Tags",
+    description: "The tags of orders.",
+    ops: [
+      {
+        name: "tags-get",
+        type: "op",
+        title: "Get tags",
+        description: "The tags of the orders named.",
+        input: z.object({
+          ids: z
+            .string()
+            .transform((s) => s.split(","))
+            .describe("Order ids, comma-separated"),
+        }),
+        run: async (_ctx, { ids }) => {
+          seen.push(ids);
+          return ids;
+        },
+      },
+    ],
+  });
+  const [getTags] = operationTools(
+    [{ plugin: { definition: tags, skills: [] } }],
+    (op, params) => call(op, params, "ana"),
+  );
+
+  // What the model is sent: the tool's input as JSON Schema, as LangChain writes it, apart from the draft it names.
+  const sent = { ...toJsonSchema(getTags.schema), $schema: undefined };
+  const own = { ...toJsonSchema(tags.ops[0].input), $schema: undefined };
+  assert.deepEqual(sent, own);
+  // A call that throws gives its message, so a wrong parse shows in the assertion.
+  const answer = (ids: string) =>
+    getTags.invoke({ ids }).catch((error: Error) => error.message);
+  assert.equal(await answer("a,b"), JSON.stringify(["a", "b"]));
+  assert.equal(await answer("c"), JSON.stringify(["c"]));
+  assert.deepEqual(seen, [["a", "b"], ["c"]]);
 });
