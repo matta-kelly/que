@@ -128,3 +128,46 @@ test("an op whose input has a transform gets the transformed value in run when c
   assert.equal(await answer("c"), JSON.stringify(["c"]));
   assert.deepEqual(seen, [["a", "b"], ["c"]]);
 });
+
+test("the tool shows the input side of its op's input: a transform from a string shows a string, and a field with a default is not required", () => {
+  const tags = definePlugin({
+    name: "tags",
+    type: "plugin",
+    title: "Tags",
+    description: "The tags of orders.",
+    ops: [
+      {
+        name: "tags-find",
+        type: "op",
+        title: "Find tags",
+        description: "The tags of the orders named.",
+        input: z.object({
+          ids: z
+            .string()
+            .transform((s) => s.split(","))
+            .describe("Order ids, comma-separated"),
+          limit: z.number().default(10).describe("How many tags"),
+        }),
+        run: async (_ctx, { ids, limit }) => ids.slice(0, limit),
+      },
+    ],
+  });
+  const [findTags] = operationTools(
+    [{ plugin: { definition: tags, skills: [] } }],
+    (op, params) => call(op, params, "ana"),
+  );
+
+  assert.deepEqual(
+    { ...findTags.schema, $schema: undefined },
+    {
+      $schema: undefined,
+      type: "object",
+      properties: {
+        ids: { type: "string", description: "Order ids, comma-separated" },
+        limit: { type: "number", default: 10, description: "How many tags" },
+      },
+      required: ["ids"],
+      additionalProperties: false,
+    },
+  );
+});

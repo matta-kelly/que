@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { AIMessage, HumanMessage, ToolMessage, fakeModel } from "langchain";
+import fc from "fast-check";
 import * as z from "zod";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import { resolveLoop } from "@mku1tra/que-harness";
@@ -27,6 +28,20 @@ const shop = definePlugin({
         if (id < 0) throw new OpFailed("no such order");
         return { id };
       },
+    },
+    {
+      name: "shop-tag-orders",
+      type: "op",
+      title: "Tag orders",
+      description: "Tags the orders named.",
+      input: z.object({
+        ids: z
+          .string()
+          .refine((s) => !s.includes(" "), "ids has no spaces")
+          .transform((s) => s.split(","))
+          .describe("Order ids, comma-separated"),
+      }),
+      run: async (_, { ids }) => ({ tagged: ids }),
     },
   ],
 });
@@ -113,4 +128,47 @@ test("a call to a plugin, an operation or a skill that is not there is a failed 
   assert.match(String(failed[0].content), /^Error: no plugin "crm"/);
   assert.match(String(failed[1].content), /^Error: no operation "nope"/);
   assert.match(String(failed[2].content), /^Error: no skill "shop-nope"/);
+});
+
+test("a call whose arguments break a refine is a failed call, on one line, with the path and the refine's message", async () => {
+  // A run that stops gives its error, so the stop shows in the assertion.
+  const outcome = await results(eager, [
+    { name: "shop-tag-orders", args: { ids: "a b" } },
+    { name: "shop-tag-orders", args: { ids: " a" } },
+  ]).catch((error: unknown) => error);
+  assert.ok(Array.isArray(outcome), `the run stopped on ${String(outcome)}`);
+  const [spaced, leading] = outcome;
+  assert.equal(spaced.status, "error");
+  assert.match(String(spaced.content), /^Error: .*\bids\b.*ids has no spaces/);
+  assert.doesNotMatch(String(spaced.content), /\n/);
+  assert.equal(leading.status, "error");
+  assert.match(String(leading.content), /^Error: .*\bids\b.*ids has no spaces/);
+  assert.doesNotMatch(String(leading.content), /\n/);
+});
+
+// Arguments a model can send: right ones, ones that break the refine or the type, and extra fields.
+const commaIds = fc.string({ unit: fc.constantFrom("a", "b", ",", " ") });
+const modelArguments = fc.oneof(
+  fc.record({ ids: commaIds }),
+  fc.record({ ids: commaIds, extra: fc.jsonValue() }),
+  fc.record({ ids: fc.jsonValue() }),
+  fc.dictionary(fc.string(), fc.jsonValue()),
+);
+
+test("given any arguments, when the model calls an op whose input has a refine and a transform, then the call answers or is a failed call, and the run never stops on it", async () => {
+  await fc.assert(
+    fc.asyncProperty(modelArguments, async (args) => {
+      const outcome = await results(eager, [
+        { name: "shop-tag-orders", args },
+      ]).catch((error: unknown) => error);
+      assert.ok(
+        Array.isArray(outcome),
+        `the run stopped on ${String(outcome)}`,
+      );
+      const [message] = outcome;
+      if (message.status !== "error")
+        assert.match(String(message.content), /^\{"tagged":\[.*\]\}$/);
+    }),
+    { numRuns: 50 },
+  );
 });
