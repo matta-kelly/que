@@ -29,7 +29,7 @@
     "prepack": "npm run build && cp ../../LICENSE LICENSE"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^1.4.0"
+    "@earendil-works/pi-ai": "1.4.0"
   },
   "peerDependencies": {
     "@mku1tra/basis": "^0.30.0",
