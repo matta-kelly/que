@@ -19,7 +19,8 @@ export type Skill = z.output<typeof plugin.types.skill.schema> & {
 
 /**
  * Turn the text of `skills/<folder>/SKILL.md` into a skill, throwing when it has no frontmatter, or frontmatter with
- * no name, a name that is not the folder's, or no description. With no `metadata.title`, its title is its name.
+ * no name, a name that is not the folder's, or no description. With no `metadata.title`, its title is its name. The
+ * names in its `allowed-tools`, space-separated, are its uses; with none, it has no uses.
  */
 export function parseSkill(folder: string, file: string): Skill {
   const what = `skill ${folder} is invalid`;
@@ -40,6 +41,7 @@ export function parseSkill(folder: string, file: string): Skill {
     read.note.fields,
     what,
   );
+  const uses = front["allowed-tools"]?.split(/\s+/).filter(Boolean) ?? [];
   return {
     ...check(
       plugin.types.skill.schema,
@@ -48,6 +50,7 @@ export function parseSkill(folder: string, file: string): Skill {
         type: "skill",
         title: front.metadata?.title ?? front.name,
         description: front.description,
+        ...(uses.length && { uses }),
       },
       what,
     ),

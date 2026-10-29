@@ -49,11 +49,13 @@ export const standardName = text
   })
   .max(64, { error: "must be at most 64 characters" });
 
-// The Agent Skills frontmatter que reads. Its other fields (license, compatibility, allowed-tools) are allowed and
-// not read. que's title is in `metadata`, the standard's place for a client's own fields.
+// The Agent Skills frontmatter que reads. Its other fields (license, compatibility) are allowed and not read. que's
+// title is in `metadata`, the standard's place for a client's own fields. `allowed-tools` names the ops the skill
+// uses, space-separated, as the standard gives it.
 export const SkillFrontmatter = z.object({
   name: standardName,
   description: text.max(1024, { error: "must be at most 1024 characters" }),
+  "allowed-tools": z.string({ error: "must be text" }).optional(),
   metadata: z
     .record(z.string(), z.string(), {
       error: "must be a map of text to text",

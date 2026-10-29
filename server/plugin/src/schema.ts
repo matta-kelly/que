@@ -74,7 +74,11 @@ const skill = defineType({
   name: "skill",
   description:
     "The text part of a plugin, one `SKILL.md`. `Skill` in @mku1tra/que-plugin.",
-  fields: { title: text },
+  fields: {
+    title: text,
+    // The ops it uses: its frontmatter's allowed-tools, as the Agent Skills standard names them.
+    uses: manyOrNone(() => op),
+  },
 });
 
 const capability = defineType({
@@ -192,13 +196,14 @@ const usesOf = (node: { usesOps?: string[]; usesSkills?: string[] }) => [
 const domainConnection = defineRule({
   name: "domain-connection",
   description:
-    "A domain holds no connection: no credential, no connect and no roles.",
+    "A domain holds no connection: no credential, no connect, no whoami and no roles.",
   on: pluginType,
   check: (node) =>
     node.kind === "domain"
       ? [
           ["credential", node.credential !== undefined] as const,
           ["connect", node.connect !== undefined] as const,
+          ["whoami", node.whoami !== undefined] as const,
           ["roles", !!node.roles?.length] as const,
         ]
           .filter(([, held]) => held)
