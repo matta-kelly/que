@@ -3,5 +3,5 @@
 package-lock.json
 # Run state.
 .langgraph_api
-# The build of @mku1tra/que-plugin.
-plugin/dist
+# The builds of the published packages.
+*/dist

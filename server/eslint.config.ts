@@ -186,7 +186,7 @@ const evalsFramework: Rule = {
 
 // One lint setup for the server: plugin, harness, backend, chat-model, runtime, evals and tests.
 export default defineConfig([
-  globalIgnores(["**/node_modules", "plugin/dist"]),
+  globalIgnores(["**/node_modules", "*/dist"]),
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts}"],
     plugins: { js },
