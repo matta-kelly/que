@@ -76,6 +76,32 @@ test(
   conformance("paginates conversations by opaque cursor in ascending ID order"),
 );
 
+test(
+  "scans deep fork history newest-first through every ancestor cap",
+  conformance(
+    "scans deep fork history newest-first through every ancestor cap",
+  ),
+);
+
+test(
+  "detaches prototype-like JSON keys without changing object prototypes",
+  conformance(
+    "detaches prototype-like JSON keys without changing object prototypes",
+  ),
+);
+
+test(
+  "indexes entries committed out of ID order",
+  conformance("indexes entries committed out of ID order"),
+);
+
+test(
+  "continues an entry cursor below its last item after a newer commit",
+  conformance(
+    "continues an entry cursor below its last item after a newer commit",
+  ),
+);
+
 // A database closed when the test ends, also when it fails: an open PGlite keeps the test process running.
 function closedAfter(t: TestContext, db: PGlite): PGlite {
   t.after(() => db.close());
