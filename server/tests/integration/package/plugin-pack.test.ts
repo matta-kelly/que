@@ -126,6 +126,7 @@ console.log(JSON.stringify({
     "readPlugin",
     "plugin",
     "plugins",
+    "pluginSchema",
   ])
     assert.ok(loaded.exports.includes(name), `no export ${name}`);
   assert.ok(loaded.typeNote, "plugin.typeNotes holds no plugin.md");

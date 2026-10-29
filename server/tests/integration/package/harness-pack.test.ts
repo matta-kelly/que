@@ -1,6 +1,6 @@
 /**
  * The contract of `@mku1tra/que-harness` on npm: what its tarball holds, and that a folder with no que in it installs
- * the tarball, imports it by name and runs its command. The pack builds `harness/dist/`, which this test removes again:
+ * the tarball, imports it by name, and lints a deployment with it from the folder's root, by basis's own command. The pack builds `harness/dist/`, which this test removes again:
  * no other step builds it. The folder is in the system's temp folder, so nothing of que is above it, and its Node runs
  * with no condition and no tsx. Its peer @mku1tra/que-plugin is que's own, packed beside it from a copy of
  * server/plugin, so the two are checked together before either is published; basis and zod come from npm.
@@ -136,26 +136,33 @@ console.log(JSON.stringify({ exports: Object.keys(m), url: import.meta.resolve("
     "defineDeployment",
     "defineAgent",
     "readDeployment",
-    "lintDeployment",
+    "deploymentSchema",
+    "deploymentSources",
+    "deploymentGraph",
+    "factsOf",
     "harness",
   ])
     assert.ok(loaded.exports.includes(name), `no export ${name}`);
 });
 
-test("its command runs from the folder's node_modules/.bin, and says how to use it", () => {
-  const { status, stderr } = spawnSync(
-    join(outside, "node_modules/.bin/que-harness"),
-    [],
-    { cwd: outside, env, encoding: "utf8" },
-  );
-  assert.equal(status, 2);
-  assert.equal(stderr.trim(), "usage: que-harness lint <deployment folder>");
-});
-
 // A deployment in the folder, and a plugin of its own repo, linked into its node_modules as npm workspaces link one:
-// what a deployment that installs que-harness has.
+// what a deployment that installs que-harness has. The folder is the root, and gives the deployment's sources.
 const deploymentWith = (plugins: string[]) => {
   const files: Record<string, string> = {
+    "basis.config.ts": `import { defineSchema } from "@mku1tra/basis";
+import { deploymentSources, harness } from "@mku1tra/que-harness";
+const root = import.meta.dirname;
+export default {
+  schema: defineSchema({
+    name: "consumer",
+    description: "A repo of a deployment and its plugin.",
+    types: {},
+    imports: [harness],
+    notes: new URL("./", import.meta.url),
+    sources: deploymentSources(root + "/deployment", root),
+  }),
+};
+`,
     "plugins/notes/package.json": '{ "name": "notes", "type": "module" }\n',
     "plugins/notes/io.github.matta-kelly.que/index.ts": `import { definePlugin } from "@mku1tra/que-plugin";
 export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down." });
@@ -170,7 +177,7 @@ export default defineAgent({ name: "chat", type: "agent", description: "The agen
 export default defineLoop({ name: "long-chat", type: "loop", description: "A loop." });
 `,
     "deployment/models/small.ts": `import { defineModel } from "@mku1tra/que-harness";
-export default defineModel({ name: "small", type: "model", description: "A model.", id: "fireworks:small", maxTokens: 1000 });
+export default defineModel({ name: "small", type: "model", description: "A model.", id: "fireworks:small", window: 64_000, maxTokens: 1000 });
 `,
   };
   for (const [path, text] of Object.entries(files)) {
@@ -181,26 +188,26 @@ export default defineModel({ name: "small", type: "model", description: "A model
   symlinkSync("../plugins/notes", join(outside, "node_modules/notes"));
 };
 
+// basis's command, from the folder's node_modules/.bin: the lint of the folder, its root.
 const lint = () =>
-  spawnSync(
-    join(outside, "node_modules/.bin/que-harness"),
-    ["lint", "deployment"],
-    { cwd: outside, env, encoding: "utf8" },
-  );
+  spawnSync(join(outside, "node_modules/.bin/basis"), ["lint"], {
+    cwd: outside,
+    env,
+    encoding: "utf8",
+  });
 
-test("its command lints a deployment and a linked plugin, and finds no problem in a sound one", () => {
+test("basis lints the folder's root, a deployment and a linked plugin through que-harness's sources, and finds no problem in a sound one", () => {
   deploymentWith(["notes"]);
   const { status, stdout, stderr } = lint();
-  assert.equal(status, 0, stderr);
-  assert.equal(stdout.trim(), "no problem");
+  assert.equal(status, 0, stderr + stdout);
 });
 
-test("its command prints a problem of a deployment at its file, and ends with a fault", () => {
+test("basis prints a problem of a deployment at its file, and ends with a fault", () => {
   deploymentWith(["notes", "delta"]);
-  const { status, stderr } = lint();
+  const { status, stdout, stderr } = lint();
   assert.equal(status, 1);
-  assert.equal(
-    stderr.trim(),
-    "deployment/agents/chat.ts: /plugins: names the plugin delta, which the deployment does not mount (basis/link)",
+  assert.match(
+    stdout + stderr,
+    /deployment\/agents\/chat\.ts.*\/plugins.*names the plugin delta, which the deployment does not mount \(basis\/link\)/,
   );
 });

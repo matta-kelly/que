@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { deploymentRoot } from "../../tests/deployment-root.js";
 import { load } from "./load.js";
 
 const deployment = (name: string) =>
-  join(import.meta.dirname, "../fixtures/deployments", name);
+  deploymentRoot(join(import.meta.dirname, "../fixtures"), name);
 
 test("loads the name of a deployment, the cases of each plugin it lists, each with its plugin, and its agent configs as written, in order", async () => {
   const { deployment: name, cases, agents } = await load(deployment("shop"));

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import { lintFolder } from "@mku1tra/basis";
+import { lintRoot } from "@mku1tra/basis";
 import * as z from "zod";
 import { plugin } from "./schema.ts";
 
@@ -99,8 +99,9 @@ test("a node with a field not on its type fails, on that field", () => {
   assert.equal(issue?.code, "unrecognized_keys");
 });
 
-// A folder's lint runs basis/one-definition over the package's exports, as the CLI does: the in-memory lint calls no code.
-test("the lint of the plugin schema's folder finds no problem: each type note gives only prose, and each zod object the package exports is part of a type or a bridge", async () => {
+// The folder of type notes is the plugin schema's own root: its lint runs basis/one-definition over the package's
+// exports, as the CLI does.
+test("the lint of the plugin schema's root finds no problem: each type note gives only prose, and each zod object the package exports is part of a type or a bridge", async () => {
   const folder = fileURLToPath(plugin.typeNotes!);
-  assert.deepEqual((await lintFolder(plugin, folder)).problems, []);
+  assert.deepEqual((await lintRoot(folder)).problems, []);
 });

@@ -76,3 +76,21 @@ test("readNode reads a node by its shape, as another copy of the package makes i
     faults: ["model Not a lowercase slug."],
   });
 });
+
+test("defineModel and readNode take a model that writes its window and price, and one that writes neither: a piece of a model may leave them to another", () => {
+  const small = {
+    name: "small",
+    type: "model" as const,
+    description: "A small model.",
+    id: "beam:Beam-1.0-501B-A23B",
+    maxTokens: 1000,
+  };
+  const facts = { window: 64_000, price: { input: 1, output: 2 } };
+  assert.deepEqual(defineModel({ ...small, ...facts }), { ...small, ...facts });
+  assert.deepEqual(readNode("model", { ...small, ...facts }), {
+    node: { ...small, ...facts },
+    faults: [],
+  });
+  assert.deepEqual(defineModel(small), small);
+  assert.deepEqual(readNode("model", small), { node: small, faults: [] });
+});

@@ -33,7 +33,6 @@ test("the model made for a beam config is Beam's, with the id and the maxTokens 
     id: "beam:Beam-1.0-501B-A23B",
     window: 1_048_576,
     maxTokens: 131_072,
-    price: { input: 0, output: 0 },
   });
   assert.ok(made instanceof ChatBeam);
   assert.equal(made.model, "Beam-1.0-501B-A23B");
@@ -64,7 +63,6 @@ test("the model made for a config sends the config's effort as reasoning_effort"
     id: "beam:Beam-1.0-501B-A23B",
     window: 1_048_576,
     maxTokens: 131_072,
-    price: { input: 0, output: 0 },
     effort: "high",
   });
   assert.ok(beam instanceof ChatBeam);

@@ -14,9 +14,10 @@ import {
 } from "../fixtures/langfuse-stand-in.js";
 import { KEY, provider } from "../fixtures/provider-stand-in.js";
 import { replay } from "../fixtures/replay.js";
+import { deploymentRoot } from "../../tests/deployment-root.js";
 
 const cli = join(import.meta.dirname, "cli.ts");
-const shop = join(import.meta.dirname, "../fixtures/deployments/shop");
+const shop = deploymentRoot(join(import.meta.dirname, "../fixtures"), "shop");
 
 const command = (url: string, ...args: string[]) =>
   new Promise<{ code: number; out: string; err: string }>((resolve) => {

@@ -51,7 +51,6 @@ const model = await chatModel({
   id: "beam:Beam-1.0-501B-A23B",
   window: 1_048_576,
   maxTokens: 131_072,
-  price: { input: 0, output: 0 },
   effort: "high",
 });
 if (!(model instanceof ChatBeam))

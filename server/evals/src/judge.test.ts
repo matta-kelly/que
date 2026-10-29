@@ -174,6 +174,7 @@ test("the judge's own model is a run's: a beam config gives verdicts, and each c
     type: "model" as const,
     description: "A model of a test.",
     id: "beam:Beam-1.0-501B-A23B",
+    window: 1_048_576,
     maxTokens: 131_072,
     effort: "high",
   };

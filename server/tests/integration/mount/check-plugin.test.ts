@@ -1,8 +1,9 @@
 /**
  * The mount step of `just check-plugin`: the script it runs first, run as the
- * recipe runs it, against the plugins in fixtures/. A plugin that would not
- * mount on its own fails it with mount's own error; one that mounts passes,
- * and the script prints nothing.
+ * recipe runs it, against the plugins in fixtures/. A plugin mounted on its own
+ * is linted from its root: each of these is a root of its own, with its
+ * basis.config.ts. A plugin that would not mount on its own fails it with
+ * mount's own error; one that mounts passes, and the script prints nothing.
  */
 
 import { after, test } from "node:test";
@@ -79,4 +80,15 @@ test("a plugin whose case names a capability the plugin does not hold fails", ()
     stderr,
     /cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)/,
   );
+});
+
+test("a plugin in no root fails, naming its folder and saying how it gets one", () => {
+  const dir = join(work, "rootless");
+  cpSync(plugin("source"), dir, { recursive: true });
+  rmSync(join(dir, "basis.config.ts"));
+  writeFileSync(join(dir, "package.json"), '{ "type": "module" }\n');
+  const { status, stderr } = check(dir);
+  assert.equal(status, 1);
+  assert.match(stderr, new RegExp(`^mount: ${dir} is in no root:`, "m"));
+  assert.match(stderr, /pluginSchema/);
 });

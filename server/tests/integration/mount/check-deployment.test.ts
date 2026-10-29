@@ -1,31 +1,23 @@
 /**
  * The mount step of `just check-deployment`: the script it runs first, run as
- * the recipe runs it, against the deployments in fixtures/. A deployment that
- * would not mount fails it with mount's own error; one that mounts passes, and
- * the script prints the folder of each plugin it lists. No network: the
- * fixtures are copied to the system's temp folder, so that a test can give a
- * deployment its own saved copy of facts.
+ * the recipe runs it, against the deployments in fixtures/, each a root of its
+ * own (deploymentRoot). A deployment that would not mount fails it with
+ * mount's own error; one that mounts passes, and the script prints the folder
+ * of each plugin it lists. No network: a model's facts are its file's, or the
+ * installed model catalog's.
  */
 
-import { after, test } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { realpathSync } from "node:fs";
 import { join } from "node:path";
 import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
+import { deploymentRoot } from "../../deployment-root.js";
 
 const server = join(import.meta.dirname, "../../..");
-const fixtures = mkdtempSync(join(tmpdir(), "que-check-deployment-"));
-// Its plugins are installed as links, and copied as they are, so they point into the copy.
-cpSync(join(import.meta.dirname, "fixtures"), fixtures, {
-  recursive: true,
-  verbatimSymlinks: true,
-});
-// As a deployment's own folder is: out of que's, its files are modules only by this.
-writeFileSync(join(fixtures, "package.json"), '{ "type": "module" }\n');
-after(() => rmSync(fixtures, { recursive: true, force: true }));
-const deployment = (name: string) => join(fixtures, "deployments", name);
+const deployment = (name: string) =>
+  deploymentRoot(join(import.meta.dirname, "fixtures"), name);
 
 const check = (name: string) =>
   spawnSync(
@@ -44,24 +36,16 @@ const mountError = async (name: string) => {
   assert.fail(`${name} mounts`);
 };
 
-const saveFacts = (name: string, facts: object) => {
-  mkdirSync(join(deployment(name), ".que"), { recursive: true });
-  writeFileSync(
-    join(deployment(name), ".que", "model-facts.json"),
-    JSON.stringify(facts),
-  );
-};
-
 test("a deployment that mounts passes, and the folder of each plugin it lists is printed", () => {
   const { status, stdout, stderr } = check("agents-two");
   assert.equal(status, 0, stderr);
   assert.deepEqual(stdout.trim().split("\n"), [
-    join(fixtures, "plugins", "gamma"),
-    join(fixtures, "plugins", "alpha"),
+    realpathSync(join(deployment("agents-two"), "plugins", "gamma")),
+    realpathSync(join(deployment("agents-two"), "plugins", "alpha")),
   ]);
 });
 
-// The typos of matta-kelly/que#102 (a path, a plugin, a loop), and a model, each in a fixture of its own.
+// The typos of matta-kelly/que#102 (a path, a plugin, a loop), a model, and a model with no window, each in a fixture of its own.
 for (const [typo, name, says] of [
   [
     "an agent no file gives",
@@ -88,6 +72,11 @@ for (const [typo, name, says] of [
     "agent-model-unlisted",
     /names the model small, which no file in the deployment's models\/ gives/,
   ],
+  [
+    "a model the model catalog has no entry for, whose file writes no window",
+    "models-bare",
+    /models\/bare\.ts: \/window: Missing: .*\(basis\/fields\)/,
+  ],
 ] as const) {
   test(`fails with mount's error on ${typo}`, async () => {
     const { status, stdout, stderr } = check(name);
@@ -97,26 +86,3 @@ for (const [typo, name, says] of [
     assert.equal(stderr.trim(), await mountError(name));
   });
 }
-
-test("a model's window and price come from the saved copy, with no network", () => {
-  saveFacts("models-bare", {
-    "fireworks:accounts/fireworks/models/bare-model": {
-      window: 200_000,
-      price: { input: 3, output: 4 },
-    },
-  });
-  const { status, stderr } = check("models-bare");
-  assert.equal(status, 0, stderr);
-});
-
-test("a fact that is in neither the model file nor the saved copy is unknown, and fails with mount's error", () => {
-  saveFacts("models-bare", {
-    "fireworks:accounts/fireworks/models/bare-model": { window: 200_000 },
-  });
-  const { status, stderr } = check("models-bare");
-  assert.equal(status, 1);
-  assert.match(stderr, /^mount: the model "bare" has no price/);
-  // It says the two ways to fix it.
-  assert.match(stderr, /`just start` once saves it in \.que\//);
-  assert.match(stderr, /Write `price` in the model file/);
-});

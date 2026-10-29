@@ -115,6 +115,21 @@ const harnessAlone: Rule = {
   path: /^(?!\.\/|@mku1tra\/basis$|@mku1tra\/que-plugin$|zod(?:\/|$)|node:)/,
   why: "@mku1tra/que-harness imports only its own files, basis, zod, @mku1tra/que-plugin and node: the runtime, the model maker and the eval runner build on it, never the other way.",
 };
+// A test of a published package can also take the roots a lint starts at, from the server's tests: they are never
+// published, and a lint starts only at a root on disk.
+const testRoots = /\.\.\/\.\.\/tests\/roots\.ts$/;
+const pluginTestsAlone: Rule = {
+  path: new RegExp(
+    pluginAlone.path.source.replace("node:)", `node:|${testRoots.source})`),
+  ),
+  why: "A test of @mku1tra/que-plugin imports only what the package does, and the roots for tests (tests/roots.ts).",
+};
+const harnessTestsAlone: Rule = {
+  path: new RegExp(
+    harnessAlone.path.source.replace("node:)", `node:|${testRoots.source})`),
+  ),
+  why: "A test of @mku1tra/que-harness imports only what the package does, and the roots for tests (tests/roots.ts).",
+};
 const backendAlone: Rule = {
   path: /^@que\/(?:runtime|chat-model|evals)(?:\/|$)|^(?:\.\.\/)+(?:runtime|chat-model|evals)(?:\/|$)/,
   why: "The backend imports nothing from @que/runtime, @que/chat-model or @que/evals: the runtime stands on it, never the other way.",
@@ -190,6 +205,8 @@ export default defineConfig([
   hold(["**/*.{js,mjs,cjs,ts,mts,cts}"], [otherApp, providers]),
   hold(["plugin/src/**/*.ts"], [pluginAlone]),
   hold(["harness/src/**/*.ts"], [harnessAlone]),
+  hold(["plugin/src/**/*.test.ts"], [pluginTestsAlone]),
+  hold(["harness/src/**/*.test.ts"], [harnessTestsAlone]),
   hold(["chat-model/**/*.ts"], [otherApp, chatModelAlone]),
   hold(["backend/**/*.ts"], [otherApp, providers, backendAlone]),
 

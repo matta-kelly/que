@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
-import { lint, lintFolder, type Piece } from "@mku1tra/basis";
+import { lintRoot, type Piece } from "@mku1tra/basis";
 import { plugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
+import { folderWith, url } from "../../tests/roots.ts";
 import * as exported from "./index.ts";
 
 const { harness } = exported;
@@ -53,6 +54,7 @@ const glmFlash = {
   type: "model",
   description: "A fast model.",
   id: "fireworks:glm-flash",
+  window: 128_000,
   maxTokens: 4096,
 };
 
@@ -109,11 +111,14 @@ test("a deployment links its agents, loops and models, at least one of each, and
     );
 });
 
+/** A piece as a source gives it: the lint names its source. */
+type Given = Omit<Piece, "source">;
+
 // The pieces of a deployment named landl, with one agent, chat, one loop and one model, and each node changed by
 // `fields`.
 const deploymentOf = (
   fields: Record<string, Record<string, unknown>> = {},
-): Piece[] =>
+): Given[] =>
   [
     {
       name: "landl",
@@ -128,26 +133,47 @@ const deploymentOf = (
     longChat,
   ].map(({ name, ...node }) => ({
     path: `${name}.ts`,
-    source: "code",
     name,
     fields: { ...node, ...fields[name] },
   }));
 
-const said = (pieces: Piece[]) =>
-  lint(harness, pieces).problems.map(({ path, rule, field, message }) => [
-    path,
-    rule,
-    field,
-    message,
-  ]);
+/**
+ * The problems of a root whose schema imports the harness schema, and whose one source, code, gives `pieces`: the
+ * pieces of a deployment as its code gives them, linted from its root.
+ */
+const said = async (pieces: Given[]) => {
+  const { folder, remove } = await folderWith({
+    "basis.config.ts": `import { defineSchema } from ${url.basis};
+import { harness } from ${url.harness};
+const pieces = ${JSON.stringify(pieces)};
+export default {
+  schema: defineSchema({
+    name: "pieces",
+    description: "A deployment's pieces, as its code gives them.",
+    types: {},
+    imports: [harness],
+    notes: new URL("./", import.meta.url),
+    sources: [function code() { return { pieces, problems: [], unread: [] }; }],
+  }),
+};
+`,
+  });
+  try {
+    return (await lintRoot(folder)).problems.map(
+      ({ path, rule, field, message }) => [path, rule, field, message],
+    );
+  } finally {
+    await remove();
+  }
+};
 
-test("a deployment whose agent runs on its model and in its loop has no problem", () => {
-  assert.deepEqual(said(deploymentOf()), []);
+test("a deployment whose agent runs on its model and in its loop has no problem", async () => {
+  assert.deepEqual(await said(deploymentOf()), []);
 });
 
-test("an agent's link to a plugin, model or loop that is no node says where the deployment would give it", () => {
+test("an agent's link to a plugin, model or loop that is no node says where the deployment would give it", async () => {
   assert.deepEqual(
-    said(
+    await said(
       deploymentOf({
         chat: { plugins: ["delta"], model: "big", loop: "short-run" },
       }),
@@ -175,14 +201,13 @@ test("an agent's link to a plugin, model or loop that is no node says where the 
   );
 });
 
-test("an agent the deployment names, on a model the deployment does not name, fails harness/named", () => {
+test("an agent the deployment names, on a model the deployment does not name, fails harness/named", async () => {
   const big = { ...glmFlash, name: "big" };
   assert.deepEqual(
-    said([
+    await said([
       ...deploymentOf({ chat: { model: "big" } }),
       {
         path: "big.ts",
-        source: "code",
         name: "big",
         fields: without(big, "name"),
       },
@@ -198,14 +223,13 @@ test("an agent the deployment names, on a model the deployment does not name, fa
   );
 });
 
-test("an agent the deployment names, in a loop the deployment does not name, fails harness/named", () => {
+test("an agent the deployment names, in a loop the deployment does not name, fails harness/named", async () => {
   const shortRun = { ...longChat, name: "short-run" };
   assert.deepEqual(
-    said([
+    await said([
       ...deploymentOf({ chat: { loop: "short-run" } }),
       {
         path: "short-run.ts",
-        source: "code",
         name: "short-run",
         fields: without(shortRun, "name"),
       },
@@ -221,7 +245,7 @@ test("an agent the deployment names, in a loop the deployment does not name, fai
   );
 });
 
-test("an agent the deployment names, with a plugin the deployment does not name, fails harness/named", () => {
+test("an agent the deployment names, with a plugin the deployment does not name, fails harness/named", async () => {
   const warehouse = {
     name: "warehouse",
     type: "plugin",
@@ -229,11 +253,10 @@ test("an agent the deployment names, with a plugin the deployment does not name,
     title: "Warehouse",
   };
   assert.deepEqual(
-    said([
+    await said([
       ...deploymentOf({ chat: { plugins: ["warehouse"] } }),
       {
         path: "warehouse.ts",
-        source: "code",
         name: "warehouse",
         fields: without(warehouse, "name"),
       },
@@ -249,17 +272,25 @@ test("an agent the deployment names, with a plugin the deployment does not name,
   );
 });
 
-test("a model whose maxTokens is above its window fails harness/max-tokens-in-window", () => {
+test("a model whose maxTokens is above its window fails harness/max-tokens-in-window", async () => {
+  const id = "fireworks:accounts/fireworks/models/glm-5p3-flash";
+  const facts = exported.factsOf(id);
+  assert.ok(facts);
   assert.deepEqual(
-    said(deploymentOf({ "glm-flash": { window: 1000 } })).map(
-      ([path, rule]) => [path, rule],
-    ),
+    (
+      await said(
+        deploymentOf({
+          "glm-flash": { id, ...facts, maxTokens: facts.window + 1 },
+        }),
+      )
+    ).map(([path, rule]) => [path, rule]),
     [["glm-flash.ts", "harness/max-tokens-in-window"]],
   );
 });
 
-// A folder's lint runs basis/one-definition over the package's exports, as the CLI does: the in-memory lint calls no code.
-test("the lint of the harness schema's folder finds no problem: each type note gives only prose, and each zod object the package exports is part of a type", async () => {
+// The folder of type notes is the harness schema's own root: its lint runs basis/one-definition over the package's
+// exports, as the CLI does.
+test("the lint of the harness schema's root finds no problem: each type note gives only prose, and each zod object the package exports is part of a type", async () => {
   const folder = fileURLToPath(harness.typeNotes!);
-  assert.deepEqual((await lintFolder(harness, folder)).problems, []);
+  assert.deepEqual((await lintRoot(folder)).problems, []);
 });

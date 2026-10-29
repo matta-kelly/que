@@ -7,11 +7,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
+import { deploymentRoot } from "../../deployment-root.js";
 
 test("que mounts, at startup, the deployment the environment names", async () => {
-  process.env.QUE_DEPLOYMENT = join(
-    import.meta.dirname,
-    "fixtures/deployments/two",
+  process.env.QUE_DEPLOYMENT = deploymentRoot(
+    join(import.meta.dirname, "fixtures"),
+    "two",
   );
   const { plugins } = await import("../../../runtime/src/mount/mounted.js");
   assert.deepEqual(

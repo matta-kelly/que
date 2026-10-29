@@ -107,3 +107,18 @@ test("an agent has the share its loop summarizes at, and none when it does not s
     { name: "whole", model: "big" },
   ]);
 });
+
+test("a model with no price, one the model catalog has no entry for and whose file writes none, is sent with none", () => {
+  const beam = {
+    name: "beam",
+    type: "model" as const,
+    description: "A model of a test.",
+    id: "beam:Beam-1.0-501B-A23B",
+    window: 64_000,
+    maxTokens: 8_000,
+  };
+  const onBeam = { ...chat, model: "beam" };
+  assert.deepEqual(deploymentInfo([onBeam], [beam], [longChat]).models, [
+    { name: "beam", window: 64_000, maxTokens: 8_000 },
+  ]);
+});

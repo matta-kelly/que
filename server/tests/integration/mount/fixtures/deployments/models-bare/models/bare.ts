@@ -1,6 +1,6 @@
 import { defineModel } from "@mku1tra/que-harness";
 
-// A model that writes no fact: its window and its price come from the sources.
+// A model the model catalog has no entry for, whose file writes no window: no piece gives it one.
 export default defineModel({
   name: "bare",
   type: "model",
