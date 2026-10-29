@@ -1,19 +1,20 @@
-# The checks main is held to, after each push: the backstop behind the pre-push hook (.githooks/pre-push), which runs the same set.
+# The checks every push runs, to every branch, main included, behind the pre-push hook (.githooks/pre-push), which runs
+# the same set. The ruleset on main requires the job `checks` on the exact commit, so the trigger has no path filter (a
+# required check that a path filter skips stays pending): the script skips what a change does not need.
 # The check set is in `scripts/check.sh`, which `just check` runs too: this file sets up the toolchain and calls it.
 name: checks
 
 on:
-  pull_request:
   push:
-    branches: [main]
 
 permissions:
   contents: read
 
-# A newer push to a pull request replaces the run of the older one. A run on main is never cancelled.
+# One group per ref: a newer push to a branch cancels the older run. On main a running run is not cancelled, but GitHub
+# keeps one waiting run per group, so a newer push replaces a waiting one.
 concurrency:
-  group: checks-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: checks-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Which sets the change needs. The script decides, as it does on a machine.
@@ -28,12 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # A pull request is checked out as its merge commit, whose first parent is main.
-          # On main, the first parent is the commit before the merge.
-          fetch-depth: 2
+          # All history, so origin/main is there.
+          fetch-depth: 0
       - id: plan
         env:
-          CHECK_BASE: HEAD^1
+          # A branch is measured from where it left main, so the sets cover each commit on it, not only the last.
+          # On main, origin/main is the commit itself, so main is measured from the commit before it.
+          CHECK_BASE: ${{ github.ref == 'refs/heads/main' && 'HEAD^1' || 'origin/main' }}
         run: |
           scripts/check.sh --plan >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
