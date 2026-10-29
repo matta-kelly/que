@@ -348,3 +348,41 @@ test("given a run that throws no Error, when the op is called, then the throw co
     [["exception", "the till is jammed"]],
   );
 });
+
+const stock = definePlugin({
+  name: "stock",
+  type: "plugin",
+  title: "Stock",
+  description: "The shop's stock, checked as it is asked.",
+  ops: [
+    {
+      name: "stock-reserve",
+      type: "op",
+      title: "Reserve stock",
+      description: "Reserves one product.",
+      input: z.object({
+        sku: z
+          .string()
+          .refine(
+            async (sku) => sku.startsWith("SKU-"),
+            "the sku is no product",
+          )
+          .describe("Product sku"),
+      }),
+      run: async (_ctx, { sku }) => ({ reserved: sku }),
+    },
+  ],
+});
+const reserve: PlacedOp = { plugin: stock.plugin, op: stock.ops[0] };
+
+test("given an op whose input has an async refine, when it is called, then a good value gives the result and a bad one a one-line OpFailed with the refine's message", async () => {
+  const answer = (params: unknown) =>
+    named(reserve, params, "ana").catch((error: Error) => error);
+
+  assert.deepEqual(await answer({ sku: "SKU-1" }), { reserved: "SKU-1" });
+  assert.deepEqual(await answer({ sku: "SKU-22" }), { reserved: "SKU-22" });
+  const refused = await answer({ sku: "chair" });
+  assert.ok(refused instanceof OpFailed, `the door gave ${String(refused)}`);
+  assert.match(refused.message, /the sku is no product/);
+  assert.doesNotMatch(refused.message, /\n/);
+});
