@@ -10,9 +10,10 @@ import {
   createMiddleware,
   toolErrorMiddleware,
 } from "langchain";
-import { OpFailed, type Plugin } from "@mku1tra/que-plugin";
+import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 import type { Config } from "./config.js";
+import type { PlacedOp } from "./door.js";
 import { operationTools } from "./operations.js";
 import { systemPrompt } from "./prompt.js";
 import { skillTools } from "./skills.js";
@@ -35,17 +36,17 @@ export function assemble(
   {
     user,
     catalog,
-    connect,
+    call,
     instructions,
   }: {
     user?: { name: string; email: string; instructions?: string };
     catalog: Catalog;
-    connect: (plugin: Plugin) => Promise<unknown>;
+    call: (op: PlacedOp, params: unknown) => Promise<unknown>;
     instructions?: string;
   },
 ) {
   const base = [...config.tools(catalog), ...skillTools(catalog)];
-  const operations = operationTools(catalog, connect);
+  const operations = operationTools(catalog, call);
   const operationNames = operations.map((t) => t.name);
   // Only an operation is held back. A tool another middleware adds is not ours to hold back.
   const notOperations = (tools: unknown[]) =>

@@ -7,6 +7,7 @@ import { resolveLoop } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { build } from "./build.js";
 import { assemble } from "../../assemble/assemble.js";
+import { door } from "../../assemble/door.js";
 import { eager } from "../../assemble/eager/index.js";
 import { onDemand } from "../../assemble/on-demand/index.js";
 
@@ -51,7 +52,8 @@ async function results(
   model.respond(new AIMessage("Done."));
   const { tools, systemPrompt, middleware } = assemble(config, {
     catalog,
-    connect: async () => undefined,
+    // The door, on access that gives no connection, called as one user.
+    call: (op, params) => door(async () => undefined)(op, params, "ana"),
   });
   const agent = build(
     resolveLoop({

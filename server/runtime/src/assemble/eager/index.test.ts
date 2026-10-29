@@ -21,7 +21,7 @@ test("every operation goes out with the first request, and with each one after",
 test("eager adds no tools: read_skill and the operations are all the agent gets", () => {
   const { tools } = assemble(eager, {
     catalog,
-    connect: async () => undefined,
+    call: async () => undefined,
   });
   assert.deepEqual(
     tools.map((t) => t.name),
@@ -32,7 +32,7 @@ test("eager adds no tools: read_skill and the operations are all the agent gets"
 test("there are no tools when no plugin holds an operation or a skill", () => {
   const { tools } = assemble(eager, {
     catalog: identityOnly,
-    connect: async () => undefined,
+    call: async () => undefined,
   });
   assert.deepEqual(tools, []);
 });
@@ -40,7 +40,7 @@ test("there are no tools when no plugin holds an operation or a skill", () => {
 test("read_skill's description does not send the agent to open_plugin alone", () => {
   const { tools } = assemble(eager, {
     catalog,
-    connect: async () => undefined,
+    call: async () => undefined,
   });
   assert.equal(
     tools[0].description,

@@ -6,7 +6,7 @@ import { catalog, identityOnly, mixed, skillsOnly } from "../fixture.js";
 import { eager } from "./index.js";
 
 const systemPrompt = (catalog: Catalog) =>
-  assemble(eager, { catalog, connect: async () => undefined }).systemPrompt;
+  assemble(eager, { catalog, call: async () => undefined }).systemPrompt;
 
 const HEAD = [
   "You are a helpful assistant.",

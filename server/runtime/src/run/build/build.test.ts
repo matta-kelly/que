@@ -13,6 +13,7 @@ import {
 import * as z from "zod";
 import { resolveLoop, type Loop } from "@mku1tra/que-harness";
 import { assemble } from "../../assemble/assemble.js";
+import { door } from "../../assemble/door.js";
 import { catalog } from "../../assemble/fixture.js";
 import { onDemand } from "../../assemble/on-demand/index.js";
 import { build } from "./build.js";
@@ -132,9 +133,10 @@ test("with result on, an operation that is not loaded does not go out, and read_
   const connected: string[] = [];
   const { tools, middleware } = assemble(onDemand, {
     catalog,
-    connect: async (plugin) => {
-      connected.push(plugin.name);
-    },
+    call: (op, params) =>
+      door(async (plugin) => {
+        connected.push(plugin.name);
+      })(op, params, "ana"),
   });
   const { sent, result } = await run(
     {

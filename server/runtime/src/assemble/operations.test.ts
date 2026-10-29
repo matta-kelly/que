@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as z from "zod";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
+import { door, type PlacedOp } from "./door.js";
 import { operationTools } from "./operations.js";
 
 const shop = definePlugin({
@@ -27,9 +28,10 @@ const shop = definePlugin({
 });
 const catalog: Catalog = [{ plugin: { definition: shop, skills: [] } }];
 
-const [getOrder] = operationTools(
-  catalog,
-  async (plugin) => `conn:${plugin.name}`,
+// The door, on access that gives each plugin a connection named for it, called as one user.
+const call = door(async (plugin) => `conn:${plugin.name}`);
+const [getOrder] = operationTools(catalog, (op, params) =>
+  call(op, params, "ana"),
 );
 
 test("an operation becomes a tool of its op's name, with its own title, description and arguments", () => {
@@ -55,4 +57,20 @@ test("an OpFailed is thrown on, for the agent to mark as a failed call", async (
 
 test("any other error is a bug, and is thrown", async () => {
   await assert.rejects(() => getOrder.invoke({ id: 0 }), /bug/);
+});
+
+test("the tool runs through the call it is given, with its op, the op's plugin and the params, and returns what the call gives as JSON", async () => {
+  const calls: { op: PlacedOp; params: unknown }[] = [];
+  const [recorded] = operationTools(catalog, async (op, params) => {
+    calls.push({ op, params });
+    return { call: calls.length };
+  });
+
+  assert.equal(await recorded.invoke({ id: 4 }), JSON.stringify({ call: 1 }));
+  assert.equal(await recorded.invoke({ id: 7 }), JSON.stringify({ call: 2 }));
+
+  assert.deepEqual(calls, [
+    { op: { plugin: shop.plugin, op: shop.ops[0] }, params: { id: 4 } },
+    { op: { plugin: shop.plugin, op: shop.ops[0] }, params: { id: 7 } },
+  ]);
 });

@@ -13,6 +13,7 @@ import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import { resolveLoop } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { assemble } from "../../assemble/assemble.js";
+import { door } from "../../assemble/door.js";
 import { eager } from "../../assemble/eager/index.js";
 import { build } from "./build.js";
 
@@ -88,7 +89,8 @@ async function run(
   let modelCalls = 0;
   const { tools, systemPrompt, middleware } = assemble(eager, {
     catalog,
-    connect: async () => undefined,
+    // The door, on access that gives no connection, called as one user.
+    call: (op, params) => door(async () => undefined)(op, params, "ana"),
   });
   const agent = build(
     resolveLoop({
