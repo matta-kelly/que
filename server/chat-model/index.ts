@@ -30,3 +30,5 @@ export const chatModel = async (model: Model) =>
         }),
         configurableFields: [],
       });
+
+export { piModel } from "./pi.js";
