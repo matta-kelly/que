@@ -1,14 +1,15 @@
 /**
  * What a deployment has to run: its name, the cases of its plugins, its agent configs and its model configs. Read
- * from the deployment's own files as mount reads them (readDeployment in @mku1tra/que-harness), and linted with the
- * harness schema as one graph, as mount lints them. The @mku1tra/que-plugin range check and the model facts are
- * mount's alone: they are about the @mku1tra/que-plugin mount hands a plugin, and the server that runs the cases
- * mounts.
+ * from the deployment's own files as mount reads them (readDeployment in @mku1tra/que-harness), and linted from its
+ * root as one graph, as mount lints it (deploymentGraph), so each model has its facts, from the model catalog or its
+ * file, as mount's do.
+ * The @mku1tra/que-plugin range check is mount's alone: it is about the @mku1tra/que-plugin mount hands a plugin, and
+ * the server that runs the cases mounts.
  */
 
 import {
+  deploymentGraph,
   harness,
-  lintDeployment,
   readDeployment,
   type Agent,
   type Model,
@@ -35,16 +36,19 @@ export async function load(folder: string): Promise<{
 }> {
   try {
     const read = await readDeployment(folder);
-    const { problems, graph } = lintDeployment(read);
+    const { root, problems, graph } = await deploymentGraph(folder);
     if (problems.length)
       throw new Error(
         `the deployment cannot be run:\n- ${problems.map(sayProblem).join("\n- ")}`,
       );
+    const deployment = read.deployment
+      ? graph.get(read.deployment.name, harness.types.deployment)
+      : undefined;
+    if (!deployment)
+      throw new Error(
+        `the root ${root} gives no deployment of this folder: its schema's sources are not deploymentSources of it`,
+      );
     // No problem: each node the deployment names is in the graph.
-    const deployment = graph.get(
-      read.deployment!.name,
-      harness.types.deployment,
-    )!;
     return {
       deployment: deployment.name,
       cases: casesOf(read.plugins),

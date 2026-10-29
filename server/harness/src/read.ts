@@ -16,10 +16,9 @@ import {
   type Unreadable,
 } from "@mku1tra/que-plugin";
 import type { Agent } from "./agent.ts";
-import { readNode, type Kind, type NodeOf } from "./define.ts";
+import { readNode, type Kind, type PieceOf } from "./define.ts";
 import type { Deployment } from "./deployment.ts";
 import type { Loop } from "./loop.ts";
-import type { Model } from "./model.ts";
 
 /** A node, and the file that gives it. */
 export type Placed<N> = { file: string; node: N };
@@ -34,7 +33,8 @@ export type ReadDeployment = {
   deployment?: Deployment;
   agents: Placed<Agent>[];
   loops: Placed<Loop>[];
-  models: Placed<Model>[];
+  /** Each as its file gives it: its window and price may be another piece's (the model catalog's). */
+  models: Placed<PieceOf<"model">>[];
   /** Each plugin it names that is installed, in the order it names them, with the name it gives it. */
   plugins: (ReadPlugin & { name: string })[];
   problems: Unreadable[];
@@ -112,7 +112,7 @@ export async function readDeployment(given: string): Promise<ReadDeployment> {
   const nodeIn = async <K extends Kind>(
     kind: K,
     file: string,
-  ): Promise<NodeOf<K> | undefined> => {
+  ): Promise<PieceOf<K> | undefined> => {
     try {
       const given = readNode(kind, await defaultOf(file));
       if ("node" in given) return given.node;

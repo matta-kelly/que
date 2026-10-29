@@ -89,7 +89,7 @@ eval deployment *args: _require-up
     # The runner takes its settings from the deployment's .env, as the server does.
     podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/runtime/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
-# Mount a deployment with no .env and no network, from its saved model facts, then type check its own code and the packages it lists,
+# Mount a deployment with no .env and no network, which lints it from its root, then type check its own code and the packages it lists,
 # and run their tests, with que's supplied packages handed to all of them. A deployment that would not mount stops here, with mount's error.
 # A package can sit outside the deployment's folder; each one it lists is checked.
 check-deployment deployment:
@@ -114,8 +114,8 @@ check-folder folder:
     c=$(./scripts/container.sh "$dir")
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
-# Mount one plugin on its own, with no network, then type check its code and run its tests, as check-folder does.
-# The folder is a plugin: one that would not mount (its definition, its cases, its skills) stops here, with mount's error.
+# Mount one plugin on its own, with no network, linted from its root, then type check its code and run its tests, as check-folder does.
+# The folder is a plugin: one that would not mount (its definition, its cases, its skills, its root) stops here, with mount's error.
 # What a domain uses is checked by the deployment that lists it.
 check-plugin folder:
     #!/usr/bin/env bash

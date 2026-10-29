@@ -3,13 +3,13 @@
  * agent config names. que has no model of its own.
  */
 
-import type { Agent, MountedModel } from "@mku1tra/que-harness";
+import type { Agent, Model } from "@mku1tra/que-harness";
 
 export function modelFor(
-  models: MountedModel[],
+  models: Model[],
   config: Agent,
   named: unknown,
-): MountedModel {
+): Model {
   const name = named ?? config.model;
   const model = models.find((m) => m.name === name);
   if (model) return model;

@@ -1,21 +1,16 @@
 /**
  * A deployment as pieces for basis's lint: its definition, each agent, loop and model as its file gives it, and each
- * node of each plugin it names (piecesOf in @mku1tra/que-plugin). Mount lints these with the harness schema, and so
- * does a folder's lint through `deployment`, the source: one graph of the deployment.
+ * node of each plugin it names (piecesOf in @mku1tra/que-plugin), and the facts the model catalog gives of each of its
+ * models (catalog.ts). Its root's schema takes them as its sources (deploymentSources), so each lint of the root,
+ * mount's too, reads one graph of the deployment.
  */
 
 import { realpathSync } from "node:fs";
 import { relative, sep } from "node:path";
-import {
-  lint,
-  type Graph,
-  type Piece,
-  type Problem,
-  type Source,
-} from "@mku1tra/basis";
+import type { Source } from "@mku1tra/basis";
 import { loadedOf, type Loaded } from "@mku1tra/que-plugin";
+import { factsOf } from "./catalog.ts";
 import { readDeployment, type Placed, type ReadDeployment } from "./read.ts";
-import { harness } from "./schema.ts";
 
 // A node as the piece it is: its name, and its fields.
 const piece = (
@@ -52,15 +47,23 @@ export function piecesOf(
   return out;
 }
 
+// Each path from the real path of `root`, as basis places a piece.
+function fromRoot(root: string) {
+  const real = realpathSync(root);
+  return {
+    real,
+    from: (path: string) => relative(real, path).split(sep).join("/"),
+  };
+}
+
 /**
- * The source of the deployment in `dir`, for the lint of the folder `root`: each path is a real path (readDeployment),
+ * The source of the deployment in `dir`, for the lint of the root `root`: each path is a real path (readDeployment),
  * from `root`'s real path, as basis places a piece. A plugin whose real folder is outside `root` gives none of its
  * pieces, which would have no path from it: a problem at the deployment's definition names it, and its name is unread.
  */
-export function deployment(dir: string, root: string): Source {
+function deployment(dir: string, root: string): Source {
   return async function queDeployment() {
-    const real = realpathSync(root);
-    const from = (path: string) => relative(real, path).split(sep).join("/");
+    const { real, from } = fromRoot(root);
     const read = await readDeployment(dir);
     const outside = read.plugins.filter(
       (plugin) =>
@@ -73,7 +76,7 @@ export function deployment(dir: string, root: string): Source {
     for (const plugin of outside) {
       given.problems.push({
         path: from(read.index),
-        message: `The plugin ${plugin.name} is in ${plugin.dir}, outside the folder linted: lint from a folder that holds it, as que-harness lint does.`,
+        message: `The plugin ${plugin.name} is in ${plugin.dir}, outside the root ${real}: a deployment's root holds the real folder of each plugin it names.`,
         fatal: true,
       });
       given.unread.push({ path: from(read.index), name: plugin.name });
@@ -83,22 +86,40 @@ export function deployment(dir: string, root: string): Source {
 }
 
 /**
- * The lint of a deployment as one graph, with the harness schema: its pieces as code gives them, one source, and
- * `more` pieces from another place (mount's model facts), another source. Gives the problems of each file that cannot
- * be read and the lint's, and the graph a program runs on once the problems are none.
+ * The facts of each model of the deployment in `dir` that the model catalog has an entry for: a piece of the model's
+ * node, at its file's path with `#catalog`, that gives its window and its price, so a problem of one names the
+ * catalog. A model the catalog has none for gets no piece: its file, or its note, gives its facts. A file or a note
+ * that gives one the catalog gives too is two pieces of one field (basis/merge).
  */
-export function lintDeployment(
-  read: ReadDeployment,
-  more: readonly Omit<Piece, "source">[] = [],
-): { problems: Problem[]; graph: Graph } {
-  const given = piecesOf(read);
-  const { problems, graph } = lint(
-    harness,
-    [
-      ...given.pieces.map((piece) => ({ ...piece, source: "code" })),
-      ...more.map((piece) => ({ ...piece, source: "more" })),
-    ],
-    given.unread.map((thing) => ({ ...thing, source: "code" })),
-  );
-  return { problems: [...given.problems, ...problems], graph };
+function catalog(dir: string, root: string): Source {
+  return async function modelCatalog() {
+    const { from } = fromRoot(root);
+    const { models } = await readDeployment(dir);
+    return {
+      pieces: models.flatMap(({ file, node }) => {
+        const facts = factsOf(node.id);
+        return facts
+          ? [
+              {
+                path: `${from(file)}#catalog`,
+                name: node.name,
+                fields: { type: "model", ...facts },
+              },
+            ]
+          : [];
+      }),
+      problems: [],
+      unread: [],
+    };
+  };
+}
+
+/**
+ * The sources of the deployment in `dir`, for its root `root`: what a root's schema gives as its sources so that its
+ * lint reads the deployment as one graph. Its code (its definition, its agents, loops and models, and each node of
+ * each plugin it names) is one source; the model catalog's facts of its models are another. The one place a source of
+ * the deployment is added: a root that takes these takes each.
+ */
+export function deploymentSources(dir: string, root: string): Source[] {
+  return [deployment(dir, root), catalog(dir, root)];
 }

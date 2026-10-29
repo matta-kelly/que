@@ -1,42 +1,22 @@
 /**
- * Mounts a deployment with no `.env` and no network, then prints the folder of
+ * Mounts a deployment, which lints it from its root, then prints the folder of
  * each plugin it lists, one per line. A deployment that would not mount stops
  * here, with mount's error. A plugin can sit outside the deployment's folder
- * (a repo's own `plugins/`), so `just check-deployment` asks for this list
- * rather than looking only inside the deployment.
- *
- * A model's window and price come from its file or from the deployment's saved
- * copy of facts, not from a source. One that is in neither is unknown, and
- * mount refuses it. With no `.env`, a `MODEL` setting is not seen.
+ * (a repo's own `plugins/`, in the root that holds both), so
+ * `just check-deployment` asks for this list rather than looking only inside
+ * the deployment. No network: a model's window and price are its file's, or
+ * the installed model catalog's, and no `.env` is read.
  *
  * `tsx check-deployment.ts <deployment folder>`
  */
 
 import { readDeployment } from "@mku1tra/que-harness";
 import { mountDeployment } from "./deployment.js";
-import type { FactSources } from "./model-facts/index.js";
-import { savedFacts } from "./model-facts/saved.js";
 
 const dir = process.argv[2];
-// The sources ask no one: a fact the deployment's saved copy does not hold is unknown, and mount says how to write it.
-const saved = savedFacts(dir).read();
-const unknown = {
-  reason: "the check reads no network (`just start` once saves it in .que/)",
-};
-const offline: FactSources = {
-  window: async (model) => {
-    const window = (await saved)[model.id]?.window;
-    return window === undefined ? unknown : { window };
-  },
-  price: async (model) => {
-    const price = (await saved)[model.id]?.price;
-    return price === undefined ? unknown : { price };
-  },
-  done: async () => {},
-};
 
 try {
-  await mountDeployment(dir, {}, offline);
+  await mountDeployment(dir);
 } catch (error) {
   console.error((error as Error).message);
   process.exit(1);

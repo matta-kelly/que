@@ -10,7 +10,7 @@ import { readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import type { Source } from "@mku1tra/basis";
 import { pluginFiles } from "./layout.ts";
-import { piecesOf } from "./lint.ts";
+import { piecesOf } from "./pieces.ts";
 import { NAMESPACE } from "./names.ts";
 import { readPlugin, type ReadPlugin } from "./read.ts";
 
@@ -55,18 +55,35 @@ export function loadedOf(
 }
 
 /**
- * The source of the plugins under `folder`, for the lint of the folder `root`: each path is from `root`. A file that
- * cannot be read is a problem of its own, and the lint goes on (loadedOf).
+ * The source of the plugins under `folder`, for the lint of the root `root`: each path is from `root`. A file that
+ * cannot be read is a problem of its own, and the lint goes on (loadedOf). Each name a plugin uses (its usesOps and
+ * usesSkills) that no plugin under the folder gives is there and not read, at its definition: what a plugin uses is
+ * given by the deployment that names it, so a link to it is no problem here.
  */
 export function plugins(folder: string, root: string): Source {
   const from = (path: string) => relative(root, path).split(sep).join("/");
   return async function quePlugins(): Promise<Loaded> {
     const all: Loaded = { pieces: [], problems: [], unread: [] };
+    const read = [];
     for (const dir of await pluginFolders(folder)) {
-      const one = loadedOf(await readPlugin(dir), from);
-      all.pieces.push(...one.pieces);
-      all.problems.push(...one.problems);
-      all.unread.push(...one.unread);
+      const one = await readPlugin(dir);
+      read.push(one);
+      const loaded = loadedOf(one, from);
+      all.pieces.push(...loaded.pieces);
+      all.problems.push(...loaded.problems);
+      all.unread.push(...loaded.unread);
+    }
+    const given = new Set([
+      ...all.pieces.map((piece) => piece.name),
+      ...all.unread.map((thing) => thing.name),
+    ]);
+    for (const { definition, files } of read) {
+      const { usesOps = [], usesSkills = [] } = definition?.plugin ?? {};
+      for (const name of [...usesOps, ...usesSkills])
+        if (!given.has(name)) {
+          given.add(name);
+          all.unread.push({ path: from(files.definition), name });
+        }
     }
     return all;
   };

@@ -1,14 +1,12 @@
 /**
- * The one check of plugins: each node a plugin's code and skills give, as a piece, linted by basis with the plugin
- * schema, as lot's lint lints them. Mount checks one plugin or a deployment's plugins with it, and says the problems
- * as the lint says them.
+ * A plugin as pieces for basis's lint: each node its code and skills give, as a piece (piecesOf), which the source of
+ * plugins and the deployment's give a root's lint; and a problem, said as basis's lint says it.
  */
 
-import { lint, type Piece, type Problem } from "@mku1tra/basis";
+import type { Piece, Problem } from "@mku1tra/basis";
 import type { ReadPlugin } from "./read.ts";
-import { plugin } from "./schema.ts";
 
-/** A piece of a node a plugin gives: never a note's body, and of no source until the check or a lint gives it one. */
+/** A piece of a node a plugin gives: never a note's body, and of no source until a lint gives it one. */
 type PluginPiece = Pick<Piece, "path" | "name" | "fields">;
 
 // A node as the piece it is: its name, and its fields, live values too.
@@ -61,25 +59,6 @@ export function piecesOf(
   }
   pieces.push(...cases.map((kase) => piece(at(files.cases, kase.name), kase)));
   return pieces;
-}
-
-/**
- * What is wrong with plugins' pieces, by the plugin schema, as one graph. Each name in `unread` that no piece gives is
- * there and not read, so a link to it is no problem: what one plugin uses, checked without the plugins that give it.
- * The pieces are of one source, so two of one name are two things.
- */
-export function checkPlugins(
-  pieces: readonly PluginPiece[],
-  unread: readonly string[] = [],
-): Problem[] {
-  const given = new Set(pieces.map((piece) => piece.name));
-  return lint(
-    plugin,
-    pieces.map((piece) => ({ ...piece, source: "plugins" })),
-    unread
-      .filter((name) => !given.has(name))
-      .map((name) => ({ path: "", name, source: "plugins" })),
-  ).problems;
 }
 
 /** A problem, as basis's lint says it: `<path>: <field>: <message> (<rule>)`. */

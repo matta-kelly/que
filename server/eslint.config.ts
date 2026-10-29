@@ -112,8 +112,8 @@ const pluginAlone: Rule = {
   why: "@mku1tra/que-plugin imports only its own files, basis, ajv, zod and node: the harness package and the runtime build on it, never the other way.",
 };
 const harnessAlone: Rule = {
-  path: /^(?!\.\/|@mku1tra\/basis$|@mku1tra\/que-plugin$|zod(?:\/|$)|node:)/,
-  why: "@mku1tra/que-harness imports only its own files, basis, zod, @mku1tra/que-plugin and node: the runtime, the model maker and the eval runner build on it, never the other way.",
+  path: /^(?!\.\/|@mku1tra\/basis$|@mku1tra\/que-plugin$|@earendil-works\/pi-ai\/providers\/all$|zod(?:\/|$)|node:)/,
+  why: "@mku1tra/que-harness imports only its own files, basis, zod, @mku1tra/que-plugin, pi's model catalog (catalog.ts) and node: the runtime, the model maker and the eval runner build on it, never the other way.",
 };
 // A test of a published package can also take the roots a lint starts at, from the server's tests: they are never
 // published, and a lint starts only at a root on disk.

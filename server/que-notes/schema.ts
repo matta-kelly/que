@@ -13,17 +13,14 @@ import { plugin } from "@mku1tra/que-plugin";
 
 // Not notes, by file name: the READMEs npm and GitHub show (Reality, with no frontmatter).
 const reality = new Set(["README.md"]);
-// Not notes, by folder name, wherever it is: installed packages.
-const notNotes = new Set(["node_modules"]);
 // Not notes, by path: the plugins mount's tests read, whose skills are the standard's files (a SKILL.md, with no type).
 const paths = ["server/tests/integration/mount/fixtures"];
 
-/** Whether a path of the repo, from its root, is not a note. */
+/** Whether a path of the repo, from its root, is not a note. node_modules is in no ground: basis skips it. */
 const skip = (path: string) => {
   const parts = path.split("/");
   return (
     reality.has(parts.at(-1) ?? "") ||
-    parts.some((part) => notNotes.has(part)) ||
     paths.some((p) => path === p || path.startsWith(`${p}/`))
   );
 };

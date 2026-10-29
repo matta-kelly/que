@@ -1,9 +1,9 @@
 import { defineModel } from "@mku1tra/que-harness";
 
 // One model this deployment's agents can run on: a file of its own in models/, which the deployment names. These fields
-// are the choices, and each is needed.
-// que fills in what is true of the model when it starts: its `window` from the provider, and its `price`
-// from models.dev. Write `window` or `price` here to pin one: a value in this file wins.
+// are the choices, and each is needed. What is true of the model, its window and its price, is not written here: pi's
+// model catalog (@earendil-works/pi-ai) gives them, by the id, and a fact has one place. A model the catalog has no
+// entry for writes them here, as beam.ts does.
 export default defineModel({
   name: "glm-flash",
   type: "model",

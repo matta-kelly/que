@@ -1,7 +1,7 @@
 {
   "name": "@mku1tra/que-plugin",
-  "version": "0.6.0",
-  "description": "Everything a que plugin is: the plugin schema, whose types are its contract, its skills and cases, the one check of plugins, the source that reads plugins' code for a lint, and the card it is published with.",
+  "version": "0.7.0",
+  "description": "Everything a que plugin is: the plugin schema, whose types are its contract, its skills and cases, the source that reads plugins' code for a root's lint, the schema of a plugin's own root, and the card it is published with.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
     "ajv": "^8.20.0"
   },
   "peerDependencies": {
-    "@mku1tra/basis": "^0.28.0",
+    "@mku1tra/basis": "^0.30.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

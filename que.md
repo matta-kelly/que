@@ -31,7 +31,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 - Inbox
 	- still think yaml config might be sick
 	- prices into Langfuse: 
-		- que gives the deployment's Langfuse the price of each of its models, the ones it fills at mount, so a cost in Langfuse is the cost the chat shows. Langfuse has no price for que's models, and counts them at zero.
+		- que gives the deployment's Langfuse the price of each of its models that has one, so a cost in Langfuse is the cost the chat shows. Langfuse has no price for que's models, and counts them at zero.
 	- general goal of something that runs locally but cna be persistent  --> can mount files but it also artifact native
 	- evals / UI: impalement some feedback component --> would be nice to tie to traces at some point
 		- [component](https://www.assistant-ui.com/elements/feedback-dialog)
@@ -104,7 +104,8 @@ agent ─────────────────▶  assemble  turn its
 		- a unit is written in que's own types, as the plugin contract is
 	- what the agent is
 		- model. A model config is a file in `models/` with a name, the provider's model, and the most tokens of one reply. A deployment names several in `models`
-			- the file holds the choices. que fills in what is true of the model at startup: its window from the provider, and its price from a public model database. A value written in the file wins
+			- the file holds the choices. What is true of the model, its window and its price, is a fact, and each fact has one place: pi's model catalog (`@earendil-works/pi-ai`, as installed with `@mku1tra/que-harness`) gives it by the model's id, as a source of the deployment's root (`deploymentSources`), for a model it has an entry for; the model's file gives it for one it has not (Beam). Both is two pieces of one field, and the lint refuses it (basis/merge)
+			- the window is needed, as a run sizes a loop's shares by it: a model with none from either place fails the lint (basis/fields). The price can be left out: the chat shows no cost for that model
 			- which one a run gets: the one the run names, else the one the agent config names
 			- the chat UI has a picker for the agent and one for the model, and keeps the pick with the thread
 		- instructions. From the config, in place of que's role text
@@ -140,7 +141,7 @@ agent ─────────────────▶  assemble  turn its
 			- traces, to Langfuse
 			- a plugin's card (`plugin.json`), at its publish: `card/` writes it from the plugin's nodes, and nothing of que's reads it
 	- composition: what each layer owns, and what it hands to the next
-		- mount (`mount/`): what exists. Reads the deployment, each agent, loop and model config and each plugin it names (`readDeployment`), gives each model the facts its file does not write, and lints them as one graph with the harness schema. Stops on any problem: a file that cannot be read, a name that is no node (a plugin an agent names that is not mounted, a loop or a model the deployment does not give), a rule. Hands on: the graph's nodes, the mounted plugins and configs
+		- mount (`mount/`): what exists. Reads the deployment, each agent, loop and model config and each plugin it names (`readDeployment`), and lints them as one graph from the deployment's root, the root whose ground holds its folder (`deploymentGraph`): a lint starts only at a root. Stops on any problem: a file that cannot be read, a name that is no node (a plugin an agent names that is not mounted, a loop or a model the deployment does not give), a rule, a model file that writes a window or a price. Hands on: the root's graph's nodes, the mounted plugins and configs
 		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog
 		- assemble (`assemble/`): the agent. The catalog and the agent's units in, the slots out (prompt, tools, middleware). Built for one unit, loading: one config on a shared base. Hands on: the agent
 		- run (`run/`): serving the agent. Hands the slots to the framework, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names a framework: LangChain and the LangGraph server

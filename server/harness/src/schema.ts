@@ -56,9 +56,12 @@ const model = defineType({
     ),
     /** The most tokens the model gives in one reply. A choice: not above the window, and not the most the model can give. */
     maxTokens: count,
-    /** The most tokens the model takes in. Left out: read from the provider at mount. */
-    window: count.optional(),
-    /** Left out: read from a model database at mount. */
+    /**
+     * The most tokens the model takes in: a run sizes a loop's shares by it. A fact, in one place: the model catalog
+     * gives it (catalog.ts) for a model it has an entry for, and the model's file, or its note, for one it has not.
+     */
+    window: count,
+    /** A fact, in one place, as `window` is. Left out: what the model costs is not known, and no cost is shown. */
     price: price.optional(),
     /**
      * How hard the model thinks before it answers: the provider's own word for a level, sent as `reasoning_effort`.

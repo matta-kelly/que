@@ -4,12 +4,7 @@
  * instructions, no plugin names.
  */
 
-import type {
-  Agent,
-  Loop,
-  ModelPrice,
-  MountedModel,
-} from "@mku1tra/que-harness";
+import type { Agent, Loop, Model, ModelPrice } from "@mku1tra/que-harness";
 import { loopFor } from "./loop.js";
 import { modelFor } from "./model.js";
 
@@ -20,18 +15,18 @@ export type DeploymentInfo = {
    * does not summarize has none.
    */
   agents: { name: string; model: string; summarizeAt?: number }[];
-  /** `price` is in dollars for one million tokens. */
+  /** `price` is in dollars for one million tokens. A model with no price has none. */
   models: {
     name: string;
     window: number;
     maxTokens: number;
-    price: ModelPrice;
+    price?: ModelPrice;
   }[];
 };
 
 export function deploymentInfo(
   agents: Agent[],
-  models: MountedModel[],
+  models: Model[],
   loops: Loop[],
 ): DeploymentInfo {
   return {
@@ -48,7 +43,7 @@ export function deploymentInfo(
       name,
       window,
       maxTokens,
-      price,
+      ...(price && { price }),
     })),
   };
 }

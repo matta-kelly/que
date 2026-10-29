@@ -1,26 +1,27 @@
 /**
  * Mount: read a deployment from disk and run on its graph. A deployment is a folder whose index.ts has its definition
  * as the default export, with its agents, loops and models in files of their own under agents/, loops/ and models/,
- * and its plugins installed by name (readDeployment in @mku1tra/que-harness). Mount gives each model the facts its
- * file does not write (models.ts), lints the whole deployment with the harness schema as one graph, and fails on any
+ * and its plugins installed by name (readDeployment in @mku1tra/que-harness). Mount lints the deployment from its root,
+ * the root whose ground holds its folder (deploymentGraph in @mku1tra/que-harness), as one graph, and fails on any
  * problem: a file that cannot be read, a link that does not resolve (a plugin, model or loop an agent names that the
  * deployment does not give), a rule (an agent's model or loop the deployment does not name, a maxTokens above the
- * window). Then it runs on the graph's nodes. A `MODEL` setting, which que no longer reads, fails too.
+ * window), a field a node needs (a model's window, from the model catalog or its file). Then it runs on that graph's
+ * nodes. A `MODEL` setting, which que no longer reads, fails too.
  */
 
 import "./supply.js";
 import {
+  deploymentGraph,
   harness,
-  lintDeployment,
   piecesOf,
+  providerOf,
   readDeployment,
   type Agent,
   type Loop,
-  type MountedModel,
+  type Model,
 } from "@mku1tra/que-harness";
 import { sayProblem } from "@mku1tra/que-plugin";
-import { factSources, type FactSources } from "./model-facts/index.js";
-import { factPieces } from "./models.js";
+import { PROVIDERS } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
 import { checkRange, type MountedPlugin } from "./plugins.js";
 
@@ -28,18 +29,12 @@ const { types } = harness;
 
 export async function mountDeployment(
   dir: string,
-  env: {
-    MODEL?: string;
-    FIREWORKS_API_KEY?: string;
-    BEAM_API_KEY?: string;
-  } = {},
-  // Where a model's window and price come from when its file writes none. A test hands in its own.
-  sources: FactSources = factSources(dir, env),
+  env: { MODEL?: string } = {},
 ): Promise<{
   plugins: MountedPlugin[];
   agents: Agent[];
   loops: Loop[];
-  models: MountedModel[];
+  models: Model[];
 }> {
   if (env.MODEL !== undefined)
     throw new Error(
@@ -53,22 +48,32 @@ export async function mountDeployment(
     throw new Error(
       `mount: deployment ${dir} cannot be read:\n- ${unreadable.map(sayProblem).join("\n- ")}`,
     );
-  const { problems, graph } = lintDeployment(
-    read,
-    // Only the models the deployment names: another file in models/ is not run, and is asked for nothing.
-    await factPieces(
-      read.models.filter(({ node }) =>
-        read.deployment!.models.includes(node.name),
-      ),
-      sources,
-    ),
-  );
+  // Only the models the deployment names: another file in models/ is not run.
+  for (const { node: model } of read.models)
+    if (
+      read.deployment!.models.includes(model.name) &&
+      !PROVIDERS.includes(providerOf(model))
+    )
+      throw new Error(
+        `mount: the model "${model.name}" has the provider "${providerOf(model)}", which que does not have. Providers: ${PROVIDERS.join(", ")}`,
+      );
+  let linted: Awaited<ReturnType<typeof deploymentGraph>>;
+  try {
+    linted = await deploymentGraph(dir);
+  } catch (error) {
+    throw new Error(`mount: ${(error as Error).message}`, { cause: error });
+  }
+  const { root, problems, graph } = linted;
   if (problems.length)
     throw new Error(
       `mount: deployment ${dir} breaks the harness schema:\n- ${problems.map(sayProblem).join("\n- ")}`,
     );
+  const deployment = graph.get(read.deployment!.name, types.deployment);
+  if (!deployment)
+    throw new Error(
+      `mount: the root ${root} gives no deployment ${read.deployment!.name}: its schema's sources are not deploymentSources of ${dir}`,
+    );
   // No problem: each node the deployment names is in the graph.
-  const deployment = graph.get(read.deployment!.name, types.deployment)!;
   const named = <T extends (typeof types)[keyof typeof types]>(
     names: string[],
     type: T,
@@ -82,15 +87,13 @@ export async function mountDeployment(
     }),
     agents: named(deployment.agents, types.agent),
     loops: named(deployment.loops, types.loop),
-    models: named(deployment.models, types.model) as MountedModel[],
+    models: named(deployment.models, types.model),
   };
 }
 
 export async function mountFromEnv(env: {
   QUE_DEPLOYMENT?: string;
   MODEL?: string;
-  FIREWORKS_API_KEY?: string;
-  BEAM_API_KEY?: string;
 }): Promise<MountedPlugin[]> {
   return (await mountDeployment(deploymentFolder(env), env)).plugins;
 }
