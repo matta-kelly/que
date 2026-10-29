@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { PGlite } from "@electric-sql/pglite";
-import { trace } from "@opentelemetry/api";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import {
   InMemorySpanExporter,
   SimpleSpanProcessor,
@@ -26,6 +26,7 @@ trace.setGlobalTracerProvider(
 
 const noSuchOrder = new OpFailed("no such order");
 const closed = new OpFailed("the shop is closed");
+const bug = new Error("bug");
 
 const shop = definePlugin({
   name: "shop",
@@ -52,6 +53,7 @@ const shop = definePlugin({
       run: async ({ conn }, { id }) => {
         if (id === -1) throw noSuchOrder;
         if (id === -2) throw closed;
+        if (id === 0) throw bug;
         return { id, conn };
       },
     },
@@ -142,5 +144,38 @@ test("given three calls, when each one ends, then each opened one span, named by
   assert.deepEqual(
     spans.getFinishedSpans().map((span) => span.name),
     ["shop-get-order", "shop-list-orders", "shop-get-order"],
+  );
+});
+
+test("given a run that throws, when the call ends, then its span has status ERROR and the exception recorded as an event; a call that succeeds has neither", async () => {
+  spans.reset();
+
+  await named(getOrder, { id: 4 }, "ana");
+  await named(getOrder, { id: -1 }, "ana").catch(() => undefined);
+  await named(getOrder, { id: 0 }, "ana").catch(() => undefined);
+
+  const [answered, failed, broken] = spans.getFinishedSpans();
+  assert.notEqual(answered.status.code, SpanStatusCode.ERROR);
+  assert.deepEqual(
+    answered.events.filter((event) => event.name === "exception"),
+    [],
+  );
+  assert.equal(failed.status.code, SpanStatusCode.ERROR);
+  assert.deepEqual(
+    failed.events.map((event) => [
+      event.name,
+      event.attributes?.["exception.type"],
+      event.attributes?.["exception.message"],
+    ]),
+    [["exception", "OpFailed", "no such order"]],
+  );
+  assert.equal(broken.status.code, SpanStatusCode.ERROR);
+  assert.deepEqual(
+    broken.events.map((event) => [
+      event.name,
+      event.attributes?.["exception.type"],
+      event.attributes?.["exception.message"],
+    ]),
+    [["exception", "Error", "bug"]],
   );
 });
