@@ -33,7 +33,7 @@ What `run(ctx, params)` gets as `ctx`.
 ## Uses
 
 - a domain op lists the connector ops it calls (`uses`). It can call only those. Not built: today the plugin lists what its ops and skills use, as one list (`usesOps`, [[plugin-contract#Credentials / Access]])
-- a connector op lists nothing: it stands alone
+- a connector op lists nothing: it stands alone. Not built: no rule checks it yet
 - the plugin's `usesOps` is made from its ops' lists, and never written. Not built. What a skill uses is for a later issue: until then the plugin writes `usesSkills`
 
 ## Tool card
