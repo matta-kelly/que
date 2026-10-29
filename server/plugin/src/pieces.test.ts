@@ -51,6 +51,10 @@ type Held = {
   credential?: boolean;
   /** A connect, when true. */
   connect?: boolean;
+  /** A whoami, when true. */
+  whoami?: boolean;
+  /** What its skill, `<name>-guide`, lists in its allowed-tools, space-separated. None when left out. */
+  skillUses?: string[];
   usesOps?: string[];
   usesSkills?: string[];
   roles?: string[];
@@ -69,6 +73,8 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     kind,
     credential,
     connect,
+    whoami,
+    skillUses,
     usesOps,
     usesSkills,
     roles,
@@ -84,6 +90,7 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     kind && `kind: ${text(kind)}`,
     credential && "credential: z.object({ url: z.string() })",
     connect && "connect: async () => ({})",
+    whoami && 'whoami: async () => ({ id: 1, name: "Que" })',
     usesOps && `usesOps: ${text(usesOps)}`,
     usesSkills && `usesSkills: ${text(usesSkills)}`,
     roles &&
@@ -116,7 +123,7 @@ import * as z from ${url.zod};
         })),
       )});\n`,
     }),
-    [`${name}/skills/${name}-guide/SKILL.md`]: `---\nname: ${name}-guide\ndescription: How to find.\nmetadata:\n  title: Guide\n---\nFind it.\n`,
+    [`${name}/skills/${name}-guide/SKILL.md`]: `---\nname: ${name}-guide\ndescription: How to find.\n${skillUses ? `allowed-tools: ${text(skillUses.join(" "))}\n` : ""}metadata:\n  title: Guide\n---\nFind it.\n`,
   };
 }
 
@@ -382,5 +389,59 @@ test("a root of plugins finds usesOps and usesSkills on a plugin that does not s
     ruled(found);
     for (const [, , message] of problems)
       assert.match(String(message), /a domain says its kind/);
+  }
+});
+
+const skillOf = (name: string) => `${name}/skills/${name}-guide/SKILL.md`;
+
+test("a root of plugins takes a skill whose allowed-tools are ops, and finds each name that is no op, by basis/link on its uses", async () => {
+  assert.deepEqual(
+    await said(
+      plugin("odoo", { skillUses: ["odoo-find"] }),
+      plugin("pim", { kind: "domain", skillUses: ["odoo-find"] }),
+    ),
+    [],
+  );
+  const cases: [string, RegExp][] = [
+    ["odoo-gone", /^It points at odoo-gone, which is not a node\.$/],
+    // A skill is a node, and not an op.
+    ["odoo-guide", /odoo-guide/],
+  ];
+  for (const [name, message] of cases) {
+    const problems = await said(
+      plugin("odoo", { skillUses: ["odoo-find", name] }),
+    );
+    assert.deepEqual(
+      problems.map(([path, rule, field]) => [path, rule, field]),
+      [[skillOf("odoo"), "basis/link", "/uses"]],
+      name,
+    );
+    assert.match(String(problems[0][3]), message, name);
+  }
+});
+
+test("a root of plugins finds a domain that gives whoami, as one with a credential, a connect or roles, and takes a connector's", async () => {
+  assert.deepEqual(
+    await said(
+      plugin("odoo", { credential: true, connect: true, whoami: true }),
+    ),
+    [],
+  );
+  const cases: [Held, string[]][] = [
+    [{ whoami: true }, ["/whoami"]],
+    [{ connect: true, whoami: true }, ["/connect", "/whoami"]],
+  ];
+  for (const [held, fields] of cases) {
+    const got = await said(plugin("pim", { kind: "domain", ...held }));
+    ruled(got);
+    const problems = at(got);
+    assert.deepEqual(
+      problems.map(([path, field]) => [path, field]).sort(),
+      fields.map((field) => [definitionOf("pim"), field]),
+      fields.join(" "),
+    );
+    const whoami = problems.find(([, field]) => field === "/whoami");
+    assert.match(String(whoami?.[2]), /whoami/);
+    assert.match(String(whoami?.[2]), /domain/);
   }
 });

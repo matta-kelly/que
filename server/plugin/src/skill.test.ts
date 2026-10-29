@@ -27,13 +27,75 @@ test("parseSkill gives a skill with no metadata title its name as its title", ()
 });
 
 test("parseSkill takes the standard's other fields, and does not read them", () => {
-  assert.equal(
+  assert.deepEqual(
     parseSkill(
       "greet",
-      "---\nname: greet\ndescription: Say hello.\nlicense: MIT\nallowed-tools: Read\n---\n",
-    ).name,
-    "greet",
+      "---\nname: greet\ndescription: Say hello.\nlicense: MIT\ncompatibility: Needs a network.\n---\n",
+    ),
+    {
+      name: "greet",
+      type: "skill",
+      title: "greet",
+      description: "Say hello.",
+      body: "",
+    },
   );
+});
+
+/** The names a skill gives as its uses, none when it gives no list. */
+const usesOf = (skill: object) => (skill as { uses?: string[] }).uses ?? [];
+
+test("parseSkill gives the names in allowed-tools, space-separated, as the skill's uses, and a skill with none no uses", () => {
+  assert.deepEqual(
+    parseSkill(
+      "greet",
+      "---\nname: greet\ndescription: Say hello.\nallowed-tools: notes-find notes-write\n---\nSay hello.\n",
+    ),
+    {
+      name: "greet",
+      type: "skill",
+      title: "greet",
+      description: "Say hello.",
+      uses: ["notes-find", "notes-write"],
+      body: "Say hello.",
+    },
+  );
+  const cases: [string, string[]][] = [
+    ["notes-find", ["notes-find"]],
+    [
+      "odoo-search notes-find warehouse-get-fabric",
+      ["odoo-search", "notes-find", "warehouse-get-fabric"],
+    ],
+    ['"  odoo-search   notes-find "', ["odoo-search", "notes-find"]],
+  ];
+  for (const [given, uses] of cases)
+    assert.deepEqual(
+      usesOf(
+        parseSkill(
+          "greet",
+          `---\nname: greet\ndescription: Say hello.\nallowed-tools: ${given}\n---\n`,
+        ),
+      ),
+      uses,
+      `allowed-tools: ${given}`,
+    );
+  // None: no allowed-tools, or a blank one.
+  assert.equal(
+    "uses" in
+      parseSkill("greet", "---\nname: greet\ndescription: Say hello.\n---\n"),
+    false,
+  );
+  for (const blank of ['""', '"   "'])
+    assert.deepEqual(
+      usesOf(
+        parseSkill(
+          "greet",
+          `---\nname: greet\ndescription: Say hello.\nallowed-tools: ${blank}\n---\n`,
+        ),
+      ),
+      [],
+      `allowed-tools: ${blank}`,
+    );
 });
 
 test("parseSkill rejects a skill with no description, naming the skill and the field", () => {

@@ -113,3 +113,19 @@ test("a plugin says its kind, connector or domain, or leaves it out; any other k
   for (const kind of ["service", "", 1])
     assert.deepEqual(issueOf("plugin", { ...warehouse, kind })?.path, ["kind"]);
 });
+
+test("a skill lists the ops it uses, or none; a list that is not of names fails, on its uses", () => {
+  for (const uses of [
+    ["warehouse-get-fabric"],
+    ["warehouse-get-fabric", "odoo-search"],
+  ]) {
+    let parsed: unknown;
+    assert.doesNotThrow(() => {
+      parsed = plugin.parse("skill", { ...guide, uses });
+    }, uses.join(" "));
+    assert.deepEqual(parsed, { ...guide, uses });
+  }
+  assert.doesNotThrow(() => plugin.parse("skill", guide));
+  for (const uses of ["warehouse-get-fabric", [1]])
+    assert.deepEqual(issueOf("skill", { ...guide, uses })?.path?.[0], "uses");
+});
