@@ -89,7 +89,7 @@ const deepagents: Rule = {
 };
 const langfuse: Rule = {
   path: /^@langfuse\/|^@opentelemetry\//,
-  why: "Only run/trace.ts names Langfuse or OpenTelemetry, and assemble/door.ts its API alone.",
+  why: "Only run/trace.ts names Langfuse or OpenTelemetry.",
 };
 // The door opens a span for each op it calls, on OpenTelemetry's API alone. run/trace.ts sends it.
 const langfuseButSpanApi: Rule = {

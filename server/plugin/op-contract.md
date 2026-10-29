@@ -57,7 +57,9 @@ The model knows only what the card says, so the card is the whole interface.
 - the boundary: the runtime's door owns the input, for every caller
 	- the door is the one parse: run gets the parsed value, with its defaults and transforms in
 	- a failed parse is an `OpFailed` on one line, with the path and the message of each issue, never zod's own error. A refine's message is what the model reads, so it says what is allowed
-	- extra arguments are refused: the door parses the input as strict, and an extra field is an `OpFailed` that names it
+	- a refine or a transform that throws (`JSON.parse` on `{`) is a failed parse too: an `OpFailed` with the throw's message
+	- extra arguments are refused: the door parses the input as strict, and an extra field is an `OpFailed` that names it. This holds for an input made with zod or with zod/mini
+	- inside a nested object, zod's own rule holds: `z.object` strips an extra field, and `z.strictObject` refuses it. The shown schema says the same
 	- the model is shown the input side of `input` as JSON Schema (zod's `io: "input"`): a transform shows what goes in, a field with a default is not required, and no other field is allowed. What JSON Schema cannot say (a refine, a transform's own check) only the door checks
 
 ## Answer

@@ -5,6 +5,7 @@
 
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { OpFailed, type Op, type Plugin } from "@mku1tra/que-plugin";
+import * as z from "zod";
 import type { Connect } from "../access/access.js";
 
 const tracer = trace.getTracer("que");
@@ -22,6 +23,17 @@ export type Call = (
 /** The door's call bound to one user, as a run hands it to its tools. */
 export type BoundCall = (op: PlacedOp, params: unknown) => Promise<unknown>;
 
+/**
+ * An op's input with no other fields allowed: what the door parses and the tool shows. Made as zod's own `.strict()`
+ * makes it, so it works for an input made with zod or with zod/mini. Inside a nested object, zod's own rule holds.
+ */
+export function strictInput(input: Op["input"]): Op["input"] {
+  return z.core.clone(input, { ...input._zod.def, catchall: z.never() });
+}
+
+/** One line, for the model to read. */
+const oneLine = (text: string) => text.replace(/\s*\n\s*/g, " ");
+
 /** The door, on access asked by op: its `call`. */
 export function door(connect: Connect): Call {
   // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
@@ -30,15 +42,26 @@ export function door(connect: Connect): Call {
     tracer.startActiveSpan(op.name, async (span) => {
       try {
         // The door is the one parse. Extra arguments are refused, as the shown schema says there are none.
-        const parsed = op.input.strict().safeParse(params);
+        // A refine or a transform that throws is a failed parse too, with the throw's message.
+        let parsed;
+        try {
+          parsed = z.safeParse(strictInput(op.input), params);
+        } catch (thrown) {
+          throw new OpFailed(
+            oneLine(
+              `invalid ${op.name} input: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
+            ),
+          );
+        }
         if (!parsed.success)
           throw new OpFailed(
-            `invalid ${op.name} input: ${parsed.error.issues
-              .map(({ path, message }) =>
-                [...path.map(String), message].join(": "),
-              )
-              .join("; ")
-              .replace(/\s*\n\s*/g, " ")}`,
+            oneLine(
+              `invalid ${op.name} input: ${parsed.error.issues
+                .map(({ path, message }) =>
+                  [...path.map(String), message].join(": "),
+                )
+                .join("; ")}`,
+            ),
           );
         const input = parsed.data;
         const conn = await connect(plugin, op.role, user);
