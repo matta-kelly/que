@@ -50,14 +50,15 @@ plan() {
       "") ;;
       # The shell set runs it, and the server set lints and formats it.
       server/scripts/recipe-shell.mjs) need_server=true need_shell=true ;;
-      server/*) need_server=true ;;
+      # A server test mounts a copy of the template deployment.
+      server/* | templates/*) need_server=true ;;
       ui/*) need_ui=true ;;
       # The check set itself, and the pipeline that calls it.
       scripts/check.sh | .github/*) need_server=true need_ui=true need_shell=true need_notes=true ;;
       # The shell set reads the scripts and the justfile. No app set reads them: every app step runs inside server/ or ui/.
       scripts/* | justfile) need_shell=true ;;
       # No set reads these.
-      templates/* | .devcontainer/* | .githooks/* | tests/e2e/*) ;;
+      .devcontainer/* | .githooks/* | tests/e2e/*) ;;
       */*) need_server=true need_ui=true ;;
       # The README names what que supplies, and a server test holds it to the list.
       README.md) need_server=true ;;
