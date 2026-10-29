@@ -86,14 +86,13 @@ test("parseSkill gives the names in allowed-tools, space-separated, as the skill
     false,
   );
   for (const blank of ['""', '"   "'])
-    assert.deepEqual(
-      usesOf(
+    assert.equal(
+      "uses" in
         parseSkill(
           "greet",
           `---\nname: greet\ndescription: Say hello.\nallowed-tools: ${blank}\n---\n`,
         ),
-      ),
-      [],
+      false,
       `allowed-tools: ${blank}`,
     );
 });
