@@ -45,7 +45,7 @@ export function door(connect: Connect): Call {
         // A refine or a transform that throws is a failed parse too, with the throw's message.
         let parsed;
         try {
-          parsed = z.safeParse(strictInput(op.input), params);
+          parsed = await z.safeParseAsync(strictInput(op.input), params);
         } catch (thrown) {
           throw new OpFailed(
             oneLine(
