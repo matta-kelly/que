@@ -25,11 +25,6 @@ delete process.env.DEV_USER_NAME;
 const { app } = await import("./serve.js");
 
 after(async () => {
-  // The server's pg pools lose their idle connections when the database stops, and each says so with an
-  // error no one listens for. That is the end of the test, not a fault: any other error still ends the process.
-  process.on("uncaughtException", (error) => {
-    if (error.message !== "Connection terminated unexpectedly") throw error;
-  });
   await database.stop();
   await db.close();
 });
