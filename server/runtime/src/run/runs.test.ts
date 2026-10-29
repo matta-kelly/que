@@ -410,14 +410,16 @@ test("a run's RUN_STARTED and RUN_FINISHED name the thread of the URL, also when
   );
 });
 
+/** A model call that fails with `errorMessage`, and streams no text. */
+const failed = (errorMessage: string) =>
+  fauxAssistantMessage([], { stopReason: "error", errorMessage });
+
 test("a model call that fails ends the run with AG-UI's RUN_ERROR, which holds the error's message, in the place of RUN_FINISHED", async () => {
   const fails = async (errorMessage: string) => {
     const id = await thread();
     // Each call fails the same way, also each retry pi makes of a retryable
     // error: more failures queued than pi's retries (3) take.
-    const failure = () =>
-      fauxAssistantMessage([], { stopReason: "error", errorMessage });
-    faux.setResponses(Array.from({ length: 10 }, () => failure));
+    faux.setResponses(Array.from({ length: 10 }, () => failed(errorMessage)));
     const { events } = await run(id, [
       { id: randomUUID(), role: "user", content: "Hi" },
     ]);
@@ -447,6 +449,72 @@ test("a model call that fails ends the run with AG-UI's RUN_ERROR, which holds t
         finished: false,
       },
     },
+  );
+});
+
+test("a model call that fails, and then answers when pi retries it, ends the run with RUN_FINISHED and the whole answer", async () => {
+  const retried = async (failures: number, answer: string) => {
+    const id = await thread();
+    faux.setResponses([
+      ...Array.from({ length: failures }, () =>
+        failed("The model is overloaded."),
+      ),
+      fauxAssistantMessage(fauxText(answer)),
+    ]);
+    const { events } = await run(id, [
+      { id: randomUUID(), role: "user", content: "Hi" },
+    ]);
+    return {
+      last: events.at(-1)?.type,
+      errored: events.some((e) => e.type === "RUN_ERROR"),
+      text: joined(events, "TEXT_MESSAGE_CONTENT"),
+    };
+  };
+  assert.deepEqual(
+    {
+      once: await retried(1, "Hello, Ana, at the second call."),
+      twice: await retried(2, "Hello, Ana, at the third call."),
+    },
+    {
+      once: {
+        last: "RUN_FINISHED",
+        errored: false,
+        text: "Hello, Ana, at the second call.",
+      },
+      twice: {
+        last: "RUN_FINISHED",
+        errored: false,
+        text: "Hello, Ana, at the third call.",
+      },
+    },
+  );
+});
+
+test("after a failed run and a retried one, GET /threads/:id gives the messages and ids the viewer streamed: a failed call with no text is not listed", async () => {
+  const id = await thread();
+  const hi = { id: randomUUID(), role: "user", content: "Hi" };
+  faux.setResponses([failed("401 Unauthorized: the API key is not valid.")]);
+  const refused = await run(id, [hi]);
+  // The viewer of the failed run streamed no assistant message.
+  assert.equal(assistantId(refused.events), undefined);
+  assert.deepEqual(
+    (await messagesOf(id)).map((m) => [m.role, m.id, m.content]),
+    [["user", hi.id, "Hi"]],
+  );
+
+  const again = { id: randomUUID(), role: "user", content: "Hi again" };
+  faux.setResponses([
+    failed("The model is overloaded."),
+    fauxAssistantMessage(fauxText("Hello, Ana.")),
+  ]);
+  const retried = await run(id, [hi, again]);
+  assert.deepEqual(
+    (await heldMessages(id, 3)).map((m) => [m.role, m.id, m.content]),
+    [
+      ["user", hi.id, "Hi"],
+      ["user", again.id, "Hi again"],
+      ["assistant", assistantId(retried.events), "Hello, Ana."],
+    ],
   );
 });
 
