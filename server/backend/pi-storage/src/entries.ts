@@ -29,18 +29,6 @@ export async function writeEntry(
   );
 }
 
-// The fork chain of conversation $1, each with the highest entry id visible through it: no cap for the conversation
-// itself, or $2 when given; each fork point for its ancestors. LEAST skips a NULL.
-const CHAIN = `
-  WITH RECURSIVE chain (conversation_id, upper) AS (
-    SELECT id, $2::bigint FROM pi.conversations WHERE id = $1
-    UNION ALL
-    SELECT (c.record->'parent'->>'conversationId')::bigint,
-           LEAST(chain.upper, (c.record->'parent'->>'at')::bigint)
-    FROM chain JOIN pi.conversations c ON c.id = chain.conversation_id
-    WHERE c.record ? 'parent'
-  )`;
-
 // The visible entries of a conversation in [min, max], either bound open when null, in id order, at most `limit`.
 // An ancestor's visible entries are older than the fork that inherits them, so id order is history order.
 async function visible(
@@ -59,13 +47,22 @@ async function visible(
   ]);
   if (known.rows.length === 0)
     throw new StorageRequestError(`Unknown conversation: ${conversationId}`);
+  // The fork chain: each conversation with the highest entry id visible through it, `max` for the conversation
+  // itself and each fork point for its ancestors. LEAST skips a NULL.
   const { rows } = await db.query(
-    `${CHAIN}
+    `WITH RECURSIVE chain (conversation_id, upper) AS (
+      SELECT id, $2::bigint FROM pi.conversations WHERE id = $1
+      UNION ALL
+      SELECT (c.record->'parent'->>'conversationId')::bigint,
+             LEAST(chain.upper, (c.record->'parent'->>'at')::bigint)
+      FROM chain JOIN pi.conversations c ON c.id = chain.conversation_id
+      WHERE c.record ? 'parent'
+    )
     SELECT e.record, e.commit_seq FROM pi.entries e
     JOIN chain ON e.conversation_id = chain.conversation_id
     WHERE (chain.upper IS NULL OR e.id <= chain.upper)
       AND ($3::bigint IS NULL OR e.id >= $3)
-      AND (NOT $4 OR e.record ? 'head')
+      AND (NOT $4::boolean OR e.record ? 'head')
     ORDER BY e.id ${order} LIMIT $5`,
     [conversationId, max, min, headOnly, limit],
   );
