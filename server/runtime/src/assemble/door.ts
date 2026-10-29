@@ -3,7 +3,7 @@
  * and its login, and where it runs.
  */
 
-import { trace } from "@opentelemetry/api";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import type { Op, Plugin } from "@mku1tra/que-plugin";
 import type { Connect } from "../access/access.js";
 
@@ -21,13 +21,22 @@ export type Call = (
 
 /** The door, on access asked by op: its `call`. */
 export function door(connect: Connect): Call {
-  // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is.
+  // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
+  // the span.
   return ({ plugin, op }, params, user) =>
     tracer.startActiveSpan(op.name, async (span) => {
       try {
         const input = op.input.parse(params);
         const conn = await connect(plugin, op.role, user);
         return await op.run({ conn }, input);
+      } catch (error) {
+        // A failed call shows on its span: status ERROR, and the throw as an exception event.
+        span.recordException(error as Error);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: (error as Error).message,
+        });
+        throw error;
       } finally {
         span.end();
       }
