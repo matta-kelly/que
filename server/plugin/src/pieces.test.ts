@@ -326,11 +326,12 @@ test("a root of plugins takes a domain that holds no connection: no credential, 
 test("a root of plugins finds a domain with a credential, a connect or roles, naming each field", async () => {
   const domain = (held: Held) =>
     said(plugin("pim", { kind: "domain", ...held }));
-  for (const [held, field] of [
+  const cases: [Held, string][] = [
     [{ credential: true }, "/credential"],
     [{ connect: true }, "/connect"],
     [{ roles: ["pim-read"], ops: ["pim-read"] }, "/roles"],
-  ] as const) {
+  ];
+  for (const [held, field] of cases) {
     const got = await domain(held);
     const problems = at(got);
     assert.deepEqual(
