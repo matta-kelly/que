@@ -50,8 +50,9 @@ test("cardOf makes the standard's fields, and que's part as the plugin's nodes, 
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        format: 3,
+        format: 4,
         title: "Warehouse",
+        kind: "connector",
         credential: {
           type: "object",
           properties: {
@@ -117,6 +118,23 @@ test("cardOf leaves out the version, a credential and an op's role when there ar
     "role" in card.extensions["io.github.matta-kelly.que"].ops[0],
     false,
   );
+});
+
+test("cardOf gives the kind a plugin says, and connector for one that leaves it out", () => {
+  const pim = definePlugin({
+    name: "pim",
+    type: "plugin",
+    title: "PIM",
+    description: "The products.",
+  });
+  const kindOf = (kind?: "connector" | "domain") =>
+    cardOf({
+      definition: kind ? { ...pim, plugin: { ...pim.plugin, kind } } : pim,
+      cases: [],
+    }).extensions["io.github.matta-kelly.que"].kind;
+  assert.equal(kindOf("domain"), "domain");
+  assert.equal(kindOf("connector"), "connector");
+  assert.equal(kindOf(), "connector");
 });
 
 test("cardText is two-space JSON ending in a newline, the same bytes for the same definition", () => {

@@ -318,10 +318,14 @@ export default definePlugin({
 
 test("gives each name a plugin uses that no plugin under the folder gives as unread, at its definition, so a link to it gives no more", async () => {
   const root = await vault({
-    [`${at}/index.ts`]: definition().replace(
-      'description: "The record of what the business has entered.",',
-      'description: "The record of what the business has entered.", usesOps: ["odoo-find"], usesSkills: ["odoo-guide", "warehouse-fabric-guide"],',
-    ),
+    // A domain, so it holds no roles, and its op names none.
+    [`${at}/index.ts`]: definition()
+      .replace(
+        'description: "The record of what the business has entered.",',
+        'description: "The record of what the business has entered.", kind: "domain", usesOps: ["odoo-find"], usesSkills: ["odoo-guide", "warehouse-fabric-guide"],',
+      )
+      .replace(/ {2}roles: .*\n/, "")
+      .replace(/ {6}role: .*\n/, ""),
   });
   try {
     const { unread } = await given(root);

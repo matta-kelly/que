@@ -284,7 +284,10 @@ test("stops, naming both definitions, when two plugins list one capability", asy
 });
 
 test("check-plugin stops a plugin that uses its own skill", async () => {
-  const dir = await written("selfish", `usesSkills: ["selfish-guide"]`);
+  const dir = await written(
+    "selfish",
+    `kind: "domain", usesSkills: ["selfish-guide"]`,
+  );
   await assert.rejects(
     mountPlugin(dir),
     /\/usesSkills: selfish-guide is its own: a plugin uses only other plugins' ops and skills\. \(plugin\/own-use\)/,

@@ -18,7 +18,7 @@ test("a plugin that is its own root lints from it: what it uses is there and not
     "basis.config.ts": config,
     "README.md": "# notes\n\nA plugin.\n",
     "io.github.matta-kelly.que/index.ts": `import { definePlugin } from ${url.plugin};
-export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down.", usesOps: ["odoo-find"] });
+export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down.", kind: "domain", usesOps: ["odoo-find"] });
 `,
     "skills/notes-guide/SKILL.md":
       "---\nname: notes-guide\ndescription: How to write a note.\n---\nWrite it down.\n",

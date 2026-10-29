@@ -105,3 +105,11 @@ test("the lint of the plugin schema's root finds no problem: each type note give
   const folder = fileURLToPath(plugin.typeNotes!);
   assert.deepEqual((await lintRoot(folder)).problems, []);
 });
+
+test("a plugin says its kind, connector or domain, or leaves it out; any other kind fails, on its kind", () => {
+  for (const kind of ["connector", "domain"])
+    assert.doesNotThrow(() => plugin.parse("plugin", { ...warehouse, kind }));
+  assert.doesNotThrow(() => plugin.parse("plugin", warehouse));
+  for (const kind of ["service", "", 1])
+    assert.deepEqual(issueOf("plugin", { ...warehouse, kind })?.path, ["kind"]);
+});

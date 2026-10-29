@@ -45,6 +45,12 @@ test("piecesOf gives each node as code gives it, and the plugin's skills as its 
 
 /** What a plugin holds beside its one skill, `<name>-guide`: each op by its role, `<name>-find` when it names none. */
 type Held = {
+  /** The kind it says, written as given. None when left out. */
+  kind?: string;
+  /** A credential, a zod object of one url, when true. */
+  credential?: boolean;
+  /** A connect, when true. */
+  connect?: boolean;
   usesOps?: string[];
   usesSkills?: string[];
   roles?: string[];
@@ -60,6 +66,9 @@ const text = (value: unknown) => JSON.stringify(value);
 /** The files of a plugin `name`, under its folder `<name>`, with one skill, `<name>-guide`, and what it holds. */
 function plugin(name: string, held: Held = {}): Record<string, string> {
   const {
+    kind,
+    credential,
+    connect,
     usesOps,
     usesSkills,
     roles,
@@ -72,6 +81,9 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     'type: "plugin"',
     `title: ${text(name)}`,
     'description: "A plugin."',
+    kind && `kind: ${text(kind)}`,
+    credential && "credential: z.object({ url: z.string() })",
+    connect && "connect: async () => ({})",
     usesOps && `usesOps: ${text(usesOps)}`,
     usesSkills && `usesSkills: ${text(usesSkills)}`,
     roles &&
@@ -145,7 +157,10 @@ const definitionOf = (name: string) =>
 test("a root of plugins finds a name a plugin's ops use that is a skill", async () => {
   assert.deepEqual(
     (
-      await said(plugin("odoo"), plugin("pim", { usesOps: ["odoo-guide"] }))
+      await said(
+        plugin("odoo"),
+        plugin("pim", { kind: "domain", usesOps: ["odoo-guide"] }),
+      )
     ).map(([path, rule, field]) => [path, rule, field]),
     [[definitionOf("pim"), "basis/link", "/usesOps"]],
   );
@@ -154,8 +169,8 @@ test("a root of plugins finds a name a plugin's ops use that is a skill", async 
 test("a root of plugins finds a plugin that uses an op of a plugin that uses others, naming both", async () => {
   const problems = await said(
     plugin("odoo"),
-    plugin("pim", { usesOps: ["odoo-find"] }),
-    plugin("sales", { usesOps: ["pim-find"] }),
+    plugin("pim", { kind: "domain", usesOps: ["odoo-find"] }),
+    plugin("sales", { kind: "domain", usesOps: ["pim-find"] }),
   );
   assert.deepEqual(
     problems.map(([path, rule, field]) => [path, rule, field]),
@@ -169,7 +184,9 @@ test("a root of plugins finds a plugin that uses an op of a plugin that uses oth
 
 test("a root of plugins finds a plugin that uses its own skill", async () => {
   assert.deepEqual(
-    await said(plugin("notes", { usesSkills: ["notes-guide"] })),
+    await said(
+      plugin("notes", { kind: "domain", usesSkills: ["notes-guide"] }),
+    ),
     [
       [
         definitionOf("notes"),
@@ -261,8 +278,108 @@ test("a root of plugins finds a case about another plugin's capability, in one g
 test("a root of plugins takes a name a plugin uses that none of them gives: it is the deployment's to give", async () => {
   assert.deepEqual(
     await said(
-      plugin("pim", { usesOps: ["odoo-find"], usesSkills: ["odoo-guide"] }),
+      plugin("pim", {
+        kind: "domain",
+        usesOps: ["odoo-find"],
+        usesSkills: ["odoo-guide"],
+      }),
     ),
     [],
   );
+});
+
+/** Each problem as [path, field, message], after its fields are seen: each is a rule of the plugin schema's. */
+const at = (problems: unknown[][]) =>
+  problems.map(([path, , field, message]) => [path, field, message]);
+
+const ruled = (problems: unknown[][]) => {
+  for (const [, rule] of problems) assert.match(String(rule), /^plugin\//);
+};
+
+test("a root of plugins takes a plugin with no kind as a connector: its credential, connect and roles are valid, and so are those of one that says kind connector", async () => {
+  for (const kind of [undefined, "connector"])
+    assert.deepEqual(
+      await said(
+        plugin("odoo", {
+          kind,
+          credential: true,
+          connect: true,
+          roles: ["odoo-read"],
+          ops: ["odoo-read"],
+        }),
+      ),
+      [],
+      `kind ${kind}`,
+    );
+});
+
+test("a root of plugins takes a domain that holds no connection: no credential, no connect and no roles", async () => {
+  assert.deepEqual(
+    await said(
+      plugin("odoo", { credential: true, connect: true }),
+      plugin("pim", { kind: "domain", usesOps: ["odoo-find"] }),
+    ),
+    [],
+  );
+});
+
+test("a root of plugins finds a domain with a credential, a connect or roles, naming each field", async () => {
+  const domain = (held: Held) =>
+    said(plugin("pim", { kind: "domain", ...held }));
+  for (const [held, field] of [
+    [{ credential: true }, "/credential"],
+    [{ connect: true }, "/connect"],
+    [{ roles: ["pim-read"], ops: ["pim-read"] }, "/roles"],
+  ] as const) {
+    const got = await domain(held);
+    const problems = at(got);
+    assert.deepEqual(
+      problems.map(([path, where]) => [path, where]),
+      [[definitionOf("pim"), field]],
+      field,
+    );
+    ruled(got);
+    assert.match(String(problems[0][2]), new RegExp(field.slice(1)));
+    assert.match(String(problems[0][2]), /domain/);
+  }
+  assert.deepEqual(
+    at(
+      await domain({
+        credential: true,
+        connect: true,
+        roles: ["pim-read"],
+        ops: ["pim-read"],
+      }),
+    ).map(([path, field]) => [path, field]),
+    [
+      [definitionOf("pim"), "/credential"],
+      [definitionOf("pim"), "/connect"],
+      [definitionOf("pim"), "/roles"],
+    ],
+  );
+});
+
+test("a root of plugins finds usesOps and usesSkills on a plugin that does not say kind domain, saying a domain says its kind", async () => {
+  for (const kind of [undefined, "connector"]) {
+    const found = await said(
+      plugin("odoo"),
+      plugin("pim", {
+        kind,
+        usesOps: ["odoo-find"],
+        usesSkills: ["odoo-guide"],
+      }),
+    );
+    const problems = at(found);
+    assert.deepEqual(
+      problems.map(([path, field]) => [path, field]),
+      [
+        [definitionOf("pim"), "/usesOps"],
+        [definitionOf("pim"), "/usesSkills"],
+      ],
+      `kind ${kind}`,
+    );
+    ruled(found);
+    for (const [, , message] of problems)
+      assert.match(String(message), /a domain says its kind/);
+  }
 });
