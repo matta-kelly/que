@@ -5,6 +5,7 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import {
   ROOT_CONVERSATION_ID,
   type ConversationId,
+  type Storage,
 } from "@earendil-works/pi-durable";
 import {
   createStorageConformance,
@@ -135,4 +136,131 @@ test("mintId gives an id above every id stored before, after the storage is clos
     minted > 9,
     `minted ${minted}, not above 9, which was stored before the close`,
   );
+});
+
+// The ids of every conversation the storage holds, in one scan.
+async function storedIds(storage: Storage): Promise<number[]> {
+  const page = await storage.scanConversations({}, 100, undefined, context);
+  return page.items.map((record) => record.id);
+}
+
+// `read`, again each time the last one settles, until `commit` settles: every read that runs while the commit is open.
+async function readsWhileOpen<T>(
+  commit: Promise<unknown>,
+  read: () => Promise<T>,
+): Promise<PromiseSettledResult<T>[]> {
+  let open = true;
+  const settled = commit.then(
+    () => (open = false),
+    () => (open = false),
+  );
+  const reads: PromiseSettledResult<T>[] = [];
+  // A bound, so a read that never reaches the database cannot keep the test running.
+  while (open && reads.length < 10_000) {
+    const [result] = await Promise.allSettled([read()]);
+    reads.push(result);
+  }
+  await settled;
+  return reads;
+}
+
+const conversation = (id: number) => ({
+  type: "conversation" as const,
+  value: { id: id as ConversationId },
+});
+
+test("a commit that fails part way leaves none of its writes", async (t) => {
+  for (const [name, writes, rejected] of [
+    ["its last write takes the id of a stored conversation", [7, 1], [7]],
+    ["its last write takes the id of one of its own writes", [7, 8, 7], [7, 8]],
+  ] as const) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the root conversation
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await storage.commit([conversation(ROOT_CONVERSATION_ID)], context);
+
+      // when: a commit writes conversations, and its last write fails
+      await assert.rejects(
+        storage.commit(writes.map(conversation), context),
+        /already belongs/,
+      );
+
+      // then: no conversation of that commit is stored
+      assert.deepStrictEqual(
+        await storedIds(storage),
+        [ROOT_CONVERSATION_ID],
+        `conversations ${rejected.join(", ")} of the failed commit are not stored`,
+      );
+    });
+  }
+});
+
+test("a read that runs while a commit is open sees none of its writes until it commits", async (t) => {
+  for (const [name, writes, seen] of [
+    ["a commit that succeeds", [7, 8], [[1], [1, 7, 8]]],
+    ["a commit that fails at its last write", [7, 8, 1], [[1]]],
+  ] as const) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the root conversation
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await storage.commit([conversation(ROOT_CONVERSATION_ID)], context);
+
+      // when: a commit writes conversations, and reads scan them until the commit settles
+      const commit = storage.commit(writes.map(conversation), context);
+      const reads = await readsWhileOpen(commit, () => storedIds(storage));
+      await commit.catch(() => {});
+
+      // then: each read saw the state before the commit, or the state it committed, never a write it had not committed
+      const partial = reads
+        .filter((read) => read.status === "fulfilled")
+        .map((read) => read.value)
+        .filter((ids) => !seen.some((state) => state.join() === ids.join()));
+      assert.deepStrictEqual(
+        partial,
+        [],
+        `reads while the commit of ${writes.join(", ")} was open saw a state that was never committed`,
+      );
+    });
+  }
+});
+
+test("a read that fails while a commit is open leaves the commit whole", async (t) => {
+  for (const [name, read] of [
+    [
+      "a scan with a cursor that is not one of the storage's",
+      (storage: Storage) =>
+        storage.scanConversations({}, 10, { after: "x" }, context),
+    ],
+    [
+      "a scan with a cursor whose id is not an integer",
+      (storage: Storage) =>
+        storage.scanConversations({}, 10, { after: 1.5 }, context),
+    ],
+  ] as const) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the root conversation
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await storage.commit([conversation(ROOT_CONVERSATION_ID)], context);
+
+      // when: a commit writes conversations 7 and 8, and a read that fails runs until the commit settles
+      const commit = storage.commit(
+        [conversation(7), conversation(8)],
+        context,
+      );
+      await readsWhileOpen(commit, () => read(storage));
+      const [committed] = await Promise.allSettled([commit]);
+
+      // then: the commit succeeds, and both of its conversations are stored
+      assert.strictEqual(
+        committed.status,
+        "fulfilled",
+        `the commit rejected: ${committed.status === "rejected" ? committed.reason : ""}`,
+      );
+      assert.deepStrictEqual(await storedIds(storage), [
+        ROOT_CONVERSATION_ID,
+        7,
+        8,
+      ]);
+    });
+  }
 });
