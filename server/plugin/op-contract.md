@@ -13,7 +13,7 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 - [[#Writes]] what an operation that changes data promises
 
 - [[plugin-contract]]: the contract an operation is part of
-- [[plugin-interoperability-design]]: the design of the domain op, its context and uses. Not built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
+- the plugin-interoperability design, in kinetic: the design of the domain op, its context and uses. Not built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
 
 ## Kinds
 

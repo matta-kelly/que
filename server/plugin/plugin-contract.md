@@ -68,13 +68,13 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 - **kind**: two kinds of plugin, by what they touch
 	- connector: one service. It holds what the service needs: the credential, the roles, the logins, and the failure that says what is missing. Each of its ops stands alone ([[op-contract#Kinds]])
 	- domain: across services. It has no service, no credential and no roles: what it uses, it uses through the connectors. A user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, saying what to connect. The contract knows a domain by its `usesOps` and `usesSkills`
-		- designed, not built ([[plugin-interoperability-design]]): a plugin with `usesOps` has no `credential` and no `connect`
+		- designed, not built (the plugin-interoperability design, in kinetic): a plugin with `usesOps` has no `credential` and no `connect`
 - a plugin carries only the parts it uses: skills only, operations only, or both
 - what the definition does not list, the harness does not read, but for skills: each folder under `skills/` is one
 
 ### Credentials / Access
 
-Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses ([[plugin-interoperability-design]]), each op and skill listing what it uses, and what each user gets each chat.
+Built: roles and a domain's list, declared and checked. Designed, not built: a domain op calling what it uses (the plugin-interoperability design, in kinetic), each op and skill listing what it uses, and what each user gets each chat.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
