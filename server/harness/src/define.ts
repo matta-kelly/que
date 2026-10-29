@@ -1,8 +1,11 @@
 /**
  * How code gives a node of the harness schema: `define<Type>` parses it with its type, once, and gives it as the node
- * it is. Each type of the schema is the contract; a TypeScript type of its node is its name in code.
+ * it is, marked as the definition of its name and type (basis's `markDefinition`), so a lint of a package that exports
+ * it fails it when no source gives a piece of it. Each type of the schema is the contract; a TypeScript type of its
+ * node is its name in code.
  */
 
+import { markDefinition } from "@mku1tra/basis";
 import type * as z from "zod";
 import { faults, refuse } from "@mku1tra/que-plugin";
 import { harness } from "./schema.ts";
@@ -29,7 +32,10 @@ export function readNode<K extends Kind>(
     : { node: types[kind].schema.parse(value) as NodeOf<K>, faults: [] };
 }
 
-/** The define function of a type: it parses a node with its type, and throws one error that lists every fault. */
+/**
+ * The define function of a type: it parses a node with its type, and throws one error that lists every fault. It gives
+ * the node marked as the definition of its name and type.
+ */
 export const defineNode =
   <K extends Kind>(kind: K) =>
   (definition: NodeOf<K>): NodeOf<K> => {
@@ -39,5 +45,6 @@ export const defineNode =
       `${kind}${typeof name === "string" && name.trim() ? ` ${name}` : ""} is invalid`,
       read.faults,
     );
-    return (read as { node: NodeOf<K> }).node;
+    const { node } = read as { node: NodeOf<K> };
+    return markDefinition(node, { name: node.name, type: node.type });
   };

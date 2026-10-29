@@ -10,7 +10,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { lintFolder } from "@mku1tra/basis";
+import { pathToFileURL } from "node:url";
+import { defineSchema, lintFolder } from "@mku1tra/basis";
 import { command } from "./command.ts";
 import { harness } from "./schema.ts";
 import { deployment } from "./source.ts";
@@ -183,6 +184,66 @@ test("gives a config file whose default export is no node of its type a problem 
         [
           "agents/stray.ts",
           'The agent cannot be read: its default export is no node of the type agent:\n- type Invalid input: expected "agent"\n- description Invalid input: expected string, received undefined\n- model Invalid input: expected string, received undefined\n- loop Invalid input: expected string, received undefined',
+        ],
+      ],
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// A deployment's package, as landl is one: its schema imports the harness schema, and its exports, in its exports.ts,
+// are the definitions it gives. Its source is the deployment.
+const packageLintOf = async (root: string) =>
+  (
+    await lintFolder(
+      defineSchema({
+        name: "landl-package",
+        description: "A package that exports its deployment's definitions.",
+        types: {},
+        imports: [harness],
+        exports: () => import(pathToFileURL(join(root, "exports.ts")).href),
+      }),
+      root,
+      {
+        sources: [deployment(root, root)],
+        skip: (path) => path.startsWith("node_modules/"),
+      },
+    )
+  ).problems;
+
+const reexports = `export { default as landl } from "./index.ts";
+export { default as chat } from "./agents/chat.ts";
+export { default as longChat } from "./loops/long-chat.ts";
+export { default as small } from "./models/small.ts";
+export { default as notes } from "./node_modules/notes/io.github.matta-kelly.que/index.ts";
+`;
+
+test("a package that exports its deployment's definitions lints clean: the source gives a piece of each", async () => {
+  const root = await folderWith({ "exports.ts": reexports });
+  try {
+    assert.deepEqual(await packageLintOf(root), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a definition a package exports that no source gives fails basis/definition-piece", async () => {
+  const root = await folderWith({
+    // An agent outside agents/, which the source does not read.
+    "spare/helper.ts": `import { defineAgent } from ${harnessAt};
+export default defineAgent({ name: "helper", type: "agent", description: "An agent no source reads.", model: "small", loop: "long-chat" });
+`,
+    "exports.ts": `${reexports}export { default as helper } from "./spare/helper.ts";\n`,
+  });
+  try {
+    assert.deepEqual(
+      (await packageLintOf(root)).map((p) => [p.path, p.rule, p.message]),
+      [
+        [
+          ".",
+          "basis/definition-piece",
+          "The export helper of landl-package is the definition of the agent helper, and no source gives a piece of it: a source of the package gives a piece of each definition it exports.",
         ],
       ],
     );

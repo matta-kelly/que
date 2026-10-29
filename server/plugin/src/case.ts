@@ -4,6 +4,7 @@
  * plugin/case-capability fails a capability that plugin does not list.
  */
 
+import { markDefinition } from "@mku1tra/basis";
 import type * as z from "zod";
 import { faults, refuse } from "./check.ts";
 import { plugin } from "./schema.ts";
@@ -15,13 +16,15 @@ import { plugin } from "./schema.ts";
 export type Case = z.output<typeof plugin.types.case.schema>;
 
 /**
- * A plugin's cases, each parsed with the case type, once. Throws one error that lists every fault, each after the case
- * it is in. Its capability is the lint's to resolve.
+ * A plugin's cases, each parsed with the case type, once, and marked as the definition of its name and type. Throws one
+ * error that lists every fault, each after the case it is in. Its capability is the lint's to resolve.
  */
 export function defineCases(cases: Case[]): Case[] {
   const read = readCases(cases);
   refuse("cases are invalid", read.faults);
-  return read.cases;
+  return read.cases.map((kase) =>
+    markDefinition(kase, { name: kase.name, type: kase.type }),
+  );
 }
 
 /**

@@ -35,6 +35,8 @@ const notes = defineSchema({
   imports: [it, plugin, harness],
   notes: new URL("../../", import.meta.url),
   skip,
+  // What the package exports, for basis's rules of the exports: the schema, which is no zod object and no definition.
+  exports: () => import("./schema.ts"),
 });
 
 export default notes;

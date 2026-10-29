@@ -5,6 +5,7 @@
  * nodes into its own tools and prompt.
  */
 
+import { markDefinition } from "@mku1tra/basis";
 import type * as z from "zod";
 import { faults, refuse } from "./check.ts";
 import { plugin as schema } from "./schema.ts";
@@ -118,9 +119,10 @@ const fromFolder = (plugin: unknown): string[] =>
     : [];
 
 /**
- * A plugin and the nodes it holds, each parsed with its type, once. The plugin's lists of what it holds are their
- * names. Throws one error that lists every fault, each after the field it is in. Links and the plugin schema's rules are
- * the lint's: a definition is parsed alone, and what it names may be another's.
+ * A plugin and the nodes it holds, each parsed with its type, once, and marked as the definition of its name and type
+ * (basis's `markDefinition`); what holds them is no node, and is not marked. The plugin's lists of what it holds are
+ * their names. Throws one error that lists every fault, each after the field it is in. Links and the plugin schema's
+ * rules are the lint's: a definition is parsed alone, and what it names may be another's.
  */
 export function definePlugin<S extends z.ZodObject, Conn>(
   definition: Omit<Plugin<S, Conn>, Held | "skills" | "cases"> & {
@@ -152,12 +154,14 @@ export function definePlugin<S extends z.ZodObject, Conn>(
       ...held.capabilities.faults,
     ],
   );
+  const node = <N extends { name: string; type: string }>(parsed: N): N =>
+    markDefinition(parsed, { name: parsed.name, type: parsed.type });
   const parsed: Definition<S, Conn> = {
-    plugin: types.plugin.schema.parse(plugin) as Plugin<S, Conn>,
-    ops: ops.map((op) => types.op.schema.parse(op) as Op<Conn>),
-    roles: roles.map((role) => types["access-role"].schema.parse(role)),
+    plugin: node(types.plugin.schema.parse(plugin) as Plugin<S, Conn>),
+    ops: ops.map((op) => node(types.op.schema.parse(op) as Op<Conn>)),
+    roles: roles.map((role) => node(types["access-role"].schema.parse(role))),
     capabilities: capabilities.map((capability) =>
-      types.capability.schema.parse(capability),
+      node(types.capability.schema.parse(capability)),
     ),
   };
   return parsed;

@@ -16,6 +16,19 @@ test("defineCases gives each case as its node", () => {
   assert.deepEqual(defineCases([asked]), [asked]);
 });
 
+test("defineCases marks each case as the definition of its name and type, and not the list", () => {
+  const mark = Symbol.for("@mku1tra/basis/definition");
+  const cases = defineCases([asked, { ...asked, name: "write-up-told" }]);
+  assert.deepEqual(
+    cases.map((kase) => Object.getOwnPropertyDescriptor(kase, mark)?.value),
+    [
+      { name: "write-up-asked", type: "case" },
+      { name: "write-up-told", type: "case" },
+    ],
+  );
+  assert.equal(Object.getOwnPropertyDescriptor(cases, mark), undefined);
+});
+
 test("defineCases lists every fault, each after the case it is in", () => {
   assert.throws(
     () =>

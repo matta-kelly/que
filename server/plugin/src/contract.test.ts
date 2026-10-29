@@ -26,6 +26,13 @@ const read = {
   description: "Reads the notes.",
 };
 
+// The mark basis reads a definition by, under its key in the global symbol registry.
+const markOf = (value: object): unknown =>
+  Object.getOwnPropertyDescriptor(
+    value,
+    Symbol.for("@mku1tra/basis/definition"),
+  )?.value;
+
 const findNote = {
   name: "find-note",
   type: "capability" as const,
@@ -50,6 +57,31 @@ test("definePlugin gives the plugin node, listing what it holds by name, and eac
   assert.equal(definition.ops[0].input, search.input);
   assert.deepEqual(definition.roles, [read]);
   assert.deepEqual(definition.capabilities, [findNote]);
+});
+
+test("definePlugin marks the plugin node and each node it holds as the definition of its name and type, and not what holds them", () => {
+  const definition = definePlugin({
+    ...notes,
+    roles: [read],
+    ops: [{ ...search, role: "notes-read" }],
+    capabilities: [findNote],
+  });
+  assert.deepEqual(
+    [
+      definition.plugin,
+      ...definition.ops,
+      ...definition.roles,
+      ...definition.capabilities,
+    ].map(markOf),
+    [
+      { name: "notes", type: "plugin" },
+      { name: "notes-search", type: "op" },
+      { name: "notes-read", type: "access-role" },
+      { name: "find-note", type: "capability" },
+    ],
+  );
+  assert.equal(markOf(definition), undefined);
+  assert.equal(markOf(definition.ops), undefined);
 });
 
 test("definePlugin keeps a plugin's credential, connect and whoami as given", () => {

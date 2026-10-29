@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { lintFolder } from "@mku1tra/basis";
+import { pathToFileURL } from "node:url";
+import { defineSchema, lintFolder } from "@mku1tra/basis";
 import { plugin } from "./schema.ts";
 import { plugins } from "./source.ts";
 
@@ -220,6 +221,82 @@ test("gives a skill that cannot be read a problem, and its folder's name as unre
     assert.deepEqual(
       (await lintOf(root)).map((p) => [p.path, p.rule ?? "fatal"]),
       [["plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md", "fatal"]],
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// A package of plugins, as a deployment's repo is one: its schema imports the plugin schema, and its exports, in its
+// exports.ts, are the definitions it gives. Its source is the plugins under plugins/.
+const packageOf = (root: string) =>
+  defineSchema({
+    name: "warehouse-package",
+    description: "A package that exports its plugins' definitions.",
+    types: {},
+    imports: [plugin],
+    exports: () => import(pathToFileURL(join(root, "exports.ts")).href),
+  });
+
+const exportsOf = (from: Record<string, string>) =>
+  Object.entries(from)
+    .map(([name, path]) => `export { default as ${name} } from "./${path}";\n`)
+    .join("");
+
+const packageLintOf = async (root: string) =>
+  (
+    await lintFolder(packageOf(root), root, {
+      sources: [plugins(join(root, "plugins"), root)],
+      skip: (path) => path.startsWith("plugins/"),
+    })
+  ).problems;
+
+test("a package that exports its plugins' definitions and cases lints clean: the source gives a piece of each", async () => {
+  const root = await vault({
+    "exports.ts": exportsOf({
+      warehouse: `${at}/index.ts`,
+      warehouseCases: `${at}/cases.ts`,
+    }),
+  });
+  try {
+    assert.deepEqual(await packageLintOf(root), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a definition a package exports that no source gives fails basis/definition-piece, at its place in the export", async () => {
+  const root = await vault({
+    // A plugin outside plugins/, which the source does not walk.
+    "stray/io.github.matta-kelly.que/index.ts": `${imports}
+export default definePlugin({
+  name: "stray",
+  type: "plugin",
+  title: "Stray",
+  description: "A plugin no source reads.",
+  roles: [{ name: "stray-read", type: "access-role", description: "Reads." }],
+});
+`,
+    "exports.ts": exportsOf({
+      warehouse: `${at}/index.ts`,
+      stray: "stray/io.github.matta-kelly.que/index.ts",
+    }),
+  });
+  try {
+    assert.deepEqual(
+      (await packageLintOf(root)).map((p) => [p.path, p.rule, p.message]),
+      [
+        [
+          ".",
+          "basis/definition-piece",
+          "The export stray of warehouse-package, at /plugin, is the definition of the plugin stray, and no source gives a piece of it: a source of the package gives a piece of each definition it exports.",
+        ],
+        [
+          ".",
+          "basis/definition-piece",
+          "The export stray of warehouse-package, at /roles/0, is the definition of the access-role stray-read, and no source gives a piece of it: a source of the package gives a piece of each definition it exports.",
+        ],
+      ],
     );
   } finally {
     await rm(root, { recursive: true, force: true });
