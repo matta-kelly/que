@@ -128,6 +128,7 @@ const deploymentOf = (
     longChat,
   ].map(({ name, ...node }) => ({
     path: `${name}.ts`,
+    source: "code",
     name,
     fields: { ...node, ...fields[name] },
   }));
@@ -179,7 +180,12 @@ test("an agent the deployment names, on a model the deployment does not name, fa
   assert.deepEqual(
     said([
       ...deploymentOf({ chat: { model: "big" } }),
-      { path: "big.ts", name: "big", fields: without(big, "name") },
+      {
+        path: "big.ts",
+        source: "code",
+        name: "big",
+        fields: without(big, "name"),
+      },
     ]),
     [
       [
@@ -199,6 +205,7 @@ test("an agent the deployment names, in a loop the deployment does not name, fai
       ...deploymentOf({ chat: { loop: "short-run" } }),
       {
         path: "short-run.ts",
+        source: "code",
         name: "short-run",
         fields: without(shortRun, "name"),
       },
@@ -226,6 +233,7 @@ test("an agent the deployment names, with a plugin the deployment does not name,
       ...deploymentOf({ chat: { plugins: ["warehouse"] } }),
       {
         path: "warehouse.ts",
+        source: "code",
         name: "warehouse",
         fields: without(warehouse, "name"),
       },

@@ -78,7 +78,7 @@ export function checkPlugins(
     pieces.map((piece) => ({ ...piece, source: "plugins" })),
     unread
       .filter((name) => !given.has(name))
-      .map((name) => ({ path: "", name })),
+      .map((name) => ({ path: "", name, source: "plugins" })),
   ).problems;
 }
 

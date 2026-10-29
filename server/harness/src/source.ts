@@ -98,7 +98,7 @@ export function lintDeployment(
       ...given.pieces.map((piece) => ({ ...piece, source: "code" })),
       ...more.map((piece) => ({ ...piece, source: "more" })),
     ],
-    given.unread,
+    given.unread.map((thing) => ({ ...thing, source: "code" })),
   );
   return { problems: [...given.problems, ...problems], graph };
 }

@@ -31,7 +31,7 @@
     "prepack": "npm run build && cp ../../LICENSE LICENSE"
   },
   "peerDependencies": {
-    "@mku1tra/basis": "^0.22.0",
+    "@mku1tra/basis": "^0.28.0",
     "@mku1tra/que-plugin": "^0.6.0",
     "zod": "^4.6.5"
   },
