@@ -38,7 +38,17 @@ const [getOrder] = operationTools(catalog, (op, params) =>
 test("an operation becomes a tool of its op's name, with its own title, description and arguments", () => {
   assert.equal(getOrder.name, "shop-get-order");
   assert.equal(getOrder.description, "Get order: One order with its lines.");
-  assert.equal(getOrder.schema, shop.ops[0].input);
+  // The tool holds its op's input as JSON Schema, apart from the draft it names.
+  assert.deepEqual(
+    { ...getOrder.schema, $schema: undefined },
+    {
+      $schema: undefined,
+      type: "object",
+      properties: { id: { type: "number", description: "Order id" } },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  );
 });
 
 test("it runs with the connection it is given, and returns the result as JSON", async () => {

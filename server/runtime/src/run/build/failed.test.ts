@@ -87,16 +87,15 @@ test("an operation that answers is not a failed call", async () => {
   assert.equal(answered.content, JSON.stringify({ id: 4 }));
 });
 
-test("a call whose arguments fail the operation's schema is a failed call, with the schema's text on one line and no stack", async () => {
+test("a call whose arguments fail the operation's schema is a failed call, on one line with no stack, naming the field and the type it expected", async () => {
   const [failed] = await results(eager, [
     { name: "shop-get-order", args: { id: "a" } },
   ]);
   assert.equal(failed.status, "error");
   const content = String(failed.content);
-  assert.match(
-    content,
-    /^Error: Received tool input did not match expected schema .*expected number.*at id$/,
-  );
+  assert.match(content, /^Error: /);
+  assert.match(content, /\bid\b/);
+  assert.match(content, /\bnumber\b/);
   assert.doesNotMatch(content, /\n/);
   assert.doesNotMatch(content, /node_modules|\bat .*:\d+:\d+/);
 });
