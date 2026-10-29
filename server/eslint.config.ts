@@ -89,7 +89,12 @@ const deepagents: Rule = {
 };
 const langfuse: Rule = {
   path: /^@langfuse\/|^@opentelemetry\//,
-  why: "Only run/trace.ts names Langfuse or OpenTelemetry.",
+  why: "Only run/trace.ts names Langfuse or OpenTelemetry, and assemble/door.ts its API alone.",
+};
+// The door opens a span for each op it calls, on OpenTelemetry's API alone. run/trace.ts sends it.
+const langfuseButSpanApi: Rule = {
+  path: /^@langfuse\/|^@opentelemetry\/(?!api$)/,
+  why: "Only run/trace.ts names Langfuse or an OpenTelemetry SDK. assemble/door.ts names its API alone, to open an op's span.",
 };
 const loading: Rule = {
   path: /assemble\/(on-demand|eager)/,
@@ -312,6 +317,18 @@ export default defineConfig([
       credentials,
     ],
     [...tests, `${src}/assemble/fixture.ts`],
+  ),
+  hold(
+    [`${src}/assemble/door.ts`],
+    [
+      otherApp,
+      providers,
+      runtimeAlone,
+      direction("assemble"),
+      deepagents,
+      langfuseButSpanApi,
+      credentials,
+    ],
   ),
   hold(
     [`${src}/run/*.ts`],

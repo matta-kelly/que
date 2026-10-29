@@ -1,6 +1,6 @@
 /**
- * A plugin's operations as tools the agent can call. Each one runs with the
- * connection it is handed, so nothing here knows how a user is signed in.
+ * A plugin's operations as tools the agent can call. Each one runs through the
+ * call it is handed (the door), so nothing here knows how a user is signed in.
  */
 
 import { tool, type StructuredTool } from "langchain";
@@ -14,11 +14,12 @@ export function operationTools(
   catalog: Catalog,
   call: (op: PlacedOp, params: unknown) => Promise<unknown>,
 ): StructuredTool[] {
-  void call;
   return catalog.flatMap(({ plugin: { definition } }) =>
     definition.ops.map((op) =>
       tool(
-        async () => undefined, // stub: da-hammer builds it
+        // An OpFailed is thrown on: assemble's middleware marks it as a failed call.
+        async (params) =>
+          JSON.stringify(await call({ plugin: definition.plugin, op }, params)),
         {
           name: op.name,
           description: `${op.title}: ${op.description}`,

@@ -13,11 +13,7 @@
 import { Hono } from "hono";
 import { OpFailed } from "@mku1tra/que-plugin";
 import { agents, loops, models, plugins } from "../mount/mounted.js";
-import {
-  connectedPlugins,
-  removeCredential,
-  setCredential,
-} from "../access/connections.js";
+import { access } from "../access/connections.js";
 import { accepted } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
 import { deploymentInfo } from "./deployment-info.js";
@@ -32,7 +28,7 @@ const find = (name: string) =>
 const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
-  const connected = await connectedPlugins(c.get("userId"));
+  const connected = await access.connectedPlugins(c.get("userId"));
   return c.json(
     plugins
       .filter((p) => p.definition.plugin.credential)
@@ -53,7 +49,11 @@ app.put("/que/connections/:plugin", async (c) => {
   const plugin = find(c.req.param("plugin"));
   if (!plugin) return c.json({ error: "unknown plugin" }, 404);
   try {
-    await setCredential(plugin, c.get("userId"), (await c.req.json()).values);
+    await access.setCredential(
+      plugin,
+      c.get("userId"),
+      (await c.req.json()).values,
+    );
   } catch (error) {
     if (error instanceof OpFailed) return c.json({ error: error.message }, 400);
     throw error;
@@ -64,7 +64,7 @@ app.put("/que/connections/:plugin", async (c) => {
 app.delete("/que/connections/:plugin", async (c) => {
   const plugin = find(c.req.param("plugin"));
   if (!plugin) return c.json({ error: "unknown plugin" }, 404);
-  await removeCredential(plugin, c.get("userId"));
+  await access.removeCredential(plugin, c.get("userId"));
   return c.json({ ok: true });
 });
 

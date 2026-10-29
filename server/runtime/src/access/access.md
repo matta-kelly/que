@@ -25,9 +25,12 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 ## Credentials and connections
 
-`connections.ts`
+`access.ts`, on the credential store it is given (`accessOn(store)`). `connections.ts` makes the runtime's one, on the store it makes once with `createStore()`
 
 - credentials are stored encrypted (`@que/credentials`), one per user and plugin
+- the door asks for a connection by the op's plugin and role and the user (`getConnection`)
+	- one credential serves every role of a plugin, so the role does not change the connection
+	- a user with no credential the plugin needs gets an `OpFailed` that names the plugin
 - a credential is saved only once it matches the plugin's schema, and `connect` succeeds with it when the plugin has `connect`
 - the list of saved credentials (the Connections page) holds every saved one, also one that no longer matches the schema, which the catalog leaves out
 - one connection per user and plugin, opened when it is first used: by an operation, or by `whoami` in the catalog

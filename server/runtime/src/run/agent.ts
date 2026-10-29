@@ -19,9 +19,10 @@
 
 import { chatModel } from "@que/chat-model";
 import { assemble } from "../assemble/assemble.js";
+import { door } from "../assemble/door.js";
 import { catalogFor } from "../access/catalog.js";
 import { narrow } from "../access/narrow.js";
-import { getConnection } from "../access/connections.js";
+import { access } from "../access/connections.js";
 import { fromFile, taken } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
 import * as mounted from "../mount/mounted.js";
@@ -35,6 +36,8 @@ import { stamp } from "./stamp.js";
 import { runOf, settingsFor, startTracing } from "./trace.js";
 
 const traced = startTracing(settingsFor(process.env));
+// Every op runs through the door, on the runtime's access.
+const call = door(access.getConnection);
 if (instructionsFile) await fromFile(instructionsFile);
 
 export async function buildAgent(
@@ -56,7 +59,7 @@ export async function buildAgent(
   const parts = assemble(loadingFor(config), {
     user: user && { ...user, instructions: taken(config, own) },
     catalog,
-    connect: (plugin) => getConnection(plugin, userId),
+    call: (op, params) => call(op, params, userId),
     instructions: config.instructions,
   });
   return build(loopFor(mounted.loops, config), {

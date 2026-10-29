@@ -4,7 +4,7 @@
  */
 
 import type { ServiceIdentity } from "@mku1tra/que-plugin";
-import { getServiceIdentity, hasAccess } from "./connections.js";
+import { access } from "./connections.js";
 import { plugins } from "../mount/mounted.js";
 import type { MountedPlugin } from "../mount/plugins.js";
 
@@ -12,14 +12,17 @@ import type { MountedPlugin } from "../mount/plugins.js";
 export type Catalog = { plugin: MountedPlugin; identity?: ServiceIdentity }[];
 
 export async function catalogFor(userId: string): Promise<Catalog> {
-  const access = await Promise.all(
-    plugins.map((p) => hasAccess(p.definition.plugin, userId)),
+  const reachable = await Promise.all(
+    plugins.map((p) => access.hasAccess(p.definition.plugin, userId)),
   );
-  const available = plugins.filter((_, i) => access[i]);
+  const available = plugins.filter((_, i) => reachable[i]);
   return Promise.all(
     available.map(async (plugin) => ({
       plugin,
-      identity: await getServiceIdentity(plugin.definition.plugin, userId),
+      identity: await access.getServiceIdentity(
+        plugin.definition.plugin,
+        userId,
+      ),
     })),
   );
 }
