@@ -4,7 +4,7 @@
  */
 
 import { SpanStatusCode, trace } from "@opentelemetry/api";
-import type { Op, Plugin } from "@mku1tra/que-plugin";
+import { OpFailed, type Op, type Plugin } from "@mku1tra/que-plugin";
 import type { Connect } from "../access/access.js";
 
 const tracer = trace.getTracer("que");
@@ -29,7 +29,18 @@ export function door(connect: Connect): Call {
   return ({ plugin, op }, params, user) =>
     tracer.startActiveSpan(op.name, async (span) => {
       try {
-        const input = op.input.parse(params);
+        // The door is the one parse. Extra arguments are refused, as the shown schema says there are none.
+        const parsed = op.input.strict().safeParse(params);
+        if (!parsed.success)
+          throw new OpFailed(
+            `invalid ${op.name} input: ${parsed.error.issues
+              .map(({ path, message }) =>
+                [...path.map(String), message].join(": "),
+              )
+              .join("; ")
+              .replace(/\s*\n\s*/g, " ")}`,
+          );
+        const input = parsed.data;
         const conn = await connect(plugin, op.role, user);
         return await op.run({ conn }, input);
       } catch (error) {

@@ -54,6 +54,11 @@ The model knows only what the card says, so the card is the whole interface.
 - `input` is a zod object, every field is described, and a model API can take it as JSON Schema: the op type holds each of these
 - a field with a few allowed values is an enum, not free text
 - a value that is not allowed fails with the list of allowed ones, so the next call can be right
+- the boundary: the runtime's door owns the input, for every caller
+	- the door is the one parse: run gets the parsed value, with its defaults and transforms in
+	- a failed parse is an `OpFailed` on one line, with the path and the message of each issue, never zod's own error. A refine's message is what the model reads, so it says what is allowed
+	- extra arguments are refused: the door parses the input as strict, and an extra field is an `OpFailed` that names it
+	- the model is shown the input side of `input` as JSON Schema (zod's `io: "input"`): a transform shows what goes in, a field with a default is not required, and no other field is allowed. What JSON Schema cannot say (a refine, a transform's own check) only the door checks
 
 ## Answer
 

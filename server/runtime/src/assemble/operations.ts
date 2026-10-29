@@ -3,8 +3,8 @@
  * call it is handed (the door), so nothing here knows how a user is signed in.
  */
 
-import { toJsonSchema } from "@langchain/core/utils/json_schema";
 import { tool, type StructuredTool } from "langchain";
+import * as z from "zod";
 import type { Catalog } from "../access/catalog.js";
 import type { BoundCall } from "./door.js";
 
@@ -24,9 +24,10 @@ export function operationTools(
         {
           name: op.name,
           description: `${op.title}: ${op.description}`,
-          // The op's input as JSON Schema: LangChain checks the arguments against it and hands the door the raw
+          // The input side of the op's input as JSON Schema (a transform shows what goes in, a default is not
+          // required), with no other fields. LangChain checks the arguments against it and hands the door the raw
           // arguments, so the door is the one parse. A failed check names the field and the type it expected.
-          schema: toJsonSchema(op.input),
+          schema: z.toJSONSchema(op.input.strict(), { io: "input" }),
           verboseParsingErrors: true,
         },
       ),
