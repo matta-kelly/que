@@ -6,6 +6,7 @@ status: planned
 A harness that knows no role, job or company. Everything it can do comes from plugins.
 - [[#Thesis]] the rule everything below follows, and the whole shape in one picture
 - [[#Parts]] environment and agent, which are defined; harness and backend, which are que; and the deployment they make
+- [[#Invariants]] what the harness schema holds true of every graph, that basis leaves to it, each with the rule or construction that holds it. The plugin schema's are in [[plugin-contract#Invariants]]
 
 - built on [[basis]] (`~/lot/daworks/basis`, GitHub matta-kelly/basis): que imports it, and hands it to the folders it mounts and checks
 - [[plugin-contract]]: the plugin contract as built
@@ -162,3 +163,15 @@ agent ─────────────────▶  assemble  turn its
 	- the code names it the same way: `defineDeployment`, `QUE_DEPLOYMENT`
 	- how to start, stop and check one is in the README
 
+## Invariants
+
+basis leaves two invariants to the schema that states a relation or writes a bridge ([[basis#Validation]]). These are the harness schema's (`@mku1tra/que-harness`). Under each is the rule or the construction that holds it. A gap is a blind spot of the holder above it.
+
+- a relation is stated once: one link, on one node, and its reverse comes from the graph
+	- a deployment names its plugins, agents, loops and models (`plugins`, `agents`, `loops`, `models`), and an agent names its plugins, its model and its loop (`plugins`, `model`, `loop`): none of these names back
+		- construction: the types agent, loop and model have no link to a deployment, and the plugin schema's types have none to a deployment or an agent
+		- rule: `basis/fields` fails a field that a type does not have, so a note cannot add one
+	- an agent's plugins, model and loop, and its deployment's lists, are two relations that must agree: each agent a deployment names gets only what the deployment names
+		- rule: `harness/named`
+	- gap: no rule fails a link that states the reverse of a link already there. The types hold this as they are, and review holds a change to them
+- nothing reads what que writes to a bridge's shape: the harness schema writes no bridge. The plugin schema's card is in [[plugin-contract#Invariants]]

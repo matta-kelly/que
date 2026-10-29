@@ -10,6 +10,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 - [[#What it promises]] how its operations answer
 - [[#What it never knows]] the line between a plugin and the harness
 - [[#Layout]] the folder, and the three kinds of proof
+- [[#Invariants]] what the plugin schema holds true of every graph, that basis leaves to it, each with the rule or construction that holds it
 
 - [[op-contract]]: what an operation is, and what makes a good one
 - `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the plugins. Not all of it is built: the control plane, and roles on cc's connectors
@@ -119,3 +120,42 @@ Built: roles and a domain's list, declared and checked. Designed, not built: a d
 	- contract checks: the same for every plugin, and none written by it. `definePlugin` and `defineCases` parse with the types when the code is imported, and `just check-plugin` lints the plugin with the schema's rules. As [[op-contract]] gains a rule that code can check, the plugin schema holds it (a field of a type, or a rule), and every plugin gets it
 	- op tests: one behaviour of one operation, named `<operation>: <behaviour>`, with no network. Each write operation has two more: the same call twice answers `unchanged`, and a value that is not allowed fails with the allowed ones
 	- cases: one behaviour of one capability, with the model, against the real service
+
+## Invariants
+
+basis leaves two invariants to the schema that states a relation or writes a bridge ([[basis#Validation]]). Under each is the rule or the construction that holds it, or "no rule yet" with the reason. A gap is a blind spot of the holder above it.
+
+- a relation is stated once: one link, on one node, and its reverse comes from the graph
+	- a plugin holds its ops, roles, capabilities, skills and cases: the plugin node lists them, and none of them names its plugin
+		- each is held by one plugin: two plugins that hold one name give two pieces of one name from one source
+			- rule: `basis/unique-name`
+		- no held thing names its plugin
+			- construction: the types op, access-role, capability, skill and case have no link to a plugin
+			- rule: `basis/fields` fails a field that a type does not have, so a note cannot add one
+		- ops, roles and capabilities
+			- construction: `definePlugin` makes the plugin's lists from the nodes it is given, and `readDefinition` refuses a list on the plugin node that is not the names of the nodes the definition holds
+		- skills and cases
+			- construction: the source makes the plugin's lists from its folders under `skills/` and from its `cases.ts` (`piecesOf`), and `definePlugin` and `readDefinition` refuse a plugin whose code gives either list
+		- a note of the plugin that gives one of these lists again
+			- rule: `basis/merge`, as each field of a node comes from one piece. The code always gives the lists, an empty one too
+	- a domain uses ops and skills: `usesOps` and `usesSkills` on the plugin, and no op or skill names what uses it
+		- construction: the types op and skill have no link back
+	- an op runs with a role (`role` on the op), and a case is about a capability (`capability` on the case): access-role and capability list neither back
+		- construction: the types access-role and capability have no link back
+	- two relations are stated twice, on purpose, and a rule fails each place where the two differ
+		- a case's plugin: the `cases.ts` that holds it gives it (the plugin's `cases`), and so does its capability, which one plugin holds. The evals run a case with the plugin whose `cases.ts` holds it
+			- rule: `plugin/case-capability`
+		- an op's plugin, when the plugin lists roles: the plugin's `ops` gives it, and so does its role, which one plugin holds
+			- rule: `plugin/op-role`
+	- gap: no rule fails a link that states the reverse of a link already there. The types hold this as they are, and review holds a change to them
+- nothing reads what que writes to the card's shape: the card, `plugin.json`, is a bridge, written at publish, never committed, and read by nothing of que's
+	- the plugin schema names one bridge, `SkillFrontmatter`: the shape of a `SKILL.md`, which the plugin's author writes and que reads. que writes nothing to it, so this invariant does not reach it. The card is the one shape que writes, and it is no zod object, so it is not in `bridges`
+	- nothing reads it
+		- construction: `writeCard` (`just card`) is the one user of the card's path (`pluginFiles`). `readPlugin`, mount, the evals and the source read the plugin's code and skills. A plugin whose `plugin.json` holds anything checks, mounts and gives the same pieces (the tests of `just check-plugin`, mount and the source)
+		- gap: no rule fails new code that reads the card. Review holds it
+	- written at publish
+		- construction: `just card` is the one writer
+		- no rule yet: no publish of a plugin runs it, and que does not see a publish
+	- never committed
+		- construction: a deployment made from que's template ignores `plugin.json` (`templates/deployment/.gitignore`)
+		- gap: a plugin in a repo of its own gets no ignore from que, and no rule fails a card that is committed

@@ -1,7 +1,7 @@
 /**
  * What a case is: one behaviour of one capability, written down so it can be checked. A case is a node, given in a
- * plugin's `cases.ts` beside its definition; no agent is given one. Its capability is a link, so the plugin that holds
- * that capability is the case's, in the graph.
+ * plugin's `cases.ts` beside its definition; no agent is given one. Its plugin is the one whose cases.ts holds it;
+ * plugin/case-capability fails a capability that plugin does not list.
  */
 
 import type * as z from "zod";
