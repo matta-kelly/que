@@ -168,9 +168,11 @@ export async function run(
         }
       }),
     );
+    // A resend whose message is not placed yet is not in the conversation, so the rule cannot see it: pi's own idempotency gives the submission it has.
     const submission = await conversation.submit(
       {
         type: "input",
+        requestId: runId,
         content: last.content,
         entry: userEntry(last.id, runId),
       },
