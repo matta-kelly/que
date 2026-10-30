@@ -61,7 +61,7 @@ const op = defineType({
     // What it does: run(ctx, params). A connector op gets its connection in ctx, and a domain op the ops it uses.
     run: fn,
     // The ops it calls: a domain op's, each a connector's op. A connector op calls none.
-    // Its type is said, as a link to its own type would make op's type its own initializer's.
+    // The `(): Type` annotation stops the circular-initializer error (TS7022) that a link to op's own type gives.
     uses: manyOrNone((): Type => op),
   },
 });
