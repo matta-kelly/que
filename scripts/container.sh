@@ -67,6 +67,8 @@ cli_up() {
   CONTAINERS_CONF_OVERRIDE=$root/scripts/containers.conf timeout --foreground 900 \
     npx --yes @devcontainers/cli@0.90.0 up --workspace-folder "$root" --docker-path podman \
     --remove-existing-container "${mount[@]}" </dev/null >>"$cli_log" 2>&1 || code=$?
+  # A failed install's last lines are the ones that matter, so the follower gets to read them.
+  [ "$code" -eq 0 ] || sleep 1
   kill "$follower" 2>/dev/null || true
   return "$code"
 }
@@ -117,6 +119,7 @@ else
       echo "The dev container CLI's install ran past its bound. The install is not run again." >&2
       exit 1
     fi
+    : >"$cli_log"
     echo "The dev container CLI stopped answering. Making the container again." >&2
     remove_container
     code=0
