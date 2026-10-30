@@ -129,6 +129,26 @@ test("stop: Stop on a running reply stops its run on que's server, the chat says
   expect(posts.stops()).toHaveLength(1);
 });
 
+test("stop: Escape in the composer while a reply goes stops its run on que's server, and the chat says Stopped @live", async ({
+  page,
+}) => {
+  const posts = watchPosts(page);
+  await openApp(page);
+  const thread = await start(page, `${LONG} (${Date.now()})`);
+  await partWay(page);
+
+  // Escape cancels the run in the composer (assistant-ui's cancelOnEscape); it is a stop too.
+  await page.getByPlaceholder("Send a message...").press("Escape");
+  await expect
+    .poll(() => posts.stops(), {
+      message: `the page posted no stop to que's server: ${posts.said()}`,
+    })
+    .toEqual([`/api/threads/${thread}/stop`]);
+  await expect(sendButton(page)).toBeVisible();
+  await expect(mark(page)).toContainText("Stopped");
+  expect(await stoppedOf(page, thread)).toBe(true);
+});
+
 test("stop: a chat left for a new chat while its reply goes is not stopped @live", async ({
   page,
 }) => {
