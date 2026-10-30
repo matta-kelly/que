@@ -27,7 +27,7 @@ export const CARD_SCHEMA =
   "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 /** The version of que's part of a card. It changes when that part's shape does. */
-export const CARD_FORMAT = 5;
+export const CARD_FORMAT = 6;
 
 /** A node as a card holds it: its fields, with no type. */
 type Written<N> = Omit<N, "type">;
