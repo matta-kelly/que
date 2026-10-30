@@ -211,17 +211,29 @@ test("the cards decide each domain's connectors and roles, and each internal con
   ]);
 });
 
-test("two control planes on one database, opened together, make the table once", async () => {
+test("a second setup on one database makes nothing: the table and its grants are as they were", async () => {
   const db = new PGlite();
   const first = controlOn(db, cards);
-  const second = controlOn(db, cards);
-  // Both set the table up at once: a second `CREATE TABLE` would fail without the advisory lock.
-  await Promise.all([
-    first.grant("ana", "pim", "admin-1"),
-    second.grant("ben", "sales", "admin-1"),
+  await first.grant("ana", "pim", "admin-1");
+  const stored = () =>
+    db.query<{ user_id: string; domain: string; granted_by: string }>(
+      "SELECT user_id, domain, granted_by FROM grants ORDER BY user_id, domain",
+    );
+  assert.deepEqual((await stored()).rows, [
+    { user_id: "ana", domain: "pim", granted_by: "admin-1" },
   ]);
-  assert.deepEqual(await first.grantsOf("ben"), ["sales"]);
+
+  // The deployment sets the same database up again, at its next mount.
+  const second = controlOn(db, cards);
+
+  // The second setup makes nothing: the row is the same row, and the second control plane reads it.
+  assert.deepEqual((await stored()).rows, [
+    { user_id: "ana", domain: "pim", granted_by: "admin-1" },
+  ]);
   assert.deepEqual(await second.grantsOf("ana"), ["pim"]);
+  // The one table serves both: a grant made through either is read by the other.
+  await second.grant("ben", "sales", "admin-1");
+  assert.deepEqual(await first.grantsOf("ben"), ["sales"]);
   const { rows } = await db.query<{ tables: number }>(
     "SELECT count(*)::int AS tables FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'grants'",
   );
