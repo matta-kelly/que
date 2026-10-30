@@ -6,19 +6,23 @@ import {
   ExportedMessageRepository,
   useAui,
   useRemoteThreadListRuntime,
+  type ChatModelRunResult,
   type ThreadHistoryAdapter,
 } from "@assistant-ui/react";
 import { fromAgUiMessages, useAgUiRuntime } from "@assistant-ui/react-ag-ui";
 import { loadDeployment } from "@/components/chat/run-pickers/pick-store";
 import { setStopped } from "@/components/chat/run-states/store";
 import { oneReplyPerTurn } from "@/components/runtime/one-reply-per-turn";
-import { ThreadAgent, threads } from "@/components/runtime/que-client";
+import { join, ThreadAgent, threads } from "@/components/runtime/que-client";
 import { threadListAdapter } from "@/components/runtime/thread-list-adapter";
 
 /**
  * One chat's runtime: its runs go to que's server over AG-UI, and its messages
  * are loaded from its thread there, with the ids que's server gave them. An
  * edit or a regenerate sends those ids back, and que's server goes on from them.
+ * A chat opened while its reply goes joins the run on que's server: it is
+ * loaded to the user's message, and the reply comes from the join, so far and
+ * then live, as one reply.
  */
 function useChatRuntime() {
   const aui = useAui();
@@ -37,11 +41,30 @@ function useChatRuntime() {
       async load() {
         const { remoteId } = aui.threadListItem().getState();
         if (!remoteId) return { messages: [] };
-        const { messages, stopped } = await threads.get(remoteId);
+        const { messages, stopped, running } = await threads.get(remoteId);
         setStopped(remoteId, stopped);
-        return ExportedMessageRepository.fromArray(
-          oneReplyPerTurn(fromAgUiMessages(messages)),
-        );
+        // A run that goes is joined: its reply comes from resume().
+        const shown = running
+          ? messages.slice(0, askedIn(messages) + 1)
+          : messages;
+        return {
+          ...ExportedMessageRepository.fromArray(
+            oneReplyPerTurn(fromAgUiMessages(shown)),
+          ),
+          unstable_resume: running,
+        };
+      },
+      async *resume({ abortSignal }) {
+        const { remoteId } = aui.threadListItem().getState();
+        if (!remoteId) return;
+        for await (const messages of join(remoteId, abortSignal)) {
+          const [reply] = oneReplyPerTurn(
+            fromAgUiMessages(messages.slice(askedIn(messages) + 1)),
+          );
+          yield {
+            content: (reply?.content ?? []) as ChatModelRunResult["content"],
+          };
+        }
       },
       // que's server keeps each message of a run.
       async append() {},
@@ -57,6 +80,10 @@ function useChatRuntime() {
     unstable_enableMessageQueue: true,
   });
 }
+
+/** Where the user's last message is in the thread's messages: a run's reply is after it. */
+const askedIn = (messages: readonly { role: string }[]) =>
+  messages.findLastIndex((m) => m.role === "user");
 
 export function RuntimeProvider({
   children,
