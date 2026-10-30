@@ -142,15 +142,23 @@ const answer =
     );
   };
 
-/** The AG-UI events of an SSE body, each `data:` line one event; with `drop`, the client goes at the first event `until` holds for. */
+/**
+ * The AG-UI events of an SSE body, each `data:` line one event. At the first event `until` holds for, `then` is
+ * called; with `drop`, the client then goes.
+ */
 async function eventsOf(
   response: Response,
-  at?: { until: (event: Event) => boolean; drop: AbortController },
+  at?: {
+    until: (event: Event) => boolean;
+    then?: () => void;
+    drop?: AbortController;
+  },
 ): Promise<Event[]> {
   const events: Event[] = [];
   if (!response.body) return events;
   const decoder = new TextDecoder();
   let rest = "";
+  let reached = false;
   try {
     for await (const chunk of response.body) {
       rest += decoder.decode(chunk as Uint8Array, { stream: true });
@@ -165,14 +173,18 @@ async function eventsOf(
         if (!data) continue;
         const event = JSON.parse(data) as Event;
         events.push(event);
-        if (at?.until(event)) {
-          at.drop.abort();
-          return events;
+        if (!reached && at?.until(event)) {
+          reached = true;
+          at.then?.();
+          if (at.drop) {
+            at.drop.abort();
+            return events;
+          }
         }
       }
     }
   } catch (error) {
-    if (!at?.drop.signal.aborted) throw error;
+    if (!at?.drop?.signal.aborted) throw error;
   }
   return events;
 }
@@ -563,15 +575,32 @@ test("given a run that has answered, when the client sends the same RunAgentInpu
   faux.setResponses([answer("Hello."), answer("Hello again.")]);
   const once = await run(first, [hi]);
   let calls = faux.state.callCount;
-  await eventsOf(await post(first, once.sent));
+  const firstAgain = await eventsOf(await post(first, once.sent));
   const firstCalls = faux.state.callCount - calls;
 
   // A later message of a thread, sent again.
   const { id, u1, a1, u2, a2, second } = await twoExchanges("apples", "pears");
   faux.setResponses([answer("Pears, again.")]);
   calls = faux.state.callCount;
-  await eventsOf(await post(id, second));
+  const laterAgain = await eventsOf(await post(id, second));
   const laterCalls = faux.state.callCount - calls;
+
+  // The resend's stream is the run's frame alone: it opens and finishes, under the run it sends again.
+  const frames = (events: Event[]) =>
+    events.map((e) => ({ type: e.type, threadId: e.threadId, runId: e.runId }));
+  assert.deepEqual(
+    { first: frames(firstAgain), later: frames(laterAgain) },
+    {
+      first: [
+        { type: "RUN_STARTED", threadId: first, runId: once.sent.runId },
+        { type: "RUN_FINISHED", threadId: first, runId: once.sent.runId },
+      ],
+      later: [
+        { type: "RUN_STARTED", threadId: id, runId: second.runId },
+        { type: "RUN_FINISHED", threadId: id, runId: second.runId },
+      ],
+    },
+  );
 
   assert.deepEqual(
     {
@@ -597,4 +626,81 @@ test("given a run that has answered, when the client sends the same RunAgentInpu
       },
     },
   );
+});
+
+test("given a run that goes, when the client sends its next message and sends that same RunAgentInput again before the message is placed, then no second run is made: the model gets the message once, and GET /threads/:id holds one answer to it", async () => {
+  for (const item of ["pens", "ink"]) {
+    const id = await thread();
+    const u1 = user(`Count the ${item} slowly.`);
+    const call = `wait-${item}`;
+    const u3 = user(`And the ${item} in the back?`);
+    faux.setResponses([
+      answer(
+        [
+          fauxText("Counting. "),
+          fauxToolCall("till-wait", { item }, { id: call }),
+        ],
+        true,
+      ),
+      answer(`There are 3 ${item}.`),
+      answer(`In the back, 2 ${item}.`),
+      answer(`In the back, 2 ${item}, again.`),
+    ]);
+    requests.length = 0;
+    // R1 goes; while till-wait runs, the client sends u3 as R2, and sends R2 again: a retry, before u3 is placed.
+    let sent!: (both: Promise<Event[][]>) => void;
+    const retried = new Promise<Promise<Event[][]>>((r) => (sent = r));
+    // The assistant message of the call, under the id the stream gave it.
+    let a1 = "";
+    const r1 = eventsOf(await post(id, input(id, [u1])), {
+      until: (e) => {
+        if (e.type === "TOOL_CALL_START") a1 = String(e.parentMessageId);
+        return e.type === "TOOL_CALL_END";
+      },
+      then: () => {
+        const r2 = input(id, [
+          u1,
+          {
+            id: a1,
+            role: "assistant",
+            content: "Counting. ",
+            toolCalls: [
+              {
+                id: call,
+                type: "function",
+                function: {
+                  name: "till-wait",
+                  arguments: JSON.stringify({ item }),
+                },
+              },
+            ],
+          },
+          u3,
+        ]);
+        sent(
+          (async () => {
+            const first = await post(id, r2);
+            const again = await post(id, r2);
+            return Promise.all([eventsOf(first), eventsOf(again)]);
+          })(),
+        );
+      },
+    });
+    await r1;
+    await await retried;
+    const chatNow = await chat(id);
+    assert.deepEqual(
+      {
+        asked: requests.filter((r) => r.at(-1) === `user: ${u3.content}`)
+          .length,
+        answers: chatNow
+          .slice(chatNow.findIndex(([, messageId]) => messageId === u3.id) + 1)
+          .map(([role, , content]) => [role, content]),
+      },
+      {
+        asked: 1,
+        answers: [["assistant", `In the back, 2 ${item}.`]],
+      },
+    );
+  }
 });
