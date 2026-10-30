@@ -126,7 +126,7 @@ agent ─────────────────▶  assemble  turn its
 	- where the agent runs. Each one is a request to the backend
 		- principal: who it acts as. Per user
 		- state. que's thread record, and the pi conversation it is on
-		- workspace. On pi, a folder of the conversation's own in the deployment's folder, `.que/conversations/<id>`, that holds its big tool results. A fork keeps its parent's
+		- workspace. On pi, a folder of the conversation's own, `conversations/<id>` in the deployment's data folder (`QUE_DATA_DIR`), that holds its big tool results. A fork keeps its parent's
 		- trigger and lifetime. A chat
 - **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/runtime`. Four layers, each one a folder in `server/runtime/src/`
 	- boundary: what crosses into and out of the harness
