@@ -11,7 +11,12 @@ import {
   type ThinkingLevel,
 } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
-import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
+import {
+  factsOf,
+  providerModelOf,
+  providerOf,
+  type Model,
+} from "@mku1tra/que-harness";
 
 const FIREWORKS = "https://api.fireworks.ai/inference/v1";
 
@@ -41,7 +46,8 @@ export const piModel = (model: Model): PiModel<"openai-completions"> => ({
   ...(model.effort !== undefined && {
     thinkingLevelMap: { [levelFor(model.effort)]: model.effort },
   }),
-  input: ["text"],
+  // The input modalities the catalog gives the model; a model it has no entry for takes text alone.
+  input: factsOf(model.id)?.input ?? ["text"],
   cost: {
     input: model.price?.input ?? 0,
     output: model.price?.output ?? 0,

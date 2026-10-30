@@ -17,12 +17,16 @@ import {
 } from "./model.ts";
 
 /** What is true of a model, as the catalog gives it. */
-export type ModelFacts = { window: number; price: ModelPrice };
+export type ModelFacts = {
+  window: number;
+  price: ModelPrice;
+  input: NonNullable<ReturnType<typeof getBuiltinModel>>["input"];
+};
 
 /**
- * The facts of the model whose id is `id`, in "provider:model" form: its window, and its price in dollars for one
- * million tokens (a token read from the provider's cache at the catalog's price of one). None when the catalog has no
- * entry for it.
+ * The facts of the model whose id is `id`, in "provider:model" form: its window, its price in dollars for one
+ * million tokens (a token read from the provider's cache at the catalog's price of one), and the input modalities it
+ * takes. None when the catalog has no entry for it.
  */
 export function factsOf(id: Model["id"]): ModelFacts | undefined {
   const provider = providerOf({ id });
@@ -43,5 +47,6 @@ export function factsOf(id: Model["id"]): ModelFacts | undefined {
       output: entry.cost.output,
       cachedInput: entry.cost.cacheRead,
     },
+    input: entry.input,
   };
 }

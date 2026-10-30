@@ -103,7 +103,11 @@ function catalog(dir: string, root: string): Source {
               {
                 path: `${from(file)}#catalog`,
                 name: node.name,
-                fields: { type: "model", ...facts },
+                fields: {
+                  type: "model",
+                  window: facts.window,
+                  price: facts.price,
+                },
               },
             ]
           : [];
