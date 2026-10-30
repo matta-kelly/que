@@ -7,7 +7,10 @@ import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import { storeOn } from "@que/credentials";
 import { accessOn } from "./access.js";
 
-process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
+const KEY = randomBytes(32).toString("base64");
+const OTHER_KEY = randomBytes(32).toString("base64");
+
+process.env.QUE_CREDENTIALS_KEY = KEY;
 
 const { plugin: shop } = definePlugin({
   name: "shop",
@@ -17,6 +20,32 @@ const { plugin: shop } = definePlugin({
   credential: z.object({ key: z.string() }),
   connect: async ({ key }) => `conn:${key}`,
   ops: [],
+});
+
+const { plugin: ledger } = definePlugin({
+  name: "ledger",
+  type: "plugin",
+  title: "Ledger",
+  description: "The ledger's books.",
+  credential: z.object({ key: z.string() }),
+  connect: async ({ key }) => `conn:${key}`,
+  ops: [],
+});
+
+test("given a store with one record written under another key, when access asks for each plugin, then hasAccess is false for the undecryptable plugin and true for the other, and connectedPlugins still lists the undecryptable one", async () => {
+  const db = new PGlite();
+  process.env.QUE_CREDENTIALS_KEY = OTHER_KEY;
+  await storeOn(db).set("ana", "shop", { key: "a1" });
+  process.env.QUE_CREDENTIALS_KEY = KEY;
+  await storeOn(db).set("ana", "ledger", { key: "l1" });
+  const access = accessOn(storeOn(db));
+
+  assert.equal(await access.hasAccess(shop, "ana"), false);
+  assert.equal(await access.hasAccess(ledger, "ana"), true);
+  assert.deepEqual([...(await access.connectedPlugins("ana")).keys()].sort(), [
+    "ledger",
+    "shop",
+  ]);
 });
 
 test("given a store that holds a credential for two users and not a third, when each asks for a connection, then each gets the one its own credential makes, and the third an OpFailed", async () => {
