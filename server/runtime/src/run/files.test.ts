@@ -6,8 +6,9 @@
  * a name, never as a path: a file named ../order.csv keeps that name, and
  * nothing is written outside the thread's folder. Another user gets the same
  * 404 as one who is not there, and no identity gets 401. A file over the 25 MB
- * cap is a 413 with no row and no bytes, a request with no "file" part is a 400
- * naming it, and deleting a thread removes its files with it.
+ * cap is a 413 with no row and no bytes, answered without reading the body to
+ * its end, a request with no "file" part is a 400 naming it, and deleting a
+ * thread removes its files with it.
  *
  * On a database of its own (PGlite, served on a local port), the fixture
  * deployment "two", and a temporary QUE_DATA_DIR. Who is asking comes from
@@ -250,7 +251,8 @@ test("given a file uploaded as ../order.csv, when the thread lists it, then the 
     root.includes(threadId),
     `the thread's folder is not under <data>/files: ${root.join(", ")}`,
   );
-  const threadFolder = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  const threadFolder =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
   assert.deepEqual(
     root.filter((entry) => !threadFolder.test(entry)),
     [],
@@ -447,4 +449,108 @@ test("given a multipart body with no file part, or a file part named otherwise, 
   assert.match(await wrong.text(), /\bfile\b/);
   assert.deepEqual(await rowsOf(threadId), []);
   assert.deepEqual(await listed(ANA, threadId), []);
+});
+
+test("given a request whose body is JSON, empty, or has no content type, when an upload is sent, then each is a 400 naming the file part, and nothing is kept", async () => {
+  // given: Ana's thread
+  const threadId = await make(ANA);
+
+  // when: the body is JSON, is empty, or has no content type
+  const json = await as(ANA, `/threads/${threadId}/files`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ note: "no file here" }),
+  });
+  const empty = await as(ANA, `/threads/${threadId}/files`, {
+    method: "POST",
+  });
+  const untyped = await as(ANA, `/threads/${threadId}/files`, {
+    method: "POST",
+    body: Buffer.from("--not-multipart\r\n"),
+  });
+
+  // then: each is a 400 that names the part, not the 500 of a body it cannot parse
+  for (const [kind, response] of [
+    ["JSON", json],
+    ["empty", empty],
+    ["no content type", untyped],
+  ] as const) {
+    assert.equal(
+      response.status,
+      400,
+      `a ${kind} body: ${await response.clone().text()}`,
+    );
+    assert.match(
+      await response.text(),
+      /\bfile\b/,
+      `a ${kind} body does not name the file part`,
+    );
+  }
+
+  // and: no row and no bytes are left
+  assert.deepEqual(await rowsOf(threadId), []);
+  assert.deepEqual(await listed(ANA, threadId), []);
+  await assert.rejects(readdir(threadDir(threadId)), { code: "ENOENT" });
+});
+
+test("given a body of twice the 25 MB cap, when it is uploaded, then the answer is a 413 without the server reading the body to its end, and no row and no bytes are left", async () => {
+  // given: Ana's thread, and a multipart body of twice the cap, streamed
+  const threadId = await make(ANA);
+  const boundary = "que-file-routes-cap";
+  const total = CAP * 2;
+  const head = Buffer.from(
+    `--${boundary}\r\n` +
+      'Content-Disposition: form-data; name="file"; filename="huge.bin"\r\n' +
+      "Content-Type: application/octet-stream\r\n\r\n",
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const chunk = Buffer.alloc(MB, 0x63);
+  let phase: "head" | "data" | "tail" | "done" = "head";
+  let left = total;
+  // How much of the body the request's reader asked for: the route's pull on it.
+  let pulled = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (phase === "head") {
+        phase = "data";
+        controller.enqueue(head);
+        return;
+      }
+      if (phase === "data" && left > 0) {
+        const size = Math.min(MB, left);
+        left -= size;
+        pulled += size;
+        controller.enqueue(size === MB ? chunk : chunk.subarray(0, size));
+        return;
+      }
+      if (phase === "data") phase = "tail";
+      if (phase === "tail") {
+        phase = "done";
+        controller.enqueue(tail);
+        return;
+      }
+      controller.close();
+    },
+  });
+
+  // when: it is uploaded
+  const uploaded = await as(ANA, `/threads/${threadId}/files`, {
+    method: "POST",
+    headers: {
+      "content-type": `multipart/form-data; boundary=${boundary}`,
+    },
+    body,
+    duplex: "half",
+  } as RequestInit);
+
+  // then: it is a 413, answered before the body is read to its end
+  assert.equal(uploaded.status, 413, await uploaded.clone().text());
+  assert.ok(
+    pulled < total,
+    `the server read the body to its end: ${pulled} of ${total} bytes`,
+  );
+
+  // and: no row and no bytes are left
+  assert.deepEqual(await rowsOf(threadId), []);
+  await assert.rejects(readdir(threadDir(threadId)), { code: "ENOENT" });
 });
