@@ -1,10 +1,11 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { newChat, openApp, openChatWith } from "./helpers";
 
 // A stop is a call of its own to que's server: Stop on a running reply is
 // POST /threads/:id/stop, and the thread says it was stopped, also after a
-// reload, until its next message has run. A chat that is left while its reply
-// goes is not stopped. Each run is a call to the real model, as each @live
+// reload, until its next message has run. Continue on a stopped reply writes
+// a new one from the same message. A chat that is left while its reply goes is
+// not stopped. A message sent while a reply goes waits its turn. Each run is a call to the real model, as each @live
 // test's is.
 
 const LONG =
@@ -16,6 +17,14 @@ const sendButton = (page: Page) =>
   page.getByRole("button", { name: "Send message" });
 const replies = (page: Page) => page.locator('[data-role="assistant"]');
 const mark = (page: Page) => page.locator('[data-slot="stopped-run"]');
+
+/** How many times each of 57, 777, 1234 and 2999 is in a reply's text. */
+const onceEach = async (locator: Locator) => {
+  const text = (await locator.textContent()) ?? "";
+  return [57, 777, 1234, 2999].map(
+    (n) => (text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).length,
+  );
+};
 
 const isRun = (path: string) => /^\/api\/threads\/[^/]+\/runs$/.test(path);
 const isStop = (path: string) => /^\/api\/threads\/[^/]+\/stop$/.test(path);
@@ -139,4 +148,93 @@ test("stop: a chat left for a new chat while its reply goes is not stopped @live
   await page.waitForTimeout(2_000);
   expect(posts.stops()).toEqual([]);
   expect(await stoppedOf(page, thread)).toBe(false);
+});
+
+/** The reply ends, and has the whole of the numbers, with no part of them twice. */
+async function wholeOnce(page: Page) {
+  await expect(sendButton(page)).toBeVisible({ timeout: 180_000 });
+  // The text can come a moment after the run ends, so it is read until it holds each number once.
+  await expect.poll(() => onceEach(replies(page).last())).toEqual([1, 1, 1, 1]);
+}
+
+test("stop: Continue on a stopped reply writes a new reply in its place, from the same message of the user's, and the chat no longer says Stopped @live", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const posts = watchPosts(page);
+  await openApp(page);
+  const first = page.waitForRequest(
+    (req) => req.method() === "POST" && isRun(new URL(req.url()).pathname),
+  );
+  const thread = await start(page, `${LONG} (${Date.now()})`);
+  const asked = (
+    (await first).postDataJSON() as { messages: { id: string }[] }
+  ).messages.at(-1)?.id;
+  await partWay(page);
+  await stopButton(page).click();
+  await expect(mark(page)).toContainText("Stopped");
+
+  const again = page.waitForRequest(
+    (req) => req.method() === "POST" && isRun(new URL(req.url()).pathname),
+  );
+  await mark(page).getByRole("button", { name: "Continue" }).click();
+  // The run again is on the same thread, and ends at the same message of the user's.
+  const body = (await again).postDataJSON() as { messages: { id: string }[] };
+  expect(body.messages.map((m) => m.id)).toEqual([asked]);
+  expect(posts.runs()).toEqual([
+    `/api/threads/${thread}/runs`,
+    `/api/threads/${thread}/runs`,
+  ]);
+  await expect(mark(page)).toHaveCount(0);
+  await expect(stopButton(page)).toBeVisible({ timeout: 15_000 });
+
+  // The new reply is the one in the chat, whole, and the stopped one is not above it.
+  await wholeOnce(page);
+  await expect(replies(page)).toHaveCount(1);
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
+  await expect(mark(page)).toHaveCount(0);
+  expect(await stoppedOf(page, thread)).toBe(false);
+});
+
+test("stop: a message sent while a reply goes waits above the composer and can be taken back, and one left there is sent when the reply ends @live", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const posts = watchPosts(page);
+  await openApp(page);
+  const thread = await start(page, `${LONG} (${Date.now()})`);
+  await partWay(page);
+
+  const input = page.getByPlaceholder("Send a message...");
+  const queue = page.locator('[data-slot="message-queue"]');
+  await input.fill("Say only: taken back");
+  await input.press("Enter");
+  await expect(queue).toContainText("Say only: taken back");
+  await queue.getByRole("button", { name: "Take back" }).click();
+  await expect(queue).toHaveCount(0);
+
+  await input.fill("Say only: after");
+  await input.press("Enter");
+  await expect(queue).toContainText("Say only: after");
+  // It waits: no run of its own while the reply goes.
+  expect(posts.runs()).toEqual([`/api/threads/${thread}/runs`]);
+
+  // The reply ends whole, and then the message is sent, and answered.
+  await expect(replies(page)).toHaveCount(2, { timeout: 180_000 });
+  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  await expect(queue).toHaveCount(0);
+  expect(posts.runs()).toEqual([
+    `/api/threads/${thread}/runs`,
+    `/api/threads/${thread}/runs`,
+  ]);
+  const users = page.locator('[data-role="user"]');
+  await expect(users).toHaveCount(2);
+  await expect(users.last()).toContainText("Say only: after");
+  await expect(page.getByText("Say only: taken back")).toHaveCount(0);
+  await expect(replies(page).last()).toContainText("after");
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
+  // The text can come a moment after the run ends, so it is read until it holds each number once.
+  await expect
+    .poll(() => onceEach(replies(page).first()))
+    .toEqual([1, 1, 1, 1]);
 });
