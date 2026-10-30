@@ -47,6 +47,18 @@ tmp=$(mktemp -d "$(dirname "$root")/c5-fixture.XXXXXX")
 chmod 777 "$tmp"
 trap 'rm -rf "$tmp"' EXIT
 
+# The tracked file a test changes, and the copy it is restored from. The copy and the restore are global,
+# and the copy sits outside $tmp: a test's own names are gone by the time the EXIT trap runs, so a trap
+# over a `local` would die unbound and leave the worktree's file changed. The trap stays armed through the
+# assertions: it restores after a failure as well as on the way to them.
+backup=
+restore_file() {
+  [ -n "$backup" ] || return 0
+  cp "$backup" "$FILE" || return 1
+  rm -f "$backup"
+  backup=
+}
+
 # The deployment the tests hand the maker: a copy of the template in a git repo of its own, outside que,
 # with a lockfile so the maker installs from one. `git init` makes its repo root the folder itself, so the
 # repo the container must see is the deployment's folder, bound at its own path.
@@ -422,14 +434,14 @@ test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing() {
   cd "$root" || return 1
   clean
   make_deployment || return 1
-  local backup="$tmp/devcontainer.json.orig" out code id
+  local out code id
+  backup=$(mktemp "$(dirname "$root")/c5-devcontainer.json.orig.XXXXXX") || return 1
   cp "$FILE" "$backup" || return 1
-  trap 'cp "$backup" "$FILE"' EXIT
+  trap restore_file EXIT
   sed -i -E 's/("postCreateCommand"[[:space:]]*:[[:space:]]*)"([^"]*)"/\1"false"/' "$FILE"
   out=$(just check-deployment "$dep" 2>&1)
   code=$?
-  cp "$backup" "$FILE"
-  trap - EXIT
+  restore_file
   assert_ne 0 "$code" "the maker exits non-zero when the file's install fails" || return 1
   assert_eq "" "$(cid)" "a failed install leaves no container to reuse" || return 1
   out=$(just check-deployment "$dep" 2>&1)
@@ -449,9 +461,10 @@ test_the_file_is_the_only_source_of_the_containers_settings() {
   cd "$root" || return 1
   clean
   make_deployment || return 1
-  local backup="$tmp/devcontainer.json.orig" out code id
+  local out code id
+  backup=$(mktemp "$(dirname "$root")/c5-devcontainer.json.orig.XXXXXX") || return 1
   cp "$FILE" "$backup" || return 1
-  trap 'cp "$backup" "$FILE"' EXIT
+  trap restore_file EXIT
   sed -i -E 's/("runArgs"[[:space:]]*:[[:space:]]*)\[[^]]*\]/\1["--userns=keep-id:uid=1000,gid=1000", "--network=host", "--cpus=2", "--cpu-shares=128"]/' "$FILE"
   if ! grep -q -- '--cpus=2' "$FILE"; then
     fail "the test could not write its CPU cap into the file's runArgs"
@@ -459,8 +472,7 @@ test_the_file_is_the_only_source_of_the_containers_settings() {
   fi
   out=$(just check-deployment "$dep" 2>&1)
   code=$?
-  cp "$backup" "$FILE"
-  trap - EXIT
+  restore_file
   assert_eq 0 "$code" "just check-deployment passes with the changed file: $out" || return 1
   id=$(cid)
   assert_eq 2000000000 "$(field "$id" '{{.HostConfig.NanoCpus}}')" \
