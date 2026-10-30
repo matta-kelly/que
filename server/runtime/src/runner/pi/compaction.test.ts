@@ -1,9 +1,10 @@
 /**
  * Compaction on pi, from the agent's loop: a chat past `summarize.at` of the
- * model's window is summarized, and keeps about `summarize.keep` of it, as
- * the summary cases of the LangGraph path (run/build/build.test.ts) hold. The
- * repeat guard counts a call's streak only from the compaction's head on, as
- * LangGraph's summary removed the turns it replaced.
+ * model's window is summarized there and not before, and keeps about
+ * `summarize.keep` of it, the newest part; a loop that does not summarize
+ * sends the whole chat. The repeat guard counts a call's streak only from the
+ * compaction's head on: a failure the summary replaced does not count, and one
+ * the summary keeps does.
  *
  * Each case is a run through que's server listening on a port of its own:
  * POST /threads/:id/runs, on a thread that picks its agent. On a database of
