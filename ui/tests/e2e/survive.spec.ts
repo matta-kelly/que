@@ -1,146 +1,147 @@
-import { test, expect, type Page, type Request } from "@playwright/test";
-import { nameNewestChat, openApp, openChat } from "./helpers";
+import { test, expect, type Page } from "@playwright/test";
+import { newChat, openApp, openChatWith } from "./helpers";
 
-// A run of the chat outlives its connection. Each test makes a reply long
-// enough to be cut part way, and reads the run on the server.
+// A run of the chat outlives the page that started it. A chat opened while its
+// reply goes, after a reload or a switch to another chat and back, shows its
+// messages and the reply so far, joins the run on que's server
+// (GET /threads/:id/join), and gets the rest of the reply live, once. Each run
+// is a call to the real model, as each @live test's is.
 
 const LONG =
   "Write the numbers from 1 to 3000, one per line, as digits. No other text.";
+const TOOL_THEN_LONG =
+  "Open one of your packages, and read nothing else. Then write the numbers from 1 to 3000, one per line, as digits, and no other text.";
 
-const isRun = (req: Request) =>
-  req.method() === "POST" && /\/threads\/[^/]+\/runs\/stream$/.test(req.url());
-const stop = (page: Page) =>
+const stopButton = (page: Page) =>
   page.getByRole("button", { name: "Stop generating" });
 const sendButton = (page: Page) =>
   page.getByRole("button", { name: "Send message" });
-const reply = (page: Page) => page.locator('[data-role="assistant"]').last();
+const replies = (page: Page) => page.locator('[data-role="assistant"]');
+const reply = (page: Page) => replies(page).last();
 
-// F2: stop and a reload while a run goes come back on que's server (F1's stop, F2's join).
-const F2 = {
-  annotation: {
-    type: "fixme",
-    description: "F2: stop and reload on que's server",
-  },
-};
+const isRun = (path: string) => /^\/api\/threads\/[^/]+\/runs$/.test(path);
+const isJoin = (path: string) => /^\/api\/threads\/[^/]+\/join$/.test(path);
 
-/** Send a message, and hand back the thread of its run. */
+/** Each request the page sends to que's server, through the UI's proxy, as method and path, in the order it sent them. */
+function watchRequests(page: Page) {
+  const sent: string[] = [];
+  page.on("request", (req) => {
+    const path = new URL(req.url()).pathname;
+    if (path.startsWith("/api/")) sent.push(`${req.method()} ${path}`);
+  });
+  const paths = (method: string, is: (path: string) => boolean) =>
+    sent
+      .filter((s) => s.startsWith(`${method} `))
+      .map((s) => s.slice(method.length + 1))
+      .filter(is);
+  return {
+    said: () => sent.join(", "),
+    runs: () => paths("POST", isRun),
+    joins: () => paths("GET", isJoin),
+  };
+}
+
+/** Send a message, and hand back the thread its run was posted on. */
 async function start(page: Page, text: string) {
-  const request = page.waitForRequest(isRun);
+  const posted = page.waitForRequest(
+    (req) => req.method() === "POST" && isRun(new URL(req.url()).pathname),
+  );
   const input = page.getByPlaceholder("Send a message...");
   await input.fill(text);
   await input.press("Enter");
-  const req = await request;
-  return { thread: req.url().match(/threads\/([^/]+)\/runs/)![1] };
+  return new URL((await posted).url()).pathname.split("/")[3];
 }
-
-/** The runs of a thread, as the server has them. */
-async function runsOf(page: Page, thread: string) {
-  const res = await page.request.get(`/api/threads/${thread}/runs`);
-  expect(res.ok()).toBe(true);
-  return (await res.json()) as { run_id: string; status: string }[];
-}
-
-const threadOf = async (page: Page, thread: string) =>
-  (await (await page.request.get(`/api/threads/${thread}`)).json()) as {
-    status: string;
-  };
 
 /** The reply is on its way: some of it is in the chat, and the run is not done. */
 async function partWay(page: Page) {
-  await expect(stop(page)).toBeVisible();
+  await expect(stopButton(page)).toBeVisible();
   await expect(reply(page)).toContainText(/\b12\b/, { timeout: 60_000 });
-  await expect(stop(page)).toBeVisible();
+  await expect(stopButton(page)).toBeVisible();
 }
 
-/** The chat joins its run, and then has the whole reply, with no part of it twice. */
+const lengthOf = async (page: Page) =>
+  ((await reply(page).textContent()) ?? "").length;
+
+/**
+ * The chat just opened has joined its run: at once it shows the reply so far
+ * and that the reply goes, and then the reply grows, live.
+ */
+async function joined(page: Page) {
+  await expect(reply(page)).toContainText(/\b12\b/, { timeout: 5_000 });
+  await expect(stopButton(page)).toBeVisible({ timeout: 5_000 });
+  const before = await lengthOf(page);
+  await expect
+    .poll(() => lengthOf(page), {
+      message: "the reply did not grow after the chat was opened",
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(before);
+  await expect(stopButton(page)).toBeVisible();
+}
+
+/** The reply ends, and the chat has the whole of it, with no part of it twice, as one reply. */
 async function wholeOnce(page: Page) {
-  // It shows as running first: the send button is there for a moment before the chat has looked.
-  await expect(stop(page)).toBeVisible({ timeout: 15_000 });
   await expect(sendButton(page)).toBeVisible({ timeout: 150_000 });
+  await expect(replies(page)).toHaveCount(1);
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
   const text = (await reply(page).textContent())!;
-  // Not the last one: the line under the reply comes right after it in the text.
   for (const n of [57, 777, 1234, 2999])
     expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
 }
 
-test.fixme(
-  "survive: stop cancels the run, the chat says so, Continue goes on, and a message sent in a run waits its turn @live",
-  F2,
-  async ({ page }) => {
-    await openApp(page);
-    const { thread } = await start(page, LONG);
-    await partWay(page);
+test("survive: a reload while a reply goes shows the chat and the reply so far, joins its run, and the rest comes live, the whole reply one time @live", async ({
+  page,
+}) => {
+  const requests = watchRequests(page);
+  const asked = `${LONG} (${Date.now()})`;
+  await openApp(page);
+  const thread = await start(page, asked);
+  await partWay(page);
 
-    // A message sent while the run is going waits above the composer, and can be taken back.
-    const input = page.getByPlaceholder("Send a message...");
-    const queue = page.locator('[data-slot="message-queue"]');
-    await input.fill("Say only: taken back");
-    await input.press("Enter");
-    await expect(queue).toContainText("Say only: taken back");
-    await queue.getByRole("button", { name: "Take back" }).click();
-    await expect(queue).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
+  await openChatWith(page, asked);
 
-    await stop(page).click();
-    await expect(sendButton(page)).toBeVisible();
+  // The chat joined its run on que's server, once, and the reload sent no run of its own.
+  await expect
+    .poll(() => requests.joins(), {
+      message: `the page did not join the run: ${requests.said()}`,
+    })
+    .toEqual([`/api/threads/${thread}/join`]);
+  await joined(page);
+  await wholeOnce(page);
+  expect(requests.runs()).toEqual([`/api/threads/${thread}/runs`]);
+  expect(requests.joins()).toEqual([`/api/threads/${thread}/join`]);
+});
 
-    // The run is stopped by a call, and the thread can be used: `interrupted`, and no error state.
-    await expect
-      .poll(async () => (await runsOf(page, thread)).map((run) => run.status))
-      .toEqual(["interrupted"]);
-    expect((await threadOf(page, thread)).status).not.toBe("error");
+test("survive: a switch to a new chat and back while a reply with a tool call goes loads the chat and joins its run in one step: the tool call shows, not waiting on the client, and the reply goes on to the whole of it @live", async ({
+  page,
+}) => {
+  const requests = watchRequests(page);
+  const asked = `${TOOL_THEN_LONG} (${Date.now()})`;
+  const steps = (p: Page) => reply(p).locator('[data-slot="marker"]');
+  await openApp(page);
+  const thread = await start(page, asked);
+  await expect(steps(page).first()).toBeVisible({ timeout: 60_000 });
+  await partWay(page);
 
-    // The chat says the reply was stopped, and gives the way on.
-    const mark = page.locator('[data-slot="stopped-run"]');
-    await expect(mark).toContainText("Stopped");
-    await mark.getByRole("button", { name: "Continue" }).click();
-    await expect(mark).toHaveCount(0);
-    // A message sent while that run is going is sent when it ends.
-    await expect(stop(page)).toBeVisible({ timeout: 15_000 });
-    await input.fill("Say only: after");
-    await input.press("Enter");
-    await expect(queue).toContainText("Say only: after");
-    const replies = page.locator('[data-role="assistant"]');
-    await expect(replies).toHaveCount(2, { timeout: 180_000 });
-    await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
-    await expect(queue).toHaveCount(0);
-    await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
-    await expect(page.locator('[data-role="user"]')).toHaveCount(2);
-    // The reply was written again from the saved step, and the part that came in before the stop is not above it.
-    const text = (await replies.first().textContent())!;
-    for (const n of [57, 777, 1234, 2999])
-      expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
-    // The run that was stopped, the one that went on, and the one of the message that waited.
-    expect(
-      (await runsOf(page, thread)).map((run) => run.status).sort(),
-    ).toEqual(["interrupted", "success", "success"]);
-  },
-);
+  await newChat(page);
+  await expect(page.getByPlaceholder("Send a message...")).toBeEmpty();
+  await expect(replies(page)).toHaveCount(0);
+  await openChatWith(page, asked);
 
-test.fixme(
-  "survive: a reload in the middle of a run, and the chat has the whole reply one time @live",
-  F2,
-  async ({ page }) => {
-    await openApp(page);
-    const title = `Survive ${Date.now()}`;
-    const { thread } = await start(page, LONG);
-    await partWay(page);
-    await nameNewestChat(page, title);
-    await page.reload();
-    await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
-
-    // The reload did not end the run.
-    expect(["pending", "running", "success"]).toContain(
-      (await runsOf(page, thread))[0].status,
-    );
-    await openChat(page, title);
-    // The chat says it is picking its run up.
-    await expect(page.locator('[data-slot="connection-state"]')).toContainText(
-      "Reconnecting",
-      { timeout: 15_000 },
-    );
-    await wholeOnce(page);
-    const runs = await runsOf(page, thread);
-    expect(runs).toHaveLength(1);
-    expect(runs[0].status).toBe("success");
-  },
-);
+  // The tool call is in the chat. A chat that held it as waiting on the client would be idle, with Send and not
+  // Stop, and its reply would not grow: joined() sees the run go on.
+  await expect(steps(page).first()).toBeVisible();
+  await expect
+    .poll(() => requests.joins(), {
+      message: `the page did not join the run: ${requests.said()}`,
+    })
+    .toEqual([`/api/threads/${thread}/join`]);
+  await joined(page);
+  await wholeOnce(page);
+  await expect(steps(page).first()).toBeVisible();
+  // The switch sent no run of its own, and joined once.
+  expect(requests.runs()).toEqual([`/api/threads/${thread}/runs`]);
+  expect(requests.joins()).toEqual([`/api/threads/${thread}/join`]);
+});
