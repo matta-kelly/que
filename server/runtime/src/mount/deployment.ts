@@ -112,7 +112,7 @@ function oneSummaryPerModel(agents: Agent[], loops: Loop[]) {
     if (!had) first.set(agent.model, { agent: agent.name, summarize });
     else if (had.summarize !== summarize)
       throw new Error(
-        `mount: the agents "${had.agent}" and "${agent.name}" are on the model "${agent.model}" with loops that summarize differently (${had.summarize} and ${summarize}): pi sets a chat's summary per model, so agents on one model must summarize alike`,
+        `mount: the agents "${had.agent}" and "${agent.name}" are on the model "${agent.model}" with loops that summarize differently (${had.summarize} and ${summarize}): pi sets compaction per model, so agents on one model must summarize alike. Give one of them its own model (a model entry of its own, with the same id), or make their loops summarize alike`,
       );
   }
 }
