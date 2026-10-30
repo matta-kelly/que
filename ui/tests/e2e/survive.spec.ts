@@ -4,12 +4,11 @@ import { newChat, openApp, openChatWith } from "./helpers";
 // A run of the chat outlives the page that started it. A chat opened while its
 // reply goes after a reload shows its messages and the reply so far, joins the
 // run on que's server (GET /threads/:id/join), and gets the rest of the reply
-// live, once. After a switch to another chat and back, the page still holds
-// the chat and the stream of its run, and the reply goes on over it. Each run
-// is a call to the real model, as each @live test's is.
+// live, once; the next message goes on from that reply. After a switch to
+// another chat and back, the page still holds the chat and the stream of its
+// run, and the reply goes on over it. Each run is a call to the real model, as
+// each @live test's is.
 
-const LONG =
-  "Write the numbers from 1 to 3000, one per line, as digits. No other text.";
 const TOOL_THEN_LONG =
   "Open one of your packages, and read nothing else. Then write the numbers from 1 to 3000, one per line, as digits, and no other text.";
 
@@ -48,6 +47,15 @@ function watchRequests(page: Page) {
     runs: () => paths("POST", isRun),
     joins: () => paths("GET", isJoin),
   };
+}
+
+type Message = { id: string; role: string };
+
+/** The thread's messages, as que's server has them. */
+async function messagesOf(page: Page, thread: string) {
+  const res = await page.request.get(`/api/threads/${thread}`);
+  expect(res.ok()).toBe(true);
+  return ((await res.json()) as { messages: Message[] }).messages;
 }
 
 /** Send a message, and hand back the thread its run was posted on. */
@@ -97,13 +105,16 @@ async function wholeOnce(page: Page) {
   await expect.poll(() => onceEach(reply(page))).toEqual([1, 1, 1, 1]);
 }
 
-test("survive: a reload while a reply goes shows the chat and the reply so far, joins its run, and the rest comes live, the whole reply one time @live", async ({
+test("survive: a reload while a reply with a tool call goes shows the chat and the reply so far, joins its run, the rest comes live, the whole reply one time, and the next message goes on from that reply, which stays @live", async ({
   page,
 }) => {
+  test.setTimeout(240_000);
   const requests = watchRequests(page);
-  const asked = `${LONG} (${Date.now()})`;
+  const asked = `${TOOL_THEN_LONG} (${Date.now()})`;
+  const steps = (p: Page) => reply(p).locator('[data-slot="marker"]');
   await openApp(page);
   const thread = await start(page, asked);
+  await expect(steps(page).first()).toBeVisible({ timeout: 60_000 });
   await partWay(page);
 
   await page.reload();
@@ -116,10 +127,64 @@ test("survive: a reload while a reply goes shows the chat and the reply so far, 
       message: `the page did not join the run: ${requests.said()}`,
     })
     .toEqual([`/api/threads/${thread}/join`]);
+  // The tool round came through the join: its step shows, and no tool call waits on the client (joined() sees the
+  // run go on).
+  await expect(steps(page).first()).toBeVisible();
   await joined(page);
   await wholeOnce(page);
+  await expect(steps(page).first()).toBeVisible();
   expect(requests.runs()).toEqual([`/api/threads/${thread}/runs`]);
   expect(requests.joins()).toEqual([`/api/threads/${thread}/join`]);
+
+  // The next message goes on from the joined reply: the run carries it under the ids que's server gave it.
+  const held = await messagesOf(page, thread);
+  expect(held.map((m) => m.role)).toEqual([
+    "user",
+    "assistant",
+    "tool",
+    "assistant",
+  ]);
+  const next = page.waitForRequest(
+    (req) => req.method() === "POST" && isRun(new URL(req.url()).pathname),
+  );
+  const input = page.getByPlaceholder("Send a message...");
+  await input.fill("Say only: after");
+  await input.press("Enter");
+  const sent = ((await next).postDataJSON() as { messages: Message[] })
+    .messages;
+  expect(
+    sent.slice(0, -1).map((m) => [m.role, m.id]),
+    "the run's messages before the new one are the chat que's server holds, under its ids",
+  ).toEqual(held.map((m) => [m.role, m.id]));
+  await expect(replies(page)).toHaveCount(2, { timeout: 60_000 });
+  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  await expect(replies(page).last()).toContainText("after");
+
+  // que's server went on from that reply, with no fork: the joined turn is still there, under its ids.
+  const after = await messagesOf(page, thread);
+  expect(after.slice(0, held.length).map((m) => [m.role, m.id])).toEqual(
+    held.map((m) => [m.role, m.id]),
+  );
+  expect(after.map((m) => m.role)).toEqual([
+    "user",
+    "assistant",
+    "tool",
+    "assistant",
+    "user",
+    "assistant",
+  ]);
+
+  // After the next load the reply is still there, whole, before the new one.
+  await page.reload();
+  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
+  await openChatWith(page, asked);
+  await expect(replies(page)).toHaveCount(2);
+  await expect(page.locator('[data-role="user"]')).toHaveCount(2);
+  await expect(steps(page).first()).toBeVisible();
+  await expect
+    .poll(() => onceEach(replies(page).first()))
+    .toEqual([1, 1, 1, 1]);
+  await expect(replies(page).last()).toContainText("after");
 });
 
 test("survive: a switch to a new chat and back while a reply with a tool call goes shows the chat, and the reply goes on to the whole of it over its one run: the tool call shows, not waiting on the client @live", async ({
