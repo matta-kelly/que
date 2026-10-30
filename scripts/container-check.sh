@@ -492,10 +492,11 @@ test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing() {
   fi
 }
 
-# Given a CLI call the maker's 900s bound cuts before it answers, when the maker runs, then it retries
-# the call instead of failing, and the container it leaves is the CLI's with the file's install in it.
-# The bound is a literal in the script, so the stub below shorts the first call and passes the rest
-# through unchanged: the maker still sees a timeout, and the create is not waited out.
+# Given a CLI call the maker's 900s bound cuts before its install starts, when the maker runs, then it
+# retries the call instead of failing, and the container it leaves is the CLI's with the file's install in
+# it. The bound is a literal in the script, so the stub below shorts the first call, to less than the CLI
+# takes to reach the install, and passes the rest through unchanged: the maker still sees a timeout, and
+# the create is not waited out.
 test_a_create_the_bound_cuts_is_made_again_and_leaves_a_working_container() {
   cd "$root" || return 1
   clean
@@ -512,7 +513,7 @@ if [ -e "$state/first-call-done" ]; then
   exec "$real" "\$@"
 fi
 : >"$state/first-call-done"
-exec "$real" 5 "\${@:2}"
+exec "$real" 1 "\${@:2}"
 EOF
   chmod +x "$stub/timeout" || return 1
   started=$(date +%s%3N)
@@ -537,6 +538,161 @@ EOF
     fail "the retried create left no install in the container"
     return 1
   fi
+}
+
+# Given a CLI call the maker's bound cuts once the file's install has started, when the maker runs, then it
+# does not start the install again: it fails, says why, and leaves no half-installed container to reuse.
+test_a_create_the_bound_cuts_during_its_install_is_not_made_again() {
+  cd "$root" || return 1
+  clean
+  local stub real out code
+  real=$(command -v timeout)
+  stub="$tmp/timeout-stub"
+  rm -rf "$stub"
+  mkdir -p "$stub"
+  cat >"$stub/timeout" <<EOF
+#!/usr/bin/env bash
+exec "$real" 30 "\${@:2}"
+EOF
+  chmod +x "$stub/timeout" || return 1
+  install_is "sleep 300" || return 1
+  out=$(PATH="$stub:$PATH" "$root/scripts/container.sh" 2>&1)
+  code=$?
+  restore_file
+  rm -rf "$stub"
+  assert_ne 0 "$code" "the maker fails when the bound cuts its install" || return 1
+  assert_contains "$out" "Running the postCreateCommand" "the cut came after the install started" || return 1
+  assert_contains "$out" "The install is not run again." "the maker says it does not run the install again" || return 1
+  assert_no_line "$out" "The dev container CLI stopped answering. Making the container again." \
+    "the maker does not make the container again" || return 1
+  assert_eq "" "$(cid)" "a cut install leaves no container to reuse" || return 1
+}
+
+# Empty the page cache of the host's journal files, as hours without a read of them do. Reading them back
+# is the slow first read of a `podman events` on the journald backend. It waits for any `up` in flight: on
+# that backend, another repo's or a VS Code `up` could miss its start event because of this.
+cold_journal() {
+  [ "$(podman info --format '{{.Host.EventLogger}}')" = journald ] || return 0
+  while pgrep -f '^node .*devcontainer up ' >/dev/null; do sleep 5; done
+  python3 -I -c '
+import glob, os
+for name in glob.glob("/var/log/journal/*/*.journal"):
+    try:
+        fd = os.open(name, os.O_RDONLY)
+    except OSError:
+        continue
+    os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+    os.close(fd)
+'
+}
+
+# Run the maker the way `just up` does: on a terminal, its stdin that terminal, its id captured by the caller.
+# An agent's shell has no terminal, so a test without this cannot see what a person's run does. The bound
+# brings back a maker that froze or hung, and the terminal's close ends what it left. The optional third
+# argument is typed at the terminal 15s in. Stdin stays open throughout, as a person's does.
+maker_on_terminal() {
+  local bound=$1 log=$2 typed=${3:-} holder code
+  : >"$log"
+  exec 3< <(
+    if [ -n "$typed" ]; then
+      sleep 15
+      printf '%b' "$typed"
+    fi
+    exec sleep "$bound"
+  )
+  holder=$!
+  timeout "$bound" script -qefc \
+    "bash -c 'c=\$(\"$root/scripts/container.sh\") && echo made=\$c'" "$log" <&3 >/dev/null 2>&1
+  code=$?
+  exec 3<&-
+  kill "$holder" 2>/dev/null
+  return "$code"
+}
+
+# Set the file's install to the command given, for this test; the armed restore puts it back.
+install_is() {
+  arm_restore || return 1
+  sed -i -E "s/(\"postCreateCommand\"[[:space:]]*:[[:space:]]*)\"([^\"]*)\"/\1\"$1\"/" "$FILE"
+}
+
+# Given a terminal, when the maker makes the container, then the CLI runs the file's install and answers. It
+# used to run in a background process group of that terminal, so the CLI's first touch of it stopped the
+# whole group, in the install's first moment, with nothing printed.
+test_a_create_on_a_terminal_answers() {
+  cd "$root" || return 1
+  command -v script >/dev/null 2>&1 || {
+    echo "   this test needs a terminal, from script(1); there is none, so it is not run"
+    return 0
+  }
+  clean
+  local log="$tmp/terminal.log" i
+  install_is "true" || return 1
+  for i in 1 2 3; do
+    podman ps -aq --filter "label=$label" | xargs -r podman rm -f >/dev/null
+    maker_on_terminal 90 "$log"
+    if ! grep -aq 'made=[0-9a-f]' "$log"; then
+      restore_file
+      fail "try $i of 3: the maker on a terminal gave no container in 90s"
+      return 1
+    fi
+  done
+  restore_file
+  clean
+}
+
+# Given a terminal and an install running, when the person presses Ctrl-C, then the maker stops at once, and
+# leaves no container. The CLI takes an install ended by Ctrl-C through a terminal of its own as "interrupted"
+# and answers success, which would leave a half-installed container for the next run to reuse.
+test_ctrl_c_on_a_terminal_stops_the_create_and_leaves_nothing() {
+  cd "$root" || return 1
+  command -v script >/dev/null 2>&1 || {
+    echo "   this test needs a terminal, from script(1); there is none, so it is not run"
+    return 0
+  }
+  clean
+  local log="$tmp/terminal.log" started elapsed
+  install_is "sleep 300" || return 1
+  started=$(date +%s)
+  maker_on_terminal 60 "$log" '\003'
+  elapsed=$(($(date +%s) - started))
+  restore_file
+  if [ "$elapsed" -ge 45 ]; then
+    fail "the maker took ${elapsed}s to stop after Ctrl-C at 15s"
+    return 1
+  fi
+  if grep -aq 'made=[0-9a-f]' "$log"; then
+    fail "the maker gave a container after Ctrl-C in its install"
+    return 1
+  fi
+  assert_eq "" "$(cid)" "Ctrl-C leaves no container to reuse" || return 1
+  clean
+}
+
+# Given a journal whose pages are cold, which is how the first create after a while finds it, when the maker
+# makes the container on a terminal, then the CLI sees the container's start event and answers. On the
+# journald backend the event is written while the CLI's `podman events` is still reading the journal, and is
+# never given to the CLI, which waits for it forever. It is a race, so it runs five times.
+test_a_create_on_a_cold_journal_answers() {
+  cd "$root" || return 1
+  command -v python3 >/dev/null 2>&1 && command -v script >/dev/null 2>&1 || {
+    echo "   this test needs python3, for the page cache, and script(1), for a terminal; so it is not run"
+    return 0
+  }
+  clean
+  local log="$tmp/terminal.log" i
+  install_is "true" || return 1
+  for i in 1 2 3 4 5; do
+    podman ps -aq --filter "label=$label" | xargs -r podman rm -f >/dev/null
+    cold_journal
+    maker_on_terminal 60 "$log"
+    if ! grep -aq 'made=[0-9a-f]' "$log"; then
+      restore_file
+      fail "try $i of 5: the CLI gave no answer in 60s on a cold journal"
+      return 1
+    fi
+  done
+  restore_file
+  clean
 }
 
 # Given the file, when one of its container settings is changed, then the next container has the changed
@@ -703,6 +859,10 @@ TESTS=(
   test_down_removes_the_container_and_the_four_file_volumes_but_not_the_deployments
   test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing
   test_a_create_the_bound_cuts_is_made_again_and_leaves_a_working_container
+  test_a_create_the_bound_cuts_during_its_install_is_not_made_again
+  test_a_create_on_a_terminal_answers
+  test_ctrl_c_on_a_terminal_stops_the_create_and_leaves_nothing
+  test_a_create_on_a_cold_journal_answers
   test_the_file_is_the_only_source_of_the_containers_settings
   test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume
   test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes
