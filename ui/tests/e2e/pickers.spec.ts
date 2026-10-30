@@ -115,8 +115,15 @@ test("pickers: the pick holds after a reload, and after a move to another chat a
   const model = models.find((m) => m.name !== agent.model)!.name;
 
   await pick(page, "Agent", agent.name);
-  await pick(page, "Model", model);
   await send(page, "Say hi in one word.");
+  // Picked once the thread exists: the change goes to its record on que's server.
+  const patched = page.waitForResponse(
+    (res) =>
+      res.request().method() === "PATCH" &&
+      /^\/api\/threads\/[^/]+$/.test(new URL(res.url()).pathname),
+  );
+  await pick(page, "Model", model);
+  expect((await patched).ok()).toBe(true);
   const title = `Pick ${Date.now()}`;
   await nameNewestChat(page, title);
 
