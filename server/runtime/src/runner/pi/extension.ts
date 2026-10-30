@@ -119,7 +119,12 @@ export function extension(
           async () =>
             // An op that gives back nothing gives the JSON text null.
             JSON.stringify(
-              await call({ plugin: definition.plugin, op }, args, user),
+              await call(
+                { plugin: definition.plugin, op },
+                args,
+                user,
+                attachments,
+              ),
             ) ?? "null",
           api,
           context,

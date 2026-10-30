@@ -9,7 +9,12 @@ import {
   trace,
   type Context,
 } from "@opentelemetry/api";
-import { OpFailed, type Op, type Plugin } from "@mku1tra/que-plugin";
+import {
+  OpFailed,
+  type Op,
+  type OpFiles,
+  type Plugin,
+} from "@mku1tra/que-plugin";
 import type { FileStore } from "@que/files";
 import * as z from "zod";
 import type { Connect } from "../access/access.js";
@@ -47,6 +52,21 @@ export function strictInput(input: Op["input"]): Op["input"] {
 /** One line, for the model to read. */
 const oneLine = (text: string) => text.replace(/\s*\n\s*/g, " ");
 
+/** The run thread's files, by the thread's own: an id of another thread is an OpFailed that names it, never a path. */
+function filesOf({ files, thread }: FilesScope): OpFiles {
+  return {
+    async get(id) {
+      const file = await files.get(thread, id);
+      if (!file)
+        throw new OpFailed(
+          `no file ${id} in thread ${thread}: it is not one of this thread's attachments`,
+        );
+      return file;
+    },
+    list: () => files.list(thread),
+  };
+}
+
 /**
  * The door, on access asked by op and the mounted ops: its `call`. A domain op's context is the ops it lists in `uses`,
  * each bound to that op and the calling user; a connector op's is its connection.
@@ -58,7 +78,7 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
     { plugin, op }: PlacedOp,
     params: unknown,
     user: string,
-    _files?: FilesScope,
+    files?: FilesScope,
     parent?: Context,
   ): Promise<unknown> {
     return tracer.startActiveSpan(
@@ -90,16 +110,19 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
               ),
             );
           const input = parsed.data;
+          const scope = files ? { files: filesOf(files) } : {};
           const ctx =
             plugin.kind === "domain"
               ? {
+                  ...scope,
                   ops: listedBy(
                     op,
                     user,
+                    files,
                     trace.setSpan(context.active(), span),
                   ),
                 }
-              : { conn: await connect(plugin, op.role, user) };
+              : { ...scope, conn: await connect(plugin, op.role, user) };
           return await (
             op.run as (ctx: unknown, params: unknown) => Promise<unknown>
           )(ctx, input);
@@ -122,7 +145,12 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
 
   // The ops a domain op lists, each the door bound to it and the calling user: found among every mounted op, as an
   // agent config can narrow the catalog to the domain alone.
-  function listedBy(op: PlacedOp["op"], user: string, parent: Context) {
+  function listedBy(
+    op: PlacedOp["op"],
+    user: string,
+    files: FilesScope | undefined,
+    parent: Context,
+  ) {
     return Object.fromEntries(
       (op.uses ?? []).map((name) => [
         name,
@@ -131,7 +159,7 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
             ops.find((placed) => placed.op.name === name)!,
             params,
             user,
-            undefined,
+            files,
             parent,
           ),
       ]),
