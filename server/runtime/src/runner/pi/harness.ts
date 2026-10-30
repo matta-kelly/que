@@ -110,7 +110,7 @@ const files = storeOn(
     query: <Row>(text: string, values?: unknown[]) =>
       client.query(text, values) as unknown as Promise<{ rows: Row[] }>,
   },
-  data,
+  mounted.dataDir,
 );
 
 /** A model's key in pi's settings: `provider/modelId`. */
@@ -346,7 +346,7 @@ export async function run(
     ...extension(catalog, call, user, way, result, {
       files,
       thread,
-      dataDir: data,
+      dataDir: mounted.dataDir,
     }),
     // One section, untagged: the model reads que's prompt whole, as systemPrompt writes it.
     sections: [section("prompt", () => text, { tag: false })],
