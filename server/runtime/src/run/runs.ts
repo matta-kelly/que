@@ -4,8 +4,10 @@
  * choose by the branch rule (runner/pi/branch.ts), and streams the answer back
  * as AG-UI events over SSE. A resend of a run makes no second run: its stream
  * is RUN_STARTED then RUN_FINISHED. A client that drops its
- * connection does not stop the run: stopping is a call of its own. A run
- * whose model call fails ends with RUN_ERROR, in the place of RUN_FINISHED.
+ * connection does not stop the run: stopping is a call of its own,
+ * POST /threads/:id/stop, which ends the run with RUN_FINISHED and marks the
+ * thread stopped until its next run. A run whose model call fails ends with
+ * RUN_ERROR, in the place of RUN_FINISHED.
  *
  * The thread runs the deployment's first agent, on its model, with the ops
  * of its plugins that the signed-in user can reach, as that user.
@@ -19,7 +21,7 @@ import type { ThreadStore } from "@que/threads";
 import { catalogFor } from "../access/catalog.js";
 import { narrow } from "../access/narrow.js";
 import { agents, models } from "../mount/mounted.js";
-import { run } from "../runner/pi/harness.js";
+import { run, stop } from "../runner/pi/harness.js";
 import { configFor } from "./config.js";
 import { modelFor } from "./model.js";
 import type { SignedIn } from "./signed-in.js";
@@ -45,6 +47,7 @@ export function runs(store: ThreadStore) {
     const config = configFor(agents, undefined);
     const model = modelFor(models, config, undefined);
     const catalog = narrow(await catalogFor(user), config.plugins ?? []);
+    await store.setStopped(threadId, false);
 
     return streamSSE(c, async (sse) => {
       const send = (event: AGUIEvent) =>
@@ -68,6 +71,14 @@ export function runs(store: ThreadStore) {
           : { type: EventType.RUN_ERROR, message: error },
       );
     });
+  });
+
+  routes.post("/:id/stop", async (c) => {
+    const thread = await store.get(c.get("userId"), c.req.param("id"));
+    if (!thread) return c.json({ error: "not found" }, 404);
+    await store.setStopped(thread.id, true);
+    await stop(thread.id);
+    return c.body(null, 204);
   });
 
   return routes;

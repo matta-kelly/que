@@ -10,6 +10,8 @@ export type Thread = {
   /** The user's id (`User.id` in @que/users). */
   owner: string;
   createdAt: Date;
+  /** Whether its last run was stopped: set by a stop, cleared by its next run. */
+  stopped: boolean;
 };
 
 export type ThreadStore = {
@@ -23,6 +25,8 @@ export type ThreadStore = {
   conversationOf(id: string): Promise<string | null>;
   /** Points the thread at its conversation. */
   setConversation(id: string, conversation: string): Promise<void>;
+  /** Says whether the thread's last run was stopped. */
+  setStopped(id: string, stopped: boolean): Promise<void>;
 };
 
 /** What the store runs its queries on: a pg pool, or anything with the same `query`. */
@@ -42,14 +46,17 @@ export const SETUP = `
     created_at timestamptz NOT NULL DEFAULT now()
   )`;
 
-/** The thread's conversation, added beside the table so one S1 made gets it. */
-const ALTER = `ALTER TABLE threads ADD COLUMN IF NOT EXISTS conversation text`;
+/** The columns added beside the table, so one an earlier version made gets them: the conversation, and the stop. */
+const ALTER = `ALTER TABLE threads
+  ADD COLUMN IF NOT EXISTS conversation text,
+  ADD COLUMN IF NOT EXISTS stopped boolean NOT NULL DEFAULT false`;
 
-type Row = { id: string; owner: string; created_at: Date };
+type Row = { id: string; owner: string; created_at: Date; stopped: boolean };
 const toThread = (r: Row): Thread => ({
   id: r.id,
   owner: r.owner,
   createdAt: r.created_at,
+  stopped: r.stopped,
 });
 
 export function createStore(
@@ -107,6 +114,13 @@ export function storeOn(db: Queryable): ThreadStore {
       await db.query("UPDATE threads SET conversation = $2 WHERE id = $1", [
         id,
         conversation,
+      ]);
+    },
+    async setStopped(id, stopped) {
+      await ready;
+      await db.query("UPDATE threads SET stopped = $2 WHERE id = $1", [
+        id,
+        stopped,
       ]);
     },
   };

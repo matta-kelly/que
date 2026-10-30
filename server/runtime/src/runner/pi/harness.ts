@@ -241,6 +241,14 @@ export async function run(
   }
 }
 
+/**
+ * Stops the thread's run, if one goes: pi aborts its conversation's work, and
+ * gives back once the conversation is idle. A tool's call ends as aborted.
+ */
+export async function stop(thread: string) {
+  await (await conversationOf(thread))?.abort(context);
+}
+
 /** The thread's messages, as AG-UI messages: none before its first run. */
 export async function messages(thread: string) {
   const conversation = await conversationOf(thread);
