@@ -43,7 +43,7 @@ export const SETUP = `
   )`;
 
 /** The thread's conversation, added beside the table so one S1 made gets it. */
-export const ALTER = `ALTER TABLE threads ADD COLUMN IF NOT EXISTS conversation text`;
+const ALTER = `ALTER TABLE threads ADD COLUMN IF NOT EXISTS conversation text`;
 
 type Row = { id: string; owner: string; created_at: Date };
 const toThread = (r: Row): Thread => ({
