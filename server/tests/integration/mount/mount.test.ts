@@ -375,7 +375,7 @@ test("stops, naming the agent and the loop, when an agent names a loop the deplo
   );
 });
 
-test("stops, naming the model and both agents and saying what to do (one agent on its own model, or loops that summarize alike), when two agents on one model have loops that summarize differently: pi sets compaction per model", async () => {
+test("stops, naming the model and both agents and saying what to do (one agent on a model of another id, or loops that summarize alike), when two agents on one model have loops that summarize differently: pi sets compaction per model", async () => {
   for (const [name, other] of [
     ["model-loops-differ", "auditor"],
     ["model-loops-off", "archivist"],
@@ -385,11 +385,26 @@ test("stops, naming the model and both agents and saying what to do (one agent o
       assert.match(error.message, /\bsmall\b/);
       assert.match(error.message, /\bteller\b/);
       assert.match(error.message, new RegExp(`\\b${other}\\b`));
-      // What to do: one agent on a model entry of its own, or loops that summarize alike.
-      assert.match(error.message, /its own model/);
+      // What to do: one agent on a model of another id, or loops that summarize alike.
+      assert.match(error.message, /another id/);
       assert.match(error.message, /summarize alike/);
       return true;
     });
+});
+
+test("stops, naming the shared id, when two model entries of one id are each the model of an agent whose loop summarizes differently: pi keys compaction by the id, not by the entry's name", async () => {
+  await assert.rejects(
+    mountDeployment(deployment("model-ids-shared")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /fireworks:small-model/);
+      assert.match(error.message, /\bteller\b/);
+      assert.match(error.message, /\bauditor\b/);
+      assert.match(error.message, /another id/);
+      assert.match(error.message, /summarize alike/);
+      return true;
+    },
+  );
 });
 
 test("mounts two agents on one model when they share its loop, or have loops that summarize alike", async () => {
