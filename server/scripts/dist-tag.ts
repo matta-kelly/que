@@ -7,7 +7,11 @@
  *   valid range, and a prerelease never takes `latest`
  */
 
+import { prerelease, validRange } from "semver";
+
 export const distTag = (version: string): string => {
-  void version;
-  return "";
+  const first = prerelease(version)?.[0];
+  if (first === undefined) return "latest";
+  const tag = String(first);
+  return tag !== "latest" && validRange(tag) === null ? tag : "next";
 };

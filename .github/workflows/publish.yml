@@ -31,7 +31,8 @@ jobs:
       # Trusted publishing needs npm 11.5.1 or later; Node 22 has npm 10.
       - run: npm install --global npm@11.21.0
       - run: scripts/check.sh server
-      # Writes plugin=true|false and harness=true|false, or refuses and stops the job.
+      # Writes plugin=true|false and harness=true|false, and each one's dist-tag (plugin_tag, harness_tag), or refuses and
+      # stops the job. A prerelease never takes latest: npm 11 refuses a prerelease with no --tag.
       - id: guard
         name: The guard of the pair's release, on npm's records
         working-directory: server
@@ -40,12 +41,12 @@ jobs:
         name: Publish @mku1tra/que-plugin
         if: steps.guard.outputs.plugin == 'true'
         working-directory: server/plugin
-        run: npm publish
+        run: npm publish --tag ${{ steps.guard.outputs.plugin_tag }}
       - id: harness
         name: Publish @mku1tra/que-harness
         if: steps.guard.outputs.harness == 'true'
         working-directory: server/harness
-        run: npm publish
+        run: npm publish --tag ${{ steps.guard.outputs.harness_tag }}
       # A partial publish: plugin is on npm and harness is not. A run again of the tag's run publishes harness alone.
       - name: A partial publish
         if: failure() && steps.plugin.outcome == 'success'

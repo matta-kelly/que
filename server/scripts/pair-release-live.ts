@@ -6,8 +6,9 @@
  * - in: the manifests at the commit (`server/plugin/package.json`, `server/harness/package.json`), and npm's records
  *   of each package: the `versions` of its packument, from the registry npm is set to (`npm_config_registry`, else
  *   https://registry.npmjs.org/). A package the registry does not have (404) has no versions
- * - out: one line for each side of the pair, appended to the file `GITHUB_OUTPUT` names, `plugin=true|false` and
- *   `harness=true|false`: true when the guard names that package to publish
+ * - out: two lines for each side of the pair, appended to the file `GITHUB_OUTPUT` names: `plugin=true|false` and
+ *   `harness=true|false`, true when the guard names that package to publish; and `plugin_tag` and `harness_tag`, the
+ *   dist-tag its publish names (`dist-tag.ts`)
  * - a refusal: the job stops here. It exits non-zero, names each refused package and why, and writes no side true
  */
 
@@ -20,6 +21,7 @@ import {
   type Pair,
   type Why,
 } from "./pair-release.ts";
+import { distTag } from "./dist-tag.ts";
 
 const server = join(import.meta.dirname, "..");
 const manifest = (side: string): Manifest =>
@@ -68,7 +70,11 @@ if (!output) throw new Error("GITHUB_OUTPUT names no file");
 appendFileSync(
   output,
   (["plugin", "harness"] as const)
-    .map((side) => `${side}=${publish.includes(manifests[side].name)}\n`)
+    .map(
+      (side) =>
+        `${side}=${publish.includes(manifests[side].name)}\n` +
+        `${side}_tag=${distTag(manifests[side].version)}\n`,
+    )
     .join(""),
 );
 console.log(
