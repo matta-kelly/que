@@ -316,6 +316,27 @@ test("given threads whose runs ended, when GET /threads/:id is read, then a thre
   );
 });
 
+test("given threads with no run going, one never run and one whose run finished, when POST /threads/:id/stop is called on each, then the route answers, and GET /threads/:id says neither is stopped", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const never = await thread();
+  const finished = await thread();
+  faux.setResponses([fauxAssistantMessage(fauxText("Done."))]);
+  await (await post(finished, [user("Hi")])).text();
+
+  const idle = async (threadId: string) => {
+    const status = await stop(threadId);
+    return {
+      taken: status >= 200 && status < 300,
+      stopped: (await record(threadId)).stopped,
+    };
+  };
+  const expected = { taken: true, stopped: false };
+  assert.deepEqual(
+    { never: await idle(never), finished: await idle(finished) },
+    { never: expected, finished: expected },
+  );
+});
+
 test("given a run stopped in a tool that ignores the abort signal (till-stall, five seconds), when the client sends its next message at once, then its answer comes long before the tool ends, and once the tool has ended the chat is still as the stop left it, with that answer last", async () => {
   await signIn("ana@example.com", "ana-key");
   const next = async (item: string) => {
