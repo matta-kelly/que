@@ -3,6 +3,11 @@
  * an agent on a model that is not real, and a run made the way the LangGraph
  * server makes one, or que's server on pi with a scripted model. No Langfuse,
  * no que and no model is called.
+ *
+ * que's server here runs on PGlite, served on a local port: one session, which
+ * the socket server shares across connections. A query of another connection
+ * can be split across a commit of pi's storage and fail, so a test whose reads
+ * overlap a commit needs real Postgres (README, Commands).
  */
 
 import { randomBytes, randomUUID } from "node:crypto";
