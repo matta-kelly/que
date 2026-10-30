@@ -513,7 +513,7 @@ if [ -e "$state/first-call-done" ]; then
   exec "$real" "\$@"
 fi
 : >"$state/first-call-done"
-exec "$real" 1 "\${@:2}"
+exec "$real" --foreground 1 "\${@:3}"
 EOF
   chmod +x "$stub/timeout" || return 1
   started=$(date +%s%3N)
@@ -522,6 +522,7 @@ EOF
   elapsed=$(($(date +%s%3N) - started))
   rm -rf "$stub" "$state"
   assert_eq 0 "$code" "the maker passes when its first create is cut: $out" || return 1
+  assert_no_cli_left || return 1
   assert_contains "$out" "The dev container CLI stopped answering. Making the container again." \
     "the maker says the CLI stopped answering and makes the container again" || return 1
   if [ "$elapsed" -ge 900000 ]; then
@@ -540,6 +541,21 @@ EOF
   fi
 }
 
+# The CLI of this checkout, its `podman run`, and any `podman events` the host's init took over from a CLI that
+# died: a call the bound cuts leaves none of them.
+assert_no_cli_left() {
+  local left
+  left=$(pgrep -af "up --workspace-folder $root( |\$)" || true)
+  assert_eq "" "$left" "a cut call leaves no CLI behind" || return 1
+  # A container the maker made keeps the one `podman run` that started it.
+  local want=0 runs
+  [ -z "$(cid)" ] || want=1
+  runs=$(pgrep -fc "podman run .*source=$root,target=$root," || true)
+  assert_eq "$want" "$runs" "a cut call leaves no second podman run" || return 1
+  left=$(ps -eo ppid=,args= | grep -E '^ *1 +podman events --format json --filter event=start' || true)
+  assert_eq "" "$left" "a cut call leaves no podman events behind" || return 1
+}
+
 # Given a CLI call the maker's bound cuts once the file's install has started, when the maker runs, then it
 # does not start the install again: it fails, says why, and leaves no half-installed container to reuse.
 test_a_create_the_bound_cuts_during_its_install_is_not_made_again() {
@@ -552,7 +568,7 @@ test_a_create_the_bound_cuts_during_its_install_is_not_made_again() {
   mkdir -p "$stub"
   cat >"$stub/timeout" <<EOF
 #!/usr/bin/env bash
-exec "$real" 30 "\${@:2}"
+exec "$real" --foreground 30 "\${@:3}"
 EOF
   chmod +x "$stub/timeout" || return 1
   install_is "sleep 300" || return 1
@@ -566,6 +582,7 @@ EOF
   assert_no_line "$out" "The dev container CLI stopped answering. Making the container again." \
     "the maker does not make the container again" || return 1
   assert_eq "" "$(cid)" "a cut install leaves no container to reuse" || return 1
+  assert_no_cli_left || return 1
 }
 
 # Empty the page cache of the host's journal files, as hours without a read of them do. Reading them back
@@ -674,10 +691,10 @@ test_ctrl_c_on_a_terminal_stops_the_create_and_leaves_nothing() {
 # never given to the CLI, which waits for it forever. It is a race, so it runs five times.
 test_a_create_on_a_cold_journal_answers() {
   cd "$root" || return 1
-  command -v python3 >/dev/null 2>&1 && command -v script >/dev/null 2>&1 || {
+  if ! command -v python3 >/dev/null 2>&1 || ! command -v script >/dev/null 2>&1; then
     echo "   this test needs python3, for the page cache, and script(1), for a terminal; so it is not run"
     return 0
-  }
+  fi
   clean
   local log="$tmp/terminal.log" i
   install_is "true" || return 1

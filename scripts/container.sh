@@ -53,9 +53,34 @@ case "$top/" in
 esac
 
 # The CLI's own call, with the folder to add, bounded so a CLI that never returns cannot hold this one.
+# - --foreground: `timeout` otherwise puts the CLI in a background process group of the terminal, where its
+#   first touch of the terminal stops the whole group, and Ctrl-C never reaches it.
+# - no terminal on stdin: on one, the CLI runs the install on a terminal of its own, and takes Ctrl-C there
+#   as an interrupted install and a success, leaving a half-installed container.
+# - containers.conf: on the journald backend the CLI's wait for the start event can miss it (see that file).
 cli_up() {
-  timeout 900 npx --yes @devcontainers/cli@0.90.0 up --workspace-folder "$root" --docker-path podman \
-    --remove-existing-container "${mount[@]}" >&2
+  local follower code=0
+  # The CLI writes to a file, and the file is followed: a pipe would stay open as long as any podman call it
+  # left behind, and hold whoever reads this script's output.
+  tail -n +1 -f --pid=$$ "$cli_log" >&2 &
+  follower=$!
+  CONTAINERS_CONF_OVERRIDE=$root/scripts/containers.conf timeout --foreground 900 \
+    npx --yes @devcontainers/cli@0.90.0 up --workspace-folder "$root" --docker-path podman \
+    --remove-existing-container "${mount[@]}" </dev/null >>"$cli_log" 2>&1 || code=$?
+  kill "$follower" 2>/dev/null || true
+  return "$code"
+}
+
+# With --foreground, the bound signals npx only. npx may take the CLI down with it, and the podman calls under
+# the CLI then have no parent to be found by, so each is found by what it is: this checkout's CLI and its
+# `podman run`, and any `podman events` that init has taken over, which no live CLI reads.
+stop_cli() {
+  local orphans
+  pkill -KILL -f "up --workspace-folder $root( |\$)" || true
+  pkill -KILL -f "podman run .*source=$root,target=$root," || true
+  orphans=$(ps -eo pid=,ppid=,args= | awk '$2 == 1 && $3 == "podman" && $4 == "events" { print $1 }')
+  # shellcheck disable=SC2086 # Each pid is one word, and none is no call.
+  [ -z "$orphans" ] || kill -KILL $orphans 2>/dev/null || true
 }
 
 # Every container for this checkout, whatever made it, so a failure leaves nothing a later run reuses.
@@ -77,15 +102,21 @@ else
   # A create that is stopped rather than failing, by TERM, HUP or a closed terminal, leaves a container
   # whose install never finished. It goes with this script, so the next run makes one and runs the install
   # instead of taking the start branch and checking a half-installed folder.
-  trap remove_container EXIT
+  cli_log=$(mktemp)
+  trap 'remove_container; rm -f "$cli_log"' EXIT
   # The file's install failing is the CLI's non-zero exit. Its container is removed, so the next run makes
   # one and runs the install instead of reusing a half-installed container.
   code=0
   cli_up || code=$?
-  # The CLI waits, once it has started the container, for a podman event=start that it can miss: the wait
-  # reads every container's events and drops the one it wanted. Its container is made all the same, so a
-  # retry is cheap, and a stopped clock is not: 900s is above a create that runs the file's install.
+  # The bound is above a create that runs the file's install. A call it cuts before any install is cheap to
+  # make again. A call it cuts in an install is not: that is an install too slow for the bound, and running
+  # it again throws its work away.
   if [ "$code" -eq 124 ]; then
+    stop_cli
+    if grep -q 'Running the [A-Za-z]*Command from' "$cli_log"; then
+      echo "The dev container CLI's install ran past its bound. The install is not run again." >&2
+      exit 1
+    fi
     echo "The dev container CLI stopped answering. Making the container again." >&2
     remove_container
     code=0
@@ -93,6 +124,7 @@ else
   fi
   [ "$code" -eq 0 ] || exit 1
   trap - EXIT
+  rm -f "$cli_log"
   c=$(podman ps -aq --filter "label=devcontainer.local_folder=$root" | head -1)
   created=true
 fi

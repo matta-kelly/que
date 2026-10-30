@@ -50,6 +50,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `templates/deployment/`: an empty deployment to copy: its definition, one agent config, one loop config, one model config (que holds no config of its own: a deployment keeps its own copy), its `.env.example`, and its `justfile`: `start`, `stop`, `logs`, `check` and `eval`
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in, with that repo's packages installed in it from its lockfile
+- `scripts/containers.conf`: the podman setting of the dev container CLI's calls alone: the file events backend, because on journald the CLI can miss its container's start event and wait forever
 - `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
 - `scripts/container-check.sh`: the container's tests, run on the host: the container que's `devcontainer.json` makes through the dev container CLI, its settings, its volumes, and the deployment folder it must see. It is not part of `just check`, which runs inside the container, where podman is not
 - `scripts/masked-return.just`: a justfile whose every recipe hides a failure, which the shell set of `scripts/check.sh` must find before it lints the real one
