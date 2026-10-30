@@ -78,11 +78,15 @@ const textOf = (content: readonly { type: string; text?: string }[]) =>
 
 /** A chat on a new conversation with que's extension of the shop, for one user. */
 async function chat() {
-  const que = extension(
-    catalog,
-    door(async () => undefined),
-    "ana",
-  );
+  // The extension takes its name where it is installed: here, one Harness per chat.
+  const que = {
+    ...extension(
+      catalog,
+      door(async () => undefined),
+      "ana",
+    ),
+    name: "que",
+  };
   const registry = createRegistry();
   registry.install(que);
   const harness = await Harness.open(
