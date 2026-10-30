@@ -34,7 +34,7 @@ import {
   reach,
 } from "../../assemble/on-demand/open.js";
 import type { Way } from "../../assemble/way.js";
-import { failed } from "./repeat.js";
+import { answered, failed, isStop } from "./repeat.js";
 
 /** A schema's input side as JSON Schema, which pi-ai takes as it is (no TypeBox kind). */
 const schemaOf = (schema: z.core.$ZodType) =>
@@ -50,20 +50,28 @@ export const isBug = (details: unknown) =>
   "que" in details &&
   details.que === BUG.que;
 
+/** Whether a tool result's details say the run ends on it: a bug, or the repeat guard's stop. */
+export const endsRun = (details: unknown) => isBug(details) || isStop(details);
+
 /**
- * A tool's run as its result: its text for the model, or a failed call with an OpFailed's text, which the repeat guard
- * may turn into a stop. Any other throw is a bug: the result holds none of its text (the door's span records it), and
- * ends the run with no other model request.
+ * A tool's run, the call of `name` with `args`, as its result: its text for the model, or a failed call with an
+ * OpFailed's text, which the repeat guard may turn into a stop. Any other throw is a bug: the result holds none of its
+ * text (the door's span records it), and ends the run with no other model request.
  */
 async function result(
+  name: string,
+  args: unknown,
   run: () => Promise<string>,
   api: ToolExecutionApi,
   context: Context,
 ): Promise<ToolExecutionResult> {
+  const call = `${name}(${JSON.stringify(args)})`;
   try {
-    return { output: [{ type: "text", text: await run() }] };
+    const text = await run();
+    await answered(call, api, context);
+    return { output: [{ type: "text", text }] };
   } catch (error) {
-    if (error instanceof OpFailed) return failed(error.message, api, context);
+    if (error instanceof OpFailed) return failed(call, error.message, api, context);
     return {
       isError: true,
       output: [{ type: "text", text: "the tool failed" }],
@@ -89,6 +97,8 @@ export function extension(
       ...(way.deferred ? { deferred: true as const } : {}),
       execute: (args, api, context) =>
         result(
+          op.name,
+          args,
           async () =>
             // An op that gives back nothing gives the JSON text null.
             JSON.stringify(
@@ -115,6 +125,8 @@ export function extension(
     ),
     execute: (args, api, context) =>
       result(
+        READ_SKILL,
+        args,
         async () => {
           const { id } = args as { id: string };
           const skill = skills.get(id);
@@ -147,6 +159,8 @@ function onDemand(catalog: Catalog): ToolRegistration[] {
     parameters: schemaOf(openSchema),
     execute: (args, api, context) =>
       result(
+        OPEN_PLUGIN,
+        args,
         async () => open(catalog, (args as { plugin: string }).plugin),
         api,
         context,
@@ -159,6 +173,8 @@ function onDemand(catalog: Catalog): ToolRegistration[] {
     execute: async (args, api, context) => {
       const { plugin, operation } = args as z.infer<typeof loadSchema>;
       const loaded = await result(
+        LOAD_OPERATION,
+        args,
         async () => load(catalog, plugin, operation),
         api,
         context,
