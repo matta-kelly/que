@@ -4,7 +4,7 @@ import { newChat, openApp, openChatWith, openChats } from "./helpers";
 // Chats live on que's server: each is a thread of the signed-in user's, made
 // by POST /threads, listed by GET /threads, and opened by GET /threads/:id.
 
-type Thread = { id: string };
+type Thread = { id: string; archived: boolean };
 
 const items = (page: Page) =>
   page.locator('[data-slot="aui_thread-list-item"]');
@@ -28,11 +28,13 @@ function watchMade(page: Page) {
     );
 }
 
-/** The signed-in user's threads, as que's server lists them. */
-async function listed(page: Page): Promise<string[]> {
+/** The signed-in user's threads, as que's server lists them; with `archived: false`, those not archived. */
+async function listed(page: Page, { archived = true } = {}): Promise<string[]> {
   const res = await page.request.get("/api/threads");
   expect(res.ok()).toBe(true);
-  return ((await res.json()) as Thread[]).map((t) => t.id);
+  return ((await res.json()) as Thread[])
+    .filter((t) => archived || !t.archived)
+    .map((t) => t.id);
 }
 
 const isRun = (path: string) => /^\/api\/threads\/[^/]+\/runs$/.test(path);
@@ -93,11 +95,15 @@ test("threads: a new chat makes a thread of the user's on que's server, and the 
   expect(typeof id).toBe("string");
   expect(await listed(page)).toContain(id);
 
-  // After a reload, the list shows each of the user's threads, and no other.
+  // After a reload, the list shows each of the user's threads not archived, and no other.
   await page.reload();
   await openChats(page);
   await expect
-    .poll(async () => (await items(page).count()) - (await listed(page)).length)
+    .poll(
+      async () =>
+        (await items(page).count()) -
+        (await listed(page, { archived: false })).length,
+    )
     .toBe(0);
 });
 
@@ -159,12 +165,8 @@ test("threads: a tool turn shows as one reply, live and after a reload @live", a
 test("threads: rename persists across reload @live", async ({ page }) => {
   const title = `Renamed ${Date.now()}`;
   await openApp(page);
-  const input = page.getByPlaceholder("Send a message...");
-  await input.fill("Say hi.");
-  await input.press("Enter");
-  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
-    timeout: 60_000,
-  });
+  // The send button shows before the thread is made: the rename waits for its run's answer.
+  await send(page, "Say hi.");
 
   await openChats(page);
   const items = page.locator('[data-slot="aui_thread-list-items"]');
@@ -190,12 +192,9 @@ async function createChat(page: Page, title: string) {
   await page.locator("header").click();
   await page.keyboard.press("Control+k");
   await page.getByRole("option", { name: "New chat", exact: true }).click();
-  const input = page.getByPlaceholder("Send a message...");
-  await input.fill("Say hi.");
-  await input.press("Enter");
-  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
-    timeout: 60_000,
-  });
+  // The send button shows before the thread is made, so the newest chat in the list would be the one before:
+  // the rename waits for its run's answer on que's server.
+  await send(page, "Say hi.");
   await openChats(page);
   const items = page.locator('[data-slot="aui_thread-list-items"]');
   await items.getByRole("button", { name: "More options" }).first().click();
