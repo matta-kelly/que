@@ -5,7 +5,9 @@
 # `run ... find`, so a stand-in engine runs the real `find` over a tree that stands for the image's
 # root, as the user the step asks for: `--user root` is a user namespace, where the mapped root
 # reads a mode-000 folder, as the image's root reads every folder. A `.git` that only root can read
-# is what `COPY .git` from a checkout under `umask 077` gives the image.
+# is what `COPY .git` from a checkout under `umask 077` gives the image, and the case puts it behind
+# a folder only root can enter, so `find` as any other user cannot reach it: that is what the step's
+# user decides.
 # Run it from anywhere: scripts/smoke-image.test.sh. One ok or not ok line per case, exit 1 if any fails.
 set -uo pipefail
 
@@ -22,8 +24,14 @@ given_image() {
   mkdir -p "$root/app" "$root/data" "$root/root" || return 1
   # The image's /root is 0700 and root's: a process in the image cannot search it.
   chmod 000 "$root/root" || return 1
+  # root: the .git sits behind a folder only root can enter, so a process that is not root
+  # cannot reach it: `find` stats `app/.git` in a readable folder and prints it either way, so
+  # only a folder it cannot enter makes the step's user decide the case.
   case $1 in
-  root) mkdir -p "$root/app/.git" && chmod 000 "$root/app/.git" || return 1 ;;
+  root)
+    mkdir -p "$root/app/locked/.git" || return 1
+    chmod 000 "$root/app/locked/.git" && chmod 000 "$root/app/locked" || return 1
+    ;;
   readable) mkdir -p "$root/app/.git/objects" || return 1 ;;
   none) ;;
   *)
@@ -120,9 +128,10 @@ step_output() {
   while IFS= read -r line; do echo "  | $line"; done <<<"$out"
 }
 
-# then_the_image_has_a_git_only_root_can_read: the case's own premise. A folder that a plain process
-# cannot read and that the image's root can is what this machine has to be able to make; without it
-# the case cannot tell the cut from its negation, so it fails rather than pass on a lie.
+# then_the_image_has_a_git_only_root_can_read: the case's own premise. The folder app/locked must
+# be one a plain process cannot enter and the image's root can, and the .git in it must be the
+# same; without that the case cannot tell the cut from its negation, so it fails rather than pass
+# on a lie.
 root_can_read_only() {
   [ ! -r "$1" ] && unshare -r -- test -r "$1" && unshare -r -- test -x "$1"
 }
@@ -132,16 +141,16 @@ pass() { echo "ok - $name"; }
 # --- a .git only root can read: the cut's check fails, and says where ---
 
 test_a_git_that_only_root_can_read_fails_the_step() {
-  name="an image whose .git only root can read fails the git step, which names it"
+  name="an image whose .git only root can reach fails the git step, which names it"
   given_image root || return 1
-  if ! root_can_read_only "$root/app/.git"; then
+  if ! root_can_read_only "$root/app/locked" || ! root_can_read_only "$root/app/locked/.git"; then
     echo "not ok - $name"
-    echo "  the case needs a folder only root can read: this machine cannot make one, or its user namespace does not read it"
+    echo "  the case needs a folder only root can enter: this machine cannot make one, or its user namespace does not read it"
     return 1
   fi
   when_git
   then_is "the step's exit" 1 "$code" &&
-    then_says "the .git it found" "holds a \.git at: .*/app/\.git" &&
+    then_says "the .git it found" "holds a \.git at: .*/app/locked/\.git" &&
     pass
 }
 
