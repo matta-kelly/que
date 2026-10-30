@@ -32,7 +32,8 @@ export type Branch =
 /**
  * Which of a thread's conversations a run is read against, by its place in `helds` (the messages each holds, the
  * thread's own first): the one that holds the latest of the run's messages, as a branch the thread has left holds
- * messages its own does not. The thread's own wins a tie, and with none held, the run is read against it.
+ * messages its own does not. The thread's own wins a tie, and with none held, the run is read against it. Each run
+ * reads every conversation the thread has had, so the read grows with each edit and regenerate that forks one.
  */
 export function branchedFrom(
   helds: readonly (readonly Held[])[],
