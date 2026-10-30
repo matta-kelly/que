@@ -375,6 +375,33 @@ test("stops, naming the agent and the loop, when an agent names a loop the deplo
   );
 });
 
+test("stops, naming the model and both agents, when two agents on one model have loops that summarize differently: pi sets compaction per model", async () => {
+  for (const [name, other] of [
+    ["model-loops-differ", "auditor"],
+    ["model-loops-off", "archivist"],
+  ])
+    await assert.rejects(mountDeployment(deployment(name)), (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /\bsmall\b/);
+      assert.match(error.message, /\bteller\b/);
+      assert.match(error.message, new RegExp(`\\b${other}\\b`));
+      return true;
+    });
+});
+
+test("mounts two agents on one model when they share its loop, or have loops that summarize alike", async () => {
+  for (const [name, agents] of [
+    ["agents-two", ["chat", "lean"]],
+    ["model-loops-alike", ["teller", "keeper"]],
+  ] as const) {
+    const mounted = await mountDeployment(deployment(name));
+    assert.deepEqual(
+      mounted.agents.map((agent) => agent.name),
+      agents,
+    );
+  }
+});
+
 const glm = "fireworks:accounts/fireworks/models/glm-5p3-flash";
 
 test("a model the model catalog has no entry for mounts with the window and price its file gives, in the order the deployment names them", async () => {
