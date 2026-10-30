@@ -51,6 +51,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `scripts/db.sh`: the Postgres container
 - `scripts/container.sh`: the dev container, made so it can see a deployment's folder, and the whole git repo the folder is in, with that repo's packages installed in it from its lockfile
 - `scripts/check.sh`: the check set of que's own code, which `just check` and the pipeline both run
+- `scripts/container-check.sh`: the container's tests, run on the host: the container que's `devcontainer.json` makes through the dev container CLI, its settings, its volumes, and the deployment folder it must see. It is not part of `just check`, which runs inside the container, where podman is not
 - `scripts/masked-return.just`: a justfile whose every recipe hides a failure, which the shell set of `scripts/check.sh` must find before it lints the real one
 - `basis.config.ts`: the config of the lint of que's notes, from the repo's root (see [Notes](#notes))
 
@@ -108,4 +109,4 @@ From this repo, for que's own code:
 - `QUE_AGENT=<agent> tests/e2e/trace.sh <deployment folder>`: checks against the real Langfuse that que sends the trace of a run. It needs the deployment started, with the Langfuse settings in its `.env`, and an agent of it that loads on demand, as the run calls open_plugin
 - `tests/e2e/one-owner.sh`: checks against a disposable Postgres that the harness runs on pi's storage there, that a chat is whole after a restart, that one process owns a deployment, and that reads of a thread at the same time, while a run writes to pi's storage, all answer. It needs `DATABASE_URL`, and it starts que's server (`npm run server`) with `PORT=2025`, so that port must be free: `DATABASE_URL=postgres://que:<password>@127.0.0.1:5433/que_b5_test tests/e2e/one-owner.sh`
 
-Anything else runs in the container: `podman exec -u node -w "$PWD/server" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's name.
+Anything else runs in the container: `podman exec -u node -w "$PWD/server" <container> <command>` (or `"$PWD/ui"`). `just _container` prints the container's id.
