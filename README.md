@@ -58,7 +58,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `scripts/masked-return.just`: a justfile whose every recipe hides a failure, which the shell set of `scripts/check.sh` must find before it lints the real one
 - `scripts/que-server.sh`: the image's `que-server` command: the runtime's `listen.ts` under tsx, as node runs it, with no npm around the process
 - `scripts/que-ui.sh`: the image's `que-ui` command: the built UI, served by Next on port 3000, with no npm around the process
-- `scripts/smoke-image.sh`: the smoke check of the runtime image, a step of each `ship` run before any push: `que-server` needs `QUE_DEPLOYMENT`, `que-ui` answers `/`, `/data` is node's, and the image holds no `.git`. `scripts/smoke-image.test.sh` sits beside it, and holds the git step to a `.git` only root can read, with no image
+- `scripts/smoke-image.sh`: the smoke check of the runtime image, a step of each `ship` run before any push: `que-server` needs `QUE_DEPLOYMENT`, `que-ui` answers `/`, `/data` is node's, and the image holds no `.git`. The git step runs as root, so a `.git` behind a folder an ordinary process cannot enter is still found. `scripts/smoke-image.test.sh` sits beside it, and holds the git step to that case, with no image
 - `basis.config.ts`: the config of the lint of que's notes, from the repo's root (see [Notes](#notes))
 
 ### Notes
