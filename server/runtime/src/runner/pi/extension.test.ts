@@ -1,10 +1,14 @@
 /**
  * que's catalog as a pi Extension, and its tool calls in the AG-UI stream. Each run is on a Harness of its own, on
  * pi's memory storage, with the extension of one user's catalog selected; pi-ai's scripted provider (`faux`) makes
- * the model's calls, so no model is called. Each op's tool runs through the door, which a spy records.
+ * the model's calls, so no model is called. Each op's tool runs through the door, which a spy records. The tests up to
+ * the agent's loading are on an eager config.
  */
 
 import { test } from "node:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import type { Message, Tool } from "@earendil-works/pi-ai";
@@ -12,9 +16,14 @@ import { createModels } from "@earendil-works/pi-ai/models";
 import {
   fauxAssistantMessage,
   fauxProvider,
+  type FauxResponseFactory,
   fauxText,
   fauxToolCall,
 } from "@earendil-works/pi-ai/providers/faux";
+import {
+  getCurrentSystemPrompt,
+  getCurrentTools,
+} from "@earendil-works/pi-ai/utils/transcript";
 import { validateToolArguments } from "@earendil-works/pi-ai/utils/validation";
 import {
   createRegistry,
@@ -22,13 +31,25 @@ import {
   MemoryStorage,
   ToolResultEntry,
   watchEvents,
+  type Conversation,
+  type Storage,
 } from "@earendil-works/pi-durable";
+import { openNodeJsonlStorage } from "@earendil-works/pi-durable/storage/jsonl/node";
 import { EventType, type AGUIEvent } from "@ag-ui/core";
 import fc from "fast-check";
 import * as z from "zod";
 import { cardOf, definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
 import { door, type Call } from "../../assemble/door.js";
+import { eager } from "../../assemble/eager/index.js";
+import {
+  besideNothing,
+  catalog as fixtureCatalog,
+  identityOnly,
+  mixed,
+  skillsOnly,
+} from "../../assemble/fixture.js";
+import { onDemand } from "../../assemble/on-demand/index.js";
 import { aguiRun } from "./agui.js";
 import { extension } from "./extension.js";
 
@@ -171,7 +192,7 @@ async function turn(
 ) {
   doorCalls = [];
   // The extension takes its name where it is installed: here, one Harness per turn.
-  const que = { ...extension(of, call, user), name: "que" };
+  const que = { ...extension(of, call, user, eager), name: "que" };
   const registry = createRegistry();
   registry.install(que);
   const harness = await Harness.open(
@@ -584,7 +605,7 @@ const modelArguments = fc.oneof(
   fc.dictionary(fc.string(), fc.jsonValue()),
 );
 const toolOf = (name: string) =>
-  extension(catalog, call, "ana").tools?.find((t) => t.name === name);
+  extension(catalog, call, "ana", eager).tools?.find((t) => t.name === name);
 
 test("given any arguments the door accepts, when pi checks them against the op's tool, then the tool's JSON Schema accepts them too", async () => {
   const tagOrders = toolOf("shop-tag-orders");
@@ -696,4 +717,460 @@ test("given an op whose run gives back nothing, when the model calls it, then th
     ],
   );
   assert.equal(answer, "Done.");
+});
+
+// The agent's loading. A chat runs on a Harness on one storage, which can be closed and opened again on it; faux
+// records the tools offered at each request of a chat (pi-ai's replay of the request's system messages) and its
+// messages, and answers a compaction's request with a summary.
+
+const SUMMARY = "The user asked for order 4.";
+
+type Request = { tools: Tool[]; messages: Message[] };
+
+/**
+ * faux makes each step's calls in one turn, in order, and answers "Done." at an empty step or when the steps are
+ * used up. Each chat request is recorded, a compaction's is not.
+ */
+function script(steps: ModelCall[][]) {
+  const requests: Request[] = [];
+  const queue = [...steps];
+  const respond: FauxResponseFactory = (request) => {
+    if (
+      getCurrentSystemPrompt(request.messages).includes(
+        "context summarization assistant",
+      )
+    )
+      return fauxAssistantMessage(fauxText(SUMMARY));
+    requests.push({
+      tools: getCurrentTools(request.messages),
+      messages: [...request.messages],
+    });
+    const calls = queue.shift() ?? [];
+    return calls.length
+      ? fauxAssistantMessage(
+          calls.map(({ name, args, id }) => fauxToolCall(name, args, { id })),
+          { stopReason: "toolUse" },
+        )
+      : fauxAssistantMessage(fauxText("Done."));
+  };
+  faux.setResponses(Array.from({ length: 50 }, () => respond));
+  return requests;
+}
+
+/** The names of the tools a request offered, sorted. */
+const namesOf = (request: Request | undefined) =>
+  (request?.tools ?? []).map((t) => t.name).sort();
+
+/** The text of the tool result of the call `id`, as the model got it in a later request, and whether it failed. */
+const toolResultIn = (requests: Request[], id: string) => {
+  for (const { messages } of requests)
+    for (const m of messages)
+      if (m.role === "toolResult" && m.toolCallId === id)
+        return { isError: m.isError, text: textOf(m.content) };
+  return undefined;
+};
+
+type Way = Parameters<typeof extension>[3];
+
+/** A Harness on `storage` with `user`'s extension of `of` on `way` installed. */
+async function harnessOn(
+  storage: Storage,
+  way: Way,
+  { of = catalog, user = "ana" }: { of?: Catalog; user?: string } = {},
+) {
+  const que = { ...extension(of, call, user, way), name: "que" };
+  const registry = createRegistry();
+  registry.install(que);
+  // No compaction of pi's own: a test compacts when it says so, and the summary keeps only the newest turn.
+  const harness = await Harness.open(
+    storage,
+    {
+      models,
+      registry,
+      settings: { compaction: { enabled: false, keepRecentTokens: 1 } },
+    },
+    context,
+  );
+  const chat = () =>
+    harness.createConversation(
+      {
+        ownership: { kind: "ownerless" },
+        agent: {
+          model: { provider: "fireworks", modelId: "small-model" },
+          extensions: [que],
+        },
+      },
+      context,
+    );
+  return { harness, chat };
+}
+
+/** One message on the conversation, to the end of its run. */
+async function say(conversation: Conversation, content: string) {
+  const submission = await conversation.submit(
+    { type: "input", content },
+    context,
+  );
+  await submission.wait(context);
+}
+
+/** A compaction of the conversation, placed. */
+async function compact(harness: Harness, conversation: Conversation) {
+  const id = await conversation.compact(undefined, context);
+  const { outcome } = (await harness.waitForTask(id, context)).state;
+  assert.ok(
+    outcome.status === "completed" && outcome.result.submissionId,
+    `the compaction did not place a summary: ${JSON.stringify(outcome)}`,
+  );
+  const placed = await harness.submission(outcome.result.submissionId, context);
+  await placed?.wait(context);
+}
+
+const shopOps = shop.ops.map((op) => op.name);
+const load = (operation: string, id: string, plugin = "shop"): ModelCall => ({
+  name: "load_operation",
+  args: { plugin, operation },
+  id,
+});
+
+test("given an on-demand config, when the model is first asked, then it is offered open_plugin, load_operation and read_skill, and no op", async () => {
+  const requests = script([]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  assert.deepEqual(namesOf(requests[0]), [
+    "load_operation",
+    "open_plugin",
+    "read_skill",
+  ]);
+
+  // A catalog with no skill: no read_skill, and still no op.
+  const other = script([]);
+  const second = await harnessOn(new MemoryStorage(), onDemand, {
+    of: crmOnly,
+  });
+  try {
+    await say(await second.chat(), "Go.");
+  } finally {
+    await second.harness.close(context);
+  }
+  assert.deepEqual(namesOf(other[0]), ["load_operation", "open_plugin"]);
+});
+
+test("given an on-demand config, when the model loads an op, then the op is offered from the next request with its JSON Schema as in the card, the others stay deferred, and the model can call it", async () => {
+  const requests = script([
+    [load("shop-get-order", "l1")],
+    [{ name: "shop-get-order", args: { id: 4 }, id: "c1" }],
+    [],
+  ]);
+  doorCalls = [];
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  assert.deepEqual(
+    requests.map((r) => namesOf(r).filter((name) => shopOps.includes(name))),
+    [[], ["shop-get-order"], ["shop-get-order"]],
+  );
+  assert.deepEqual(
+    offeredOps(requests[1].tools, shopOps),
+    cardInputs(shop).filter((t) => t.name === "shop-get-order"),
+  );
+  // load_operation says which tool the op became.
+  const loaded = toolResultIn(requests, "l1");
+  assert.equal(loaded?.isError, false);
+  assert.ok(String(loaded?.text).includes("`shop-get-order`"), loaded?.text);
+  assert.deepEqual(doorCalls, [
+    { plugin: "shop", op: "shop-get-order", params: { id: 4 }, user: "ana" },
+  ]);
+  assert.deepEqual(toolResultIn(requests, "c1"), {
+    isError: false,
+    text: JSON.stringify({ id: 4 }),
+  });
+});
+
+test("given an on-demand config, when the model loads two ops at once, then both are offered from the next request, and no other", async () => {
+  const requests = script([
+    [load("shop-list-orders", "l1"), load("shop-tag-orders", "l2")],
+    [],
+  ]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  assert.deepEqual(
+    namesOf(requests[1]).filter((name) => shopOps.includes(name)),
+    ["shop-list-orders", "shop-tag-orders"],
+  );
+});
+
+test("given an on-demand config, when a load fails, then it names what there is, and no op is offered", async () => {
+  const requests = script([
+    [
+      load("shop-nope", "l1"),
+      load("shop-get-order", "l2", "nope"),
+      load("crm-find-contact", "l3"),
+    ],
+    [],
+  ]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  const [op, plugin, elsewhere] = ["l1", "l2", "l3"].map((id) =>
+    toolResultIn(requests, id),
+  );
+  // An op the plugin does not hold: the failed call names the ones it does.
+  assert.equal(op?.isError, true);
+  assert.match(String(op?.text), /shop-get-order/);
+  assert.match(String(op?.text), /shop-forget-order/);
+  // A plugin that is not there: the failed call names the ones that are.
+  assert.equal(plugin?.isError, true);
+  assert.match(String(plugin?.text), /\bshop\b/);
+  // An op of another plugin, not in this user's catalog.
+  assert.equal(elsewhere?.isError, true);
+  assert.deepEqual(
+    requests.map((r) => namesOf(r).filter((name) => shopOps.includes(name))),
+    [[], []],
+  );
+});
+
+test("given an on-demand chat that loaded an op, when the user sends again, then the op is offered at each later request of that chat, and in no other chat", async () => {
+  const requests = script([[load("shop-get-order", "l1")], [], [], []]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    const conversation = await chat();
+    await say(conversation, "Go.");
+    await say(conversation, "And again.");
+    await say(conversation, "Once more.");
+    // Another chat of the same user, on the same Harness: nothing loaded there.
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  assert.equal(requests.length, 5);
+  assert.deepEqual(
+    requests.map((r) => namesOf(r).filter((name) => shopOps.includes(name))),
+    [[], ["shop-get-order"], ["shop-get-order"], ["shop-get-order"], []],
+  );
+});
+
+test("given an on-demand chat that loaded an op, when it is compacted, then the next request is on the summary and still offers the op", async () => {
+  const requests = script([[load("shop-tag-orders", "l1")], [], [], []]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    const conversation = await chat();
+    await say(conversation, "Go.");
+    await say(conversation, "And again.");
+    await compact(harness, conversation);
+    await say(conversation, "After the summary.");
+  } finally {
+    await harness.close(context);
+  }
+  const after = requests.at(-1);
+  const said = (after?.messages ?? []).map((m) =>
+    m.role === "user"
+      ? typeof m.content === "string"
+        ? m.content
+        : textOf(m.content)
+      : "",
+  );
+  // The compaction is in effect: the first message is summarized away.
+  assert.ok(
+    said.some((text) => text.includes(SUMMARY)),
+    `the request after the compaction has no summary: ${said.join(" | ")}`,
+  );
+  assert.ok(!said.includes("Go."), said.join(" | "));
+  assert.deepEqual(
+    namesOf(after).filter((name) => shopOps.includes(name)),
+    ["shop-tag-orders"],
+  );
+});
+
+test("given an on-demand chat that loaded an op, when its Harness is closed and opened again on the same storage, then the chat still offers the op, and only that one", async () => {
+  // Storage on disk (pi's JSONL), each open a new Storage on the same files: nothing is kept in memory across them.
+  const directory = await mkdtemp(join(tmpdir(), "que-loading-"));
+  try {
+    const requests = script([[load("shop-list-orders", "l1")], [], []]);
+    const first = await harnessOn(
+      await openNodeJsonlStorage(directory, context),
+      onDemand,
+    );
+    let id!: Conversation["id"];
+    try {
+      const conversation = await first.chat();
+      id = conversation.id;
+      await say(conversation, "Go.");
+    } finally {
+      await first.harness.close(context);
+    }
+    const second = await harnessOn(
+      await openNodeJsonlStorage(directory, context),
+      onDemand,
+    );
+    try {
+      const conversation = await second.harness.conversation(id, context);
+      assert.ok(conversation, "the chat is not on the storage");
+      await say(conversation, "After the restart.");
+      // A new chat on the reopened Harness has nothing loaded.
+      await say(await second.chat(), "Go.");
+    } finally {
+      await second.harness.close(context);
+    }
+    assert.deepEqual(
+      requests.map((r) => namesOf(r).filter((name) => shopOps.includes(name))),
+      [[], ["shop-list-orders"], ["shop-list-orders"], []],
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("given an eager config, when the model is first asked, then it is offered every op and read_skill, and nothing to open or load, at each request", async () => {
+  const requests = script([[], []]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), eager);
+  try {
+    const conversation = await chat();
+    await say(conversation, "Go.");
+    await say(conversation, "And again.");
+  } finally {
+    await harness.close(context);
+  }
+  const all = [...shopOps, "read_skill"].sort();
+  assert.deepEqual(requests.map(namesOf), [all, all]);
+  assert.deepEqual(offeredOps(requests[0].tools, shopOps), cardInputs(shop));
+
+  // A catalog with no skill: its op alone.
+  const other = script([]);
+  const second = await harnessOn(new MemoryStorage(), eager, { of: crmOnly });
+  try {
+    await say(await second.chat(), "Go.");
+  } finally {
+    await second.harness.close(context);
+  }
+  assert.deepEqual(namesOf(other[0]), ["crm-find-contact"]);
+});
+
+/** The tools offered at the first request of a chat on `way` with the catalog `of`. */
+async function firstOffered(way: Way, of: Catalog) {
+  const requests = script([]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), way, { of });
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  return requests[0]?.tools ?? [];
+}
+
+const descriptionOf = (tools: Tool[], name: string) =>
+  tools.find((t) => t.name === name)?.description;
+
+test("given either config, when the model is offered read_skill, then its description sends the agent to the prompt or open_plugin for a skill's id", async () => {
+  for (const way of [onDemand, eager])
+    assert.equal(
+      descriptionOf(await firstOffered(way, catalog), "read_skill"),
+      "Read Skill: returns the full text of a skill, by its id, as the prompt or open_plugin lists it.",
+      way.name,
+    );
+});
+
+test("given an on-demand config, when the model opens a plugin, then it gets each op and skill in one line, with no arguments, and a plugin that is not there names the ones that are", async () => {
+  const requests = script([
+    [
+      { name: "open_plugin", args: { plugin: "shop" }, id: "o1" },
+      { name: "open_plugin", args: { plugin: "notes" }, id: "o2" },
+      { name: "open_plugin", args: { plugin: "nope" }, id: "o3" },
+    ],
+    [],
+  ]);
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand, {
+    of: mixed,
+  });
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  const [shopText, notesText, nope] = ["o1", "o2", "o3"].map((id) =>
+    toolResultIn(requests, id),
+  );
+  assert.equal(shopText?.isError, false);
+  assert.match(
+    String(shopText?.text),
+    /shop-find-orders: Find orders\. Search orders by customer name\./,
+  );
+  assert.match(
+    String(shopText?.text),
+    /shop-get-order: Get order\. One order with its lines\./,
+  );
+  assert.match(
+    String(shopText?.text),
+    /shop-refunds: Refunds\. How to refund an order\./,
+  );
+  assert.doesNotMatch(String(shopText?.text), /Returns at most 20/);
+  assert.doesNotMatch(String(shopText?.text), /Customer name/);
+  // A plugin with skills alone has no Operations heading.
+  assert.equal(notesText?.isError, false);
+  assert.doesNotMatch(String(notesText?.text), /Operations/);
+  assert.match(
+    String(notesText?.text),
+    /notes-meetings: Meetings\. How to write up a meeting\./,
+  );
+  assert.equal(nope?.isError, true);
+  assert.match(String(nope?.text), /\bshop\b/);
+  assert.match(String(nope?.text), /\bnotes\b/);
+});
+
+test("given an on-demand config, when the model is first asked, then the tools to open and load are the ones the catalog holds something for, with their descriptions word for word", async () => {
+  const withOps = await firstOffered(onDemand, fixtureCatalog);
+  assert.deepEqual(namesOf({ tools: withOps, messages: [] }), [
+    "load_operation",
+    "open_plugin",
+    "read_skill",
+  ]);
+  assert.equal(
+    descriptionOf(withOps, "open_plugin"),
+    "Open Plugin: lists what a plugin holds, its operations and skills, with one line each. Use it to find the operation for a task. It does not make an operation callable; load_operation does.",
+  );
+  assert.equal(
+    descriptionOf(withOps, "load_operation"),
+    "Load Operation: makes one operation callable. From your next step it is a tool of the operation's name, with its full description and arguments, and it stays for the rest of the conversation. Load each operation you need before calling it; you can load several at once.",
+  );
+  // Skills alone: nothing to load, and open_plugin names no operation.
+  const skillsAlone = await firstOffered(onDemand, skillsOnly);
+  assert.deepEqual(namesOf({ tools: skillsAlone, messages: [] }), [
+    "open_plugin",
+    "read_skill",
+  ]);
+  assert.equal(
+    descriptionOf(skillsAlone, "open_plugin"),
+    "Open Plugin: lists what a plugin holds, with one line each.",
+  );
+  // A plugin that holds nothing beside one that holds ops and a skill: every tool stays.
+  assert.deepEqual(
+    namesOf({
+      tools: await firstOffered(onDemand, besideNothing),
+      messages: [],
+    }),
+    ["load_operation", "open_plugin", "read_skill"],
+  );
+});
+
+test("given either config and a catalog that holds no op and no skill, when the model is first asked, then it is offered no tool", async () => {
+  for (const way of [onDemand, eager])
+    assert.deepEqual(
+      (await firstOffered(way, identityOnly)).map((t) => t.name),
+      [],
+      way.name,
+    );
 });

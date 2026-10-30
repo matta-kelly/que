@@ -55,6 +55,9 @@ export function extension(
   catalog: Catalog,
   call: Call,
   user: string,
+  // The agent's way of loading (assemble/eager, assemble/on-demand): a stub, not read yet.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _way: { readonly name: string },
 ): Omit<Extension, "name"> {
   const ops = catalog.flatMap(({ plugin: { definition } }) =>
     definition.ops.map((op): ToolRegistration => ({
