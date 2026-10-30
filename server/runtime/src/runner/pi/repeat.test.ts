@@ -16,6 +16,7 @@ import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
+import pg from "pg";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { EventType, type AGUIEvent } from "@ag-ui/core";
@@ -53,8 +54,12 @@ process.env.QUE_DEPLOYMENT = deploymentRoot(
 );
 const host = await import("./harness.js");
 const threads = createStore();
+/** A reader of pi's tables, beside the host's own connection. */
+const pi = new pg.Client({ connectionString: process.env.DATABASE_URL });
+await pi.connect();
 
 after(async () => {
+  await pi.end();
   await database.stop();
   await db.close();
 });
@@ -408,6 +413,22 @@ function script(calls: (Args | Args[])[], answer = "Done.") {
   return asked;
 }
 
+/**
+ * Whether the run `runId`'s input is queued in its conversation's inbox,
+ * by pi's submission of it, within 5 seconds.
+ */
+async function queuedIn(runId: string) {
+  for (let waited = 0; waited < 5_000; waited += 20) {
+    const { rows } = await pi.query<{ status: string }>(
+      "SELECT status FROM pi.submissions WHERE request_id LIKE '%' || $1 || '%'",
+      [runId],
+    );
+    if (rows.some((row) => row.status.includes("queued"))) return true;
+    await new Promise((wait) => setTimeout(wait, 20));
+  }
+  return false;
+}
+
 /** A thread of Ana's, and the ids of the messages its client knows, as the AG-UI events of its runs give them. */
 async function hostThread() {
   const { id } = await threads.make("ana");
@@ -418,7 +439,7 @@ async function hostThread() {
    * client knows before it. Each tool result of the run, by its call, the
    * text of its answers, and its error, if any. `seen` gets each event.
    */
-  async function send(seen?: (event: AGUIEvent) => void) {
+  async function send(seen?: (event: AGUIEvent) => void, runId = randomUUID()) {
     const last = { id: randomUUID(), content: "Get order -1." };
     const before = [...known];
     known.push(last.id);
@@ -428,10 +449,11 @@ async function hostThread() {
       id,
       small,
       { catalog, user: "ana", agent: "test", prompt: {} },
-      { runId: randomUUID(), before, last },
+      { runId, before, last },
       async (event) => {
+        // A call's id is not one: faux's call ids are the same in each run.
         if (event.type === EventType.TOOL_CALL_START)
-          known.push(event.parentMessageId ?? "", event.toolCallId);
+          known.push(event.parentMessageId ?? "");
         if (event.type === EventType.TEXT_MESSAGE_START)
           known.push(event.messageId);
         if (event.type === EventType.TOOL_CALL_RESULT)
@@ -448,7 +470,17 @@ async function hostThread() {
     );
     return { results, text: texts.join(""), error };
   }
-  return { send };
+  /** Whether the thread holds the message `messageId`, within 5 seconds: its client can then send the next one after it. */
+  async function holds(messageId: string) {
+    for (let waited = 0; waited < 5_000; waited += 20) {
+      if ((await host.messages(id)).some((m) => m.id === messageId))
+        return true;
+      await new Promise((wait) => setTimeout(wait, 20));
+    }
+    return false;
+  }
+
+  return { send, holds };
 }
 
 /**
@@ -494,21 +526,35 @@ test(
       script([failing], "That did not work.");
       await thread.send();
     }
-    // The stuck call fails only once the next message is sent, so that message is queued behind the run.
+    // The stuck call fails only once pi holds the next message queued behind the run.
     let release!: () => void;
     held = new Promise<void>((go) => (release = go));
     const asked = script([failing], "Done.");
+    const nextRun = randomUUID();
     let queued: ReturnType<typeof thread.send> | undefined;
+    let wasQueued: Promise<boolean> | undefined;
     const stopped = await thread.send((event) => {
-      if (event.type === EventType.TOOL_CALL_END && !queued) {
-        queued = thread.send();
-        // Time for the next run to submit its message before the call fails.
-        setTimeout(release, 500);
+      if (event.type === EventType.TOOL_CALL_START && !wasQueued) {
+        // The client sends its next message once the thread holds the call's message, so it goes on the same conversation.
+        wasQueued = (async () => {
+          try {
+            if (!(await thread.holds(event.parentMessageId ?? "")))
+              return false;
+            queued = thread.send(undefined, nextRun);
+            return await queuedIn(nextRun);
+          } finally {
+            release();
+          }
+        })();
       }
     });
     held = undefined;
+    assert.equal(
+      await wasQueued,
+      true,
+      "the next message was not queued behind the run",
+    );
     assert.match(String(stopped.results.get("c0")), /failed 3 times in a row/);
-    assert.ok(queued, "no message was queued behind the run");
     const next = await Promise.race([
       queued,
       new Promise<undefined>((none) =>
