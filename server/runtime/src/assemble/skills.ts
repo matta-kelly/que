@@ -7,7 +7,7 @@ import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
-import { READ_SKILL } from "./names.js";
+import { READ_SKILL, READ_SKILL_DESCRIPTION } from "./names.js";
 
 function readSkill(catalog: Catalog): StructuredTool {
   const skills = new Map(
@@ -23,8 +23,7 @@ function readSkill(catalog: Catalog): StructuredTool {
     },
     {
       name: READ_SKILL,
-      description:
-        "Read Skill: returns the full text of a skill, by its id, as the prompt or open_plugin lists it.",
+      description: READ_SKILL_DESCRIPTION,
       schema: z.object({
         id: z.string().describe("Skill id, e.g. odoo-lookup-company"),
       }),

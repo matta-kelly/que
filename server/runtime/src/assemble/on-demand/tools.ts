@@ -1,99 +1,42 @@
 /**
- * The on-demand tools: how the agent looks inside a plugin and brings an
- * operation into reach. They read any plugin through the plugin contract
- * (@mku1tra/que-plugin) and know nothing about a specific one.
+ * The on-demand tools, as LangChain tools: how the agent looks inside a plugin and brings an operation into reach.
+ * What each one does is open.ts's.
  */
 
 import { tool, type StructuredTool } from "langchain";
-import * as z from "zod";
-import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
-import { LOAD_OPERATION, OPEN_PLUGIN, skillLine } from "../names.js";
-
-// A description opens with what the thing is for; the rest is how to use it.
-const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];
-
-const find = (catalog: Catalog, name: string) =>
-  catalog.find(({ plugin }) => plugin.definition.plugin.name === name)?.plugin;
-
-const noPlugin = (catalog: Catalog, name: string) =>
-  new OpFailed(
-    `no plugin "${name}". Plugins: ${catalog.map(({ plugin }) => plugin.definition.plugin.name).join(", ")}`,
-  );
-
-function openPlugin(catalog: Catalog, hasOperations: boolean): StructuredTool {
-  return tool(
-    async ({ plugin: name }) => {
-      const plugin = find(catalog, name);
-      if (!plugin) throw noPlugin(catalog, name);
-      const { definition, skills } = plugin;
-      return [
-        `# ${definition.plugin.title} (\`${definition.plugin.name}\`)`,
-        definition.plugin.description,
-        ...(definition.ops.length
-          ? [
-              "## Operations",
-              ...definition.ops.map(
-                (op) =>
-                  `- ${op.name}: ${op.title}. ${firstSentence(op.description)}`,
-              ),
-            ]
-          : []),
-        ...(skills.length ? ["## Skills", ...skills.map(skillLine)] : []),
-      ].join("\n");
-    },
-    {
-      name: OPEN_PLUGIN,
-      description: hasOperations
-        ? "Open Plugin: lists what a plugin holds, its operations and skills, with one line each. " +
-          "Use it to find the operation for a task. It does not make an operation callable; load_operation does."
-        : "Open Plugin: lists what a plugin holds, with one line each.",
-      schema: z.object({
-        plugin: z.string().describe("Plugin name from the system prompt"),
-      }),
-    },
-  );
-}
-
-function loadOperation(catalog: Catalog): StructuredTool {
-  return tool(
-    async ({ plugin: name, operation }) => {
-      const plugin = find(catalog, name);
-      if (!plugin) throw noPlugin(catalog, name);
-      const ops = plugin.definition.ops.map((op) => op.name);
-      if (!ops.length)
-        throw new OpFailed(`plugin "${name}" has no operations.`);
-      if (!ops.includes(operation))
-        throw new OpFailed(
-          `no operation "${operation}" in ${name}. Operations: ${ops.join(", ")}`,
-        );
-      return `Loaded. Call it as the tool \`${operation}\`; its arguments are in that tool's definition.`;
-    },
-    {
-      name: LOAD_OPERATION,
-      description:
-        "Load Operation: makes one operation callable. From your next step it is a tool of the operation's name, " +
-        "with its full description and arguments, and it stays for the rest of the conversation. " +
-        "Load each operation you need before calling it; you can load several at once.",
-      schema: z.object({
-        plugin: z.string().describe("Plugin name"),
-        operation: z
-          .string()
-          .describe("Operation name, as open_plugin lists it"),
-      }),
-    },
-  );
-}
+import { LOAD_OPERATION, OPEN_PLUGIN } from "../names.js";
+import {
+  load,
+  LOAD_DESCRIPTION,
+  loadSchema,
+  open,
+  openDescription,
+  openSchema,
+  reach,
+} from "./open.js";
 
 /** The tools this config adds. None when no plugin holds an operation or a skill. */
 export function tools(catalog: Catalog): StructuredTool[] {
-  const hasOperations = catalog.some(
-    ({ plugin }) => plugin.definition.ops.length,
-  );
-  const hasSkills = catalog.some(({ plugin }) => plugin.skills.length);
-  if (!hasOperations && !hasSkills) return [];
+  const { open: opens, load: loads } = reach(catalog);
+  if (!opens) return [];
   return [
-    openPlugin(catalog, hasOperations),
-    ...(hasOperations ? [loadOperation(catalog)] : []),
+    tool(async ({ plugin }) => open(catalog, plugin), {
+      name: OPEN_PLUGIN,
+      description: openDescription(loads),
+      schema: openSchema,
+    }),
+    ...(loads
+      ? [
+          tool(
+            async ({ plugin, operation }) => load(catalog, plugin, operation),
+            {
+              name: LOAD_OPERATION,
+              description: LOAD_DESCRIPTION,
+              schema: loadSchema,
+            },
+          ),
+        ]
+      : []),
   ];
 }
