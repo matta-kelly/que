@@ -38,7 +38,7 @@ import {
   watchEvents,
 } from "@earendil-works/pi-durable";
 import * as z from "zod";
-import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
+import { definePlugin, OpFailed, cardOf } from "@mku1tra/que-plugin";
 import type { Model } from "@mku1tra/que-harness";
 import { createStore } from "@que/threads";
 import type { Catalog } from "../../access/catalog.js";
@@ -99,7 +99,15 @@ const shop = definePlugin({
     },
   ],
 });
-const catalog: Catalog = [{ plugin: { definition: shop, skills: [] } }];
+const catalog: Catalog = [
+  {
+    plugin: {
+      definition: shop,
+      skills: [],
+      card: cardOf({ definition: shop, cases: [] }),
+    },
+  },
+];
 
 const failing = { id: -1 };
 

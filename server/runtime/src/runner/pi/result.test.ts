@@ -40,7 +40,7 @@ import {
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { createReadTool } from "@earendil-works/pi-durable/tools";
 import * as z from "zod";
-import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
+import { definePlugin, OpFailed, cardOf } from "@mku1tra/que-plugin";
 import type { ResolvedLoop } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { door } from "../../assemble/door.js";
@@ -91,7 +91,15 @@ const shop = definePlugin({
     },
   ],
 });
-const catalog: Catalog = [{ plugin: { definition: shop, skills: [] } }];
+const catalog: Catalog = [
+  {
+    plugin: {
+      definition: shop,
+      skills: [],
+      card: cardOf({ definition: shop, cases: [] }),
+    },
+  },
+];
 
 /** The text the model gets of an op's result whole: the JSON text of what it gives back. */
 const reportText = (count: number) => JSON.stringify(rows(count));

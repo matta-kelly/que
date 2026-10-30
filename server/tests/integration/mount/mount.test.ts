@@ -19,6 +19,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { factsOf } from "@mku1tra/que-harness";
+import { checkedCard, readPlugin } from "@mku1tra/que-plugin";
 import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 import {
   loadPlugin,
@@ -644,6 +645,35 @@ test("stops, naming the folder and saying how it gets one, when a deployment is 
   cpSync(join(fixtures, "deployments/models-bare"), dir, { recursive: true });
   await assert.rejects(mountDeployment(dir), (error: Error) => {
     assert.ok(error.message.startsWith(`mount: ${dir} is in no root:`));
+    return true;
+  });
+});
+
+test("each plugin a deployment mounts carries the card checkedCard makes of it", async () => {
+  const plugins = join(fixtures, "plugins");
+  const read = await Promise.all(
+    ["source", "domain"].map((name) => readPlugin(join(plugins, name))),
+  );
+  assert.deepEqual(
+    (await mount("uses-resolve")).map((plugin) => plugin.card),
+    read.map((plugin) =>
+      checkedCard(join(plugins, plugin.definition!.plugin.name), {
+        ...plugin,
+        definition: plugin.definition!,
+      }),
+    ),
+  );
+});
+
+test("stops, naming the plugin, when its card breaks the standard", async () => {
+  const dir = needing("*");
+  writeFileSync(
+    join(dir, "package.json"),
+    JSON.stringify({ name: "beta", type: "module", version: 6 }),
+  );
+  await assert.rejects(mountPlugin(dir), (error: Error) => {
+    assert.match(error.message, /the card of beta breaks Agent Plugins 1\.0:/);
+    assert.match(error.message, /\/version must be string/);
     return true;
   });
 });

@@ -1,12 +1,28 @@
 import * as z from "zod";
-import { definePlugin } from "@mku1tra/que-plugin";
+import {
+  cardOf,
+  definePlugin,
+  type Definition,
+  type Skill,
+} from "@mku1tra/que-plugin";
+import type { MountedPlugin } from "../mount/plugins.js";
 import type { Catalog } from "../access/catalog.js";
+
+/** A mounted plugin, as mount makes one: its definition, its skills, and the card checkedCard makes of them. */
+const mounted = (
+  definition: Definition,
+  skills: Skill[] = [],
+): MountedPlugin => ({
+  definition,
+  skills,
+  card: cardOf({ definition, cases: [], skills }),
+});
 
 /** A catalog with one fake plugin, for the tests in this folder. */
 export const catalog: Catalog = [
   {
-    plugin: {
-      definition: definePlugin({
+    plugin: mounted(
+      definePlugin({
         name: "shop",
         type: "plugin",
         title: "Shop",
@@ -34,7 +50,7 @@ export const catalog: Catalog = [
           },
         ],
       }),
-      skills: [
+      [
         {
           name: "shop-refunds",
           type: "skill",
@@ -43,7 +59,7 @@ export const catalog: Catalog = [
           body: "Refund steps.",
         },
       ],
-    },
+    ),
     identity: { id: 7, name: "User Seven" },
   },
 ];
@@ -51,14 +67,14 @@ export const catalog: Catalog = [
 /** The same plugin with its operations taken out: skills alone. */
 export const skillsOnly: Catalog = [
   {
-    plugin: {
-      ...catalog[0].plugin,
-      definition: {
+    plugin: mounted(
+      {
         ...catalog[0].plugin.definition,
         plugin: { ...catalog[0].plugin.definition.plugin, ops: [] },
         ops: [],
       },
-    },
+      catalog[0].plugin.skills,
+    ),
   },
 ];
 
@@ -74,28 +90,23 @@ const notes = definePlugin({
 export const mixed: Catalog = [
   catalog[0],
   {
-    plugin: {
-      definition: notes,
-      skills: [
-        {
-          name: "notes-meetings",
-          type: "skill",
-          title: "Meetings",
-          description: "How to write up a meeting.",
-          body: "Meeting steps.",
-        },
-      ],
-    },
+    plugin: mounted(notes, [
+      {
+        name: "notes-meetings",
+        type: "skill",
+        title: "Meetings",
+        description: "How to write up a meeting.",
+        body: "Meeting steps.",
+      },
+    ]),
   },
 ];
 
 /** A plugin that declares its identity and nothing else. */
-export const identityOnly: Catalog = [
-  { plugin: { definition: notes, skills: [] } },
-];
+export const identityOnly: Catalog = [{ plugin: mounted(notes) }];
 
 /** A plugin that holds nothing, listed before one with operations and a skill. */
 export const besideNothing: Catalog = [
-  { plugin: { definition: notes, skills: [] } },
+  { plugin: mounted(notes) },
   { plugin: catalog[0].plugin },
 ];

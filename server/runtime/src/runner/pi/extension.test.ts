@@ -119,14 +119,16 @@ const skill = (name: string, title: string, body: string) => ({
   description: `How to ${title.toLowerCase()} an order.`,
   body,
 });
+const shopSkills = [
+  skill("shop-refunds", "Refund", "Refund steps."),
+  skill("shop-returns", "Return", "Return steps."),
+];
 const catalog: Catalog = [
   {
     plugin: {
       definition: shop,
-      skills: [
-        skill("shop-refunds", "Refund", "Refund steps."),
-        skill("shop-returns", "Return", "Return steps."),
-      ],
+      skills: shopSkills,
+      card: cardOf({ definition: shop, cases: [], skills: shopSkills }),
     },
   },
 ];
@@ -150,7 +152,15 @@ const crm = definePlugin({
     },
   ],
 });
-const crmOnly: Catalog = [{ plugin: { definition: crm, skills: [] } }];
+const crmOnly: Catalog = [
+  {
+    plugin: {
+      definition: crm,
+      skills: [],
+      card: cardOf({ definition: crm, cases: [] }),
+    },
+  },
+];
 
 /** Each call that reaches the door: the op's plugin and name, the params it got, and the user. */
 let doorCalls: { plugin: string; op: string; params: unknown; user: string }[] =
