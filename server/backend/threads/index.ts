@@ -66,17 +66,6 @@ export type Queryable = {
 };
 
 /**
- * The table, made when it is not there. The id is text, so an id from a path
- * that is not a uuid finds no thread, and is not an error.
- */
-export const SETUP = `
-  CREATE TABLE IF NOT EXISTS threads (
-    id         text        PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    owner      text        NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
-  )`;
-
-/**
  * The columns added beside the table, so one an earlier version made gets them: the conversation, the stop, the
  * user's changes, and every conversation the thread has been on, in the order it was last on each.
  */
@@ -89,6 +78,29 @@ const ALTER = `ALTER TABLE threads
   ADD COLUMN IF NOT EXISTS model text,
   ADD COLUMN IF NOT EXISTS conversations text[] NOT NULL DEFAULT '{}'`;
 
+/** A row from before F3 keeps its conversation among the ones it has been on. */
+const BACKFILL = `UPDATE threads SET conversations = ARRAY[conversation]
+  WHERE conversation IS NOT NULL AND cardinality(conversations) = 0`;
+
+/**
+ * The table and its columns, made when they are not there, in one statement, so Postgres runs it in one transaction:
+ * the lock makes two que processes that start together do it one after the other, so the second finds it done. The id
+ * is text, so an id from a path that is not a uuid finds no thread, and is not an error.
+ */
+export const SETUP = `
+  DO $$
+  BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('que.threads'));
+    CREATE TABLE IF NOT EXISTS threads (
+      id         text        PRIMARY KEY DEFAULT gen_random_uuid()::text,
+      owner      text        NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    ${ALTER};
+    ${BACKFILL};
+  END
+  $$`;
+
 type Row = Omit<Thread, "createdAt"> & { created_at: Date };
 const toThread = (r: Row): Thread => ({
   id: r.id,
@@ -100,10 +112,6 @@ const toThread = (r: Row): Thread => ({
   agent: r.agent,
   model: r.model,
 });
-
-/** A row from before F3 keeps its conversation among the ones it has been on. */
-const BACKFILL = `UPDATE threads SET conversations = ARRAY[conversation]
-  WHERE conversation IS NOT NULL AND cardinality(conversations) = 0`;
 
 /** The columns a change may set: the keys of `ThreadChange`. */
 const CHANGED = ["title", "archived", "agent", "model"] as const;
@@ -123,10 +131,7 @@ export function createStore(
 
 /** The store, on a database it sets up first (`SETUP`). */
 export function storeOn(db: Queryable): ThreadStore {
-  const ready = db
-    .query(SETUP)
-    .then(() => db.query(ALTER))
-    .then(() => db.query(BACKFILL));
+  const ready = db.query(SETUP);
 
   return {
     async make(owner, pick = {}) {
