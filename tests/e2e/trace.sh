@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Checks, against the real Langfuse, that que sends the trace of a run. Run on
-# the host, with que started for the deployment given (`just start` in it), and
+# Checks, against the real Langfuse, that que's server sends the trace of a run.
+# Run on the host, with que started for the deployment given (`just start` in it), and
 # the three Langfuse settings in its .env. It makes one model call, and the
 # trace it leaves in Langfuse holds what the agent read.
 #
@@ -30,16 +30,21 @@ post() { curl -sS --max-time 180 -H 'content-type: application/json' -d "$2" "$q
 
 curl -sS -o /dev/null --max-time 5 "$que/ok" || stop "que is not up at $que"
 
-# One run on a new thread, as a user makes one. The message asks for one tool
-# call that reads no record of a service.
-thread=$(post /threads '{}' | jq -r .thread_id)
+# One run on a new thread, as a user makes one: POST /threads, then a run of
+# AG-UI's RunAgentInput on POST /threads/:id/runs, whose answer streams back as
+# AG-UI events over SSE. The message asks for one tool call that reads no
+# record of a service.
+thread=$(post /threads '{}' | jq -r .id)
 [ -n "$thread" ] && [ "$thread" != null ] || stop "que made no thread"
-trap 'curl -sS -o /dev/null -X DELETE "$que/threads/$thread" || true' EXIT
-answer=$(post "/threads/$thread/runs/wait" '{"assistant_id":"agent","input":{"messages":[{"role":"user","content":"Open one of your packages, and tell me its title. Read nothing else."}]}}')
-if jq -e '.messages | length > 1' <<<"$answer" >/dev/null; then
+# The thread is kept: que's server deletes no thread before F3.
+input=$(jq -nc --arg thread "$thread" --arg run "$(cat /proc/sys/kernel/random/uuid)" --arg id "$(cat /proc/sys/kernel/random/uuid)" \
+  '{threadId: $thread, runId: $run, messages: [{id: $id, role: "user", content: "Open one of your packages, and tell me its title. Read nothing else."}], tools: [], context: [], state: {}, forwardedProps: {}}')
+# The type of each event of the run's stream, one per line.
+events=$(post "/threads/$thread/runs" "$input" | sed -n 's/^data: *//p' | jq -r '.type? // empty' 2>/dev/null || true)
+if grep -qx RUN_FINISHED <<<"$events" && grep -qx TEXT_MESSAGE_CONTENT <<<"$events"; then
   ok "the run ended with an answer"
 else
-  stop "the run did not end with an answer: $(cut -c1-200 <<<"$answer")"
+  stop "the run did not end with an answer: $(paste -sd ' ' <<<"$events" | cut -c1-200)"
 fi
 
 # The SDK sends on a timer, and Langfuse takes the trace in after that. The
