@@ -232,6 +232,38 @@ test("given another user's thread, when a user changes or deletes it, then each 
   );
 });
 
+test("given a pick the deployment does not list, when it is sent through PATCH /threads/:id or POST /threads, then it gets 400, the record keeps its pick, and no thread is made", async () => {
+  const { id } = await make(ANA, { agent: "lean", model: "small" });
+  const before = ((await (await as(ANA, "/threads")).json()) as Thread[])
+    .length;
+  const patched = await Promise.all(
+    [
+      { agent: "gone" },
+      { model: "huge" },
+      { agent: "clerk", model: "huge" },
+    ].map(async (body) => (await patch(ANA, id, body)).status),
+  );
+  const posted = await Promise.all(
+    [{ agent: "gone" }, { model: "huge" }].map(
+      async (body) => (await as(ANA, "/threads", json("POST", body))).status,
+    ),
+  );
+  assert.deepEqual(
+    {
+      patched,
+      posted,
+      kept: own(await opened(ANA, id)),
+      threads: ((await (await as(ANA, "/threads")).json()) as Thread[]).length,
+    },
+    {
+      patched: [400, 400, 400],
+      posted: [400, 400],
+      kept: { title: null, archived: false, agent: "lean", model: "small" },
+      threads: before,
+    },
+  );
+});
+
 test("given a change that is not one, when it is sent through PATCH /threads/:id, then it gets 400 and the thread is as it was", async () => {
   const { id } = await make(ANA);
   await patch(ANA, id, { title: "Kept" });
