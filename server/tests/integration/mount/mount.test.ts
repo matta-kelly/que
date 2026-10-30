@@ -407,10 +407,24 @@ test("stops, naming the shared id, when two model entries of one id are each the
   );
 });
 
-test("mounts two agents on one model when they share its loop, or have loops that summarize alike", async () => {
+test("stops, naming the id and both windows, when two model entries of one id that the model catalog does not know give it different windows: pi would get two compactions for one id", async () => {
+  await assert.rejects(
+    mountDeployment(deployment("model-ids-windows")),
+    (error: Error) => {
+      assert.match(error.message, /^mount:/);
+      assert.match(error.message, /fireworks:small-model/);
+      assert.match(error.message, /64[,_]?000/);
+      assert.match(error.message, /32[,_]?000/);
+      return true;
+    },
+  );
+});
+
+test("mounts two agents on one model when they share its loop, or have loops that summarize alike, and on two model entries of one id with one window", async () => {
   for (const [name, agents] of [
     ["agents-two", ["chat", "lean"]],
     ["model-loops-alike", ["teller", "keeper"]],
+    ["model-ids-alike", ["teller", "auditor"]],
   ] as const) {
     const mounted = await mountDeployment(deployment(name));
     assert.deepEqual(
