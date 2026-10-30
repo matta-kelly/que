@@ -1,6 +1,6 @@
 /**
- * pi's `Storage` on Postgres: its conversations and entries, and the commit, id and close they need.
- * Tasks, submissions and documents are not written yet.
+ * pi's `Storage` on Postgres: its conversations, entries, tasks and submissions, and the commit, id and close they need.
+ * Documents are not written yet.
  */
 
 import type { Context } from "@earendil-works/chord/context";
@@ -18,7 +18,17 @@ import {
   scanEntries,
   writeEntry,
 } from "./entries.ts";
+import { page, scanSql, scanStart } from "./scan.ts";
 import { SETUP } from "./schema.ts";
+import {
+  scanSubmissions,
+  scanTasks,
+  submission,
+  submissionByRequest,
+  task,
+  writeSubmission,
+  writeTask,
+} from "./tasks.ts";
 
 /** What the storage runs its queries on: a pg client, PGlite, or anything with the same `query`. */
 export type Queryable = {
@@ -79,11 +89,10 @@ export function storageOn(db: Queryable): Storage {
                 throw new Error(`ID ${id} already belongs to conversation`);
             } else if (write.type === "entry") {
               await writeEntry(db, write.value, seq);
-            } else if (
-              write.type === "task" ||
-              write.type === "submission"
-            ) {
-              // B3's stub: the write is accepted and not stored, so the tests reach their assertions.
+            } else if (write.type === "task") {
+              await writeTask(db, write.value);
+            } else if (write.type === "submission") {
+              await writeSubmission(db, write.value);
             } else notImplemented();
             // A stored id the sequence has not reached moves it past that id, so mintId never gives it.
             await db.query(
@@ -102,7 +111,9 @@ export function storageOn(db: Queryable): Storage {
       inTurn(async () => {
         await open();
         const { rows } = await db.query("SELECT nextval('pi.ids') AS id");
-        return Number(rows[0].id) as I;
+        const id = Number(rows[0].id);
+        if (!Number.isSafeInteger(id)) throw new Error("ID space is exhausted");
+        return id as I;
       }),
     conversation: (id) =>
       inTurn(async () => {
@@ -116,14 +127,16 @@ export function storageOn(db: Queryable): Storage {
     scanConversations: (query, limit, cursor) =>
       inTurn(async () => {
         await open();
+        const start = scanStart(query.order, cursor, "ascending");
+        const { direction, clause, param } = scanSql(start);
         const { rows } = await db.query(
           `SELECT record FROM pi.conversations
-         WHERE id > $1
+         WHERE ${clause}
            AND ($2::bigint IS NULL OR owner_conversation_id = $2)
            AND ($3::bigint IS NULL OR owner_task_id = $3)
-         ORDER BY id LIMIT $4`,
+         ORDER BY id ${direction} LIMIT $4`,
           [
-            cursor?.after ?? 0,
+            param,
             query.ownerConversationId ?? null,
             query.ownerTaskId ?? null,
             limit + 1,
@@ -132,9 +145,7 @@ export function storageOn(db: Queryable): Storage {
         const items = rows
           .slice(0, limit)
           .map((row) => row.record as ConversationRecord);
-        return rows.length > limit
-          ? { items, next: { after: items.at(-1)!.id } }
-          : { items };
+        return page(items, rows.length > limit, start.order);
       }),
     async close() {
       closed = true;
@@ -157,12 +168,32 @@ export function storageOn(db: Queryable): Storage {
         await open();
         return scanEntries(db, query, limit, cursor);
       }),
-    // B3's stubs: a signature only, returning nothing, so the tests reach their assertions.
-    task: () => Promise.resolve(undefined),
-    scanTasks: () => Promise.resolve({ items: [] }),
-    submission: () => Promise.resolve(undefined),
-    scanSubmissions: () => Promise.resolve({ items: [] }),
-    submissionByRequest: () => Promise.resolve(undefined),
+    // B3's reads, each in the storage's turn like every other operation.
+    task: (id) =>
+      inTurn(async () => {
+        await open();
+        return task(db, id);
+      }),
+    scanTasks: (query, limit, cursor) =>
+      inTurn(async () => {
+        await open();
+        return scanTasks(db, query, limit, cursor);
+      }),
+    submission: (id) =>
+      inTurn(async () => {
+        await open();
+        return submission(db, id);
+      }),
+    scanSubmissions: (query, limit, cursor) =>
+      inTurn(async () => {
+        await open();
+        return scanSubmissions(db, query, limit, cursor);
+      }),
+    submissionByRequest: (conversationId, requestId) =>
+      inTurn(async () => {
+        await open();
+        return submissionByRequest(db, conversationId, requestId);
+      }),
     findDocument: notImplemented,
     document: notImplemented,
     scanDocuments: notImplemented,

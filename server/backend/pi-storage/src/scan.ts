@@ -3,6 +3,7 @@
 import {
   StorageRequestError,
   type Cursor,
+  type Page,
   type ScanOrder,
 } from "@earendil-works/pi-durable";
 
@@ -36,3 +37,28 @@ export function scanStart(
 
 const isOrder = (value: unknown): value is ScanOrder =>
   value === "ascending" || value === "descending";
+
+/** The id bound and direction of an ordered scan: it moves away from the cursor on its own side. */
+export function scanSql({ order, after }: { order: ScanOrder; after?: number }): {
+  direction: "ASC" | "DESC";
+  clause: string;
+  param: number;
+} {
+  const descending = order === "descending";
+  return {
+    direction: descending ? "DESC" : "ASC",
+    clause: descending ? "id < $1" : "id > $1",
+    param: after ?? (descending ? Number.MAX_SAFE_INTEGER : 0),
+  };
+}
+
+/** A page of the first `limit` items, with the cursor that continues it when a row remains. */
+export function page<T extends { readonly id: number }>(
+  items: T[],
+  more: boolean,
+  order: ScanOrder,
+): Page<T, Cursor> {
+  return more
+    ? { items, next: { after: items.at(-1)!.id, order } }
+    : { items };
+}

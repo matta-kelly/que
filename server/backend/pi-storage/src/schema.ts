@@ -8,6 +8,8 @@
  * - `pi.commit_seqs`: the sequence of each commit.
  * - `pi.entries`: each entry, by the conversation it is in, with its `head` and the sequence of the commit that wrote it.
  *   Its record is JSON text, not jsonb: jsonb refuses U+0000 and a lone surrogate, which JSON.stringify escapes.
+ * - `pi.tasks` and `pi.submissions`: each record, with the columns their scans filter and order on. Their records are
+ *   JSON text for the same reason as an entry's.
  */
 export const SETUP = `
   DO $$
@@ -35,5 +37,37 @@ export const SETUP = `
     );
     CREATE INDEX IF NOT EXISTS entries_by_conversation
       ON pi.entries (conversation_id, id);
+    CREATE TABLE IF NOT EXISTS pi.tasks (
+      id              bigint PRIMARY KEY,
+      conversation_id bigint  NOT NULL,
+      kind            text    NOT NULL,
+      status          text    NOT NULL,
+      abort_requested boolean NOT NULL,
+      background      boolean NOT NULL,
+      record          text    NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS tasks_by_status
+      ON pi.tasks (status, id);
+    CREATE INDEX IF NOT EXISTS tasks_by_conversation
+      ON pi.tasks (conversation_id, id);
+    CREATE INDEX IF NOT EXISTS tasks_by_kind
+      ON pi.tasks (kind, id);
+    CREATE INDEX IF NOT EXISTS tasks_by_abort_requested
+      ON pi.tasks (abort_requested, id);
+    CREATE INDEX IF NOT EXISTS tasks_by_background
+      ON pi.tasks (background, id);
+    CREATE TABLE IF NOT EXISTS pi.submissions (
+      id              bigint PRIMARY KEY,
+      conversation_id bigint NOT NULL,
+      request_id      text,
+      status          text   NOT NULL,
+      record          text   NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS submissions_by_request
+      ON pi.submissions (conversation_id, request_id);
+    CREATE INDEX IF NOT EXISTS submissions_by_conversation
+      ON pi.submissions (conversation_id, id);
+    CREATE INDEX IF NOT EXISTS submissions_by_status
+      ON pi.submissions (status, id);
   END
   $$`;
