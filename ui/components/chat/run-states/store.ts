@@ -1,7 +1,6 @@
 // What the chat knows of a run that did not go the plain way, by thread: that
 // its reply was stopped, and that the chat is picking its run up again. In
-// memory. That a thread was stopped is kept in its metadata too, beside its
-// title, so a reload and another tab show it.
+// memory. Nothing writes them now: F1 (stop) and F2 (rejoin) write them.
 
 import { create } from "zustand";
 

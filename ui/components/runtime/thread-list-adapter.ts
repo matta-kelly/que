@@ -3,13 +3,18 @@ import { threads, type QueThread } from "@/components/runtime/que-client";
 
 // The thread list, on que's server: a chat is a thread of the signed-in user's,
 // made when its first message is sent. que's server has no title for a thread,
-// and no route to rename, archive or delete one.
+// and no route to rename, archive, unarchive or delete one.
 const toMeta = (t: QueThread) => ({
   status: "regular" as const,
   remoteId: t.id,
   externalId: t.id,
   lastMessageAt: new Date(t.createdAt),
 });
+
+/** The stream a title comes in. */
+type TitleStream = Awaited<
+  ReturnType<RemoteThreadListAdapter["generateTitle"]>
+>;
 
 const unsupported = async () => {
   throw new Error("que's server cannot change a thread");
@@ -29,10 +34,10 @@ export const threadListAdapter: RemoteThreadListAdapter = {
   },
   rename: unsupported,
   archive: unsupported,
-  unarchive: unsupported,
   delete: unsupported,
   // No auto-titles yet: chats keep their default title.
   async generateTitle() {
-    return new ReadableStream({ start: (c) => c.close() }) as never;
+    const none: TitleStream = new ReadableStream({ start: (c) => c.close() });
+    return none;
   },
 };
