@@ -304,10 +304,10 @@ export async function run(
             round = { calls: callsOf(event.entry), results: 0, ends: 0 };
           if (event.type === "tool_execution_end" && event.entry) {
             round.results++;
-            if (
-              ToolResultEntry.is(event.entry) &&
-              endsRun(event.entry.model?.[0]?.details)
-            )
+            const result = ToolResultEntry.is(event.entry)
+              ? event.entry.model?.[0]
+              : undefined;
+            if (result?.role === "toolResult" && endsRun(result.details))
               round.ends++;
             // pi ended the run itself when every result asked; one that did not keeps it going, so it is ended here.
             if (
