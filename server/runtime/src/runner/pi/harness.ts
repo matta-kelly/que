@@ -192,12 +192,18 @@ function conversationFor(
  * depend on `send`: it goes on, and its ids are recorded, when no one reads
  * it. What it gives is the message of a model call that failed, if one did.
  * Its tools are the ops of `catalog`, each called through the door as `user`.
- * Its trace names `user`, the thread and `agent`, the agent config it runs.
+ * Its trace names `user`, the thread and `agent`, the agent config it runs,
+ * and holds `tags`.
  */
 export async function run(
   thread: string,
   model: Model,
-  { catalog, user, agent }: { catalog: Catalog; user: string; agent: string },
+  {
+    catalog,
+    user,
+    agent,
+    tags,
+  }: { catalog: Catalog; user: string; agent: string; tags?: string[] },
   {
     runId,
     before,
@@ -249,7 +255,7 @@ export async function run(
       }),
     );
     // A resend whose message is not placed yet is not in the conversation, so the rule cannot see it: pi's own idempotency gives the submission it has.
-    const submission = await tracing.ofRun({ user, thread, agent }, () =>
+    const submission = await tracing.ofRun({ user, thread, agent, tags }, () =>
       conversation.submit(
         {
           type: "input",

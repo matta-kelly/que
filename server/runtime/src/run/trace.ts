@@ -53,8 +53,25 @@ export type Settings = {
   release?: string;
 };
 
-/** What a trace says of its run. */
-export type Run = { user?: string; thread?: string; agent: string };
+/** What a trace says of its run. `tags` are on a run on pi only. */
+export type Run = {
+  user?: string;
+  thread?: string;
+  agent: string;
+  tags?: string[];
+};
+
+/** The tags que puts on a trace, when a run's input asks: "eval" is a run of the eval runner. */
+const TAGS = ["eval"];
+
+/**
+ * The tags of a run, from its AG-UI input's `forwardedProps.tags`: the ones
+ * que knows, so a client puts no label of its own on a trace.
+ */
+export function tagsOf(forwardedProps: unknown): string[] {
+  const { tags } = (forwardedProps ?? {}) as { tags?: unknown };
+  return Array.isArray(tags) ? TAGS.filter((tag) => tags.includes(tag)) : [];
+}
 
 type Env = Record<string, string | undefined>;
 
@@ -280,7 +297,8 @@ const hooks: HookRegistration[] = [
  * Starts the sending, one time, for runs on pi, and gives back what traces
  * them: the Harness's `telemetry`, the `hooks` of an extension, and `ofRun`,
  * in which a run submits its input, so the trace it starts is named after the
- * run's agent and holds its user, thread and agent, in each of its spans. With no settings, nothing.
+ * run's agent and holds its user, thread, agent and tags, in each of its
+ * spans. With no settings, nothing.
  */
 export function tracingOnPi(settings: Settings | undefined) {
   if (!settings)
@@ -296,6 +314,8 @@ export function tracingOnPi(settings: Settings | undefined) {
           sessionId: run.thread,
           metadata: { agent: run.agent },
           traceName: run.agent,
+          // A run with no tag has none on its trace.
+          tags: run.tags?.length ? run.tags : undefined,
           // In the baggage, so a carrier of pi's holds the run, and each span of the run has it.
           asBaggage: true,
         },

@@ -20,6 +20,8 @@
  * The thread runs the agent config it picks (run/threads.ts), else the
  * deployment's first, on the model it picks, else the agent's, with the ops
  * of the agent's plugins that the signed-in user can reach, as that user.
+ * The tags of its input's forwardedProps that que knows go on its trace
+ * (run/trace.ts): "eval" marks a run of the eval runner.
  */
 
 import { randomUUID } from "node:crypto";
@@ -40,6 +42,7 @@ import { messages, run, running, stop } from "../runner/pi/harness.js";
 import { configFor } from "./config.js";
 import { modelFor } from "./model.js";
 import type { SignedIn } from "./signed-in.js";
+import { tagsOf } from "./trace.js";
 
 /** A run that goes, as its viewers get it: its user message, the events it has given, and each viewer that joined. */
 type Going = {
@@ -69,7 +72,7 @@ export function runs(store: ThreadStore) {
     );
     if (!input.success)
       return c.json({ error: "the body is not a RunAgentInput" }, 400);
-    const { runId, messages } = input.data;
+    const { runId, messages, forwardedProps } = input.data;
     // The run is on the thread the URL names, whatever thread the body names.
     const threadId = thread.id;
     const last = messages.at(-1);
@@ -103,7 +106,7 @@ export function runs(store: ThreadStore) {
       const { error } = await run(
         threadId,
         model,
-        { catalog, user, agent: config.name },
+        { catalog, user, agent: config.name, tags: tagsOf(forwardedProps) },
         {
           runId,
           before: messages.slice(0, -1).map((m) => m.id),
