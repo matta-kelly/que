@@ -347,7 +347,7 @@ test_just_finds_the_container_by_the_labels_the_cli_sets() {
     return 1
   }
   assert_made_by_the_cli "$id" || return 1
-  assert_eq "$root" "$(field "$id" '{{index .Labels "devcontainer.local_folder"}}')" \
+  assert_eq "$root" "$(field "$id" '{{index .Config.Labels "devcontainer.local_folder"}}')" \
     "the container carries the label the CLI sets by default" || return 1
   found=$(just _container)
   assert_eq "$id" "$(podman inspect --format '{{.Id}}' "$found" 2>/dev/null)" \
