@@ -6,13 +6,12 @@
  * when this module loads, so one process owns a deployment. Each run goes on
  * the conversation the branch rule (branch.ts) chooses: the thread's, or one
  * it has left (its row keeps each), a fork of it, or a new one, which the
- * thread then points at. A new conversation gets
- * its agent then: a change to what the agent is built from takes effect from
- * the next chat, and a fork keeps its parent's. The model is the run's own:
- * a conversation on another model is moved to it, and to its effort. The user's catalog is read
- * at each run: each user has an extension of their own, installed again
- * with their catalog before each of their runs, and the thread's
- * conversation selects it.
+ * thread then points at. A new conversation gets its agent then: a change to
+ * what the agent is built from takes effect from the next chat, and a fork
+ * keeps its parent's. The model is the run's own: a conversation on another
+ * model is moved to it, and to its effort. The user's catalog is read at each
+ * run: each user has an extension of their own, installed again with their
+ * catalog before each of their runs, and the thread's conversation selects it.
  *
  * `models` is the pi-ai models collection the Harness reads at each use, with
  * Fireworks and the deployment's models on it from when this module loads.
