@@ -35,11 +35,48 @@ async function listed(page: Page): Promise<string[]> {
   return ((await res.json()) as Thread[]).map((t) => t.id);
 }
 
+const isRun = (path: string) => /^\/api\/threads\/[^/]+\/runs$/.test(path);
+
+type Message = { role: string; content?: unknown };
+
+/** The thread's messages, as que's server has them. */
+async function messagesOf(page: Page, thread: string): Promise<Message[]> {
+  const res = await page.request.get(`/api/threads/${thread}`);
+  expect(res.ok()).toBe(true);
+  return ((await res.json()) as { messages: Message[] }).messages;
+}
+
+/** The text of the thread's last message, when it is an answer of the assistant's. */
+async function answerOf(page: Page, thread: string) {
+  const last = (await messagesOf(page, thread)).at(-1);
+  return last?.role === "assistant" && typeof last.content === "string"
+    ? last.content
+    : "";
+}
+
+/**
+ * Send a message, and wait for its run to end: the run is posted to que's
+ * server once its thread is made, and it ends with an answer on the server and
+ * in the chat. The send button shows before that, as soon as the message is
+ * sent. Hands back the thread and the answer.
+ */
 async function send(page: Page, text: string) {
+  const posted = page.waitForRequest(
+    (req) => req.method() === "POST" && isRun(new URL(req.url()).pathname),
+  );
   const input = page.getByPlaceholder("Send a message...");
   await input.fill(text);
   await input.press("Enter");
-  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  const thread = new URL((await posted).url()).pathname.split("/")[3];
+  await expect
+    .poll(() => answerOf(page, thread), { timeout: 60_000 })
+    .not.toBe("");
+  const answer = await answerOf(page, thread);
+  await expect(page.locator('[data-role="assistant"]').last()).toContainText(
+    answer,
+  );
+  await expect(sendButton(page)).toBeVisible();
+  return { thread, answer };
 }
 
 async function newChat(page: Page) {
@@ -61,13 +98,14 @@ async function openChatWith(page: Page, text: string) {
       .nth(i)
       .locator('[data-slot="aui_thread-list-item-trigger"]')
       .click();
-    if (
-      await sent
-        .first()
-        .isVisible({ timeout: 5_000 })
-        .catch(() => false)
-    )
-      return;
+    // isVisible does not wait: the chat's messages load after the click.
+    const loaded = await expect(sent.first())
+      .toBeVisible({ timeout: 5_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    if (loaded) return;
   }
   throw new Error(`no chat near the top of the list holds "${text}"`);
 }
@@ -120,6 +158,32 @@ test("threads: switching to a thread loads its messages @live", async ({
     await expect(page.getByText(other)).toHaveCount(0);
     await expect(sendButton(page)).toBeVisible();
   }
+});
+
+test("threads: a tool turn shows as one reply, live and after a reload @live", async ({
+  page,
+}) => {
+  const asked = `Open one of your packages, and tell me its title. Read nothing else. (${Date.now()})`;
+  const replies = page.locator('[data-role="assistant"]');
+  const steps = replies.locator('[data-slot="marker"]');
+  await openApp(page);
+
+  // Live: the tool call and the answer after it are one reply.
+  const { answer } = await send(page, asked);
+  await expect(replies).toHaveCount(1);
+  await expect(steps.first()).toBeVisible();
+  await expect(replies.first()).toContainText(answer);
+  const live = await steps.count();
+
+  // After a reload, the chat loaded from que's server shows the same one reply.
+  await page.reload();
+  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
+  await openChatWith(page, asked);
+  await expect(page.locator('[data-role="user"]')).toHaveCount(1);
+  await expect(replies).toHaveCount(1);
+  await expect(steps.first()).toBeVisible();
+  await expect(replies.first()).toContainText(answer);
+  expect(await steps.count()).toBe(live);
 });
 
 // F3: a chat's own changes (rename, archive, delete) come back on que's routes.
