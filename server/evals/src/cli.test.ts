@@ -65,7 +65,7 @@ const threads = (sent: { method: string; path: string }[]) =>
 test("the command runs each case of a deployment under each of its agents, prints the report, and ends with a fault when a run did not finish", async () => {
   // que does not finish the runs under lean.
   const server = await replay(
-    (body) => body.config?.configurable?.agent === "lean",
+    (input) => input.forwardedProps?.agent === "lean",
   );
   try {
     const { code, out } = await command(server.url, shop);
@@ -76,7 +76,9 @@ test("the command runs each case of a deployment under each of its agents, print
       out.includes('  [chat]\n    call     open_plugin {"plugin":"shop"}\n'),
     );
     assert.ok(
-      out.includes('  [lean]\n    error    no agent "nope". Agents: chat\n'),
+      out.includes(
+        "  [lean]\n    error    401 Unauthorized: the API key is not valid.\n",
+      ),
     );
     assert.ok(
       out.includes(
@@ -111,7 +113,7 @@ test("the command stops, and says que is not up, when nothing answers", async ()
 test("with Langfuse set, the command prints the report, sends each agent's runs as one experiment, and prints a link to each", async () => {
   // que does not finish the runs under lean.
   const server = await replay(
-    (body) => body.config?.configurable?.agent === "lean",
+    (input) => input.forwardedProps?.agent === "lean",
   );
   const langfuse = await standIn();
   try {

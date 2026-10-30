@@ -175,7 +175,11 @@ const evalsAlone: Rule = {
 };
 const langGraphSdk: Rule = {
   path: /langgraph/,
-  why: "Only evals/src/que.ts imports the LangGraph SDK.",
+  why: "The eval runner talks to que's server over AG-UI, through evals/src/que.ts: it imports no LangGraph SDK.",
+};
+const agUiClient: Rule = {
+  path: /^@ag-ui\/client$/,
+  why: "Only evals/src/que.ts imports AG-UI's client, the eval runner's one door to que's server.",
 };
 const langfuseSdk: Rule = {
   path: /^@(?:langfuse|opentelemetry)\//,
@@ -224,6 +228,7 @@ export default defineConfig([
       providers,
       evalsAlone,
       langGraphSdk,
+      agUiClient,
       langfuseSdk,
       judgeModel,
       evalsFramework,
@@ -239,7 +244,8 @@ export default defineConfig([
       langfuseSdk,
       judgeModel,
       evalsFramework,
-      mustImport(langGraphSdk.path, langGraphSdk.why),
+      langGraphSdk,
+      mustImport(agUiClient.path, agUiClient.why),
     ],
   ),
   hold(
@@ -249,6 +255,7 @@ export default defineConfig([
       providers,
       evalsAlone,
       langGraphSdk,
+      agUiClient,
       judgeModel,
       evalsFramework,
       mustImport(langfuseSdk.path, langfuseSdk.why),
@@ -261,6 +268,7 @@ export default defineConfig([
       providers,
       evalsAlone,
       langGraphSdk,
+      agUiClient,
       langfuseSdk,
       evalsFramework,
       mustImport(judgeModel.path, judgeModel.why),

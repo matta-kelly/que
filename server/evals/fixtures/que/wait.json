@@ -1,134 +1,48 @@
-{
-  "messages": [
-    {
-      "content": "What can you do? Answer in one sentence.",
-      "additional_kwargs": {},
-      "response_metadata": {},
-      "id": "message-1",
-      "type": "human"
-    },
-    {
-      "content": "",
-      "additional_kwargs": {
-        "reasoning_content": "The user asks what I can do. I should open the shop plugin to see operations.",
-        "tool_calls": [
-          {
-            "index": 0,
-            "id": "call_27f98a239e7c45149a7b1afc",
-            "type": "function",
-            "function": {
-              "name": "open_plugin",
-              "arguments": "{\"plugin\":\"shop\"}"
-            }
-          }
-        ]
-      },
-      "response_metadata": {
-        "model_provider": "openai",
-        "usage": {
-          "prompt_tokens": 767,
-          "total_tokens": 828,
-          "completion_tokens": 61,
-          "prompt_tokens_details": {
-            "cached_tokens": 638
-          },
-          "completion_tokens_details": {
-            "reasoning_tokens": 20
-          },
-          "output_tokens_details": {
-            "reasoning_tokens": 20
-          }
-        }
-      },
-      "tool_call_chunks": [
-        {
-          "name": "open_plugin",
-          "args": "{\"plugin\":\"shop\"}",
-          "id": "call_27f98a239e7c45149a7b1afc",
-          "index": 0,
-          "type": "tool_call_chunk"
-        }
-      ],
-      "tool_calls": [
-        {
-          "name": "open_plugin",
-          "args": {
-            "plugin": "shop"
-          },
-          "id": "call_27f98a239e7c45149a7b1afc",
-          "type": "tool_call"
-        }
-      ],
-      "id": "message-2",
-      "usage_metadata": {
-        "input_tokens": 767,
-        "output_tokens": 61,
-        "total_tokens": 828,
-        "input_token_details": {
-          "cache_read": 638
-        },
-        "output_token_details": {
-          "reasoning": 20
-        }
-      },
-      "invalid_tool_calls": [],
-      "name": "model",
-      "type": "ai"
-    },
-    {
-      "status": "success",
-      "content": "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- find-orders: Find orders. Search orders by customer name.",
-      "tool_call_id": "call_27f98a239e7c45149a7b1afc",
-      "name": "open_plugin",
-      "metadata": {
-        "versions": {
-          "@langchain/core": "1.2.12"
-        }
-      },
-      "additional_kwargs": {},
-      "response_metadata": {},
-      "id": "message-3",
-      "type": "tool"
-    },
-    {
-      "content": "I can find the shop's orders by customer name.",
-      "additional_kwargs": {
-        "reasoning_content": "The user asks \"What can you do? Answer in one sentence.\" I should answer concisely. Maybe load operations? Just answer based on what's available.\n\nI can answer in one sentence: I can look up Shop customer companies, their addresses, and buyers via find-partners and get-company."
-      },
-      "response_metadata": {
-        "model_provider": "openai",
-        "usage": {
-          "prompt_tokens": 939,
-          "total_tokens": 1055,
-          "completion_tokens": 116,
-          "prompt_tokens_details": {
-            "cached_tokens": 810
-          },
-          "completion_tokens_details": {
-            "reasoning_tokens": 63
-          },
-          "output_tokens_details": {
-            "reasoning_tokens": 63
-          }
-        }
-      },
-      "tool_call_chunks": [],
-      "tool_calls": [],
-      "id": "message-4",
-      "usage_metadata": {
-        "input_tokens": 939,
-        "output_tokens": 116,
-        "total_tokens": 1055,
-        "input_token_details": {
-          "cache_read": 810
-        },
-        "output_token_details": {
-          "reasoning": 63
-        }
-      },
-      "invalid_tool_calls": [],
-      "name": "model",
-      "type": "ai"
-    }
-  ]
-}
+[
+  {
+    "type": "RUN_STARTED",
+    "threadId": "1af74741-7276-46f7-a98d-05983676a6f4",
+    "runId": "11cfb1ba-c648-4a90-94b9-e6e8fa924ff6"
+  },
+  {
+    "type": "TOOL_CALL_START",
+    "toolCallId": "call-1",
+    "toolCallName": "open_plugin",
+    "parentMessageId": "9.1"
+  },
+  {
+    "type": "TOOL_CALL_ARGS",
+    "toolCallId": "call-1",
+    "delta": "{\"plugin\":\"shop\"}"
+  },
+  {
+    "type": "TOOL_CALL_END",
+    "toolCallId": "call-1"
+  },
+  {
+    "type": "TOOL_CALL_RESULT",
+    "messageId": "call-1",
+    "toolCallId": "call-1",
+    "role": "tool",
+    "content": "# Shop (`shop`)\nThe shop's order system.\n## Operations\n- find-orders: Find orders. Search orders by customer name."
+  },
+  {
+    "type": "TEXT_MESSAGE_START",
+    "messageId": "9.2",
+    "role": "assistant"
+  },
+  {
+    "type": "TEXT_MESSAGE_CONTENT",
+    "messageId": "9.2",
+    "delta": "I can find the shop's orders by customer name."
+  },
+  {
+    "type": "TEXT_MESSAGE_END",
+    "messageId": "9.2"
+  },
+  {
+    "type": "RUN_FINISHED",
+    "threadId": "1af74741-7276-46f7-a98d-05983676a6f4",
+    "runId": "11cfb1ba-c648-4a90-94b9-e6e8fa924ff6"
+  }
+]
