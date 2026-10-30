@@ -55,6 +55,8 @@ type Held = {
   whoami?: boolean;
   /** What its skill, `<name>-guide`, lists in its allowed-tools, space-separated. None when left out. */
   skillUses?: string[];
+  /** What its ops, each `<name>-find`, list in their uses. None when left out. */
+  opUses?: string[];
   usesOps?: string[];
   usesSkills?: string[];
   roles?: string[];
@@ -75,6 +77,7 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     connect,
     whoami,
     skillUses,
+    opUses,
     usesOps,
     usesSkills,
     roles,
@@ -98,7 +101,7 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     `ops: [${ops
       .map(
         (role) =>
-          `{ name: ${text(`${name}-find`)}, type: "op", title: "Find", description: "Finds a thing.", ${role ? `role: ${text(role)}, ` : ""}input: z.object({}), run: async () => ({}) }`,
+          `{ name: ${text(`${name}-find`)}, type: "op", title: "Find", description: "Finds a thing.", ${role ? `role: ${text(role)}, ` : ""}${opUses ? `uses: ${text(opUses)}, ` : ""}input: z.object({}), run: async () => ({}) }`,
       )
       .join(", ")}]`,
     capabilities &&
@@ -443,5 +446,105 @@ test("a root of plugins finds a domain that gives whoami, as one with a credenti
     const whoami = problems.find(([, field]) => field === "/whoami");
     assert.match(String(whoami?.[2]), /whoami/);
     assert.match(String(whoami?.[2]), /domain/);
+  }
+});
+
+const opOf = (name: string) => `${definitionOf(name)}#ops/${name}-find`;
+
+test("a root of plugins takes an op whose uses are ops, and finds each name that is no op, by basis/link on its uses", async () => {
+  assert.deepEqual(
+    await said(
+      plugin("odoo"),
+      plugin("warehouse"),
+      plugin("pim", {
+        kind: "domain",
+        opUses: ["odoo-find", "warehouse-find"],
+      }),
+    ),
+    [],
+  );
+  const cases: [string, RegExp][] = [
+    ["odoo-gone", /^It points at odoo-gone, which is not a node\.$/],
+    // A skill is a node, and not an op.
+    ["odoo-guide", /odoo-guide/],
+  ];
+  for (const [name, message] of cases) {
+    const problems = await said(
+      plugin("odoo"),
+      plugin("pim", { kind: "domain", opUses: ["odoo-find", name] }),
+    );
+    assert.deepEqual(
+      problems.map(([path, rule, field]) => [path, rule, field]),
+      [[opOf("pim"), "basis/link", "/uses"]],
+      name,
+    );
+    assert.match(String(problems[0][3]), message, name);
+  }
+});
+
+test("a root of plugins finds an op of a connector that lists anything in its uses, and takes one that lists none", async () => {
+  for (const kind of [undefined, "connector"])
+    assert.deepEqual(
+      await said(plugin("odoo", { kind, opUses: [] })),
+      [],
+      `kind ${kind}`,
+    );
+  const cases: [string, Held, Record<string, string>[]][] = [
+    // Another connector's op.
+    ["warehouse", { opUses: ["odoo-find"] }, [plugin("odoo")]],
+    [
+      "warehouse",
+      { kind: "connector", opUses: ["odoo-find"] },
+      [plugin("odoo")],
+    ],
+    // Its own op.
+    ["odoo", { opUses: ["odoo-find"] }, []],
+  ];
+  for (const [name, held, others] of cases) {
+    const got = await said(...others, plugin(name, held));
+    const label = `${name} ${JSON.stringify(held)}`;
+    assert.equal(got.length, 1, label);
+    ruled(got);
+    const [[path, , , message]] = got;
+    assert.ok(String(path).startsWith(definitionOf(name)), label);
+    assert.match(String(message), new RegExp(`${name}-find`), label);
+    assert.match(String(message), /connector/, label);
+  }
+});
+
+test("a root of plugins finds a name a domain's op lists that is no connector's op, and takes a connector's", async () => {
+  for (const kind of [undefined, "connector"])
+    assert.deepEqual(
+      await said(
+        plugin("odoo", { kind }),
+        plugin("pim", { kind: "domain", opUses: ["odoo-find"] }),
+      ),
+      [],
+      `kind ${kind}`,
+    );
+  const cases: [string, Record<string, string>[]][] = [
+    // Another domain's op.
+    [
+      "pim-find",
+      [
+        plugin("odoo"),
+        plugin("pim", { kind: "domain", opUses: ["odoo-find"] }),
+        plugin("sales", { kind: "domain", opUses: ["pim-find"] }),
+      ],
+    ],
+    // Its own op, which is a domain's.
+    [
+      "sales-find",
+      [plugin("sales", { kind: "domain", opUses: ["sales-find"] })],
+    ],
+  ];
+  for (const [name, plugins] of cases) {
+    const got = await said(...plugins);
+    assert.equal(got.length, 1, name);
+    ruled(got);
+    const [[path, , , message]] = got;
+    assert.ok(String(path).startsWith(definitionOf("sales")), name);
+    assert.match(String(message), new RegExp(name), name);
+    assert.match(String(message), /connector/, name);
   }
 });

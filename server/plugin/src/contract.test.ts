@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
 import * as zm from "zod/mini";
-import { definePlugin, readDefinition } from "./contract.ts";
+import { definePlugin, readDefinition, type Op } from "./contract.ts";
 
 const notes = {
   name: "notes",
@@ -254,4 +254,96 @@ test("definePlugin takes an op input of zod/mini, its fields described in zod's 
       .ops[0].input,
     input,
   );
+});
+
+// Whether two types are the same type, as the compiler reads them.
+type Same<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false;
+
+/** The context an op's run gets. */
+type Context<O extends { run(ctx: never, params: never): unknown }> =
+  Parameters<O["run"]>[0];
+
+type Conn = { query(sql: string): Promise<unknown[]> };
+const word = z.object({ word: z.string().describe("The word to find") });
+
+// A type test: the compiler holds it (tsc, which runs on every test file), and each `@ts-expect-error` is an
+// assertion that the line after it does not compile.
+test("an op's context follows its kind: a connector op gets { conn }, and a domain op gets { ops }, as its plugin says", () => {
+  const connector: Same<Context<Op<Conn, typeof word>>, { conn: Conn }> = true;
+  const domain: Same<
+    Context<Op<unknown, typeof word, "domain">>,
+    { ops: Record<string, (params: unknown) => Promise<unknown>> }
+  > = true;
+
+  const find: Op<Conn, typeof word> = {
+    ...search,
+    input: word,
+    run: async ({ conn }, { word }) => conn.query(word),
+  };
+  const findBy: Op<Conn, typeof word, "connector"> = {
+    ...search,
+    input: word,
+    // @ts-expect-error a connector op's context has no ops
+    run: async ({ ops }, { word }) => ops["notes-search"]({ word }),
+  };
+  const push: Op<unknown, typeof word, "domain"> = {
+    ...search,
+    name: "pim-push",
+    input: word,
+    run: async ({ ops }, { word }) => ops["notes-search"]({ word }),
+  };
+  const pushBy: Op<unknown, typeof word, "domain"> = {
+    ...search,
+    name: "pim-push",
+    input: word,
+    // @ts-expect-error a domain op's context has no conn
+    run: async ({ conn }) => conn,
+  };
+
+  // An op in a plugin's definition takes its context from the plugin's kind.
+  const pim = definePlugin({
+    ...notes,
+    name: "pim",
+    kind: "domain",
+    ops: [
+      {
+        ...search,
+        name: "pim-push",
+        run: async (ctx) => ctx.ops["notes-search"]({ word: "linen" }),
+      },
+    ],
+  });
+  definePlugin({
+    ...notes,
+    name: "pim",
+    kind: "domain",
+    ops: [
+      {
+        ...search,
+        name: "pim-push",
+        // @ts-expect-error a domain's op has no conn
+        run: async (ctx) => ctx.conn,
+      },
+    ],
+  });
+  definePlugin({
+    ...notes,
+    ops: [
+      {
+        ...search,
+        // @ts-expect-error a connector's op, by its plugin leaving out its kind, has no ops
+        run: async (ctx) => ctx.ops["notes-read"]({}),
+      },
+    ],
+  });
+
+  assert.equal(connector && domain, true);
+  assert.deepEqual(
+    [find, findBy, push, pushBy].map(({ input }) => input),
+    [word, word, word, word],
+  );
+  assert.equal(pim.plugin.kind, "domain");
 });

@@ -23,13 +23,15 @@ export class OpFailed extends Error {
 }
 
 /** One operation a plugin exposes: an op node. Its name is its tool's name. `run` gets the connection and the input. */
-export type Op<Conn = unknown, S extends z.ZodObject = z.ZodObject> = Omit<
-  NodeOf<"op">,
-  "input" | "run"
-> & {
+export type Op<
+  Conn = unknown,
+  S extends z.ZodObject = z.ZodObject,
+  // Stub for I4's tests: the kind of the plugin that holds the op. Not read yet: the conditional gives unknown.
+  K extends "connector" | "domain" = "connector",
+> = Omit<NodeOf<"op">, "input" | "run"> & {
   input: S;
   run(ctx: { conn: Conn }, params: z.infer<S>): Promise<unknown>;
-};
+} & (K extends unknown ? unknown : never);
 
 /** One outcome a plugin gives: a capability node. Its cases name it. */
 export type Capability = NodeOf<"capability">;

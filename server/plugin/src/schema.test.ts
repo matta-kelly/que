@@ -129,3 +129,16 @@ test("a skill lists the ops it uses, or none; a list that is not of names fails,
   for (const uses of ["warehouse-get-fabric", [1]])
     assert.deepEqual(issueOf("skill", { ...guide, uses })?.path?.[0], "uses");
 });
+
+test("an op lists the ops it uses, or none; a list that is not of names fails, on its uses", () => {
+  for (const uses of [["odoo-search"], ["odoo-search", "odoo-write-partner"]]) {
+    let parsed: unknown;
+    assert.doesNotThrow(() => {
+      parsed = plugin.parse("op", { ...getFabric, uses });
+    }, uses.join(" "));
+    assert.deepEqual(parsed, { ...getFabric, uses });
+  }
+  assert.doesNotThrow(() => plugin.parse("op", getFabric));
+  for (const uses of ["odoo-search", [1]])
+    assert.deepEqual(issueOf("op", { ...getFabric, uses })?.path?.[0], "uses");
+});
