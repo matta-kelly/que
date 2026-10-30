@@ -3,8 +3,14 @@
  * none. Run with `npm run server`.
  */
 
-import { serve } from "@hono/node-server";
-import { app } from "./serve.js";
+import { checkAccessSettings } from "@que/identity";
+
+// Before anything opens a database or a port: a start with a bad identity
+// setting stops here, and names it.
+checkAccessSettings();
+
+const { serve } = await import("@hono/node-server");
+const { app } = await import("./serve.js");
 
 const port = Number(process.env.PORT) || 2024;
 

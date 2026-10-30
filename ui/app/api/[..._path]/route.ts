@@ -52,7 +52,7 @@ async function handleRequest(req: NextRequest, method: string) {
     if (lastEventId) headers.set("last-event-id", lastEventId);
 
     // Who's asking is decided by que's server. Pass along Cloudflare Access's
-    // signed identity token for when that's wired in.
+    // signed identity token: que verifies it and takes the email from it.
     const accessToken = req.headers.get("cf-access-jwt-assertion");
     if (accessToken) headers.set("cf-access-jwt-assertion", accessToken);
 
