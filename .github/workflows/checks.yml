@@ -48,10 +48,12 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # The folders the server set reads: the check script, the server, and the template deployment, which a test mounts.
+          # The folders the server set reads: the check script, the server, the template deployment, which a test mounts,
+          # and the workflows, since a test reads the pair's release in publish.yml.
           # The files at the repo's root come too, as they do in every sparse checkout in cone mode: a test reads README.md, and a pack copies LICENSE.
           # Without ui/ on disk, a pass proves the server stands alone.
           sparse-checkout: |
+            .github
             scripts
             server
             templates

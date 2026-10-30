@@ -1,12 +1,14 @@
-# Publishes a package of que's on npm when a version tag of it is pushed: @mku1tra/que-plugin by a `que-plugin-v*` tag,
-# @mku1tra/que-harness by a `que-harness-v*` tag. The server set first, then `npm publish` by trusted publishing (OIDC),
-# with no token and with provenance. The tag is the gate: a ruleset lets only an admin of the repo make such a tag.
-# npmjs.com holds the other half: each package's Trusted Publisher names this repo and this file.
+# Publishes the pair, @mku1tra/que-plugin and @mku1tra/que-harness, on npm when a `que-pair-*` tag is pushed: one tag,
+# one job. The server set first, then the guard of the pair's release (server/scripts/pair-release-live.ts), which reads
+# npm's live records and names which of the pair to publish, or refuses the release. Then `npm publish` of what the guard
+# names, plugin before harness, by trusted publishing (OIDC), with no token and with provenance. Only the guard decides:
+# a version npm has already is never a pass on its own. The tag is the gate: a ruleset lets only an admin of the repo
+# make such a tag. npmjs.com holds the other half: each package's Trusted Publisher names this repo and this file.
 name: publish
 
 on:
   push:
-    tags: ["que-plugin-v*", "que-harness-v*"]
+    tags: ["que-pair-*"]
 
 permissions:
   contents: read
@@ -28,21 +30,25 @@ jobs:
           registry-url: https://registry.npmjs.org
       # Trusted publishing needs npm 11.5.1 or later; Node 22 has npm 10.
       - run: npm install --global npm@11.21.0
-      # The tag names the package, que-<folder>-v<version>: its folder in server/ and the version in its package.json.
-      - name: The tag is the package's version
-        run: |
-          folder=${GITHUB_REF_NAME#que-}
-          folder=${folder%%-v*}
-          echo "FOLDER=server/$folder" >>"$GITHUB_ENV"
-          test "que-$folder-v$(node -p "require('./server/$folder/package.json').version")" = "$GITHUB_REF_NAME"
       - run: scripts/check.sh server
-      # A version npm has already is left as it is: a run again, or the first version, published by hand.
-      - name: Publish, if npm does not have this version
-        working-directory: ${{ env.FOLDER }}
+      # Writes plugin=true|false and harness=true|false, or refuses and stops the job.
+      - id: guard
+        name: The guard of the pair's release, on npm's records
+        working-directory: server
+        run: npx tsx scripts/pair-release-live.ts
+      - id: plugin
+        name: Publish @mku1tra/que-plugin
+        if: steps.guard.outputs.plugin == 'true'
+        working-directory: server/plugin
+        run: npm publish
+      - id: harness
+        name: Publish @mku1tra/que-harness
+        if: steps.guard.outputs.harness == 'true'
+        working-directory: server/harness
+        run: npm publish
+      # A partial publish: plugin is on npm and harness is not. A run again of the tag's run publishes harness alone.
+      - name: A partial publish
+        if: failure() && steps.plugin.outcome == 'success'
         run: |
-          package=$(node -p 'require("./package.json").name')@$(node -p 'require("./package.json").version')
-          if npm view "$package" version >/dev/null 2>&1; then
-            echo "npm has $package already"
-          else
-            npm publish
-          fi
+          echo "::error::npm holds @mku1tra/que-plugin alone: run the tag's run again, which publishes @mku1tra/que-harness"
+          exit 1
