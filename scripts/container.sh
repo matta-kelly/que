@@ -74,6 +74,10 @@ else
       --mount "type=volume,source=que-deployment-node-modules-$id-$(printf '%s' "$top" | sha256sum | cut -c1-12),target=$top/node_modules")
   fi
   [ -z "$c" ] || echo "The dev container cannot see $folder. Making it again with that folder mounted, which takes a few minutes." >&2
+  # A create that is stopped rather than failing, by TERM, HUP or a closed terminal, leaves a container
+  # whose install never finished. It goes with this script, so the next run makes one and runs the install
+  # instead of taking the start branch and checking a half-installed folder.
+  trap remove_container EXIT
   # The file's install failing is the CLI's non-zero exit. Its container is removed, so the next run makes
   # one and runs the install instead of reusing a half-installed container.
   code=0
@@ -87,10 +91,8 @@ else
     code=0
     cli_up || code=$?
   fi
-  if [ "$code" -ne 0 ]; then
-    remove_container
-    exit 1
-  fi
+  [ "$code" -eq 0 ] || exit 1
+  trap - EXIT
   c=$(podman ps -aq --filter "label=devcontainer.local_folder=$root" | head -1)
   created=true
 fi
