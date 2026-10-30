@@ -20,7 +20,7 @@ import {
   LOAD_OPERATION,
   OPEN_PLUGIN,
   READ_SKILL,
-  READ_SKILL_DESCRIPTION,
+  readSkillDescription,
 } from "../../assemble/names.js";
 import {
   load,
@@ -99,7 +99,8 @@ export function extension(
   );
   const readSkill: ToolRegistration = {
     name: READ_SKILL,
-    description: READ_SKILL_DESCRIPTION,
+    // On-demand lists a skill in open_plugin too; eager only in the prompt.
+    description: readSkillDescription(way.deferred),
     parameters: schemaOf(
       z.strictObject({
         id: z.string().describe("Skill id, e.g. odoo-lookup-company"),

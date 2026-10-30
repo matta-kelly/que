@@ -7,7 +7,7 @@ import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
-import { READ_SKILL, READ_SKILL_DESCRIPTION } from "./names.js";
+import { READ_SKILL, readSkillDescription } from "./names.js";
 
 function readSkill(catalog: Catalog): StructuredTool {
   const skills = new Map(
@@ -23,7 +23,8 @@ function readSkill(catalog: Catalog): StructuredTool {
     },
     {
       name: READ_SKILL,
-      description: READ_SKILL_DESCRIPTION,
+      // The LangGraph path keeps one wording for both ways until it goes (D1).
+      description: readSkillDescription(true),
       schema: z.object({
         id: z.string().describe("Skill id, e.g. odoo-lookup-company"),
       }),
