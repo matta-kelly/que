@@ -101,6 +101,10 @@ const toThread = (r: Row): Thread => ({
   model: r.model,
 });
 
+/** A row from before F3 keeps its conversation among the ones it has been on. */
+const BACKFILL = `UPDATE threads SET conversations = ARRAY[conversation]
+  WHERE conversation IS NOT NULL AND cardinality(conversations) = 0`;
+
 /** The columns a change may set: the keys of `ThreadChange`. */
 const CHANGED = ["title", "archived", "agent", "model"] as const;
 
@@ -119,7 +123,10 @@ export function createStore(
 
 /** The store, on a database it sets up first (`SETUP`). */
 export function storeOn(db: Queryable): ThreadStore {
-  const ready = db.query(SETUP).then(() => db.query(ALTER));
+  const ready = db
+    .query(SETUP)
+    .then(() => db.query(ALTER))
+    .then(() => db.query(BACKFILL));
 
   return {
     async make(owner, pick = {}) {
@@ -157,16 +164,12 @@ export function storeOn(db: Queryable): ThreadStore {
     async conversationsOf(id) {
       await ready;
       const { rows } = await db.query(
-        "SELECT conversation, conversations FROM threads WHERE id = $1",
+        "SELECT conversations FROM threads WHERE id = $1",
         [id],
       );
-      const row = rows[0];
-      if (!row?.conversation) return [];
-      // A thread made before F3 has its conversation, and no others kept.
-      const others = (row.conversations as string[]).filter(
-        (c) => c !== row.conversation,
-      );
-      return [row.conversation, ...others.reverse()];
+      return [
+        ...((rows[0]?.conversations as string[] | undefined) ?? []),
+      ].reverse();
     },
     async setConversation(id, conversation) {
       await ready;
