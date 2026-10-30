@@ -124,7 +124,7 @@ function heldIn(list: unknown, field: Held, type: Kind) {
 // The lists of a plugin that its code does not give: its skills, by their folders, and its cases, by its cases.ts; and
 // its usesOps, made from its ops' and skills' uses when it is read (readPlugin). A list given in code would be dropped
 // for the one made, so it is a fault.
-const fromFolder = (plugin: unknown): string[] =>
+const notInCode = (plugin: unknown): string[] =>
   typeof plugin === "object" && plugin !== null
     ? [
         ...("skills" in plugin
@@ -180,7 +180,7 @@ export function definePlugin<
   refuse(
     `plugin${typeof own.name === "string" ? ` ${own.name}` : ""} is invalid`,
     [
-      ...fromFolder(own),
+      ...notInCode(own),
       ...faultsOf("", "plugin", plugin),
       ...held.ops.faults,
       ...held.roles.faults,
@@ -221,7 +221,7 @@ export function readDefinition(
     ),
   );
   const found = [
-    ...fromFolder(given.plugin).map((fault) => `plugin ${fault}`),
+    ...notInCode(given.plugin).map((fault) => `plugin ${fault}`),
     ...faultsOf("plugin", "plugin", given.plugin),
     ...lists.flatMap((list) => list.faults),
   ];
