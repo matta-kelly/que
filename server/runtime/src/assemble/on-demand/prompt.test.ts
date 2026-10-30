@@ -1,6 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assemble } from "../assemble.js";
 import type { Catalog } from "../../access/catalog.js";
 import {
   besideNothing,
@@ -8,12 +7,13 @@ import {
   identityOnly,
   skillsOnly,
 } from "../fixture.js";
-import { onDemand } from "./index.js";
+import { systemPrompt as shared } from "../prompt.js";
+import { prompt as environment } from "./prompt.js";
 
 const systemPrompt = (the: {
   user?: { name: string; email: string };
   catalog: Catalog;
-}) => assemble(onDemand, { ...the, call: async () => undefined }).systemPrompt;
+}) => shared({ ...the, environment });
 
 const prompt = systemPrompt({
   user: { name: "Ann User", email: "ann@example.test" },

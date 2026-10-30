@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assemble } from "../assemble.js";
 import type { Catalog } from "../../access/catalog.js";
 import { catalog, identityOnly, mixed, skillsOnly } from "../fixture.js";
-import { eager } from "./index.js";
+import { systemPrompt as shared } from "../prompt.js";
+import { prompt } from "./prompt.js";
 
 const systemPrompt = (catalog: Catalog) =>
-  assemble(eager, { catalog, call: async () => undefined }).systemPrompt;
+  shared({ catalog, environment: prompt });
 
 const HEAD = [
   "You are a helpful assistant.",
