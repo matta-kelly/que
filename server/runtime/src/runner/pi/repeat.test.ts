@@ -5,10 +5,20 @@
  * one tool call to a response, so no model is called. The guard is in
  * que's run of each tool, so every run has it. A saved chat is the turns
  * before on the same conversation.
+ *
+ * A round with more than one call is stopped by que's host, in the watch of
+ * harness.ts's run, so those cases run through that run, on a thread of
+ * their own: on a database of their own (PGlite, served on a local port) and
+ * the fixture deployment "two".
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { PGlite } from "@electric-sql/pglite";
+import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
+import { EventType, type AGUIEvent } from "@ag-ui/core";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
 import {
@@ -26,12 +36,34 @@ import {
 } from "@earendil-works/pi-durable";
 import * as z from "zod";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
+import type { Model } from "@mku1tra/que-harness";
+import { createStore } from "@que/threads";
 import type { Catalog } from "../../access/catalog.js";
 import { door } from "../../assemble/door.js";
+import { deploymentRoot } from "../../../../tests/deployment-root.js";
 import { extension } from "./extension.js";
+
+const db = await PGlite.create();
+const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
+await database.start();
+process.env.DATABASE_URL = `postgresql://postgres@${database.getServerConn()}/postgres`;
+process.env.QUE_DEPLOYMENT = deploymentRoot(
+  join(import.meta.dirname, "../../../../tests/integration/mount/fixtures"),
+  "two",
+);
+const host = await import("./harness.js");
+const threads = createStore();
+
+after(async () => {
+  await database.stop();
+  await db.close();
+});
 
 /** What get-order fails with in this turn, for an order id below zero; with none, it answers. */
 let failure: string | undefined;
+
+/** What a failing get-order waits for before it fails, if anything. */
+let held: Promise<void> | undefined;
 
 const shop = definePlugin({
   name: "shop",
@@ -46,7 +78,10 @@ const shop = definePlugin({
       description: "One order with its lines.",
       input: z.object({ id: z.number().describe("Order id") }),
       run: async (_, { id }) => {
-        if (id < 0 && failure !== undefined) throw new OpFailed(failure);
+        if (id < 0 && failure !== undefined) {
+          await held;
+          throw new OpFailed(failure);
+        }
         return { id };
       },
     },
@@ -69,6 +104,17 @@ const faux = fauxProvider({
 });
 const models = createModels();
 models.setProvider(faux.provider);
+host.models.setProvider(faux.provider);
+
+/** The model config the host's runs are on: faux's model, under Fireworks' id. */
+const small: Model = {
+  name: "small",
+  type: "model",
+  description: "A model of a test.",
+  id: "fireworks:small-model",
+  window: 1_000_000,
+  maxTokens: 8_000,
+};
 
 type Args = Parameters<typeof fauxToolCall>[1];
 type Result = { id: string; isError: boolean; text: string };
@@ -339,31 +385,91 @@ test(
   },
 );
 
+/** The model's responses: one for each item of `calls`, a list of arguments a call for each (`c<i>.<j>`), then `answer`. How many were asked for, so far. */
+function script(calls: (Args | Args[])[], answer = "Done.") {
+  const asked = { count: 0 };
+  faux.setResponses([
+    ...calls.map((args, i) => () => {
+      asked.count++;
+      return fauxAssistantMessage(
+        Array.isArray(args)
+          ? args.map((one, j) =>
+              fauxToolCall("shop-get-order", one, { id: `c${i}.${j}` }),
+            )
+          : fauxToolCall("shop-get-order", args, { id: `c${i}` }),
+        { stopReason: "toolUse" },
+      );
+    }),
+    () => {
+      asked.count++;
+      return fauxAssistantMessage(fauxText(answer));
+    },
+  ]);
+  return asked;
+}
+
+/** A thread of Ana's, and the ids of the messages its client knows, as the AG-UI events of its runs give them. */
+async function hostThread() {
+  const { id } = await threads.make("ana");
+  const known: string[] = [];
+
+  /**
+   * One run through the host: the user's message, with the messages the
+   * client knows before it. Each tool result of the run, by its call, the
+   * text of its answers, and its error, if any. `seen` gets each event.
+   */
+  async function send(seen?: (event: AGUIEvent) => void) {
+    const last = { id: randomUUID(), content: "Get order -1." };
+    const before = [...known];
+    known.push(last.id);
+    const results = new Map<string, string>();
+    const texts: string[] = [];
+    const { error } = await host.run(
+      id,
+      small,
+      { catalog, user: "ana", agent: "test", prompt: {} },
+      { runId: randomUUID(), before, last },
+      async (event) => {
+        if (event.type === EventType.TOOL_CALL_START)
+          known.push(event.parentMessageId ?? "", event.toolCallId);
+        if (event.type === EventType.TEXT_MESSAGE_START)
+          known.push(event.messageId);
+        if (event.type === EventType.TOOL_CALL_RESULT)
+          results.set(
+            event.toolCallId,
+            typeof event.content === "string"
+              ? event.content
+              : JSON.stringify(event.content),
+          );
+        if (event.type === EventType.TEXT_MESSAGE_CONTENT)
+          texts.push(event.delta);
+        seen?.(event);
+      },
+    );
+    return { results, text: texts.join(""), error };
+  }
+  return { send };
+}
+
 /**
- * A turn of six responses, each with the stuck call beside `sibling`, then
+ * A run of six responses, each with the stuck call beside `sibling`, then
  * "Done.". The guard stops the run on the third round: its stuck call's
  * result names the call and the error, and the model is called once more
  * at most, never as far as the answer.
  */
 async function mixedRounds(sibling: Args) {
-  const c = await chat();
-  try {
-    const round = [failing, sibling];
-    const { results, last, modelCalls } = await c.turn(
-      Array.from({ length: 6 }, () => round),
-    );
-    assert.ok(
-      modelCalls <= 4,
-      `the model was called ${modelCalls} times, past the stop round and one more`,
-    );
-    assert.notEqual(last, "Done.");
-    const stuck = results.find((r) => r.id === "c2.0");
-    assert.match(String(stuck?.text), /shop-get-order\(\{"id":-1\}\)/);
-    assert.match(String(stuck?.text), /failed 3 times in a row/);
-    assert.match(String(stuck?.text), /no such order/);
-  } finally {
-    await c.close();
-  }
+  failure = "no such order";
+  const asked = script(Array.from({ length: 6 }, () => [failing, sibling]));
+  const { results, text } = await (await hostThread()).send();
+  assert.ok(
+    asked.count <= 4,
+    `the model was called ${asked.count} times, past the stop round and one more`,
+  );
+  assert.notEqual(text, "Done.");
+  const stuck = results.get("c2.0");
+  assert.match(String(stuck), /shop-get-order\(\{"id":-1\}\)/);
+  assert.match(String(stuck), /failed 3 times in a row/);
+  assert.match(String(stuck), /no such order/);
 }
 
 test(
@@ -376,6 +482,42 @@ test(
   "given a model that calls the stuck call beside a call that pi refuses for its schema, in every response, when the stuck call fails the third time, then the run ends within one more model call, on the stuck call's result that names it and the error",
   { timeout },
   () => mixedRounds({ id: "a" }),
+);
+
+test(
+  "given a saved chat in which the call failed twice, and a run whose one call fails the third time, when the user's next message is queued behind it on the same thread, then the guard stops the run and the queued message is still answered",
+  { timeout },
+  async () => {
+    const thread = await hostThread();
+    failure = "no such order";
+    for (let i = 0; i < 2; i++) {
+      script([failing], "That did not work.");
+      await thread.send();
+    }
+    // The stuck call fails only once the next message is sent, so that message is queued behind the run.
+    let release!: () => void;
+    held = new Promise<void>((go) => (release = go));
+    const asked = script([failing], "Done.");
+    let queued: ReturnType<typeof thread.send> | undefined;
+    const stopped = await thread.send((event) => {
+      if (event.type === EventType.TOOL_CALL_END && !queued) {
+        queued = thread.send();
+        // Time for the next run to submit its message before the call fails.
+        setTimeout(release, 500);
+      }
+    });
+    held = undefined;
+    assert.match(String(stopped.results.get("c0")), /failed 3 times in a row/);
+    assert.ok(queued, "no message was queued behind the run");
+    const next = await Promise.race([
+      queued,
+      new Promise<undefined>((none) =>
+        setTimeout(() => none(undefined), 5_000),
+      ),
+    ]);
+    assert.equal(next?.text, "Done.", "the queued message was not answered");
+    assert.equal(asked.count, 2);
+  },
 );
 
 test(
