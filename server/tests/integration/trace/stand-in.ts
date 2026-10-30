@@ -1,15 +1,23 @@
 /**
  * What the trace tests share: a local HTTP server in the place of Langfuse,
  * an agent on a model that is not real, and a run made the way the LangGraph
- * server makes one. No Langfuse, no que and no model is called.
+ * server makes one, or que's server on pi with a scripted model. No Langfuse,
+ * no que and no model is called.
  */
 
+import { randomBytes, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
+import { join } from "node:path";
+import { serve } from "@hono/node-server";
+import { PGlite } from "@electric-sql/pglite";
+import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
+import { fauxProvider } from "@earendil-works/pi-ai/providers/faux";
 import { AIMessage, HumanMessage, fakeModel, tool } from "langchain";
 import * as z from "zod";
 import { resolveLoop } from "@mku1tra/que-harness";
 import { build } from "../../../runtime/src/run/build/build.js";
+import { deploymentRoot } from "../../deployment-root.js";
 
 /** The path the Langfuse SDK posts spans to, under the base URL. */
 export const TRACES = "/api/public/otel/v1/traces";
@@ -22,7 +30,10 @@ export type Sent = {
 
 export type Span = {
   trace: string;
+  id: string;
   parent: string | undefined;
+  /** The name of the tracer that opened it: its instrumentation scope. */
+  scope: string;
   name: string;
   start: bigint;
   end: bigint;
@@ -32,8 +43,10 @@ export type Span = {
 type Wire = {
   resourceSpans?: {
     scopeSpans?: {
+      scope?: { name?: string };
       spans?: {
         traceId: string;
+        spanId: string;
         parentSpanId?: string;
         name: string;
         startTimeUnixNano: string;
@@ -54,10 +67,14 @@ const body = async (request: IncomingMessage) => {
 const spansOf = (wire: Wire): Span[] =>
   (wire.resourceSpans ?? [])
     .flatMap((resource) => resource.scopeSpans ?? [])
-    .flatMap((scope) => scope.spans ?? [])
-    .map((span) => ({
+    .flatMap((scope) =>
+      (scope.spans ?? []).map((span) => ({ span, scope: scope.scope?.name })),
+    )
+    .map(({ span, scope }) => ({
       trace: span.traceId,
+      id: span.spanId,
       parent: span.parentSpanId || undefined,
+      scope: scope ?? "",
       name: span.name,
       start: BigInt(span.startTimeUnixNano),
       end: BigInt(span.endTimeUnixNano),
@@ -194,4 +211,91 @@ export async function runAsTheServer(agent: unknown, thread: string) {
     if (event.event === "on_chain_end") answer = event.data.output;
   const { messages } = answer as { messages: { content: unknown }[] };
   return String(messages.at(-1)?.content);
+}
+
+/**
+ * que's server on pi, listening on a port of its own, as tool-calls.test.ts
+ * starts it: on a database of its own (PGlite, served on a local port) and the
+ * fixture deployment "tools", whose one agent, "clerk", uses the plugin
+ * "till". In the place of Fireworks, pi-ai's scripted provider (`faux`)
+ * answers under Fireworks' provider id. The server reads the environment when
+ * it is imported, so a test sets its trace settings before it calls this.
+ */
+export async function serveOnPi() {
+  const db = await PGlite.create();
+  const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
+  await database.start();
+  process.env.DATABASE_URL = `postgresql://postgres@${database.getServerConn()}/postgres`;
+  process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
+  process.env.QUE_DEPLOYMENT = deploymentRoot(
+    join(import.meta.dirname, "../mount/fixtures"),
+    "tools",
+  );
+  delete process.env.DEV_USER_EMAIL;
+  delete process.env.DEV_USER_NAME;
+  const { app } = await import("../../../runtime/src/serve.js");
+  const { models } = await import("../../../runtime/src/runner/pi/harness.js");
+  const faux = fauxProvider({
+    provider: "fireworks",
+    models: [{ id: "small-model", contextWindow: 64_000 }],
+  });
+  models.setProvider(faux.provider);
+
+  const server = serve({ fetch: app.fetch, port: 0 });
+  await new Promise((ready) => server.once("listening", ready));
+  const base = `http://localhost:${(server.address() as AddressInfo).port}`;
+
+  /** Signs in as `email`, as @que/identity reads it, and saves their till key: their user id. */
+  const signIn = async (email: string, key: string) => {
+    process.env.DEV_USER_EMAIL = email;
+    const saved = await fetch(`${base}/que/connections/till`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ values: { key } }),
+    });
+    if (saved.status !== 200)
+      throw new Error(`the till key was not saved: ${await saved.text()}`);
+    const me = await fetch(`${base}/que/me`);
+    return ((await me.json()) as { id: string }).id;
+  };
+
+  /**
+   * One message on a new thread of the signed-in user, answered as `responses`
+   * script: the thread, once the run's stream has ended.
+   */
+  const runOnPi = async (
+    content: string,
+    responses: Parameters<typeof faux.setResponses>[0],
+  ) => {
+    const made = await fetch(`${base}/threads`, { method: "POST" });
+    const threadId = ((await made.json()) as { id: string }).id;
+    faux.setResponses(responses);
+    const response = await fetch(`${base}/threads/${threadId}/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        threadId,
+        runId: randomUUID(),
+        messages: [{ id: randomUUID(), role: "user", content }],
+        tools: [],
+        context: [],
+        state: {},
+        forwardedProps: {},
+      }),
+    });
+    const stream = await response.text();
+    if (!stream.includes("RUN_FINISHED"))
+      throw new Error(`the run did not finish: ${stream}`);
+    return threadId;
+  };
+
+  return {
+    signIn,
+    runOnPi,
+    close: async () => {
+      await new Promise((closed) => server.close(closed));
+      await database.stop();
+      await db.close();
+    },
+  };
 }

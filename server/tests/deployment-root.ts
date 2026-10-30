@@ -1,9 +1,10 @@
 /**
  * A fixture deployment as a deployment is on disk: a root of its own, whose basis.config.ts gives deploymentSchema,
  * holding each plugin its index.ts names under plugins/, linked into its node_modules by name as npm links one, with
- * que's packages and zod linked beside them. The repo's fixtures keep one copy of each plugin, under plugins/ beside
- * deployments/, which the deployments share; a deployment's root holds the real folder of each plugin it names, so each
- * is made here, in a folder of the system's temp folder, as deployments/<name>, and removed when the process ends.
+ * que's packages, zod and the OpenTelemetry API linked beside them. The repo's fixtures keep one copy of each plugin,
+ * under plugins/ beside deployments/, which the deployments share; a deployment's root holds the real folder of each
+ * plugin it names, so each is made here, in a folder of the system's temp folder, as deployments/<name>, and removed
+ * when the process ends.
  */
 
 import {
@@ -56,6 +57,12 @@ export function deploymentRoot(fixtures: string, name: string): string {
   // que's packages and zod, as a deployment that installs them has them.
   symlinkSync(join(server, "node_modules/@mku1tra"), join(modules, "@mku1tra"));
   symlinkSync(join(server, "node_modules/zod"), join(modules, "zod"));
+  // The OpenTelemetry API, as a deployment has it when a plugin of its depends on it: till opens spans of its own.
+  mkdirSync(join(modules, "@opentelemetry"));
+  symlinkSync(
+    join(server, "node_modules/@opentelemetry/api"),
+    join(modules, "@opentelemetry/api"),
+  );
   // Each plugin its index.ts names that the fixtures hold.
   const named = /plugins:\s*\[([^\]]*)\]/.exec(
     readFileSync(join(dir, "index.ts"), "utf8"),
