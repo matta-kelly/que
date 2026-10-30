@@ -49,6 +49,7 @@ up deployment:
         curl -s -m 2 localhost:2024/ok >/dev/null && curl -s -m 30 -o /dev/null localhost:3000 && break
         sleep 2
     done
+    curl -sf -m 2 -o /dev/null localhost:2024/ok || { echo "que's server didn't come up. See /tmp/server.log in the dev container"; exit 1; }
     curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
     echo "que is up at http://localhost:3000"
 
