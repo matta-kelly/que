@@ -197,9 +197,11 @@ test("given a run whose conversation still has a live task when the run ends, th
   faux.setResponses(Array.from({ length: 20 }, () => respond));
 
   const id = await thread("clerk");
-  // A short turn, then a long one: a compaction keeps the long one and has the short one to summarize.
+  // A short turn, then a long one: a compaction keeps the long one and has the short one to summarize. The long one
+  // is over the loop's summarize.keep (0.1 of the 64,000-token window) and under its summarize.at (0.7) by faux's
+  // count, so only the test's own compaction runs.
   await say(id, "Hello.");
-  await say(id, `Read this. ${"pens and ink ".repeat(7_000)}`);
+  await say(id, `Read this. ${"pens and ink ".repeat(2_500)}`);
   compacting = true;
   await say(id, "Summarize it.");
   assert.ok(conversation !== undefined, "no chat request had a live task");
