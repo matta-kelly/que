@@ -278,6 +278,41 @@ const connectorUse = defineRule({
   },
 });
 
+// A connector's op stands alone, and a domain's op calls connectors' ops: so ops make no chains and no cycles. A name
+// that is no op, basis/link reports, so each fault is said once.
+const opUses = defineRule({
+  name: "op-uses",
+  description:
+    "A connector's op uses no op, and a domain's op uses only connectors' ops.",
+  on: pluginType,
+  check: (node, graph) => {
+    const plugins = graph.all(pluginType);
+    return (node.ops ?? []).flatMap((name, i) => {
+      const field = `/ops/${i}`;
+      const uses = graph.get(name, op)?.uses ?? [];
+      if (node.kind !== "domain")
+        return uses.length
+          ? [
+              {
+                field,
+                message: `${name} uses ${uses.join(", ")}, and ${node.name} is a connector: a connector's op uses no op.`,
+              },
+            ]
+          : [];
+      return uses
+        .filter(
+          (used) =>
+            plugins.find((other) => other.ops?.includes(used))?.kind ===
+            "domain",
+        )
+        .map((used) => ({
+          field,
+          message: `${name} uses ${used}, which is a domain's op: a domain's op uses only connectors' ops.`,
+        }));
+    });
+  },
+});
+
 // A case is about a capability of the plugin whose cases.ts holds it: the evals run it with that plugin. A capability
 // that is no node, basis/link reports, so each fault is said once.
 const caseCapability = defineRule({
@@ -326,6 +361,7 @@ export const plugin = defineSchema({
     domainUses,
     ownUse,
     connectorUse,
+    opUses,
     caseCapability,
   ],
 });
