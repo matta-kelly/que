@@ -98,7 +98,11 @@ const loop = defineType({
   fields: {
     /** `max`: in tokens. A tool result over it is not put in the chat whole. */
     result: setting(z.strictObject({ max: some }, strict())),
-    /** `at`: the share of the model's window past which the old part of the chat is sent as a summary. `keep`: the share that is sent as it is. */
+    /**
+     * `at`: the share of the model's window past which the old part of the chat is sent as a summary. `keep`: the share
+     * that is sent as it is. Agents on one model must summarize alike: pi sets compaction per model, so mount stops on
+     * two whose loops differ here. Give one of them a model entry of its own, or make their loops summarize alike.
+     */
     summarize: setting(
       z
         .strictObject({ at: share, keep: share }, strict())
