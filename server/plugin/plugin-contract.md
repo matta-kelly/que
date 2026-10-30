@@ -13,7 +13,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 - [[#Invariants]] what the plugin schema holds true of every graph, that basis leaves to it, each with the rule or construction that holds it
 
 - [[op-contract]]: what an operation is, and what makes a good one
-- `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the plugins. Not all of it is built: the control plane, and roles on cc's connectors
+- `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the plugins. Not all of it is built: the control plane, a user reaching connectors only through a domain (today the catalog gives a user each connector they can use), and roles on cc's connectors
 
 ## Standard
 
@@ -49,7 +49,7 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 	- read as basis reads a note (`readNote`), by `parseSkill`, which mount and the source both use. Its frontmatter: `name` (its folder's), `description`, que's title in `metadata.title`, and the ops it uses in `allowed-tools`, space-separated, as its `uses`. With no title, its name is its title. With no `allowed-tools`, it has no uses. The standard's other fields are taken and not read. That frontmatter's shape (`SkillFrontmatter`) is the standard's, not a type of que's: the plugin schema names it as a bridge, so basis/one-definition passes it
 	- its name is its folder's: what the model reads it by, what a domain uses it by, and its node's name. So its folder has its real name (`skills/warehouse-fabric-guide/`)
 	- a skill that breaks this fails the mount, and so does a folder under `skills/` with no `SKILL.md`: que is stricter than the standard, which skips both, so a plugin never loads half its skills, and a misnamed `SKILL.md` is never dropped unseen
-- **what it needs**: a credential, if it talks to a service. Each user gives their own. A user with no credential does not get the plugin
+- **what it needs**: a credential, if it is a connector that talks to a service. Each user gives their own. A user with no credential does not get the connector. A domain gives none
 	- `connect` turns a credential into a connection. The connection is what the operations get, never the credential
 	- `whoami` says who the connection is logged in as, so "me" and "mine" mean something to the model
 - **what it is for**: capabilities. Each is an outcome someone asks for, made from its operations and skills
@@ -69,16 +69,16 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 	- connector: one service. It holds what the service needs: the credential, the roles, the logins, and the failure that says what is missing. Each of its ops stands alone: an op of a connector that lists anything in its `uses` fails (`plugin/op-uses`, [[op-contract#Uses]])
 	- domain: across services. What it uses, it uses through the connectors
 		- the check: a domain gives no `credential`, no `connect`, no `whoami` and no `roles`, each field said (`plugin/domain-connection`); a plugin that lists the skills it uses (`usesSkills`) and does not say `kind: "domain"` fails, as a domain says its kind (`plugin/domain-uses`)
-		- designed, not built (the plugin-interoperability design, in kinetic): a user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, saying what to connect
+		- a user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, with an `OpFailed` that names it. Every user has every domain: grants are not built (the que-control-plane issue, in kinetic)
 - a plugin carries only the parts it uses: skills only, operations only, or both
 - what the definition does not list, the harness does not read, but for skills: each folder under `skills/` is one
 
 ### Credentials / Access
 
-Built: the kind, roles, a domain's list of skills, each skill's list and each op's list, declared and checked, the plugin's `usesOps` made from the last two, and an op's context typed by its kind. Designed, not built: a domain op calling what it uses (the plugin-interoperability design, in kinetic), and what each user gets each chat.
+Built: the kind, roles, a domain's list of skills, each skill's list and each op's list, declared and checked, the plugin's `usesOps` made from the last two, and an op's context typed by its kind. Built too: a domain op calls what it uses, through the door, and each user gets, each chat, every domain and each connector they can use. Not built: grants of domains, and a login per role (the que-control-plane issue, in kinetic).
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
-- connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now
+- connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now. A login per role is not built: one credential per user serves every role of a connector
 	- the check: a plugin with roles gives every op one it lists; a plugin with none gives none. Each fault is reported once: an op with no role, in a plugin that lists roles, and an op whose role is another plugin's, by `plugin/op-role` (`warehouse-search names no role`); a role that is no node, by `basis/link`
 - domain (`kind: "domain"`): uses connectors' ops and skills, each by its name. Its ops and skills list the ops they use, and the plugin lists the skills it uses in `usesSkills` (`usesSkills: ["warehouse-fabric-guide"]`)
 	- each op lists the ops it calls, as its `uses`: a name that is no op fails (`basis/link`); a domain's op lists only connectors' ops, and a connector's op lists none (`plugin/op-uses`)
@@ -90,7 +90,7 @@ Built: the kind, roles, a domain's list of skills, each skill's list and each op
 - the check is a root's lint: each node the code and skills give, as pieces, linted by basis with the plugin schema from a root, as lot's lint lints them, and each problem said as the lint says it (`sayProblem`). A lint starts only at a root, the first folder up from the plugin with a `basis.config.ts` (basis's `rootOf`)
 	- mount of one plugin (`just check-plugin`, and the card's writer): the lint of its root, with its skills and cases. A plugin that is its own root gives its config `pluginSchema`, whose source is the plugins in its folder (`plugins`): what a plugin uses that none of them gives is there, and not read. Each case's capability resolves against the plugin's own, so a case about a capability its plugin does not hold fails (`basis/link`). A plugin in no root, or in one that does not give it, fails
 	- mount of a deployment: the lint of the deployment's root, with all its plugins, and nothing unread. A name a plugin uses that the deployment does not give is a problem
-- who holds which domains, roles and logins, and what a user gets each chat: que's control plane (not built), not the plugin
+- who holds which domains, roles and logins, and what a user gets each chat: que's control plane, not the plugin. Built today: a login per user and connector, and access's catalog. Not built: grants of domains, and a login per role (the que-control-plane issue, in kinetic)
 
 ## What it promises
 

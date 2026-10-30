@@ -13,29 +13,29 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 - [[#Writes]] what an operation that changes data promises
 
 - [[plugin-contract]]: the contract an operation is part of
-- the plugin-interoperability design, in kinetic: the design of the domain op, its context and uses. Not built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
+- the plugin-interoperability design, in kinetic: the design of the domain op, its context and uses. Built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
 
 ## Kinds
 
 The kind of an op is the kind of its plugin. The plugin says its kind (`kind`), and is a connector when it leaves it out ([[plugin-contract]])
 
 - connector op: one action on its plugin's service, with its plugin's connection. It stands alone: it calls no other op. Built
-- domain op: a fixed procedure across services. It calls the connector ops it lists, through que, and has no connection of its own. Use one where the order of the steps must not depend on the model, as a write in more than one service. Where the model must judge, a skill guides it through the connector ops instead. Built in the contract: its context and its uses, typed and checked. Not built: que does not run one as a domain op yet ([[#Context]])
+- domain op: a fixed procedure across services. It calls the connector ops it lists, through que, and has no connection of its own. Use one where the order of the steps must not depend on the model, as a write in more than one service. Where the model must judge, a skill guides it through the connector ops instead. Built: its context and its uses, typed and checked, and que runs it as a domain op ([[#Context]])
 
 ## Context
 
 What `run(ctx, params)` gets as `ctx`.
 
 - connector op: `{ conn }`, the connection to its service, logged in for the user. Built
-- domain op: `{ ops }`, one function for each op it lists, by the op's name. Each one runs that op through que, with that op's login for the user. The domain op never sees a login
+- domain op: `{ ops }`, one function for each op it lists, by the op's name. Each one runs that op through que, with its connector's login for the calling user. The domain op never sees a login
 	- built in the contract: `Op`'s context follows its third argument, its plugin's kind (`Op<Conn, S, "domain">`), and `definePlugin` gives each op it holds the context of its `kind`, a connector when left out. A domain op's run that reads `ctx.conn` does not compile, nor a connector op's that reads `ctx.ops`
-	- not built: the runtime gives every op `{ conn }`, and no `ops`
+	- built in the runtime: the door gives a domain op `{ ops }`, each found among every mounted op, and a connector op `{ conn }`
 - `params` is the input, parsed with the op's `input`
 
 ## Uses
 
 - an op lists the ops it calls in its `uses`: a link to ops, so a name that is no op fails (`basis/link`). Built
-- a domain op lists only connector ops: a name its `uses` lists that is a domain's op fails (`plugin/op-uses`). Built. It can call only those: not built, as que does not run a domain op yet
+- a domain op lists only connector ops: a name its `uses` lists that is a domain's op fails (`plugin/op-uses`). Built. It can call only those: its `ops` holds only them. Built
 - a connector op lists nothing: it stands alone. A connector's op that lists anything fails (`plugin/op-uses`). Built
 - a skill lists the ops it uses in its frontmatter, in the Agent Skills field `allowed-tools`, space-separated: its `uses`, a link to ops, so a name that is no op fails (`basis/link`). A domain's skill lists no op of its own (`plugin/own-use`) and no domain's op, and a connector's skill lists only its own ops (`plugin/connector-use`). Built
 - the plugin's `usesOps` is made from its ops' and skills' lists, each name once and none of its own ops, and never written: `readPlugin` makes it, and a plugin whose code gives one fails. Built. The card writes it, and each op's `uses`

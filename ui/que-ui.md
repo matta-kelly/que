@@ -43,7 +43,7 @@ The chat UI of [[que]]: a Next.js app in `ui/`, in front of que's server.
 	- under a reply: copy and refresh
 	- a message sent while a run is going: it waits above the composer, can be taken back, and is sent when that run ends. The waiting messages are kept in the browser
 	- a failed run: a box with the error text, under the reply
-- settings: account, connections (a credential per plugin), users
+- settings: account, connections (a credential per connector), users
 - command palette
 
 ## Sources

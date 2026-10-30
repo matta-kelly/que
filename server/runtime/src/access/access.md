@@ -1,6 +1,6 @@
 ---
 type: component
-description: "Access, the harness step that decides what one user can reach: the plugins that need no credential or whose credential the user has saved, narrowed to the plugins the run's agent names, with one connection per user and plugin, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
+description: "Access, the harness step that decides what one user can reach: the plugins that need no credential (every domain, and a connector with none) or whose credential the user has saved, narrowed to the plugins the run's agent names, with one connection per user and connector, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
 status: running
 ---
 Access decides what one user can reach. It works per plugin: a user gets a whole plugin, or none of it.
@@ -18,7 +18,9 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 `catalog.ts`
 
-- the mounted plugins one user can use right now: a plugin that needs no credential, or one whose credential the user has saved and that still matches the plugin's schema
+- the mounted plugins one user can use right now: a plugin that needs no credential, or a connector whose credential the user has saved and that still matches the connector's schema
+	- every domain, as a domain holds no credential. There are no grants: every user gets every domain. Grants are not built (the que-control-plane issue, in kinetic)
+	- a domain is in it also when the user has not connected a connector it uses. A call to that connector fails there
 - each with who the user is in that service, when the plugin has `whoami`
 	- asking opens that plugin's connection
 	- when `whoami` fails, the identity is left out, and asked again on the next call
@@ -27,13 +29,14 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 `access.ts`, on the credential store it is given (`accessOn(store)`). `connections.ts` makes the runtime's one, on the store it makes once with `createStore()`
 
-- credentials are stored encrypted (`@que/credentials`), one per user and plugin
+- credentials are stored encrypted (`@que/credentials`), one per user and connector, as only a connector gives a credential
 - the door asks for a connection by the op's plugin and role and the user (`getConnection`)
-	- one credential serves every role of a plugin, so the role does not change the connection
-	- a user with no credential the plugin needs gets an `OpFailed` that names the plugin
-- a credential is saved only once it matches the plugin's schema, and `connect` succeeds with it when the plugin has `connect`
+	- one credential serves every role of a connector, so the role does not change the connection. A login per role is not built (the que-control-plane issue, in kinetic)
+	- a user with no credential the connector needs gets an `OpFailed` that names the connector
+	- a domain op gets no connection: each connector op it calls asks for its own, as the same user
+- a credential is saved only once it matches the connector's schema, and `connect` succeeds with it when the connector has `connect`
 - the list of saved credentials (the Connections page) holds every saved one, also one that no longer matches the schema, which the catalog leaves out
-- one connection per user and plugin, opened when it is first used: by an operation, or by `whoami` in the catalog
+- one connection per user and connector, opened when it is first used: by an operation, or by `whoami` in the catalog
 	- a changed or re-entered credential opens a new connection, and the old one is dropped
 	- a failed login is tried again on the next call
 
