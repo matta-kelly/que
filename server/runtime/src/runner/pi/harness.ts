@@ -93,6 +93,20 @@ const turns = new Map<string, Promise<unknown>>();
 const ownership = { kind: "ownerless" } as const;
 
 /**
+ * The thread's conversation, or none: before its first run, or when its row
+ * holds a value that is not a conversation's id. The row's text is the only
+ * guard on the id, so a value that is not a decimal reads as no conversation.
+ */
+async function conversationOf(thread: string) {
+  const kept = await threads.conversationOf(thread);
+  const id =
+    kept !== null && /^\d+$/.test(kept)
+      ? (Number(kept) as ConversationId)
+      : null;
+  return id === null ? undefined : await harness.conversation(id, context);
+}
+
+/**
  * The conversation a run goes on, chosen by the branch rule, and made the
  * thread's; with `resend`, the run is one that is made already. A thread's
  * runs choose one at a time, in the order they came. A conversation that
@@ -107,10 +121,7 @@ function conversationFor(
   const had = turns.get(thread) ?? Promise.resolve();
   const chosen = (async () => {
     await had.catch(() => {});
-    const kept = await threads.conversationOf(thread);
-    const current = kept
-      ? await harness.conversation(Number(kept) as ConversationId, context)
-      : undefined;
+    const current = await conversationOf(thread);
     const held = current
       ? heldOf((await current.context(context)).entries)
       : [];
@@ -232,10 +243,7 @@ export async function run(
 
 /** The thread's messages, as AG-UI messages: none before its first run. */
 export async function messages(thread: string) {
-  const kept = await threads.conversationOf(thread);
-  const conversation = kept
-    ? await harness.conversation(Number(kept) as ConversationId, context)
-    : undefined;
+  const conversation = await conversationOf(thread);
   return conversation
     ? heldOf((await conversation.context(context)).entries).map(
         (held) => held.message,
