@@ -11,6 +11,7 @@
  * up to the next user message) stands for the whole turn, so the kept message
  * is the turn's last record: a client that shows a turn as one message knows
  * only some of its records' ids. A record of the head's turn is the head.
+ * A fork is made at the latest entry of the messages it keeps.
  * The last message the run keeps is the last one the thread knows before the
  * new user message. A user message the thread already holds is sent again:
  * by the run that sent it, a resend, which makes no run; by a new run, a
@@ -55,5 +56,11 @@ export function branchOf(
   const next = held.findIndex((h, i) => i > at && h.message.role === "user");
   if (keep.message.role !== "user" && next < 0) return { kind: "same" };
   const kept = keep.message.role === "user" ? keep : held[next - 1]!;
-  return kept === head ? { kind: "same" } : { kind: "fork", at: kept.at };
+  if (kept === head) return { kind: "same" };
+  // A message's id can be written after a later record (an assistant message's, after its tool's result), so the
+  // fork is at the latest entry of what it keeps.
+  const latest = held
+    .slice(0, held.indexOf(kept) + 1)
+    .reduce((max, h) => (h.at > max ? h.at : max), kept.at);
+  return { kind: "fork", at: latest };
 }
