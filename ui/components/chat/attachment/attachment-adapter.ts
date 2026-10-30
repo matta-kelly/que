@@ -9,8 +9,13 @@ export type ChatThread = {
   initialize: () => Promise<{ remoteId: string }>;
 };
 
-/** A file que's server keeps for a thread, as its upload answers. */
-type QueFile = { id: string; name: string; mimeType: string; size: number };
+/** A file que's server keeps for a thread, as its upload answers and its list gives one. */
+export type QueFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+};
 
 /** A file in a message's text: its name, and the id the agent reads it by. */
 const mention = (file: QueFile) => `${file.name} (id ${file.id})`;

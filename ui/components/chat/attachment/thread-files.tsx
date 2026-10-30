@@ -1,7 +1,5 @@
 import { useEffect, useState, type FC } from "react";
-
-/** A file que's server keeps for a thread, as its list gives it. */
-type QueFile = { id: string; name: string; mimeType: string; size: number };
+import type { QueFile } from "@/components/chat/attachment/attachment-adapter";
 
 const listed = async (threadId: string): Promise<QueFile[]> => {
   const res = await fetch(`/api/threads/${encodeURIComponent(threadId)}/files`);
