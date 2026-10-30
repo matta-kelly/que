@@ -272,8 +272,8 @@ const hooks: HookRegistration[] = [
 /**
  * Starts the sending, one time, for runs on pi, and gives back what traces
  * them: the Harness's `telemetry`, the `hooks` of an extension, and `ofRun`,
- * in which a run submits its input, so the trace it starts holds the run's
- * user, thread and agent, in each of its spans. With no settings, nothing.
+ * in which a run submits its input, so the trace it starts is named after the
+ * run's agent and holds its user, thread and agent, in each of its spans. With no settings, nothing.
  */
 export function tracingOnPi(settings: Settings | undefined) {
   if (!settings)
@@ -288,6 +288,7 @@ export function tracingOnPi(settings: Settings | undefined) {
           userId: run.user,
           sessionId: run.thread,
           metadata: { agent: run.agent },
+          traceName: run.agent,
           // In the baggage, so a carrier of pi's holds the run, and each span of the run has it.
           asBaggage: true,
         },
