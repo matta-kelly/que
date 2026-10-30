@@ -14,7 +14,10 @@ import {
 import { useChatPick } from "@/components/chat/run-pickers/use-chat-pick";
 import { priced } from "@/components/chat/run-pickers/price";
 import { agentPick, type RunPick } from "@/components/chat/run-pickers/pick";
-import { changePick } from "@/components/chat/run-pickers/pick-store";
+import {
+  changePick,
+  rememberPick,
+} from "@/components/chat/run-pickers/pick-store";
 import { threads } from "@/components/runtime/que-client";
 
 /**
@@ -22,16 +25,25 @@ import { threads } from "@/components/runtime/que-client";
  * another. The model can change at any message. The agent is fixed after the
  * first: the loops of two agents keep different state in a thread. A picker with fewer
  * than two entries is not shown. A pick in a chat that is a thread on que's
- * server is kept on its record there; before, it is made with the thread.
+ * server is kept on its record there, and one the server refuses is set back
+ * to the record's; before, it is made with the thread.
  */
 export const RunPickers: FC = () => {
   const { deployment, thread, remoteId, shown } = useChatPick();
   const started = useAuiState((s) => s.thread.messages.length > 0);
   if (!deployment) return <div />;
 
-  const change = (next: RunPick) => {
+  const change = async (next: RunPick) => {
     changePick(thread, next);
-    if (remoteId) void threads.change(remoteId, next);
+    if (!remoteId) return;
+    try {
+      await threads.change(remoteId, next);
+    } catch {
+      // que's server kept the pick it had: the pickers show that one again.
+      const held = await threads.get(remoteId).catch(() => undefined);
+      if (held)
+        rememberPick(remoteId, { agent: held.agent, model: held.model });
+    }
   };
 
   return (
@@ -42,7 +54,7 @@ export const RunPickers: FC = () => {
           value={shown.agent}
           names={deployment.agents.map((agent) => agent.name)}
           disabled={started}
-          onPick={(agent) => change(agentPick(agent))}
+          onPick={(agent) => void change(agentPick(agent))}
         />
       )}
       {deployment.models.length > 1 && (
@@ -57,7 +69,7 @@ export const RunPickers: FC = () => {
               model.price && priced(model.price),
             ]),
           )}
-          onPick={(model) => change({ model })}
+          onPick={(model) => void change({ model })}
         />
       )}
     </div>
