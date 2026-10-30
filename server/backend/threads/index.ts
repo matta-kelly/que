@@ -42,6 +42,9 @@ export const SETUP = `
     created_at timestamptz NOT NULL DEFAULT now()
   )`;
 
+/** The thread's conversation, added beside the table so one S1 made gets it. */
+export const ALTER = `ALTER TABLE threads ADD COLUMN IF NOT EXISTS conversation text`;
+
 type Row = { id: string; owner: string; created_at: Date };
 const toThread = (r: Row): Thread => ({
   id: r.id,
@@ -64,7 +67,7 @@ export function createStore(
 
 /** The store, on a database it sets up first (`SETUP`). */
 export function storeOn(db: Queryable): ThreadStore {
-  const ready = db.query(SETUP);
+  const ready = db.query(SETUP).then(() => db.query(ALTER));
 
   return {
     async make(owner) {
@@ -91,10 +94,20 @@ export function storeOn(db: Queryable): ThreadStore {
       );
       return rows.map(toThread);
     },
-    // Stubs: the signatures the tests fix, no logic.
-    async conversationOf() {
-      return null;
+    async conversationOf(id) {
+      await ready;
+      const { rows } = await db.query(
+        "SELECT conversation FROM threads WHERE id = $1",
+        [id],
+      );
+      return rows[0]?.conversation ?? null;
     },
-    async setConversation() {},
+    async setConversation(id, conversation) {
+      await ready;
+      await db.query("UPDATE threads SET conversation = $2 WHERE id = $1", [
+        id,
+        conversation,
+      ]);
+    },
   };
 }
