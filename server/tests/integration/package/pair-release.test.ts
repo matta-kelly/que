@@ -235,3 +235,99 @@ test("given one version new and the other on npm, the same and attested, when th
   for (const [given, manifests, names] of cases)
     assert.deepEqual(release(manifests, npm), publishes(...names), given);
 });
+
+test("given harness with no peer range on que-plugin, when the guard decides, then it refuses for harness, which must declare the plugin it runs on, and publishes nothing", () => {
+  const noPluginPeer: Manifest = {
+    name: HARNESS,
+    version: "0.4.0",
+    dependencies: piAi,
+    peerDependencies: { "@mku1tra/basis": "^0.30.0", zod: "^4.6.5" },
+  };
+  const noPeers: Manifest = {
+    name: HARNESS,
+    version: "0.4.0",
+    dependencies: piAi,
+  };
+  const cases: [string, Pair<Manifest>][] = [
+    [
+      "plugin 0.8.0 on npm, and harness 0.4.0 new with peers on basis and zod alone",
+      { plugin: plugin("0.8.0", "^0.30.0"), harness: noPluginPeer },
+    ],
+    [
+      "plugin 0.9.0 and harness 0.4.0 with no peerDependencies, both new",
+      { plugin: plugin("0.9.0", "^0.30.0"), harness: noPeers },
+    ],
+  ];
+  for (const [given, manifests] of cases)
+    assert.deepEqual(release(manifests, npm), refused(HARNESS, "peer"), given);
+});
+
+test("given several refusals in one release, when the guard decides, then it lists each, one for each package and reason, and publishes nothing; a version npm has whose manifest differs is refused for its manifest alone, with or without an attestation", () => {
+  const cases: [string, Pair<Manifest>, [string, string][]][] = [
+    [
+      "plugin 0.8.0 whose ajv moved, and harness 0.3.0 published by hand",
+      {
+        plugin: plugin("0.8.0", "^0.30.0", { ajv: "^8.21.0" }),
+        harness: atMain.harness,
+      },
+      [
+        [PLUGIN, "manifest"],
+        [HARNESS, "attestation"],
+      ],
+    ],
+    [
+      "plugin 0.5.0 published by hand, and harness 0.4.0 new asking ^0.8.0",
+      {
+        plugin: plugin("0.5.0", "^0.19.0"),
+        harness: harness("0.4.0", "^0.19.0", "^0.8.0", piAi),
+      },
+      [
+        [PLUGIN, "attestation"],
+        [HARNESS, "peer"],
+      ],
+    ],
+    [
+      "harness 0.3.0, published by hand, now asking ^0.9.0 of plugin 0.8.0",
+      {
+        plugin: atMain.plugin,
+        harness: harness("0.3.0", "^0.30.0", "^0.9.0", piAi),
+      },
+      [
+        [HARNESS, "peer"],
+        [HARNESS, "manifest"],
+      ],
+    ],
+    [
+      "harness 0.3.0, published by hand, whose pi-ai moved, to ^1.4.0",
+      {
+        plugin: atMain.plugin,
+        harness: harness("0.3.0", "^0.30.0", "^0.8.0", {
+          "@earendil-works/pi-ai": "^1.4.0",
+        }),
+      },
+      [[HARNESS, "manifest"]],
+    ],
+    [
+      "plugin 0.5.0, published by hand, whose peer range on basis moved, to ^0.20.0",
+      {
+        plugin: plugin("0.5.0", "^0.20.0"),
+        harness: harness("0.4.0", "^0.20.0", "^0.5.0", piAi),
+      },
+      [[PLUGIN, "manifest"]],
+    ],
+  ];
+  // The order of the refusals is not the guard's contract: each one is.
+  const sorted = (refusals: { name: string; why: string }[]) =>
+    refusals
+      .map(({ name, why }) => `${name} ${why}`)
+      .sort((a, b) => a.localeCompare(b));
+  for (const [given, manifests, expected] of cases) {
+    const decision = release(manifests, npm);
+    assert.deepEqual(decision.publish, [], given);
+    assert.deepEqual(
+      sorted(decision.refused),
+      sorted(expected.map(([name, why]) => ({ name, why }))),
+      given,
+    );
+  }
+});
