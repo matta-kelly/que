@@ -6,7 +6,8 @@
  * is RUN_STARTED then RUN_FINISHED. A client that drops its
  * connection does not stop the run: stopping is a call of its own,
  * POST /threads/:id/stop, which ends the run with RUN_FINISHED and marks the
- * thread stopped until its next run. A run whose model call fails ends with
+ * thread stopped until its next run; a stop when no run goes marks nothing.
+ * Its answer says which: `{ stopped }`. A run whose model call fails ends with
  * RUN_ERROR, in the place of RUN_FINISHED.
  *
  * The thread runs the deployment's first agent, on its model, with the ops
@@ -21,7 +22,7 @@ import type { ThreadStore } from "@que/threads";
 import { catalogFor } from "../access/catalog.js";
 import { narrow } from "../access/narrow.js";
 import { agents, models } from "../mount/mounted.js";
-import { run, stop } from "../runner/pi/harness.js";
+import { run, running, stop } from "../runner/pi/harness.js";
 import { configFor } from "./config.js";
 import { modelFor } from "./model.js";
 import type { SignedIn } from "./signed-in.js";
@@ -76,9 +77,12 @@ export function runs(store: ThreadStore) {
   routes.post("/:id/stop", async (c) => {
     const thread = await store.get(c.get("userId"), c.req.param("id"));
     if (!thread) return c.json({ error: "not found" }, 404);
-    await store.setStopped(thread.id, true);
+    // A thread whose run had ended is not stopped: its reply is whole. The mark comes before the stop, so the run's
+    // stream ends on a thread that says it.
+    const stopped = await running(thread.id);
+    if (stopped) await store.setStopped(thread.id, true);
     await stop(thread.id);
-    return c.body(null, 204);
+    return c.json({ stopped });
   });
 
   return routes;

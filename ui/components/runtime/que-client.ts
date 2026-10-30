@@ -20,11 +20,11 @@ export const threads = {
   /** A thread, with its messages as AG-UI messages, each with the id que's server gave it. */
   get: async (id: string) =>
     json<QueThread & { messages: Message[] }>(await fetch(thread(id))),
-  /** Stops the thread's run on que's server. */
-  stop: async (id: string) => {
-    const res = await fetch(`${thread(id)}/stop`, { method: "POST" });
-    if (!res.ok) throw new Error(`que's server answered ${res.status}`);
-  },
+  /** Stops the thread's run on que's server: whether a run went, which it then marks stopped. */
+  stop: async (id: string) =>
+    json<{ stopped: boolean }>(
+      await fetch(`${thread(id)}/stop`, { method: "POST" }),
+    ),
 };
 
 /**

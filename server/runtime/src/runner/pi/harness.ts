@@ -241,6 +241,17 @@ export async function run(
   }
 }
 
+/** Whether the thread's run goes: a task of its conversation, not a background one, is live. */
+export async function running(thread: string) {
+  const conversation = await conversationOf(thread);
+  if (!conversation) return false;
+  const { tasks } = await harness.inspect(context);
+  return tasks.some(
+    ({ record }) =>
+      record.conversationId === conversation.id && !record.background,
+  );
+}
+
 /**
  * Stops the thread's run, if one goes: pi aborts its conversation's work, and
  * gives back once the conversation is idle. A tool's call ends as aborted.

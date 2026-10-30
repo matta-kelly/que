@@ -3,10 +3,11 @@ import { setStopped } from "./store";
 
 /**
  * The user's Stop: the thread's run is stopped on que's server, and the chat
- * says so once it is. Only the Stop button calls it: a chat that is left is
- * not stopped, as its runtime's teardown cancels the run in the page only.
+ * says so as que's server does: a run that had ended is not stopped. Only the
+ * Stop button calls it: a chat that is left is not stopped, as its runtime's
+ * teardown cancels the run in the page only.
  */
 export async function stop(thread: string) {
-  await threads.stop(thread);
-  setStopped(thread, true);
+  const { stopped } = await threads.stop(thread);
+  setStopped(thread, stopped);
 }
