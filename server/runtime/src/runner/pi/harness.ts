@@ -11,8 +11,8 @@
  * keeps its parent's. The model is the run's own: a conversation on another
  * model is moved to it, and to its effort. The user's catalog is read at each
  * run: each conversation has an extension of its own, `que.<id>`, installed
- * again with its user's catalog before each of its runs, and it selects that
- * one alone, so two runs at once never share tools.
+ * again with its user's catalog before each of its runs and removed after it,
+ * and it selects that one alone, so two runs at once never share tools.
  *
  * `models` is the pi-ai models collection the Harness reads at each use, with
  * Fireworks and the deployment's models on it from when this module loads.
@@ -147,6 +147,20 @@ async function ownExtension(
   const { extensions } = await conversation.agent(context);
   if (extensions.length !== 1 || extensions[0]?.name !== own.name)
     await conversation.configure({ extensions: [own] }, context);
+  return own;
+}
+
+/**
+ * Removes the conversation's extension `own` once its run has ended, so the
+ * registry holds one only for a conversation with work: not while a task of
+ * the conversation is live (a background compaction, say), and not once a
+ * later run has installed its own. A kept one goes at the end of the next run.
+ */
+async function release(conversation: Conversation, own: Extension) {
+  const { tasks } = await harness.inspect(context);
+  if (tasks.some(({ record }) => record.conversationId === conversation.id))
+    return;
+  if (registry.snapshot().extension(own.name) === own) registry.uninstall(own);
 }
 
 /**
@@ -178,7 +192,7 @@ function conversationFor(
     const from = branches[at];
     const branch = branchOf(helds[at] ?? [], input);
     if (from && branch.kind === "resend")
-      return { conversation: from, resend: true };
+      return { conversation: from, resend: true } as const;
     const conversation =
       from && branch.kind !== "new"
         ? await onModel(
@@ -194,10 +208,10 @@ function conversationFor(
             },
             context,
           );
-    await ownExtension(conversation, que);
+    const own = await ownExtension(conversation, que);
     if (conversation.id !== branches[0]?.id)
       await threads.setConversation(thread, String(conversation.id));
-    return { conversation, resend: false };
+    return { conversation, resend: false, own } as const;
   })();
   turns.set(
     thread,
@@ -239,12 +253,13 @@ export async function run(
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
   const que = { ...extension(catalog, call, user), hooks: tracing.hooks };
-  const { conversation, resend } = await conversationFor(thread, model, que, {
+  const chosen = await conversationFor(thread, model, que, {
     runId,
     before,
     last: last.id,
   });
-  if (resend) return {};
+  if (chosen.resend) return {};
+  const { conversation, own } = chosen;
   const events = await watchEvents(harness, conversation.id, context);
   try {
     const agui = aguiRun();
@@ -295,6 +310,13 @@ export async function run(
       : { error: agui.error() };
   } finally {
     await events.stop();
+    // The run has its answer: a fault in removing its extension is logged, not the run's.
+    await release(conversation, own).catch((error: Error) =>
+      console.error(
+        "que: the conversation's extension was not removed:",
+        error.message,
+      ),
+    );
   }
 }
 
