@@ -4,7 +4,8 @@
  * nothing of que's reads it back: mount, the evals and the lint read the plugin's code. The standard's fields describe
  * the plugin to every harness; que's part, under its namespace in `extensions`, is the plugin's nodes in the plugin
  * schema (plugin, op, access-role, capability, case), by their names and fields, each live value written as data: a
- * zod schema as JSON Schema, and a function left out. Skills are not in it: their folders are the standard's.
+ * zod schema as JSON Schema, and a function left out. A connector's skills are in it, each by name with the ops it
+ * uses; a domain's are not, as a skill's folder is the standard's.
  *
  * A card is checked against the standard's own schema (kept in que, never fetched: Agent Plugins §5.2) when it is
  * made.
@@ -18,6 +19,7 @@ import * as z from "zod";
 import type { Case } from "./case.ts";
 import type { AccessRole, Capability, Definition } from "./contract.ts";
 import { pluginFiles } from "./layout.ts";
+import type { Skill } from "./skill.ts";
 import { NAMESPACE } from "./names.ts";
 
 /** The Agent Plugins version a card targets, as its `$schema`. */
@@ -51,6 +53,8 @@ export type Card = {
         uses?: string[];
         input: Schema;
       }[];
+      /** A connector's skills, each by its name with the ops it uses: a domain's are not on its card. */
+      skills: { name: string; uses?: string[] }[];
       roles: Written<AccessRole>[];
       usesOps: string[];
       usesSkills: string[];
@@ -175,7 +179,10 @@ const written = <N extends { type: string }>({ type, ...fields }: N) => {
 
 /** The card of a plugin, from its nodes and its cases, and, when its package.json gives one, its version. */
 export function cardOf(
-  { definition, cases }: { definition: Definition; cases: Case[] },
+  {
+    definition,
+    cases,
+  }: { definition: Definition; cases: Case[]; skills?: Skill[] },
   version?: string,
 ): Card {
   const { plugin } = definition;
@@ -206,6 +213,7 @@ export function cardOf(
           ...(op.uses === undefined ? {} : { uses: op.uses }),
           input: schemaJson(op.input, `op ${op.name}'s input`),
         })),
+        skills: [],
         roles: definition.roles.map(written),
         usesOps: plugin.usesOps ?? [],
         usesSkills: plugin.usesSkills ?? [],
@@ -253,7 +261,7 @@ function versionIn(dir: string): string | undefined {
 /** The card of the plugin in `dir`, from its nodes and its cases, checked against the standard. */
 export function checkedCard(
   dir: string,
-  made: { definition: Definition; cases: Case[] },
+  made: { definition: Definition; cases: Case[]; skills: Skill[] },
 ): Card {
   const card = cardOf(made, versionIn(dir));
   validateCard(card, `the card of ${made.definition.plugin.name}`);

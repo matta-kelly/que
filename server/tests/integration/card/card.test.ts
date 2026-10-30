@@ -111,3 +111,25 @@ test("validateCard refuses a card the standard's schema refuses", () => {
     },
   );
 });
+
+test("writeCard writes a connector's card with its skills, each by name with the ops it uses", async () => {
+  const dir = join(work, "source-skill");
+  cpSync(source, dir, { recursive: true });
+  writeFileSync(
+    join(dir, "skills/source-guide/SKILL.md"),
+    `---
+name: source-guide
+description: How to find a thing.
+allowed-tools: source-find
+---
+
+Find the thing by its code.`,
+  );
+  const file = await writeCard(dir);
+  const que = JSON.parse(readFileSync(file, "utf8")).extensions[
+    "io.github.matta-kelly.que"
+  ];
+  assert.deepEqual(que.skills, [
+    { name: "source-guide", uses: ["source-find"] },
+  ]);
+});

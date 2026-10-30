@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { cardOf, cardText } from "./card.ts";
+import { cardOf, cardText, checkedCard, validateCard } from "./card.ts";
+import { parseSkill } from "./skill.ts";
 import { definePlugin } from "./contract.ts";
 
 const getFabric = {
@@ -50,8 +51,8 @@ test("cardOf makes the standard's fields, and que's part as the plugin's nodes, 
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        // 5: an op on the card writes its uses.
-        format: 5,
+        // 6: a connector's card lists its skills, each with its uses.
+        format: 6,
         title: "Warehouse",
         kind: "connector",
         credential: {
@@ -94,6 +95,7 @@ test("cardOf makes the standard's fields, and que's part as the plugin's nodes, 
           },
         ],
         cases: [],
+        skills: [],
       },
     },
   });
@@ -367,5 +369,78 @@ test("cardOf puts each case on the card, by its name, as the plugin's case nodes
   assert.equal(type, "case");
   assert.deepEqual(card.extensions["io.github.matta-kelly.que"].cases, [
     written,
+  ]);
+});
+
+const guide = parseSkill(
+  "warehouse-guide",
+  `---
+name: warehouse-guide
+description: How to find a fabric.
+allowed-tools: warehouse-get-fabric
+---
+
+Find it by its code.`,
+);
+const count = parseSkill(
+  "warehouse-count",
+  `---
+name: warehouse-count
+description: How to count the fabrics.
+---
+
+Count them.`,
+);
+
+test("cardOf lists a connector's skills, each by name with its uses, none on a domain's card, and format 6", () => {
+  const connector = cardOf({
+    definition: warehouse,
+    cases: [],
+    skills: [guide, count],
+  }).extensions["io.github.matta-kelly.que"];
+  assert.deepEqual(connector.skills, [
+    { name: "warehouse-guide", uses: ["warehouse-get-fabric"] },
+    { name: "warehouse-count" },
+  ]);
+  assert.equal("uses" in connector.skills[1], false);
+  assert.equal(connector.format, 6);
+  const pim = definePlugin({
+    name: "pim",
+    type: "plugin",
+    title: "PIM",
+    description: "The products.",
+  });
+  const domain = {
+    ...pim,
+    plugin: {
+      ...pim.plugin,
+      kind: "domain" as const,
+      usesSkills: ["warehouse-guide"],
+    },
+  };
+  assert.deepEqual(
+    cardOf({ definition: domain, cases: [], skills: [count] }).extensions[
+      "io.github.matta-kelly.que"
+    ].skills,
+    [],
+  );
+});
+
+test("validateCard takes a connector's card that lists its skills, each with its uses", () => {
+  const card = cardOf({ definition: warehouse, cases: [], skills: [guide] });
+  assert.deepEqual(card.extensions["io.github.matta-kelly.que"].skills, [
+    { name: "warehouse-guide", uses: ["warehouse-get-fabric"] },
+  ]);
+  assert.doesNotThrow(() => validateCard(card, "the card"));
+});
+
+test("checkedCard puts the plugin's skills on the card it checks", () => {
+  const card = checkedCard("/no/such/plugin", {
+    definition: warehouse,
+    cases: [],
+    skills: [guide],
+  });
+  assert.deepEqual(card.extensions["io.github.matta-kelly.que"].skills, [
+    { name: "warehouse-guide", uses: ["warehouse-get-fabric"] },
   ]);
 });
