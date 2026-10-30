@@ -5,14 +5,16 @@
  * kept as the store keeps it (@que/files): its row in the table, its bytes under
  * <data>/files/<thread>/<id>/file, and its uploaded name as a name. A thread
  * that is not the user's, and a file that is not its thread's, answer the same
- * 404 as one that is not there. A file over CAP is a 413, a body with no "file"
- * part is a 400, and a delete of the thread takes its files with it.
+ * 404 as one that is not there. A file over CAP is a 413, answered before the
+ * body is read to its end; a body with no "file" part, multipart or not, is a
+ * 400 naming it; and a delete of the thread takes its files with it.
  */
 
 import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import pg from "pg";
 import { storeOn, type FileStore } from "@que/files";
 import type { ThreadStore } from "@que/threads";
@@ -21,6 +23,15 @@ import type { SignedIn } from "./signed-in.js";
 
 /** The most a file may be, in bytes: 25 MB. */
 export const CAP = 25 * 1024 * 1024;
+
+/** The room a multipart body needs around a file at the cap: its boundaries and each part's headers. */
+const ENVELOPE = 64 * 1024;
+
+/** The answer to a body that holds a file over the cap, or that is too big to hold one. */
+const TOO_BIG = { error: `a file may be ${CAP} bytes at most` };
+
+/** The answer to a body with no "file" part: one that cannot be read as a form is one too. */
+const NO_FILE = { error: 'the body has no "file" part' };
 
 // The deployment's data: QUE_DATA_DIR, where a server mounts a volume, or the user's data folder (XDG).
 const data =
@@ -57,24 +68,35 @@ export async function removeFiles(thread: string): Promise<void> {
 export function fileRoutes(threads: ThreadStore) {
   const routes = new Hono<SignedIn>();
 
-  routes.post("/:id/files", async (c) => {
-    const thread = await threads.get(c.get("userId"), c.req.param("id"));
-    if (!thread) return c.json({ error: "not found" }, 404);
-    const form = await c.req.formData();
-    const uploaded = form.get("file");
-    if (!(uploaded instanceof File)) {
-      return c.json({ error: 'the body has no "file" part' }, 400);
-    }
-    if (uploaded.size > CAP) {
-      return c.json({ error: `a file may be ${CAP} bytes at most` }, 413);
-    }
-    const file = await store.put(thread.id, {
-      name: uploaded.name,
-      mimeType: uploaded.type,
-      bytes: new Uint8Array(await uploaded.arrayBuffer()),
-    });
-    return c.json(file, 201);
-  });
+  routes.post(
+    "/:id/files",
+    // A body over the cap with the room a multipart body needs is a 413 from its content-length, or from a
+    // counting stream when it has none: the route never reads it to its end.
+    bodyLimit({
+      maxSize: CAP + ENVELOPE,
+      onError: (c) => c.json(TOO_BIG, 413),
+    }),
+    async (c) => {
+      const thread = await threads.get(c.get("userId"), c.req.param("id"));
+      if (!thread) return c.json({ error: "not found" }, 404);
+      let form: FormData;
+      try {
+        form = await c.req.formData();
+      } catch {
+        // A body that is not a form (JSON, empty, no content type) has no "file" part either.
+        return c.json(NO_FILE, 400);
+      }
+      const uploaded = form.get("file");
+      if (!(uploaded instanceof File)) return c.json(NO_FILE, 400);
+      if (uploaded.size > CAP) return c.json(TOO_BIG, 413);
+      const file = await store.put(thread.id, {
+        name: uploaded.name,
+        mimeType: uploaded.type,
+        bytes: new Uint8Array(await uploaded.arrayBuffer()),
+      });
+      return c.json(file, 201);
+    },
+  );
 
   routes.get("/:id/files", async (c) => {
     const thread = await threads.get(c.get("userId"), c.req.param("id"));
