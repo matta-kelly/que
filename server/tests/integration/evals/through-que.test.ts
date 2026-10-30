@@ -71,7 +71,7 @@ const outcome = (run: Promise<Message[]>) =>
     }),
   );
 
-test("given que's server on pi, when the runner runs a case under the deployment's agent, then it gives back the run's messages, the agent's answer last, as it reads them from the replay", async () => {
+test("given que's server on pi, when the runner runs a case under the deployment's agent, then it gives back the run's messages, the agent's answer last, as it reads them from the replay, and leaves no thread of its own", async () => {
   faux.setResponses([
     fauxAssistantMessage(
       [fauxToolCall("till-count", { item: "pens" }, { id: "call-pens" })],
@@ -84,9 +84,11 @@ test("given que's server on pi, when the runner runs a case under the deployment
   // Another case, with no tool: what comes back is the run's, not a constant.
   faux.setResponses([fauxAssistantMessage(fauxText("Hello, Ana."))]);
   const greeted = await outcome(que(base).run("Hi", "clerk"));
+  // A run of the runner is not one of the user's chats: its thread is deleted.
+  const left = (await (await fetch(`${base}/threads`)).json()) as unknown[];
 
   assert.deepEqual(
-    { counted, greeted },
+    { counted, greeted, left },
     {
       counted: {
         messages: [
@@ -111,6 +113,7 @@ test("given que's server on pi, when the runner runs a case under the deployment
           { from: "agent", text: "Hello, Ana.", calls: [] },
         ],
       },
+      left: [],
     },
   );
 });

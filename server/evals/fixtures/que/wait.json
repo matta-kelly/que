@@ -1,8 +1,8 @@
 [
   {
     "type": "RUN_STARTED",
-    "threadId": "1af74741-7276-46f7-a98d-05983676a6f4",
-    "runId": "11cfb1ba-c648-4a90-94b9-e6e8fa924ff6"
+    "threadId": "140b4d98-b3c9-45b0-b489-9ef93441cecb",
+    "runId": "602e614d-d341-49b7-9e4c-58fc9d3c18ba"
   },
   {
     "type": "TOOL_CALL_START",
@@ -42,7 +42,7 @@
   },
   {
     "type": "RUN_FINISHED",
-    "threadId": "1af74741-7276-46f7-a98d-05983676a6f4",
-    "runId": "11cfb1ba-c648-4a90-94b9-e6e8fa924ff6"
+    "threadId": "140b4d98-b3c9-45b0-b489-9ef93441cecb",
+    "runId": "602e614d-d341-49b7-9e4c-58fc9d3c18ba"
   }
 ]

@@ -1,5 +1,10 @@
 {
-  "id": "1af74741-7276-46f7-a98d-05983676a6f4",
-  "owner": "f6773e5f-99e1-4c59-a087-680e06dd9b26",
-  "createdAt": "2026-10-30T07:04:19.756Z"
+  "id": "140b4d98-b3c9-45b0-b489-9ef93441cecb",
+  "owner": "93f9066c-d605-48dc-ac76-8acd3979a512",
+  "createdAt": "2026-10-30T08:30:51.846Z",
+  "stopped": false,
+  "title": null,
+  "archived": false,
+  "agent": "chat",
+  "model": null
 }

@@ -64,9 +64,7 @@ const threads = (sent: { method: string; path: string }[]) =>
 
 test("the command runs each case of a deployment under each of its agents, prints the report, and ends with a fault when a run did not finish", async () => {
   // que does not finish the runs under lean.
-  const server = await replay(
-    (input) => input.forwardedProps?.agent === "lean",
-  );
+  const server = await replay((pick) => pick.agent === "lean");
   try {
     const { code, out } = await command(server.url, shop);
     assert.equal(code, 1);
@@ -112,9 +110,7 @@ test("the command stops, and says que is not up, when nothing answers", async ()
 
 test("with Langfuse set, the command prints the report, sends each agent's runs as one experiment, and prints a link to each", async () => {
   // que does not finish the runs under lean.
-  const server = await replay(
-    (input) => input.forwardedProps?.agent === "lean",
-  );
+  const server = await replay((pick) => pick.agent === "lean");
   const langfuse = await standIn();
   try {
     const { code, out } = await commandWith(

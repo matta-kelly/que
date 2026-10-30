@@ -19,7 +19,10 @@ const outcome = (run: Promise<Message[]>) =>
     }),
   );
 
-/** The requests of the run that begins at `sent[at]`, and what que reads of its AG-UI RunAgentInput. */
+/**
+ * The requests of the run that begins at `sent[at]`: the agent its thread's
+ * POST picks (none is null), and what que reads of its AG-UI RunAgentInput.
+ */
 const runOf = (sent: Sent[], at: number) => {
   const [create, run] = sent.slice(at, at + 2);
   const body = (run?.body ?? {}) as RunBody;
@@ -29,6 +32,7 @@ const runOf = (sent: Sent[], at: number) => {
       `${create?.method} ${create?.path}`,
       `${run?.method} ${run?.path}`,
     ],
+    agent: (create?.body as { agent?: unknown } | undefined)?.agent ?? null,
     threadId: body.threadId,
     runId: typeof body.runId === "string" && body.runId !== "",
     messages: (body.messages ?? []).map(({ role, content }) => ({
@@ -40,7 +44,7 @@ const runOf = (sent: Sent[], at: number) => {
   };
 };
 
-test("given a message and an agent, when the runner runs it, then que gets a new thread and, on it, AG-UI's RunAgentInput: the message as its one user message, the agent's name in its forwardedProps", async () => {
+test("given a message and an agent, when the runner runs it, then que gets a new thread that picks the agent and, on it, AG-UI's RunAgentInput: the message as its one user message, tagged eval in its forwardedProps", async () => {
   const server = await replay();
   try {
     await que(server.url)
@@ -56,20 +60,22 @@ test("given a message and an agent, when the runner runs it, then que gets a new
       {
         lean: {
           requests: ["POST /threads", run],
+          agent: "lean",
           threadId: THREAD,
           runId: true,
           messages: [{ role: "user", content: "Where is the order of Ada?" }],
           messageId: true,
-          forwardedProps: { agent: "lean" },
+          forwardedProps: { tags: ["eval"] },
         },
         // With no agent named, que runs the deployment's first.
         none: {
           requests: ["POST /threads", run],
+          agent: null,
           threadId: THREAD,
           runId: true,
           messages: [{ role: "user", content: "What can you do?" }],
           messageId: true,
-          forwardedProps: {},
+          forwardedProps: { tags: ["eval"] },
         },
       },
     );

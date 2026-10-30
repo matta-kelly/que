@@ -282,3 +282,24 @@ test("given a run stopped while the model has not answered its request, when its
     { pens: expected, ink: expected },
   );
 });
+
+test("given a run of the eval runner, tagged eval in its run input's forwardedProps, and a user's chat, when each run ends, then the eval run's trace root holds the tag eval, and the chat's holds no tag", async () => {
+  await que.signIn("ana@example.com", "ana-key");
+  const evalThread = await que.runOnPi(
+    "How many pens?",
+    counting("pens", "call-eval", "Ten pens."),
+    { tags: ["eval"] },
+  );
+  const chatThread = await que.runOnPi(
+    "How many pens?",
+    counting("pens", "call-chat", "Ten pens."),
+  );
+  const tags = async (thread: string) =>
+    rootsOf(await traceOf(thread)).map(
+      (root) => root.attributes["langfuse.trace.tags"],
+    );
+  assert.deepEqual(
+    { eval: await tags(evalThread), chat: await tags(chatThread) },
+    { eval: ['["eval"]'], chat: [undefined] },
+  );
+});

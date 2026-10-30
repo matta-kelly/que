@@ -68,6 +68,16 @@ const body = async (request: IncomingMessage) => {
   return Buffer.concat(chunks).toString("utf8");
 };
 
+type Value = Record<string, unknown> & { arrayValue?: { values?: Value[] } };
+
+/** An attribute's value as text: a list as the JSON of its values. */
+const textOf = (value: Value): string =>
+  value.arrayValue
+    ? JSON.stringify(
+        (value.arrayValue.values ?? []).map((item) => Object.values(item)[0]),
+      )
+    : String(Object.values(value)[0]);
+
 /** The spans of one OTLP request in JSON, with each attribute as text. */
 const spansOf = (wire: Wire): Span[] =>
   (wire.resourceSpans ?? [])
@@ -84,10 +94,7 @@ const spansOf = (wire: Wire): Span[] =>
       start: BigInt(span.startTimeUnixNano),
       end: BigInt(span.endTimeUnixNano),
       attributes: Object.fromEntries(
-        (span.attributes ?? []).map(({ key, value }) => [
-          key,
-          String(Object.values(value)[0]),
-        ]),
+        (span.attributes ?? []).map(({ key, value }) => [key, textOf(value)]),
       ),
     }));
 
@@ -266,11 +273,13 @@ export async function serveOnPi() {
 
   /**
    * One message on a new thread of the signed-in user, answered as `responses`
-   * script: the thread, and the run's stream as text once it has ended.
+   * script, with the run input's `forwardedProps`: the thread, and the run's
+   * stream as text once it has ended.
    */
   const startOnPi = async (
     content: string,
     responses: Parameters<typeof faux.setResponses>[0],
+    forwardedProps: Record<string, unknown> = {},
   ) => {
     const made = await fetch(`${base}/threads`, { method: "POST" });
     const threadId = ((await made.json()) as { id: string }).id;
@@ -285,7 +294,7 @@ export async function serveOnPi() {
         tools: [],
         context: [],
         state: {},
-        forwardedProps: {},
+        forwardedProps,
       }),
     });
     return { thread: threadId, stream: response.then((r) => r.text()) };
@@ -293,13 +302,19 @@ export async function serveOnPi() {
 
   /**
    * One message on a new thread of the signed-in user, answered as `responses`
-   * script: the thread, once the run's stream has ended.
+   * script, with the run input's `forwardedProps`: the thread, once the run's
+   * stream has ended.
    */
   const runOnPi = async (
     content: string,
     responses: Parameters<typeof faux.setResponses>[0],
+    forwardedProps: Record<string, unknown> = {},
   ) => {
-    const { thread, stream } = await startOnPi(content, responses);
+    const { thread, stream } = await startOnPi(
+      content,
+      responses,
+      forwardedProps,
+    );
     const text = await stream;
     if (!text.includes("RUN_FINISHED"))
       throw new Error(`the run did not finish: ${text}`);
