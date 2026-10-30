@@ -16,7 +16,7 @@ Talks to que's server (`server/runtime/`) over AG-UI, through the proxy at
   - the user's Stop (the Stop button, or Escape in the composer) is `POST /threads/:id/stop` as well as the end of the stream in the browser, on the composer's `composer.cancel` event: it ends the run on que's server, which keeps the reply as far as it came, and the thread says it was stopped until its next run. A chat that is left while its reply goes is not stopped: its run goes on on que's server, and a reload joins it
   - `components/chat/message-queue/`: a message sent while a run is going waits above the composer, can be taken back, and is sent when that run ends. It is the library's own queue (`unstable_enableMessageQueue`), kept in the browser: a stop or a closed tab lets the waiting messages go
   - `components/chat/run-states/`: a `Stopped` mark with `Continue`, above the composer. The mark shows while the thread says it was stopped: the user's Stop sets it when que's server stopped a run, a chat loaded from que's server reads it, and a run that starts clears it
-- `components/runtime/runs/`: the LangGraph runtime's helpers (a checkpoint, a run's options, a kept run) and their tests. Nothing uses them
+- `components/runtime/runs/`: the LangGraph runtime's helpers (a checkpoint, a kept run) and their tests. Nothing uses them
 - `components/chat/toolkit.tsx`: custom UIs for agent tools, keyed by tool name
 - `lib/que-api.ts`: the que API's response types and the fetcher for `useSWR`
 - `components/chat/run-pickers/pick.ts`: the pick of a chat, the agent and the model. The composer has a picker for each, made from what the deployment lists (`/api/que/deployment`)
