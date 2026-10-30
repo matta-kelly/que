@@ -23,7 +23,7 @@ The chat UI of [[que]]: a Next.js app in `ui/`, in front of que's server.
 - Next.js, with shadcn components (`ui/components/ui/`) and [assistant-ui](https://www.assistant-ui.com/docs) for the chat
 	- the thread is a copy of assistant-ui's `Thread`, edited in the repo (`ui/components/assistant-ui/elements/`). An upgrade is a diff by hand
 	- que's own chat features are in `ui/components/chat/`, a folder each; lint keeps them out of `assistant-ui/`
-	- the runtime is assistant-ui's AG-UI adapter (`useAgUiRuntime`), inside its remote thread list. A run is `POST /threads/:id/runs` on que's server, through the proxy at `/api`, and its answer streams back as AG-UI events. A turn is one reply: its model calls and tool calls are joined in the order they came
+	- the runtime is assistant-ui's AG-UI adapter (`useAgUiRuntime`), inside its remote thread list. A run is `POST /threads/:id/runs` on que's server, through the proxy at `/api`, and its answer streams back as AG-UI events. A turn is one reply, live and when a chat is loaded: its model calls and tool calls are joined in the order they came
 - Where a thing comes from
 	- behavior from que's server: a run goes on on the server when its stream ends. The UI has no way to stop it there, or to pick it up again
 	- looks from assistant-ui: its elements, in their standalone mode. que hands them its own values

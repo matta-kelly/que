@@ -7,11 +7,33 @@ import {
   useAui,
   useRemoteThreadListRuntime,
   type ThreadHistoryAdapter,
+  type ThreadMessageLike,
 } from "@assistant-ui/react";
 import { fromAgUiMessages, useAgUiRuntime } from "@assistant-ui/react-ag-ui";
 import { loadDeployment } from "@/components/chat/run-pickers/pick-store";
 import { ThreadAgent, threads } from "@/components/runtime/que-client";
 import { threadListAdapter } from "@/components/runtime/thread-list-adapter";
+
+const partsOf = (content: ThreadMessageLike["content"]) =>
+  typeof content === "string"
+    ? [{ type: "text" as const, text: content }]
+    : content;
+
+/**
+ * A turn as one reply, as the live stream joins it: each assistant message
+ * after another is joined into it, under the first one's id.
+ */
+const oneReplyPerTurn = (messages: readonly ThreadMessageLike[]) =>
+  messages.reduce<ThreadMessageLike[]>((turns, message) => {
+    const last = turns.at(-1);
+    if (last?.role !== "assistant" || message.role !== "assistant")
+      return [...turns, message];
+    const joined = {
+      ...last,
+      content: [...partsOf(last.content), ...partsOf(message.content)],
+    };
+    return [...turns.slice(0, -1), joined];
+  }, []);
 
 /**
  * One chat's runtime: its runs go to que's server over AG-UI, and its messages
@@ -33,7 +55,9 @@ function useChatRuntime() {
         const { remoteId } = aui.threadListItem().getState();
         if (!remoteId) return { messages: [] };
         const { messages } = await threads.get(remoteId);
-        return ExportedMessageRepository.fromArray(fromAgUiMessages(messages));
+        return ExportedMessageRepository.fromArray(
+          oneReplyPerTurn(fromAgUiMessages(messages)),
+        );
       },
       // que's server keeps each message of a run.
       async append() {},
