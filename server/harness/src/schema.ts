@@ -100,8 +100,9 @@ const loop = defineType({
     result: setting(z.strictObject({ max: some }, strict())),
     /**
      * `at`: the share of the model's window past which the old part of the chat is sent as a summary. `keep`: the share
-     * that is sent as it is. Agents on one model must summarize alike: pi sets compaction per model, so mount stops on
-     * two whose loops differ here. Give one of them a model entry of its own, or make their loops summarize alike.
+     * that is sent as it is. Agents on one model id must summarize alike: pi sets compaction per model id, so mount
+     * stops on two whose loops differ here, also when their model entries differ. Give one of them a model with another
+     * id, or make their loops summarize alike.
      */
     summarize: setting(
       z
