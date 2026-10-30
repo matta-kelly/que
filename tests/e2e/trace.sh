@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Checks, against the real Langfuse, that que's server sends the trace of a run.
 # Run on the host, with que started for the deployment given (`just start` in it), and
-# the three Langfuse settings in its .env. It makes one model call, and the
-# trace it leaves in Langfuse holds what the agent read.
+# the three Langfuse settings in its .env. It makes one run that calls a tool, and
+# the trace it leaves in Langfuse holds what the agent read.
 #
 #   tests/e2e/trace.sh <deployment folder>
+#
+# QUE_AGENT names the agent of the run (default chat): one that loads on demand, so it has open_plugin.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
 dep=$(cd "${1:?usage: trace.sh <deployment folder>}" && pwd)
 que=${QUE_URL:-http://localhost:2024}
+agent=${QUE_AGENT:-chat}
 failed=0
 
 ok() { echo "ok    $1"; }
@@ -32,13 +35,15 @@ curl -sS -o /dev/null --max-time 5 "$que/ok" || stop "que is not up at $que"
 
 # One run on a new thread, as a user makes one: POST /threads, then a run of
 # AG-UI's RunAgentInput on POST /threads/:id/runs, whose answer streams back as
-# AG-UI events over SSE. The message asks for one tool call that reads no
-# record of a service.
-thread=$(post /threads '{}' | jq -r .id)
+# AG-UI events over SSE. The message asks for one call of que's own tool
+# open_plugin, which reads the plugin's ops and no record of its service, so the
+# trace holds a tool call and no business data. Only an agent that loads on
+# demand has open_plugin, so the thread names one.
+thread=$(post /threads "$(jq -nc --arg agent "$agent" '{agent: $agent}')" | jq -r .id)
 [ -n "$thread" ] && [ "$thread" != null ] || stop "que made no thread"
 # The thread is kept: que's server deletes no thread before F3.
 input=$(jq -nc --arg thread "$thread" --arg run "$(cat /proc/sys/kernel/random/uuid)" --arg id "$(cat /proc/sys/kernel/random/uuid)" \
-  '{threadId: $thread, runId: $run, messages: [{id: $id, role: "user", content: "Open one of your packages, and tell me its title. Read nothing else."}], tools: [], context: [], state: {}, forwardedProps: {}}')
+  '{threadId: $thread, runId: $run, messages: [{id: $id, role: "user", content: "Use open_plugin to open one of your plugins, and tell me its name. Call no other tool."}], tools: [], context: [], state: {}, forwardedProps: {}}')
 # The type of each event of the run's stream, one per line.
 events=$(post "/threads/$thread/runs" "$input" | sed -n 's/^data: *//p' | jq -r '.type? // empty' 2>/dev/null || true)
 if grep -qx RUN_FINISHED <<<"$events" && grep -qx TEXT_MESSAGE_CONTENT <<<"$events"; then
@@ -70,8 +75,11 @@ has "an agent config" "$(jq -r '.metadata.agent // empty' <<<"$first")"
 # over this API: it is read in the Langfuse UI, on the trace.
 
 full=$(langfuse "$steps&traceId=$id")
+# Each model call is two GENERATION steps: que's span "generation", which holds its input and output, and pi's
+# "pi.ai.request". So a model call is counted by que's span.
 count() { jq --arg type "$1" '[.data[]? | select(.type == $type)] | length' <<<"$full"; }
-[ "$(count GENERATION)" -ge 1 ] && ok "the trace holds $(count GENERATION) model calls" || bad "the trace holds no model call"
+calls=$(jq '[.data[]? | select(.type == "GENERATION" and .name == "generation")] | length' <<<"$full")
+[ "$calls" -ge 1 ] && ok "the trace holds $calls model calls" || bad "the trace holds no model call"
 [ "$(count TOOL)" -ge 1 ] && ok "the trace holds $(count TOOL) tool calls" || bad "the trace holds no tool call"
 
 # The first model call's input holds the agent's system prompt: a system message whose text (its content, or the
@@ -79,7 +87,7 @@ count() { jq --arg type "$1" '[.data[]? | select(.type == $type)] | length' <<<"
 # the tools is not one. The input is pi's messages as
 # JSON, which Langfuse can give as text or parsed.
 system=$(jq -r '
-  [.data[]? | select(.type == "GENERATION")] | sort_by(.startTime) | .[0].input // empty
+  [.data[]? | select(.type == "GENERATION" and .name == "generation")] | sort_by(.startTime) | .[0].input // empty
   | (if type == "string" then (fromjson? // []) else . end)
   | [.[]? | select(.role? == "system")
      | ((.content | if type == "array" then map(.text? // "") | join("") else (. // "") end)
