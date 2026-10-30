@@ -1,0 +1,15 @@
+# A CI checkout holds only the files git tracks, so this list holds only what git does not track: the
+# image a machine builds is then the file set CI builds, and no folder the build reads is left out.
+# Docker and podman both read this file.
+# The image names its commit with QUE_COMMIT instead, and ships no history.
+.git
+
+# The installs and the build's output: the image makes its own, and a checkout on a machine can hold
+# ones built elsewhere.
+**/node_modules
+**/.next
+**/*.tsbuildinfo
+
+# Settings and secrets of a machine's own checkout. An image never holds a secret.
+.env
+.env*.local

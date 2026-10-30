@@ -1,0 +1,44 @@
+# The release of que's runtime image. A `v*` tag builds `ghcr.io/<repo>:<tag>` and pushes it, but only
+# after the smoke steps pass on it, so a pushed tag is an image those steps read. The same workflow
+# started by hand builds and smoke-tests in the same way and pushes nothing: a tag spends one name,
+# and a name is not moved when its run fails (cd.md). So H1 is the first run that pushes.
+#
+# No `latest`: the image is a release, and each node reads the tag it was given.
+name: ship
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The one job that writes to the registry. Only a tag's run reaches the push below, and no
+    # password is stored: the run's own token is handed to the engine and never printed.
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # A tag names a release. A run by hand builds under the branch's name, which is never pushed.
+      IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      # The commit goes in at build: the image has no .git, and a run's trace names its commit.
+      - name: Build
+        run: podman build --build-arg QUE_COMMIT="${{ github.sha }}" --tag "$IMAGE" .
+      - name: Smoke
+        run: scripts/smoke-image.sh "$IMAGE"
+      - name: Log in to the registry
+        if: github.ref_type == 'tag'
+        env:
+          # The job's token, never a personal one, and never printed.
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | podman login ghcr.io --username "${{ github.actor }}" --password-stdin
+      - name: Push the tag
+        if: github.ref_type == 'tag'
+        run: podman push "$IMAGE"
