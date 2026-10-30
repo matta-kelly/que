@@ -76,13 +76,10 @@ threads.get("/:id", async (c) => {
 });
 
 threads.patch("/:id", async (c) => {
-  const user = c.get("userId");
-  const id = c.req.param("id");
-  if (!(await store.get(user, id))) return c.json({ error: "not found" }, 404);
   const { data, error } = await bodyOf(c.req.text(), Change);
   if (!data) return c.json({ error }, 400);
-  // A thread deleted since it was read is not found.
-  const changed = await store.change(user, id, data);
+  // The change is made only on the user's own thread: none, for any other.
+  const changed = await store.change(c.get("userId"), c.req.param("id"), data);
   return changed ? c.json(changed) : c.json({ error: "not found" }, 404);
 });
 
