@@ -1,6 +1,7 @@
 /**
- * The model maker: the framework's model for a model config. A run of the
- * runtime makes its model here, and so does the judge of the eval runner.
+ * The model makers for a model config: the framework's (here), and the pi-ai
+ * maker (./pi.ts). A run of the runtime makes its model with one of them. The
+ * judge of the eval runner takes the pi-ai maker, as a run on pi does.
  */
 
 import { initChatModel } from "langchain";
