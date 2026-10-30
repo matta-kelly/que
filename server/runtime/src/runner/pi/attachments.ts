@@ -126,10 +126,10 @@ const cached = (path: string) => readFile(path, "utf8").catch(() => undefined);
 async function pdfText(
   attachments: Attachments,
   file: FileWithBytes,
-): Promise<{ text: string; fromCache: boolean }> {
+): Promise<string> {
   const path = join(folderOf(attachments, file), "text");
   const kept = await cached(path);
-  if (kept !== undefined) return { text: kept, fromCache: true };
+  if (kept !== undefined) return kept;
   const { text } = (await extractText(new Uint8Array(file.bytes), {
     mergePages: false,
   })) as {
@@ -141,7 +141,7 @@ async function pdfText(
       "the PDF has no text: it has no text layer, so there is nothing to read",
     );
   await writeFile(path, whole, "utf8");
-  return { text: whole, fromCache: false };
+  return whole;
 }
 
 type Row = readonly unknown[];
@@ -180,7 +180,7 @@ async function sheetAt(
   attachments: Attachments,
   file: FileWithBytes,
   name: string,
-): Promise<{ text: string; fromCache: boolean }> {
+): Promise<string> {
   const folder = join(folderOf(attachments, file), "sheets");
   const sheets = await workbookOf(file);
   const index = sheets.findIndex((sheet) => sheet.sheet === name);
@@ -191,14 +191,14 @@ async function sheetAt(
         .join(", ")}`,
     );
   const kept = await cached(join(folder, `${index}.text`));
-  if (kept !== undefined) return { text: kept, fromCache: true };
+  if (kept !== undefined) return kept;
   await mkdir(folder, { recursive: true });
   await Promise.all(
     sheets.map((sheet, at) =>
       writeFile(join(folder, `${at}.text`), sheetText(sheet.data), "utf8"),
     ),
   );
-  return { text: sheetText(sheets[index].data), fromCache: false };
+  return sheetText(sheets[index].data);
 }
 
 /** The image block for a PNG or a JPEG, with its bytes and its mime type. */
@@ -280,7 +280,7 @@ function readAttachment({
                 text: windowed(
                   api,
                   "PDF",
-                  (await pdfText({ files, thread, dataDir }, file)).text,
+                  await pdfText({ files, thread, dataDir }, file),
                   byte_offset,
                 ),
               },
@@ -304,7 +304,7 @@ function readAttachment({
                 text: windowed(
                   api,
                   `sheet ${sheet}`,
-                  (await sheetAt(attachments, file, sheet)).text,
+                  await sheetAt(attachments, file, sheet),
                   byte_offset,
                 ),
               },
