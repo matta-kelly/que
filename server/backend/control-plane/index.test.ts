@@ -36,7 +36,6 @@ const card = (name: string, nodes: Partial<Que> & Pick<Que, "kind">): Card => ({
     "io.github.matta-kelly.que": {
       format: 6,
       title: name,
-      kind: nodes.kind,
       ops: [],
       skills: [],
       roles: [],
