@@ -10,7 +10,9 @@ FROM node:22-bookworm-slim
 # so the ship run passes --build-arg QUE_COMMIT=<sha>, as `_serve` passes its own in the dev container.
 ARG QUE_COMMIT=""
 
-# The label that links the package to this repo. que's repo is public, so its package starts public.
+# The label that links the package to this repo: it gives the package the repo's access permissions, and
+# not its visibility, so the first publish is private. A pull then needs a login, which is step H1b's and
+# `landl-image`'s business, not this file's.
 LABEL org.opencontainers.image.source="https://github.com/matta-kelly/que" \
       org.opencontainers.image.revision="${QUE_COMMIT}"
 
