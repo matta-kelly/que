@@ -5,8 +5,9 @@
 
 import type { Queryable } from "./storage.ts";
 
-/** A record type the storage stores. Documents are not stored yet. */
-export type Table = "conversation" | "entry" | "task" | "submission";
+/** A record type the storage stores. */
+export type Table =
+  "conversation" | "entry" | "task" | "submission" | "document";
 
 // The type of the record that holds `id`, if any.
 async function recordType(
@@ -19,6 +20,7 @@ async function recordType(
        UNION ALL SELECT 'entry' FROM pi.entries WHERE id = $1
        UNION ALL SELECT 'task' FROM pi.tasks WHERE id = $1
        UNION ALL SELECT 'submission' FROM pi.submissions WHERE id = $1
+       UNION ALL SELECT 'document' FROM pi.documents WHERE id = $1
      ) records LIMIT 1`,
     [id],
   );

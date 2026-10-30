@@ -9,7 +9,11 @@
  * - `pi.entries`: each entry, by the conversation it is in, with its `head` and the sequence of the commit that wrote it.
  *   Its record is JSON text, not jsonb: jsonb refuses U+0000 and a lone surrogate, which JSON.stringify escapes.
  * - `pi.tasks` and `pi.submissions`: each record, with the columns their scans filter and order on. Their records are
- *   JSON text for the same reason as an entry's.
+ *   JSON text for the same reason as an entry's. A string they index (a task's `kind`, a submission's `request_id`) is
+ *   stored JSON-encoded, which keeps a lone surrogate exact in a text column (see `identity.ts`).
+ *   That encoding has no backfill: a store made before B5 holds no que data, so no old row is re-encoded.
+ * - `pi.documents`: each incarnation, by its logical address and exact scope, with its lifetime. `pi.document_revisions`:
+ *   each base or delta of its content, in commit-sequence order. Their indexed strings are JSON-encoded too.
  */
 export const SETUP = `
   DO $$
@@ -69,5 +73,26 @@ export const SETUP = `
       ON pi.submissions (conversation_id, id);
     CREATE INDEX IF NOT EXISTS submissions_by_status
       ON pi.submissions (status, id);
+    CREATE TABLE IF NOT EXISTS pi.documents (
+      id         bigint PRIMARY KEY,
+      address    text   NOT NULL,
+      scope      text   NOT NULL,
+      kind       text   NOT NULL,
+      created_at bigint NOT NULL,
+      retired_at bigint,
+      record     text   NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS documents_by_address
+      ON pi.documents (address, id);
+    CREATE INDEX IF NOT EXISTS documents_by_scope
+      ON pi.documents (scope, id);
+    CREATE TABLE IF NOT EXISTS pi.document_revisions (
+      document_id bigint  NOT NULL,
+      seq         bigint  NOT NULL,
+      kind        text    NOT NULL,
+      version     integer NOT NULL,
+      content     text    NOT NULL,
+      PRIMARY KEY (document_id, seq)
+    );
   END
   $$`;

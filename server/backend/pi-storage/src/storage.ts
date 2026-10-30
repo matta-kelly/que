@@ -23,6 +23,7 @@ import {
   findDocument,
   scanDocuments,
   writeDocument,
+  type DocumentWrite,
 } from "./documents.ts";
 import { checkRecordId } from "./ids.ts";
 import { page, scanSql, scanStart } from "./scan.ts";
@@ -79,6 +80,7 @@ export function storageOn(db: Queryable): Storage {
             "SELECT nextval('pi.commit_seqs') AS seq",
           );
           const seq = Number(rows[0].seq) as Seq;
+          const documents: DocumentWrite[] = [];
           for (const write of writes) {
             if (write.type === "conversation") {
               const { id, owner } = write.value;
@@ -107,8 +109,8 @@ export function storageOn(db: Queryable): Storage {
               write.type === "document.change" ||
               write.type === "document.retire"
             ) {
-              // Stub: a document write stores nothing, so the document cases reach their assertions.
-              await writeDocument(db, write);
+              // pi checks a commit's document writes as one batch, so they are applied after the table writes.
+              documents.push(write);
               continue;
             } else notImplemented();
             // A stored id the sequence has not reached moves it past that id, so mintId never gives it.
@@ -116,6 +118,19 @@ export function storageOn(db: Queryable): Storage {
               "SELECT setval('pi.ids', $1) FROM pi.ids WHERE $1 >= last_value + is_called::int",
               [write.value.id],
             );
+          }
+          if (documents.length > 0) {
+            await writeDocument(db, documents, seq);
+            for (const write of documents) {
+              if (
+                write.type === "document.create" ||
+                write.type === "document.copy"
+              )
+                await db.query(
+                  "SELECT setval('pi.ids', $1) FROM pi.ids WHERE $1 >= last_value + is_called::int",
+                  [write.record.id],
+                );
+            }
           }
           await db.query("COMMIT");
           return seq;

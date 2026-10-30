@@ -14,6 +14,7 @@ import type {
   TaskRecord,
 } from "@earendil-works/pi-durable";
 import { checkRecordId } from "./ids.ts";
+import { encoded } from "./identity.ts";
 import { page, scanSql, scanStart } from "./scan.ts";
 import type { Queryable } from "./storage.ts";
 
@@ -36,7 +37,7 @@ export async function writeTask(
     [
       task.id,
       task.conversationId,
-      task.kind,
+      encoded(task.kind),
       task.state.status,
       task.abortRequested,
       task.background,
@@ -59,7 +60,7 @@ export async function writeSubmission(
     [
       submission.id,
       submission.conversationId,
-      submission.requestId ?? null,
+      submission.requestId === undefined ? null : encoded(submission.requestId),
       submission.status,
       JSON.stringify(submission),
     ],
@@ -97,7 +98,7 @@ export async function submissionByRequest(
     `SELECT record FROM pi.submissions
      WHERE conversation_id = $1 AND request_id = $2
      ORDER BY id DESC LIMIT 1`,
-    [conversationId, requestId],
+    [conversationId, encoded(requestId)],
   );
   return rows[0] === undefined ? undefined : record(rows[0]);
 }
@@ -119,7 +120,7 @@ export async function scanTasks(
   };
   if (query.conversationId !== undefined)
     filter("conversation_id =", query.conversationId);
-  if (query.kind !== undefined) filter("kind =", query.kind);
+  if (query.kind !== undefined) filter("kind =", encoded(query.kind));
   if (query.status !== undefined) filter("status =", query.status);
   if (query.abortRequested !== undefined)
     filter("abort_requested =", query.abortRequested);
