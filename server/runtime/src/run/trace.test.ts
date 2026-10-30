@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runOf, settingsFor, startTracing } from "./trace.js";
+import { runOf, settingsFor, startTracing, tagsOf } from "./trace.js";
 
 const set = {
   LANGFUSE_PUBLIC_KEY: "pk-lf-1",
@@ -118,5 +118,26 @@ test("with nothing to send to, a run gets the agent as it was built", () => {
   assert.equal(
     traced(agent, { user: "user-7", thread: "thread-3", agent: "lean" }),
     agent,
+  );
+});
+
+test("given a run input's forwardedProps.tags, when que reads its tags, then it keeps only the ones it knows: eval, and no label a client makes up", () => {
+  assert.deepEqual(
+    {
+      evalOnly: tagsOf({ tags: ["eval"] }),
+      unknown: tagsOf({ tags: ["x"] }),
+      mixed: tagsOf({ tags: ["eval", "x"] }),
+      none: tagsOf({}),
+      notAList: tagsOf({ tags: "eval" }),
+      noProps: tagsOf(undefined),
+    },
+    {
+      evalOnly: ["eval"],
+      unknown: [],
+      mixed: ["eval"],
+      none: [],
+      notAList: [],
+      noProps: [],
+    },
   );
 });
