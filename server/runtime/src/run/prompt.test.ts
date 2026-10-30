@@ -326,9 +326,22 @@ test("given one user's runs on two agents at the same time, when the first waits
   assert.deepEqual(resultIn(ofClerk[1].messages, "pens"), { isError: false });
   assert.deepEqual(resultIn(ofKeeper[1].messages, "ab"), { isError: false });
 
-  // read_result beside each: both agents' loops keep result on, as by default.
-  const clerkTools = [...TILL, "read_result", "read_skill"].sort();
-  const keeperTools = ["read_result", "read_skill", "source-find"];
+  // read_result and the attachment tools beside each: both agents' loops keep result on, as by default, and
+  // every run offers its thread's files.
+  const clerkTools = [
+    ...TILL,
+    "list_attachments",
+    "read_attachment",
+    "read_result",
+    "read_skill",
+  ].sort();
+  const keeperTools = [
+    "list_attachments",
+    "read_attachment",
+    "read_result",
+    "read_skill",
+    "source-find",
+  ];
   assert.deepEqual(
     {
       clerk: ofClerk.map(({ prompt, tools }) => ({ prompt, tools })),

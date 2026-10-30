@@ -25,16 +25,15 @@ import {
   MemoryStorage,
   ToolResultEntry,
   type EntryRecord,
-  type Extension,
   type ToolRegistration,
 } from "@earendil-works/pi-durable";
 import { PGlite } from "@electric-sql/pglite";
-// The run's attachment tools read the file store; the runtime's package allowlist gains @que/files with this cut.
+// The run's attachment tools read the file store; the runtime's package allowlist has held @que/files since the
+// file-routes cut.
 import { storeOn, type FileStore } from "@que/files";
 import type { Model } from "@mku1tra/que-harness";
 import { fireworks, piModel } from "@que/chat-model";
-import type { Catalog } from "../../access/catalog.js";
-import { door, type Call } from "../../assemble/door.js";
+import { door } from "../../assemble/door.js";
 import { eager } from "../../assemble/eager/index.js";
 import { extension } from "./extension.js";
 
@@ -50,20 +49,9 @@ type Attachments = {
 };
 
 /**
- * The extension as the run gives it the files: the fifth argument is its loop's result setting, and the sixth the
- * thread's files. This is the interface the tools must have; today's extension takes no sixth argument, so the test
- * reaches the missing tool at its assertion, not at a compile or import.
+ * The extension has the run's files as its sixth argument, after the loop's result setting as its fifth: the test
+ * calls it as the run does, so a change to that argument or to the order of its parameters fails to compile.
  */
-type WithAttachments = (
-  catalog: Catalog,
-  call: Call,
-  user: string,
-  way: typeof eager,
-  limit: false,
-  attachments: Attachments,
-) => Omit<Extension, "name">;
-const withAttachments = extension as unknown as WithAttachments;
-
 const faux = fauxProvider({
   provider: "fireworks",
   models: [{ id: "small-model", contextWindow: 64_000 }],
@@ -131,13 +119,17 @@ async function openStore(t: TestContext) {
 /** The extension with `files` for the run's `thread`. */
 function queOn({ files, thread, dataDir }: Attachments) {
   return {
-    ...withAttachments(
+    ...extension(
       [],
       door(async () => undefined),
       "ana",
       eager,
       false,
-      { files, thread, dataDir },
+      {
+        files,
+        thread,
+        dataDir,
+      },
     ),
     name: "que",
   };
@@ -206,6 +198,46 @@ const put = (
   mimeType: string,
   bytes: Uint8Array,
 ) => files.put(thread, { name, mimeType, bytes });
+
+/**
+ * Reads windows from `offset`, each at the offset the last named, until one says the text ends. A window that names
+ * `next` must start where the last ended: at the offset plus the window's bytes.
+ */
+async function readFrom(
+  attachments: Attachments,
+  file: string,
+  offset: number,
+  sheet?: string,
+) {
+  const windows: { offset: number; text: string; got: Got }[] = [];
+  let at = offset;
+  for (let step = 0; step < 100; step++) {
+    const id = `w${step}`;
+    const args: Args = { file, byte_offset: at };
+    if (sheet !== undefined) args.sheet = sheet;
+    const { of } = await ask(attachments, [{ name: READ, args, id }]);
+    const got = of(id);
+    assert.ok(got, `the model got no result of read_attachment at ${at}`);
+    assert.equal(got.isError, false, got.text || got.notes);
+    assert.ok(
+      Buffer.byteLength(got.text) <= WINDOW,
+      `the window at ${at} is ${Buffer.byteLength(got.text)} bytes`,
+    );
+    windows.push({ offset: at, text: got.text, got });
+    const next = nextOffset(got);
+    if (next === undefined) {
+      assert.equal(ends(got), true, got.notes);
+      return windows;
+    }
+    assert.equal(
+      next,
+      at + Buffer.byteLength(got.text),
+      `the window at ${at} names ${next}: it does not start where the last ended`,
+    );
+    at = next;
+  }
+  assert.fail(`the text from ${offset} did not end in 100 windows`);
+}
 
 /** A CSV of `count` padded rows, so a window at 50KB does not reach the end. */
 function csv(count: number) {
@@ -380,17 +412,25 @@ function xlsx(sheets: Sheet[]): Buffer {
   return zip(entries);
 }
 
+/** The Orders sheet's rows: a header and 5,000 orders. */
+const ordersRows = (): Cell[][] => [
+  ["order", "customer", "sku", "qty"],
+  ...Array.from({ length: 5000 }, (_, i) => [
+    `SO${i + 1}`,
+    `cust-${i % 97}`,
+    `SKU-${i % 503}`,
+    i % 17,
+  ]),
+];
+
+/** The Orders sheet's text as read_attachment gives it: a row a line, a cell a tab-separated value. */
+const ordersText = () =>
+  ordersRows()
+    .map((row) => row.map((value) => String(value)).join("\t"))
+    .join("\n");
+
 /** A workbook with a 5,000-row Orders sheet and a Prices sheet of text, escapes and a date. */
 function workbook() {
-  const orders: Cell[][] = [
-    ["order", "customer", "sku", "qty"],
-    ...Array.from({ length: 5000 }, (_, i) => [
-      `SO${i + 1}`,
-      `cust-${i % 97}`,
-      `SKU-${i % 503}`,
-      i % 17,
-    ]),
-  ];
   const prices: Cell[][] = [
     ["sku", "price"],
     ["SKU-1", 11],
@@ -401,7 +441,7 @@ function workbook() {
     ["date", { date: 45292 }],
   ];
   return xlsx([
-    { name: "Orders", rows: orders },
+    { name: "Orders", rows: ordersRows() },
     { name: "Prices", rows: prices },
   ]);
 }
@@ -687,52 +727,49 @@ test("given a sheet over 50KB, when read_attachment reads windows, then each is 
     bytes,
   );
 
-  // when: the first window is read
-  const opening = await ask({ files, thread: "T", dataDir: dir }, [
-    {
-      name: READ,
-      args: { file: file.id, sheet: "Orders", byte_offset: 0 },
-      id: "one",
-    },
-  ]);
-  const one = opening.of("one");
-  assert.ok(one, "the model got no result of read_attachment");
-  assert.equal(one.isError, false, one.text);
-  assert.ok(Buffer.byteLength(one.text) <= WINDOW);
-  const next = nextOffset(one);
-  assert.ok(next !== undefined && next > 0, one.notes);
+  // when: the sheet is read from offset 0 and each window's named offset is followed to the end
+  const windows = await readFrom(
+    { files, thread: "T", dataDir: dir },
+    file.id,
+    0,
+    "Orders",
+  );
+  const whole = windows.map(({ text }) => text).join("");
 
-  // when: the next window is read
-  const deeper = await ask({ files, thread: "T", dataDir: dir }, [
-    {
-      name: READ,
-      args: { file: file.id, sheet: "Orders", byte_offset: next },
-      id: "two",
-    },
-  ]);
-  const two = deeper.of("two");
+  // then: each window is at most 50KB, a later one holds a row deep in the sheet, and the last says the sheet ends
+  assert.ok(windows.length > 1, `${windows.length} window`);
+  assert.ok(whole.includes("SO3000"), whole.slice(0, 200));
+  const last = windows.at(-1);
+  assert.ok(last, "no window was read");
+  assert.equal(ends(last.got), true, last.got.notes);
+});
 
-  // then: it holds a row deep in the sheet
-  assert.ok(two, "the model got no result of the second window");
-  assert.equal(two.isError, false, two.text);
-  assert.ok(two.text.includes("SO3000"), two.text.slice(0, 200));
+test("given a CSV and a named sheet over 50KB, when read_attachment reads each from offset 0 and follows each window's next offset to the end, then window N+1 starts where window N ended and the windows join into the whole text with no gap or overlap", async (t) => {
+  // given: a CSV of 1,200 rows, and a workbook whose Orders sheet is over two windows
+  const { dir, files } = await openStore(t);
+  const csvBytes = csv(1200);
+  const csvFile = await put(files, "T", "orders.csv", "text/csv", csvBytes);
+  const book = await put(
+    files,
+    "T",
+    "book.xlsx",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    workbook(),
+  );
 
-  // when: a window at the end is read
-  const last = await ask({ files, thread: "T", dataDir: dir }, [
-    {
-      name: READ,
-      args: {
-        file: file.id,
-        sheet: "Orders",
-        byte_offset: Buffer.byteLength(bytes) - 10,
-      },
-      id: "last",
-    },
-  ]);
+  // when: each is read from offset 0, following each window's next offset to the end
+  const attachments = { files, thread: "T", dataDir: dir };
+  const ofCsv = await readFrom(attachments, csvFile.id, 0);
+  const ofSheet = await readFrom(attachments, book.id, 0, "Orders");
 
-  // then: it says the sheet ends
-  assert.ok(last.of("last"), "the model got no result of the last window");
-  assert.equal(ends(last.of("last")), true, last.of("last")?.notes);
+  // then: each window starts where the last ended (readFrom holds it), and the windows join with no gap or overlap
+  assert.ok(ofCsv.length > 2, `${ofCsv.length} CSV windows`);
+  assert.ok(ofSheet.length > 1, `${ofSheet.length} sheet windows`);
+  assert.deepEqual(
+    ofCsv.map(({ text }) => text).join(""),
+    csvBytes.toString("utf8"),
+  );
+  assert.deepEqual(ofSheet.map(({ text }) => text).join(""), ordersText());
 });
 
 test("given a sheet name the workbook does not have, when read_attachment is called with it, then it fails and lists the names it does have", async (t) => {
