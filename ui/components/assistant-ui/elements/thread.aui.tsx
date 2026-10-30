@@ -41,6 +41,7 @@ import {
   CopyIcon,
   DownloadIcon,
   MoreHorizontalIcon,
+  PaperclipIcon,
   PencilIcon,
   RefreshCwIcon,
   SquareIcon,
@@ -307,6 +308,19 @@ const ComposerAction: FC = () => {
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <RunPickers />
       <div className="flex items-center gap-1.5">
+        <ComposerPrimitive.AddAttachment asChild>
+          <TooltipIconButton
+            tooltip="Attach file"
+            side="bottom"
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="aui-composer-add-attachment size-7 rounded-full"
+            aria-label="Attach file"
+          >
+            <PaperclipIcon className="aui-composer-add-attachment-icon size-4" />
+          </TooltipIconButton>
+        </ComposerPrimitive.AddAttachment>
         {/* While a run is going, send is there only for a message that is written: it then waits its turn. */}
         <AuiIf condition={(s) => !s.thread.isRunning || !s.composer.isEmpty}>
           <ComposerPrimitive.Send asChild>
