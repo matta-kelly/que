@@ -1,10 +1,26 @@
 import { HttpAgent, type Message } from "@ag-ui/client";
+import type { RunPick } from "@/components/chat/run-pickers/pick";
 
 // que's server, through the Next.js proxy at /api: the user's threads, and an
 // AG-UI agent that runs one of them.
 
-/** A thread of the signed-in user's, as que's server gives one: `stopped` says its last run was stopped. */
-export type QueThread = { id: string; createdAt: string; stopped: boolean };
+/**
+ * A thread of the signed-in user's, as que's server gives one: `stopped` says
+ * its last run was stopped. `agent` and `model` are its picks: null follows the
+ * deployment's first agent, and the agent's model.
+ */
+export type QueThread = {
+  id: string;
+  createdAt: string;
+  stopped: boolean;
+  title: string | null;
+  archived: boolean;
+  agent: string | null;
+  model: string | null;
+};
+
+/** What a user changes of their thread on que's server. */
+export type QueChange = RunPick & { title?: string; archived?: boolean };
 
 const thread = (id: string) => `/api/threads/${encodeURIComponent(id)}`;
 
@@ -13,15 +29,28 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+const send = (method: string, body: unknown): RequestInit => ({
+  method,
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
+
 export const threads = {
   list: async () => json<QueThread[]>(await fetch("/api/threads")),
-  make: async () =>
-    json<QueThread>(await fetch("/api/threads", { method: "POST" })),
+  /** A new thread, with the picks made before it was. */
+  make: async (pick: RunPick) =>
+    json<QueThread>(await fetch("/api/threads", send("POST", pick))),
   /** A thread, with its messages as AG-UI messages, each with the id que's server gave it, and whether its run goes. */
   get: async (id: string) =>
     json<QueThread & { messages: Message[]; running: boolean }>(
       await fetch(thread(id)),
     ),
+  change: async (id: string, change: QueChange) =>
+    json<QueThread>(await fetch(thread(id), send("PATCH", change))),
+  remove: async (id: string) => {
+    const res = await fetch(thread(id), { method: "DELETE" });
+    if (!res.ok) throw new Error(`que's server answered ${res.status}`);
+  },
   /** Stops the thread's run on que's server: whether a run went, which it then marks stopped. */
   stop: async (id: string) =>
     json<{ stopped: boolean }>(

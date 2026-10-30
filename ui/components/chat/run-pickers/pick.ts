@@ -1,6 +1,6 @@
-// The pick of a chat: the agent and the model its runs name. Kept in the
-// thread's metadata, beside its title. A field that is not set follows the
-// deployment.
+// The pick of a chat: the agent and the model its runs take. Kept on the
+// thread's record on que's server, beside its title. A field that is not set,
+// or null, follows the deployment.
 
 import type { Deployment } from "../../../lib/que-api.ts";
 

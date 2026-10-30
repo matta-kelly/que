@@ -4,7 +4,7 @@ import { useAuiState } from "@assistant-ui/react";
 import { resolve } from "@/components/chat/run-pickers/pick";
 import { pickOf, useRunPicks } from "@/components/chat/run-pickers/pick-store";
 
-/** What the open chat runs on: the deployment, the chat's pick, and what the pick comes to. */
+/** What the open chat runs on: the deployment, the chat's pick, and what the pick comes to; and its id on the server, once it has one. */
 export function useChatPick() {
   const deployment = useRunPicks((s) => s.deployment);
   // The open chat: its id on the server, and before its first message its local id.
@@ -16,5 +16,5 @@ export function useChatPick() {
   );
   const thread = remoteId ?? localId;
   const pick = useRunPicks((s) => pickOf(s, thread));
-  return { deployment, thread, shown: resolve(pick, deployment) };
+  return { deployment, thread, remoteId, shown: resolve(pick, deployment) };
 }

@@ -1,6 +1,7 @@
 // The picks of the chats open in this browser, and the deployment they are
-// picked from. Outside React, because the run stream reads it when a message
-// is sent. The saved copy of a pick is the thread's metadata.
+// picked from. Outside React, because the thread list reads it when a chat's
+// first message makes its thread. The saved copy of a pick is the thread's
+// record on que's server.
 
 import { create } from "zustand";
 import { QUE_API, fetcher, type Deployment } from "@/lib/que-api";
@@ -31,15 +32,6 @@ export const changePick = (thread: string, change: RunPick) =>
     ...pickOf(useRunPicks.getState(), thread),
     ...change,
   });
-
-/** The pick in a thread's metadata. */
-export const pickIn = (metadata: unknown): RunPick => {
-  const { agent, model } = (metadata ?? {}) as Record<string, unknown>;
-  return {
-    ...(typeof agent === "string" && { agent }),
-    ...(typeof model === "string" && { model }),
-  };
-};
 
 export async function loadDeployment() {
   if (useRunPicks.getState().deployment) return;

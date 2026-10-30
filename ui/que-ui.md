@@ -30,12 +30,12 @@ The chat UI of [[que]]: a Next.js app in `ui/`, in front of que's server.
 		- an element is copied into the repo, and edited when que needs it to say a thing the library's does not. The file says at its top what was changed. `surfaces.tsx` and `utils/range.ts` are the library's own, shared by its elements, and are not edited
 		- their other mode reads usage and model from a runtime made for another backend. que's runtime does not fill those
 	- data from que's server: `GET /que/deployment` (agents, models, prices), and each thread with its messages (`GET /threads/:id`). A message keeps the id que's server gave it, and an edit or a refresh sends those ids back: the server goes on from them
-- que's server keeps a thread with its owner and its messages, and no title, archived mark or pick. A pick of agent and model is kept in the browser's memory, and no run is sent it
+- que's server keeps a thread with its owner, its messages, its title, its archived mark and its pick of agent and model. A pick made before the first message is kept when the message makes the thread, and a run is sent no pick: que's server runs the record's
 - The user's Stop (the Stop button, or Escape in the composer) stops the run on que's server (`POST /threads/:id/stop`), which keeps the reply as far as it came, and the thread says it was stopped until its next run. A chat left while its reply goes is not stopped: the run goes on on que's server, and its answer is in the thread when the chat is opened again
 
 ## What it shows
 
-- sidebar: the areas of the deployment, and the user's chats, the newest first. A chat has no title of its own: rename, archive and delete fail, as que's server has no route for them
+- sidebar: the areas of the deployment, and the user's chats, the newest first. A chat has no title until it is renamed. Rename, archive and delete are kept on que's server
 - chat
 	- a reply, with its thinking and tool calls folded into steps
 	- composer: the agent and model pickers, send and stop

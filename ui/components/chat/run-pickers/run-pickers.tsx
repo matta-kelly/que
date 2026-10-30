@@ -15,19 +15,24 @@ import { useChatPick } from "@/components/chat/run-pickers/use-chat-pick";
 import { priced } from "@/components/chat/run-pickers/price";
 import { agentPick, type RunPick } from "@/components/chat/run-pickers/pick";
 import { changePick } from "@/components/chat/run-pickers/pick-store";
+import { threads } from "@/components/runtime/que-client";
 
 /**
  * The agent and the model the open chat runs on, each with a menu to pick
  * another. The model can change at any message. The agent is fixed after the
  * first: the loops of two agents keep different state in a thread. A picker with fewer
- * than two entries is not shown.
+ * than two entries is not shown. A pick in a chat that is a thread on que's
+ * server is kept on its record there; before, it is made with the thread.
  */
 export const RunPickers: FC = () => {
-  const { deployment, thread, shown } = useChatPick();
+  const { deployment, thread, remoteId, shown } = useChatPick();
   const started = useAuiState((s) => s.thread.messages.length > 0);
   if (!deployment) return <div />;
 
-  const change = (next: RunPick) => changePick(thread, next);
+  const change = (next: RunPick) => {
+    changePick(thread, next);
+    if (remoteId) void threads.change(remoteId, next);
+  };
 
   return (
     <div data-slot="run-pickers" className="flex items-center gap-0.5">
