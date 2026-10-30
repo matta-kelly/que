@@ -1,7 +1,9 @@
 /**
  * The run route, on the thread routes: POST /threads/:id/runs takes AG-UI's
- * RunAgentInput, sends its last message on the thread's conversation, and
- * streams the answer back as AG-UI events over SSE. A client that drops its
+ * RunAgentInput, sends its last message on the conversation its messages
+ * choose by the branch rule (runner/pi/branch.ts), and streams the answer back
+ * as AG-UI events over SSE. A resend of a run makes no second run: its stream
+ * is RUN_STARTED then RUN_FINISHED. A client that drops its
  * connection does not stop the run: stopping is a call of its own. A run
  * whose model call fails ends with RUN_ERROR, in the place of RUN_FINISHED.
  *
@@ -53,7 +55,11 @@ export function runs(store: ThreadStore) {
         threadId,
         model,
         { catalog, user },
-        { id: last.id, content: contentToText(last.content) },
+        {
+          runId,
+          before: messages.slice(0, -1).map((m) => m.id),
+          last: { id: last.id, content: contentToText(last.content) },
+        },
         send,
       ).catch((failed: Error) => ({ error: failed.message }));
       await send(

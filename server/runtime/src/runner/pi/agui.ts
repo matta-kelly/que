@@ -10,6 +10,8 @@
  *   of only kind and data, which the model never sees;
  * - a tool message's id is its call's id. A tool call shows whole once its
  *   assistant message ends, and its result once the tool's run does.
+ * A user message's entry also holds the AG-UI run that sent it, which tells a
+ * resend from a regenerate (branch.ts).
  */
 
 import {
@@ -27,19 +29,20 @@ import {
   defineEntry,
   ToolResultEntry,
   type AgentEvent,
+  type EntryId,
   type EntryRecord,
 } from "@earendil-works/pi-durable";
 import { isBug } from "./extension.js";
 
-const UserMessageEntry = defineEntry<{ id: string }>("que.user");
+const UserMessageEntry = defineEntry<{ id: string; run: string }>("que.user");
 const MessageIdEntry = defineEntry<{ entry: number; id: string }>(
   "que.message-id",
 );
 
-/** The entry a user message is placed as: one that holds the client's id. */
-export const userEntry = (id: string) => ({
+/** The entry a user message is placed as: one that holds the client's id, and the AG-UI run that sent it. */
+export const userEntry = (id: string, run: string) => ({
   kind: UserMessageEntry.kind,
-  data: { id },
+  data: { id, run },
 });
 
 /** The write that records an assistant message's id against its entry. */
@@ -236,20 +239,77 @@ export function aguiRun() {
   };
 }
 
-/** A conversation's user and assistant messages, as AG-UI messages with their ids. */
-export function messagesOf(entries: readonly EntryRecord[]): AgUiMessage[] {
+/**
+ * A message of a conversation as a viewer holds it: the AG-UI message, the
+ * last entry it is made of (where a fork that keeps it is made), and for a
+ * user message, the AG-UI run that sent it.
+ */
+export type Held = { message: AgUiMessage; at: EntryId; run?: string };
+
+/** A conversation's messages, as AG-UI messages with their ids, each with the entry it ends at. */
+export function heldOf(entries: readonly EntryRecord[]): Held[] {
   const ids = new Map(
-    entries.filter(MessageIdEntry.is).map((e) => [e.data.entry, e.data.id]),
+    entries
+      .filter(MessageIdEntry.is)
+      .map((e) => [e.data.entry, { id: e.data.id, at: e.id }]),
   );
-  return entries.flatMap((entry): AgUiMessage[] => {
+  return entries.flatMap((entry): Held[] => {
     if (UserMessageEntry.is(entry))
       return [
-        { id: entry.data.id, role: "user", content: textOf(entry.model?.[0]) },
+        {
+          message: {
+            id: entry.data.id,
+            role: "user",
+            content: textOf(entry.model?.[0]),
+          },
+          at: entry.id,
+          run: entry.data.run,
+        },
       ];
-    const id = ids.get(entry.id);
+    const recorded = ids.get(entry.id);
     // An answer is shown once its id is recorded, so no viewer gets it under another id.
-    if (AssistantEntry.is(entry) && id)
-      return [{ id, role: "assistant", content: textOf(entry.model?.[0]) }];
+    if (AssistantEntry.is(entry) && recorded) {
+      const message = entry.model?.[0] as AssistantMessage | undefined;
+      const toolCalls = (message?.content ?? []).flatMap((block) =>
+        block.type === "toolCall"
+          ? [
+              {
+                id: block.id,
+                type: "function" as const,
+                function: {
+                  name: block.name,
+                  arguments: JSON.stringify(block.arguments),
+                },
+              },
+            ]
+          : [],
+      );
+      return [
+        {
+          message: {
+            id: recorded.id,
+            role: "assistant",
+            content: textOf(message),
+            ...(toolCalls.length ? { toolCalls } : {}),
+          },
+          at: recorded.at,
+        },
+      ];
+    }
+    const result = ToolResultEntry.is(entry) ? entry.model?.[0] : undefined;
+    // A tool message's id is its call's id.
+    if (result?.role === "toolResult")
+      return [
+        {
+          message: {
+            id: result.toolCallId,
+            role: "tool",
+            toolCallId: result.toolCallId,
+            content: textOf(result),
+          },
+          at: entry.id,
+        },
+      ];
     return [];
   });
 }

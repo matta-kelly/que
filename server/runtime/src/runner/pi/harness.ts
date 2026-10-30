@@ -1,8 +1,11 @@
 /**
- * The engine's Harness: one for the server, one conversation for each thread,
- * on pi's memory storage, so a restart loses both. A thread's conversation is
- * made at its first run, with its agent set then: a change to what the agent
- * is built from takes effect from the next chat. The user's catalog is read
+ * The engine's Harness: one for the server, on pi's memory storage, so a
+ * restart loses it, and the link from each thread to its conversation is a
+ * process Map. Each run goes on the conversation the branch rule (branch.ts)
+ * chooses: the thread's, a fork of it, or a new one, which the thread then
+ * points at. A new conversation gets its agent then: a change to what the
+ * agent is built from takes effect from the next chat, and a fork keeps its
+ * parent's. The user's catalog is read
  * at each run: each user has an extension of their own, installed again
  * with their catalog before each of their runs, and the thread's
  * conversation selects it.
@@ -30,7 +33,8 @@ import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
 import { door } from "../../assemble/door.js";
 import * as mounted from "../../mount/mounted.js";
-import { aguiRun, idEntry, messagesOf, userEntry } from "./agui.js";
+import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
+import { branchOf } from "./branch.js";
 import { extension } from "./extension.js";
 
 export const models = createModels();
@@ -46,35 +50,65 @@ const harness = await Harness.open(
   context,
 );
 
-const conversations = new Map<string, Promise<Conversation>>();
+/** Each thread's conversation: the one its last run chose, none before its first. */
+const conversations = new Map<string, Promise<Conversation | undefined>>();
 
-function conversationOf(thread: string, model: Model, que: Extension) {
-  const made =
-    conversations.get(thread) ??
-    harness.createConversation(
-      {
-        ownership: { kind: "ownerless" },
-        agent: {
-          model: {
-            provider: providerOf(model),
-            modelId: providerModelOf(model),
-          },
-          extensions: [que],
-        },
-      },
-      context,
-    );
-  conversations.set(thread, made);
-  // A conversation that could not be made is not kept: the thread's next run makes it again.
-  made.catch(() => {
-    if (conversations.get(thread) === made) conversations.delete(thread);
-  });
-  return made;
+const ownership = { kind: "ownerless" } as const;
+
+/**
+ * The conversation a run goes on, chosen by the branch rule, and made the
+ * thread's; with `resend`, the run is one that is made already. A thread's
+ * runs choose one at a time, in the order they came. A conversation that
+ * could not be made is not kept: the thread stays on the one it had.
+ */
+function conversationFor(
+  thread: string,
+  model: Model,
+  que: Extension,
+  input: { runId: string; before: readonly string[]; last: string },
+) {
+  const had = conversations.get(thread);
+  const chosen = (async () => {
+    const current = await had;
+    const held = current
+      ? heldOf((await current.context(context)).entries)
+      : [];
+    const branch = branchOf(held, input);
+    if (current && (branch.kind === "same" || branch.kind === "resend"))
+      return { conversation: current, resend: branch.kind === "resend" };
+    const conversation =
+      current && branch.kind === "fork"
+        ? await current.fork(branch.at, { ownership }, context)
+        : await harness.createConversation(
+            {
+              ownership,
+              agent: {
+                model: {
+                  provider: providerOf(model),
+                  modelId: providerModelOf(model),
+                },
+                extensions: [que],
+              },
+            },
+            context,
+          );
+    return { conversation, resend: false };
+  })();
+  conversations.set(
+    thread,
+    chosen.then(
+      ({ conversation }) => conversation,
+      () => had,
+    ),
+  );
+  return chosen;
 }
 
 /**
- * Sends the user's message on the thread's conversation, and gives `send` the
- * answer as AG-UI events until its run ends: the run the message starts, which
+ * Sends the user's message `last` on the conversation the branch rule chooses
+ * for it (`before` are the ids of the messages the client sent before it),
+ * and gives `send` the answer as AG-UI events until its run ends: none for a
+ * resend, which makes no run; else the run the message starts, which
  * waits for a run that goes on the conversation already. The run does not
  * depend on `send`: it goes on, and its ids are recorded, when no one reads
  * it. What it gives is the message of a model call that failed, if one did.
@@ -84,12 +118,25 @@ export async function run(
   thread: string,
   model: Model,
   { catalog, user }: { catalog: Catalog; user: string },
-  message: { id: string; content: string },
+  {
+    runId,
+    before,
+    last,
+  }: {
+    runId: string;
+    before: readonly string[];
+    last: { id: string; content: string };
+  },
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
   const que = extension(catalog, call, user);
   registry.install(que);
-  const conversation = await conversationOf(thread, model, que);
+  const { conversation, resend } = await conversationFor(thread, model, que, {
+    runId,
+    before,
+    last: last.id,
+  });
+  if (resend) return {};
   const events = await watchEvents(harness, conversation.id, context);
   try {
     const agui = aguiRun();
@@ -124,8 +171,8 @@ export async function run(
     const submission = await conversation.submit(
       {
         type: "input",
-        content: message.content,
-        entry: userEntry(message.id),
+        content: last.content,
+        entry: userEntry(last.id, runId),
       },
       context,
     );
@@ -143,6 +190,8 @@ export async function run(
 export async function messages(thread: string) {
   const conversation = await conversations.get(thread);
   return conversation
-    ? messagesOf((await conversation.context(context)).entries)
+    ? heldOf((await conversation.context(context)).entries).map(
+        (held) => held.message,
+      )
     : [];
 }
