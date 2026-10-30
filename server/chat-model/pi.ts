@@ -8,6 +8,7 @@ import {
   createProvider,
   envApiKeyAuth,
   type Model as PiModel,
+  type ThinkingLevel,
 } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
@@ -32,6 +33,14 @@ export const piModel = (model: Model): PiModel<"openai-completions"> => ({
   contextWindow: model.window,
   maxTokens: model.maxTokens,
 });
+
+/**
+ * The thinking level a call on the config's model passes, so pi-ai sends the config's `effort` as
+ * `reasoning_effort`. None for a config with no effort: no level is passed, and none is sent.
+ */
+// A stub of F12's interface: its body is da-hammer's.
+export const levelOf: (model: Model) => ThinkingLevel | undefined = () =>
+  undefined;
 
 /** Fireworks, with the deployment's Fireworks models, each as its config gives it. */
 export const fireworks = (models: Model[]) =>

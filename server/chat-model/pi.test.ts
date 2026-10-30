@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createModels } from "@earendil-works/pi-ai";
-import { fireworks, piModel } from "./index.js";
+import { fireworks, levelOf, piModel } from "./index.js";
 
 // A model config as a deployment gives it: its id, its window and the most it gives in one reply.
 const glm = {
@@ -120,10 +120,16 @@ test("a config's effort is sent to Fireworks as reasoning_effort, and a config w
   globalThis.fetch = fetch;
   try {
     for (const config of configs)
-      // As a run and the judge call it: with the config's model, and no thinking level of their own.
-      await models.completeSimple(piModel(config), {
-        messages: [{ role: "user", content: "Hello.", timestamp: Date.now() }],
-      });
+      // As a run and the judge call it: on the config's model, with the config's level, if it has one.
+      await models.completeSimple(
+        piModel(config),
+        {
+          messages: [
+            { role: "user", content: "Hello.", timestamp: Date.now() },
+          ],
+        },
+        { reasoning: levelOf(config) },
+      );
   } finally {
     globalThis.fetch = send;
   }

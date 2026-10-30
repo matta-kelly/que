@@ -294,3 +294,32 @@ test("the judge's own model is a run's: Fireworks' Chat Completions, with each c
     assert.equal(sent[0].body.max_completion_tokens, model.maxTokens);
   }
 });
+
+test("the judge's own model sends its config's effort as reasoning_effort, and a config with no effort sends none", async () => {
+  // The provider is made with a key, and calls the global fetch.
+  process.env.FIREWORKS_API_KEY ??= "none";
+  const send = globalThis.fetch;
+  const efforts: unknown[] = [];
+  for (const model of [
+    { ...small, effort: "low" },
+    { ...small, effort: "high" },
+    small,
+  ]) {
+    const { fetch, sent } = answering("It is so.\nVERDICT: yes");
+    globalThis.fetch = fetch;
+    try {
+      await judge(model)(byCustomer, open);
+    } finally {
+      globalThis.fetch = send;
+    }
+    // null: the request has no reasoning_effort.
+    efforts.push(
+      ...sent.map((request) =>
+        Object.hasOwn(request.body, "reasoning_effort")
+          ? request.body.reasoning_effort
+          : null,
+      ),
+    );
+  }
+  assert.deepEqual(efforts, ["low", "high", null]);
+});

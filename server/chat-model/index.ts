@@ -32,4 +32,4 @@ export const chatModel = async (model: Model) =>
         configurableFields: [],
       });
 
-export { fireworks, piModel } from "./pi.js";
+export { fireworks, levelOf, piModel } from "./pi.js";
