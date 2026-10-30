@@ -111,14 +111,14 @@ const meta = ({ id, name, mimeType, size }: Stored) => ({
   size,
 });
 
-/** The file rows this thread holds, as the table gives them. */
-const rowsOf = async (threadId: string) =>
+/** The ids of the file rows this thread holds, as the table gives them. */
+const rowsOf = async (threadId: string): Promise<string[]> =>
   (
     await db.query<{ id: string }>(
       "SELECT id FROM files WHERE thread = $1 ORDER BY id",
       [threadId],
     )
-  ).rows;
+  ).rows.map((row) => row.id);
 
 test("given a signed-in user and their thread, when two files are uploaded with multipart, then each is listed with its name, mime and size, GET gives its bytes and its mime, and a delete removes it from the list, the table and the disk", async () => {
   // given: Ana's thread
@@ -242,8 +242,20 @@ test("given a file uploaded as ../order.csv, when the thread lists it, then the 
   assert.deepEqual(await readdir(fileDir(threadId, order.id)), ["file"]);
   assert.deepEqual((await read(ANA, threadId, order.id)).bytes, csv);
 
-  // and: nothing was written outside the thread's folder
-  assert.deepEqual(await readdir(join(data, "files")), [threadId]);
+  // and: nothing was written outside the thread's folder: the root holds this
+  // thread's folder, and every other entry in it is another test's thread folder,
+  // never a name a file was given
+  const root = await readdir(join(data, "files"));
+  assert.ok(
+    root.includes(threadId),
+    `the thread's folder is not under <data>/files: ${root.join(", ")}`,
+  );
+  const threadFolder = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  assert.deepEqual(
+    root.filter((entry) => !threadFolder.test(entry)),
+    [],
+    `a name reached <data>/files: ${root.join(", ")}`,
+  );
   assert.equal(existsSync(join(data, "files", "order.csv")), false);
   assert.equal(existsSync(join(data, "escaped.csv")), false);
 
