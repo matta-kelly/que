@@ -90,7 +90,9 @@ const models = createModels();
 models.setProvider(faux.provider);
 
 type Setting = ResolvedLoop["result"];
-type Call = { name: string; args: Record<string, unknown>; id: string };
+/** A tool call's arguments, as faux takes them. */
+type Args = Parameters<typeof fauxToolCall>[1];
+type Call = { name: string; args: Args; id: string };
 type Got = { isError: boolean; text: string; notes: string; whole: string };
 
 /**
@@ -486,5 +488,99 @@ test("given a result moved to its file, when the model reads the pointer's path 
     assert.ok(!back.isError, back.whole);
     assert.equal(back.text, reportText(200));
     assert.match(back.notes, /\bend/i);
+  });
+});
+
+test("given a run's own moved result, when read_result is given a path out of the conversation's large_tool_results/, then the call fails and reads nothing, and the pointer's path still reads", async () => {
+  await inCwd(async (root) => {
+    // Two conversations' cwds side by side, as harness.ts keeps them: this run's, and another's.
+    const cwd = join(root, "1");
+    const other = join(root, "2");
+    await mkdir(cwd);
+    await mkdir(other);
+    const own = "SECRET-OF-THIS-CWD";
+    await writeFile(join(cwd, "secret.txt"), own);
+    // And one above every cwd.
+    await writeFile(join(root, "secret.txt"), own);
+    const theirs = "SECRET-OF-ANOTHER-CONVERSATION";
+    await place(other, "other.json", theirs);
+    const host = (await readFile("/etc/hostname", "utf8")).trim();
+    const out: Call[] = [
+      {
+        name: "read_result",
+        args: { path: "/etc/hostname", byte_offset: 0 },
+        id: "absolute",
+      },
+      {
+        name: "read_result",
+        args: { path: "large_tool_results/../secret.txt", byte_offset: 0 },
+        id: "up",
+      },
+      {
+        name: "read_result",
+        args: { path: "../secret.txt", byte_offset: 0 },
+        id: "up-cwd",
+      },
+      {
+        name: "read_result",
+        args: { path: "../2/large_tool_results/other.json", byte_offset: 0 },
+        id: "other",
+      },
+      {
+        name: "read_result",
+        args: {
+          path: "large_tool_results/../../2/large_tool_results/other.json",
+          byte_offset: 0,
+        },
+        id: "other-through",
+      },
+      {
+        name: "read_result",
+        args: {
+          path: join(other, "large_tool_results", "other.json"),
+          byte_offset: 0,
+        },
+        id: "other-absolute",
+      },
+    ];
+    const { of } = await chat(cwd, { max: 100 }, (requests) => {
+      if (requests.length === 1) return [big(200)];
+      if (requests.length !== 2) return [];
+      const pointer = requests[1]!.flatMap((m) =>
+        m.role === "toolResult" && m.toolCallId === "big" ? m.content : [],
+      );
+      const path = pathIn(
+        pointer.map((b) => (b.type === "text" ? b.text : "")).join(""),
+      );
+      return [
+        ...(path
+          ? [
+              {
+                name: "read_result",
+                args: { path, byte_offset: 0 },
+                id: "back",
+              },
+            ]
+          : []),
+        ...out,
+      ];
+    });
+    for (const { id, args } of out) {
+      const got = of(id);
+      assert.ok(got, `no result of read_result at ${String(args.path)}`);
+      assert.ok(
+        got.isError,
+        `${String(args.path)} was read: ${got.whole.slice(0, 200)}`,
+      );
+      for (const secret of [own, theirs, host].filter(Boolean))
+        assert.ok(
+          !got.whole.includes(secret),
+          `${String(args.path)} gave ${secret}`,
+        );
+    }
+    const back = of("back");
+    assert.ok(back, "the model got no path to read");
+    assert.ok(!back.isError, back.whole);
+    assert.equal(back.text, reportText(200));
   });
 });

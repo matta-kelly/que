@@ -193,7 +193,7 @@ const TILL = [
 const tillOps = (r: Request | undefined) =>
   (r?.tools ?? []).filter((name) => TILL.includes(name));
 
-test("given an on-demand agent, when a user's run loads an op and calls it, then the first request sends the on-demand prompt and offers open_plugin, load_operation and read_skill and no op, the next offers the op, and the call runs through the door as the user; a later run of the chat loads another beside it", async () => {
+test("given an on-demand agent, when a user's run loads an op and calls it, then the first request sends the on-demand prompt and offers open_plugin, load_operation, read_skill and read_result (its loop keeps result on, as by default) and no op, the next offers the op, and the call runs through the door as the user; a later run of the chat loads another beside it", async () => {
   as("eve@example.com", "Eve Stone");
   await connect("eve-key");
   const id = await thread("scout");
@@ -221,6 +221,7 @@ test("given an on-demand agent, when a user's run loads an op and calls it, then
   assert.deepEqual(first.requests[0].tools, [
     "load_operation",
     "open_plugin",
+    "read_result",
     "read_skill",
   ]);
   assert.equal(failedIn(first.requests, "l1"), false);
