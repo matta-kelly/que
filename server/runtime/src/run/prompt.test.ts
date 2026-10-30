@@ -3,6 +3,7 @@
  * the request pi-ai sends the model. On a database of its own (PGlite, served on a local port) and the fixture
  * deployment "prompt", whose two agents are eager: "clerk" uses the till and alpha (a plugin with a skill) and takes
  * the user's own instructions, "keeper" uses source (an op and a skill) on instructions of its own. No op is in both.
+ * A third, "scout", is on clerk's plugins and takes the user's instructions too, but loads each op on demand.
  * In the place of Fireworks, pi-ai's scripted provider (`faux`) answers under Fireworks' provider id and records each
  * request, so no model is called.
  */
@@ -54,6 +55,7 @@ const { models } = await import("../runner/pi/harness.js");
 const mounted = await import("../mount/mounted.js");
 const { systemPrompt } = await import("../assemble/prompt.js");
 const { eager } = await import("../assemble/eager/index.js");
+const { onDemand } = await import("../assemble/on-demand/index.js");
 
 const faux = fauxProvider({
   provider: "fireworks",
@@ -342,4 +344,32 @@ test("given one user's runs on two agents at the same time, when the first waits
       ],
     },
   );
+});
+
+test("given two agents on the same plugins for one user, one eager and one on demand, when a run on each sends its first request, then each sends the prompt of its own way word for word as assemble's prompt functions give it", async () => {
+  as("dee@example.com", "Dee Park");
+  await connect("dee-key");
+  await instruct("Answer in Dutch.");
+  const prompt = (environment: typeof eager.prompt) =>
+    systemPrompt({
+      user: {
+        name: "Dee Park",
+        email: "dee@example.com",
+        instructions: "Answer in Dutch.",
+      },
+      catalog: catalogOf(["till", "alpha"]),
+      environment,
+    });
+  const ways = {
+    eager: prompt(eager.prompt),
+    onDemand: prompt(onDemand.prompt),
+  };
+  // The two ways' prompts differ, so a run that sends the other way's is told apart.
+  assert.notEqual(ways.eager, ways.onDemand);
+  assert.ok(ways.onDemand.includes("`load_operation`"), ways.onDemand);
+
+  const [scoutFirst] = await prompts(await thread("scout"), "How many pens?");
+  const [clerkFirst] = await prompts(await thread("clerk"), "How many pens?");
+  assert.equal(scoutFirst, ways.onDemand, "scout sent another system prompt");
+  assert.equal(clerkFirst, ways.eager, "clerk sent another system prompt");
 });
