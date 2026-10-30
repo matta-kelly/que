@@ -5,7 +5,8 @@
  * back is in the runner's own form.
  */
 
-import { chatModel } from "@que/chat-model";
+import { createModels, type Models } from "@earendil-works/pi-ai";
+import { fireworks, piModel } from "@que/chat-model";
 import type { Model } from "@mku1tra/que-harness";
 import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
@@ -14,9 +15,6 @@ import type { Outcome } from "./report.js";
 /** What the judge said of a run: a pass or a fail with its reason, or why there is no verdict. */
 export type Verdict = { pass: boolean; reason: string } | { none: string };
 export type Ask = (c: LoadedCase, record: RunRecord) => Promise<Verdict>;
-
-/** What the judge uses of the framework's model. */
-type Asked = { invoke(text: string): Promise<{ text: string }> };
 
 const RESULT = 2_000;
 const LINE = /^\s*VERDICT:\s*(yes|no)\s*$/i;
@@ -66,26 +64,35 @@ export function verdictOf(reply: string): Verdict {
 }
 
 /**
- * The judge on one model config. `make` gives the model for it: by default
- * the one a run on that config gets, Beam's and its effort included. A test
- * gives its own. A call that fails is no verdict, so the runs after it are
- * judged.
+ * The judge on one model config, called through pi-ai's `models`: by default
+ * ones with Fireworks on them for the config, so the judge's model is the one
+ * a run on that config gets. A test gives its own. A call that fails is no
+ * verdict, so the runs after it are judged.
  */
 export function judge(
   model: Model,
-  make: (model: Model) => Asked | Promise<Asked> = chatModel,
+  models: Models = withFireworks(model),
 ): Ask {
-  let made: Asked | Promise<Asked> | undefined;
   return async (c, record) => {
-    try {
-      made ??= make(model);
-      return verdictOf((await (await made).invoke(question(c, record))).text);
-    } catch (error) {
-      return {
-        none: `the call to the model failed: ${(error as Error).message}`,
-      };
-    }
+    const reply = await models.completeSimple(piModel(model), {
+      messages: [
+        { role: "user", content: question(c, record), timestamp: Date.now() },
+      ],
+    });
+    if (reply.stopReason === "error")
+      return { none: `the call to the model failed: ${reply.errorMessage}` };
+    return verdictOf(
+      reply.content
+        .flatMap((c) => (c.type === "text" ? [c.text] : []))
+        .join(""),
+    );
   };
+}
+
+function withFireworks(model: Model): Models {
+  const models = createModels();
+  models.setProvider(fireworks([model]));
+  return models;
 }
 
 /** The outcomes in order, each finished run with its verdict. One run is judged after the other. */

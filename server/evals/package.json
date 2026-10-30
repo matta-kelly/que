@@ -5,6 +5,7 @@
   "type": "module",
   "description": "The eval runner: runs a deployment's cases against a running que, and prints what the agent did.",
   "dependencies": {
+    "@earendil-works/pi-ai": "1.4.0",
     "@langchain/langgraph-sdk": "^1.11.2",
     "@langfuse/client": "5.13.1",
     "@langfuse/otel": "5.13.1",
