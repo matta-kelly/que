@@ -1,6 +1,6 @@
 {
   "name": "@mku1tra/que-harness",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "What runs que's plugins: the harness schema of que's ontology (agent, model, loop and deployment), which imports the plugin schema of @mku1tra/que-plugin, and whose types are the contract of a deployment and its configs; the reader of a deployment, the facts of a model from pi's model catalog, the sources that give its graph to its root's lint, and the schema of a deployment's own root.",
   "license": "MIT",
   "repository": {

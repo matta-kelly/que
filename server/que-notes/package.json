@@ -7,7 +7,7 @@
   "peerDependencies": {
     "@mku1tra/basis": "^0.30.0",
     "@mku1tra/it": "^0.9.0",
-    "@mku1tra/que-harness": "^0.2.0",
+    "@mku1tra/que-harness": "^0.3.0",
     "@mku1tra/que-plugin": "^0.8.0"
   }
 }
