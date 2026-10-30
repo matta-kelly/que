@@ -10,6 +10,7 @@ import {
   type ThreadHistoryAdapter,
 } from "@assistant-ui/react";
 import { fromAgUiMessages, useAgUiRuntime } from "@assistant-ui/react-ag-ui";
+import { queAttachments } from "@/components/chat/attachment/attachment-adapter";
 import { loadDeployment } from "@/components/chat/run-pickers/pick-store";
 import { setStopped } from "@/components/chat/run-states/store";
 import { oneReplyPerTurn } from "@/components/runtime/one-reply-per-turn";
@@ -75,9 +76,19 @@ function useChatRuntime() {
     }),
     [aui],
   );
+  // The composer's files go to the same thread the agent runs, so a new chat's
+  // file waits for the thread its send makes.
+  const attachments = useMemo(
+    () =>
+      queAttachments({
+        remoteId: () => aui.threadListItem().getState().remoteId,
+        initialize: () => aui.threadListItem().initialize(),
+      }),
+    [aui],
+  );
   const runtime = useAgUiRuntime({
     agent,
-    adapters: { history },
+    adapters: { history, attachments },
     // A turn is one reply: its model calls and tool calls, in the order they came.
     joinStrategy: "concat-content",
     // A message sent while a run is going waits, and is sent when that run ends.
