@@ -1,8 +1,7 @@
 /**
  * What the trace tests share: a local HTTP server in the place of Langfuse,
- * an agent on a model that is not real, and a run made the way the LangGraph
- * server makes one, or que's server on pi with a scripted model. No Langfuse,
- * no que and no model is called.
+ * and que's server on pi with a scripted model. No Langfuse, no que and no
+ * model is called.
  *
  * que's server here runs on PGlite, served on a local port: one session, which
  * the socket server shares across connections. A query of another connection
@@ -18,10 +17,6 @@ import { serve } from "@hono/node-server";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { fauxProvider } from "@earendil-works/pi-ai/providers/faux";
-import { AIMessage, HumanMessage, fakeModel, tool } from "langchain";
-import * as z from "zod";
-import { resolveLoop } from "@mku1tra/que-harness";
-import { build } from "../../../runtime/src/run/build/build.js";
 import { deploymentRoot } from "../../deployment-root.js";
 
 /** The path the Langfuse SDK posts spans to, under the base URL. */
@@ -160,69 +155,6 @@ export async function standIn(how: { status?: number; cut?: boolean } = {}) {
         server.close(() => resolve());
       }),
   };
-}
-
-/** An operation the agent can call. */
-const report = tool(async ({ rows }) => `${rows} rows of the report`, {
-  name: "shop-report",
-  description: "Report: the rows of the sales report.",
-  schema: z.object({ rows: z.number().describe("How many rows") }),
-});
-
-/** An agent that calls `shop-report` one time, then answers "Well.". */
-export function reportingAgent() {
-  const model = fakeModel();
-  model.respond(
-    new AIMessage({
-      content: "",
-      tool_calls: [{ id: "call-1", name: "shop-report", args: { rows: 2 } }],
-    }),
-  );
-  model.respond(new AIMessage("Well."));
-  return build(
-    resolveLoop({
-      name: "test",
-      type: "loop" as const,
-      description: "A loop of a test.",
-    }),
-    {
-      model,
-      window: 100_000,
-      systemPrompt: "You help the sales team.",
-      tools: [report],
-      middleware: [],
-    },
-  );
-}
-
-/**
- * One run, made as the LangGraph server makes it: the server takes the inner
- * graph of what the factory hands back, and streams its events with the run's
- * own config and no callbacks (`@langchain/langgraph-api` 1.5.0,
- * `graph/load.utils.mjs` and `stream.mjs`). Gives back the text of the answer.
- */
-export async function runAsTheServer(agent: unknown, thread: string) {
-  const { graph } = agent as {
-    graph: {
-      streamEvents: (
-        input: unknown,
-        options: Record<string, unknown>,
-      ) => AsyncIterable<{ event: string; data: { output?: unknown } }>;
-    };
-  };
-  let answer: unknown;
-  for await (const event of graph.streamEvents(
-    { messages: [new HumanMessage("How did we sell?")] },
-    {
-      version: "v2",
-      configurable: { thread_id: thread },
-      metadata: {},
-      streamMode: ["values"],
-    },
-  ))
-    if (event.event === "on_chain_end") answer = event.data.output;
-  const { messages } = answer as { messages: { content: unknown }[] };
-  return String(messages.at(-1)?.content);
 }
 
 /**

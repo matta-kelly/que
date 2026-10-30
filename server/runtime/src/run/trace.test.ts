@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runOf, settingsFor, startTracing, tagsOf } from "./trace.js";
+import { settingsFor, tagsOf } from "./trace.js";
 
 const set = {
   LANGFUSE_PUBLIC_KEY: "pk-lf-1",
@@ -63,61 +63,6 @@ test("a commit with no Langfuse setting is still nothing to send to", () => {
   assert.equal(
     settingsFor({ QUE_COMMIT: "acb4f7f72bf86a1e496b8162d5288a32d683354a" }),
     undefined,
-  );
-});
-
-const run = {
-  configurable: {
-    langgraph_auth_user_id: "user-7",
-    thread_id: "thread-3",
-    run_id: "run-9",
-    agent: "lean",
-  },
-};
-
-test("a run is traced as its user, its thread and the agent config it ran under", () => {
-  assert.deepEqual(
-    runOf(run, { accessContext: "threads.create_run" }, { name: "lean" }),
-    { user: "user-7", thread: "thread-3", agent: "lean" },
-  );
-});
-
-test("a run with no user is traced with none", () => {
-  assert.deepEqual(
-    runOf(
-      { configurable: { thread_id: "thread-3" } },
-      { accessContext: "threads.create_run" },
-      { name: "chat" },
-    ),
-    { thread: "thread-3", agent: "chat" },
-  );
-});
-
-test("a call that is not a run is not traced", () => {
-  assert.equal(
-    runOf(run, { accessContext: "assistants.read" }, { name: "lean" }),
-    undefined,
-  );
-  assert.equal(
-    runOf(run, { accessContext: "threads.read" }, { name: "lean" }),
-    undefined,
-  );
-  assert.equal(runOf(run, undefined, { name: "lean" }), undefined);
-  assert.equal(runOf(undefined, undefined, { name: "lean" }), undefined);
-});
-
-/** An agent that would say so if a config were put on it. */
-const agent = {
-  withConfig(): never {
-    throw new Error("a config was put on the agent");
-  },
-};
-
-test("with nothing to send to, a run gets the agent as it was built", () => {
-  const traced = startTracing(undefined);
-  assert.equal(
-    traced(agent, { user: "user-7", thread: "thread-3", agent: "lean" }),
-    agent,
   );
 });
 
