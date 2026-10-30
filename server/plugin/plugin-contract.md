@@ -13,6 +13,7 @@ A plugin is one concern, in one folder. It is everything an agent can get from t
 - [[#Invariants]] what the plugin schema holds true of every graph, that basis leaves to it, each with the rule or construction that holds it
 
 - [[op-contract]]: what an operation is, and what makes a good one
+- [[skill-contract]]: what goes in a skill and not an operation, and what makes a good one
 - `que-plugins.excalidraw`: the design in one picture: a user reaches connectors only through a domain, and the control plane reads the plugins. Not all of it is built: the control plane, a user reaching connectors only through a domain (today the catalog gives a user each connector they can use), and roles on cc's connectors
 
 ## Standard

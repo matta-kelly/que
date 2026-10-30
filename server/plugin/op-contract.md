@@ -4,6 +4,7 @@ description: "What an operation is in que, its two kinds, what it runs with and 
 status: running
 ---
 op: a function of a plugin that que gives the model as one tool, and runs for one user.
+- [[#A good op]] what it is judged by
 - [[#Kinds]] a connector op and a domain op
 - [[#Context]] what an op runs with
 - [[#Uses]] what an op calls, said in its definition
@@ -14,6 +15,20 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 
 - [[plugin-contract]]: the contract an operation is part of
 - the plugin-interoperability design, in kinetic: the design of the domain op, its context and uses. Built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
+
+## A good op
+
+A good op does one job, cannot be called wrong, and says truly what happened.
+
+- one job: a verb and its object. Another job is another op
+- it holds what must be true whatever the model does ([[skill-contract#Skill or op]])
+	- a value that is not allowed is not offered: an enum, not free text
+	- an action that must never happen has no op
+	- a field that must never be written is not in its input
+	- a value it can work out, such as the logged-in user or today's date, it sets itself
+- it reads only its input and its connection: nothing from around it
+- a rule that decides a number or a record lives in one op, and other ops and skills use that op
+- each of its behaviours has a test ([[plugin-contract#Layout]])
 
 ## Kinds
 
@@ -68,8 +83,9 @@ The model knows only what the card says, so the card is the whole interface.
 ## Answer
 
 - nothing found is a normal answer, not a failure. It says what was looked for, and where to look instead (`Odoo id 12 is not a company: it's a buyer of Acme; call odoo-get-company with id 7`)
+- a gap is said, never hidden: a missing record is not a zero, and a blank in the service is not a value
 - a list is capped. When more match, the answer says how to get the next page
-- a real failure is one kind of error, `OpFailed`, with a message that says which failure it was (timeout, unreachable, refused, the service's own error), so the model can tell the user what to do. Any other error is a bug in the plugin
+- a real failure is one kind of error, `OpFailed`, with a message that says which failure it was (timeout, unreachable, refused, the service's own error), so the model can tell a wrong call, which it fixes, from a refusal, which it tells the user. Any other error is a bug in the plugin
 - every call to a service has a time limit
 
 ## Writes
@@ -77,3 +93,5 @@ The model knows only what the card says, so the card is the whole interface.
 - the same call twice gives the same result: it finds the record by its key and creates or updates it. Never a blind create
 - the answer says what it did: created, updated or unchanged, with the record's id. The model does not have to read again to check
 - the description says what it changes
+- success means the service's answer shows the new value, not only that the request returned. Where the service's reads lag its writes, the op trusts the write's answer and does not read back
+- an op over many records does not stop at one bad record: the answer gives the result of each, so a re-run shows what is settled and what is not
