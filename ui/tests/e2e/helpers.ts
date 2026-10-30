@@ -49,8 +49,8 @@ export async function openChat(page: Page, title: string) {
 }
 
 /**
- * Open the chat whose first message is `text`. A chat has no title of its own
- * yet (F3), so each chat at the top of the list is opened until one is it.
+ * Open the chat whose first message is `text`: each chat at the top of the
+ * list is opened until one is it, as a chat has no title until it is renamed.
  */
 export async function openChatWith(page: Page, text: string) {
   await openChats(page);

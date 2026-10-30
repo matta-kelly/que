@@ -155,49 +155,35 @@ test("threads: a tool turn shows as one reply, live and after a reload @live", a
   expect(await steps.count()).toBe(live);
 });
 
-// F3: a chat's own changes (rename, archive, delete) come back on que's routes.
-const F3 = {
-  annotation: {
-    type: "fixme",
-    description: "F3: rename, archive and delete on que's routes",
-  },
-};
-
 // A renamed chat keeps its title after a reload.
-test.fixme(
-  "threads: rename persists across reload @live",
-  F3,
-  async ({ page }) => {
-    const title = `Renamed ${Date.now()}`;
-    await openApp(page);
-    const input = page.getByPlaceholder("Send a message...");
-    await input.fill("Say hi.");
-    await input.press("Enter");
-    await expect(
-      page.getByRole("button", { name: "Send message" }),
-    ).toBeVisible({
-      timeout: 60_000,
-    });
+test("threads: rename persists across reload @live", async ({ page }) => {
+  const title = `Renamed ${Date.now()}`;
+  await openApp(page);
+  const input = page.getByPlaceholder("Send a message...");
+  await input.fill("Say hi.");
+  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "Send message" })).toBeVisible({
+    timeout: 60_000,
+  });
 
-    await openChats(page);
-    const items = page.locator('[data-slot="aui_thread-list-items"]');
-    await items.getByRole("button", { name: "More options" }).first().click();
-    await page.getByRole("menuitem", { name: /rename/i }).click();
-    await page.keyboard.press("Control+A");
-    await page.keyboard.type(title);
-    await page.keyboard.press("Enter");
-    // Shows right away (saved in the background), no gap while the server saves.
-    await expect(items).toContainText(title, { timeout: 500 });
-    // The chat page's header shows the current chat's title.
-    await expect(page.locator('[data-slot="page-title"]')).toHaveText(title);
+  await openChats(page);
+  const items = page.locator('[data-slot="aui_thread-list-items"]');
+  await items.getByRole("button", { name: "More options" }).first().click();
+  await page.getByRole("menuitem", { name: /rename/i }).click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type(title);
+  await page.keyboard.press("Enter");
+  // Shows right away (saved in the background), no gap while the server saves.
+  await expect(items).toContainText(title, { timeout: 500 });
+  // The chat page's header shows the current chat's title.
+  await expect(page.locator('[data-slot="page-title"]')).toHaveText(title);
 
-    await page.reload();
-    await openChats(page);
-    await expect(
-      page.locator('[data-slot="aui_thread-list-items"]'),
-    ).toContainText(title, { timeout: 15_000 });
-  },
-);
+  await page.reload();
+  await openChats(page);
+  await expect(
+    page.locator('[data-slot="aui_thread-list-items"]'),
+  ).toContainText(title, { timeout: 15_000 });
+});
 
 // Make a chat with a unique title: new chat (palette), send a message, rename.
 async function createChat(page: Page, title: string) {
@@ -221,43 +207,39 @@ async function createChat(page: Page, title: string) {
 }
 
 for (const action of ["archive", "delete"] as const) {
-  test.fixme(
-    `chats: select several and ${action} them @live`,
-    F3,
-    async ({ page }) => {
-      page.on("dialog", (d) => d.accept());
-      const stamp = Date.now();
-      const a = `Bulk ${action} A ${stamp}`;
-      const b = `Bulk ${action} B ${stamp}`;
-      await openApp(page);
-      await createChat(page, a);
-      await createChat(page, b);
+  test(`chats: select several and ${action} them @live`, async ({ page }) => {
+    page.on("dialog", (d) => d.accept());
+    const stamp = Date.now();
+    const a = `Bulk ${action} A ${stamp}`;
+    const b = `Bulk ${action} B ${stamp}`;
+    await openApp(page);
+    await createChat(page, a);
+    await createChat(page, b);
 
-      const items = page.locator('[data-slot="aui_thread-list-items"]');
-      const row = (t: string) =>
-        page.locator('[data-slot="aui_thread-list-item"]', { hasText: t });
-      await row(a).hover();
-      await row(a).getByRole("button", { name: "More options" }).click();
-      await page.getByRole("menuitem", { name: "Select" }).click();
-      await expect(page.getByText("1 selected")).toBeVisible();
-      await row(b).getByRole("checkbox").click();
-      await expect(page.getByText("2 selected")).toBeVisible();
+    const items = page.locator('[data-slot="aui_thread-list-items"]');
+    const row = (t: string) =>
+      page.locator('[data-slot="aui_thread-list-item"]', { hasText: t });
+    await row(a).hover();
+    await row(a).getByRole("button", { name: "More options" }).click();
+    await page.getByRole("menuitem", { name: "Select" }).click();
+    await expect(page.getByText("1 selected")).toBeVisible();
+    await row(b).getByRole("checkbox").click();
+    await expect(page.getByText("2 selected")).toBeVisible();
 
-      await page
-        .getByRole("button", {
-          name: action === "archive" ? "Archive selected" : "Delete selected",
-        })
-        .click();
-      await expect(items).not.toContainText(a);
-      await expect(items).not.toContainText(b);
-      await expect(page.getByText(/selected$/)).toHaveCount(0);
+    await page
+      .getByRole("button", {
+        name: action === "archive" ? "Archive selected" : "Delete selected",
+      })
+      .click();
+    await expect(items).not.toContainText(a);
+    await expect(items).not.toContainText(b);
+    await expect(page.getByText(/selected$/)).toHaveCount(0);
 
-      await page.reload();
-      await openChats(page);
-      await expect(items).not.toContainText(a);
-      await expect(items).not.toContainText(b);
-    },
-  );
+    await page.reload();
+    await openChats(page);
+    await expect(items).not.toContainText(a);
+    await expect(items).not.toContainText(b);
+  });
 }
 
 // "Chats", the collapsed-rail chats icon, and the Lotus and Luna brand all open
