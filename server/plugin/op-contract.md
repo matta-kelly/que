@@ -37,7 +37,7 @@ What `run(ctx, params)` gets as `ctx`.
 - an op lists the ops it calls in its `uses`: a link to ops, so a name that is no op fails (`basis/link`). Built
 - a domain op lists only connector ops: a name its `uses` lists that is a domain's op fails (`plugin/op-uses`). Built. It can call only those: not built, as que does not run a domain op yet
 - a connector op lists nothing: it stands alone. A connector's op that lists anything fails (`plugin/op-uses`). Built
-- a skill lists the ops it uses in its frontmatter, in the Agent Skills field `allowed-tools`, space-separated: its `uses`, a link to ops, so a name that is no op fails (`basis/link`). Built. A domain's skill lists no op of its own (`plugin/own-use`) and no domain's op, and a connector's skill lists only its own ops (`plugin/connector-use`). Built
+- a skill lists the ops it uses in its frontmatter, in the Agent Skills field `allowed-tools`, space-separated: its `uses`, a link to ops, so a name that is no op fails (`basis/link`). A domain's skill lists no op of its own (`plugin/own-use`) and no domain's op, and a connector's skill lists only its own ops (`plugin/connector-use`). Built
 - the plugin's `usesOps` is made from its ops' and skills' lists, each name once and none of its own ops, and never written: `readPlugin` makes it, and a plugin whose code gives one fails. Built. The card writes it, and each op's `uses`
 
 ## Tool card
