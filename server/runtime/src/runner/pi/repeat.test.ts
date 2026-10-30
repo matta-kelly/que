@@ -1,7 +1,7 @@
 /**
- * The repeat guard on pi: the cases of the guard on LangGraph
- * (run/build/repeat.test.ts), each a run on a Harness of its own, on pi's
- * memory storage. pi-ai's scripted provider (`faux`) makes the model's calls,
+ * The repeat guard on pi: the cases the guard on LangGraph had, carried to
+ * pi, each a run on a Harness of its own, on pi's memory storage. pi-ai's
+ * scripted provider (`faux`) makes the model's calls,
  * one tool call to a response, so no model is called. The guard is in
  * que's run of each tool, so every run has it. A saved chat is the turns
  * before on the same conversation.
