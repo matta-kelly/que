@@ -25,6 +25,7 @@ import {
   AssistantEntry,
   createRegistry,
   Harness,
+  section,
   watchEvents,
   type Conversation,
   type ConversationId,
@@ -39,6 +40,8 @@ import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
 import { door } from "../../assemble/door.js";
+import { prompt as eager } from "../../assemble/eager/prompt.js";
+import { systemPrompt } from "../../assemble/prompt.js";
 import * as mounted from "../../mount/mounted.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
@@ -229,6 +232,10 @@ function conversationFor(
  * depend on `send`: it goes on, and its ids are recorded, when no one reads
  * it. What it gives is the message of a model call that failed, if one did.
  * Its tools are the ops of `catalog`, each called through the door as `user`.
+ * Its system prompt is the agent's, as assemble's `systemPrompt` gives it from
+ * `prompt` and `catalog`, sent as it is. Its environment is eager's: every op
+ * is offered from the first request (extension.ts), whatever the agent's
+ * `loading` says.
  * Its trace names `user`, the thread and `agent`, the agent config it runs,
  * and holds `tags`.
  */
@@ -240,7 +247,14 @@ export async function run(
     user,
     agent,
     tags,
-  }: { catalog: Catalog; user: string; agent: string; tags?: string[] },
+    prompt,
+  }: {
+    catalog: Catalog;
+    user: string;
+    agent: string;
+    tags?: string[];
+    prompt: Omit<Parameters<typeof systemPrompt>[0], "catalog" | "environment">;
+  },
   {
     runId,
     before,
@@ -252,7 +266,13 @@ export async function run(
   },
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
-  const que = { ...extension(catalog, call, user), hooks: tracing.hooks };
+  const text = systemPrompt({ ...prompt, catalog, environment: eager });
+  const que = {
+    ...extension(catalog, call, user),
+    // One section, untagged: the model reads the prompt as the LangGraph path sends it.
+    sections: [section("prompt", () => text, { tag: false })],
+    hooks: tracing.hooks,
+  };
   const chosen = await conversationFor(thread, model, que, {
     runId,
     before,

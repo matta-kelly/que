@@ -19,7 +19,9 @@
  *
  * The thread runs the agent config it picks (run/threads.ts), else the
  * deployment's first, on the model it picks, else the agent's, with the ops
- * of the agent's plugins that the signed-in user can reach, as that user.
+ * of the agent's plugins that the signed-in user can reach, as that user, and
+ * the agent's system prompt for that user: who they are, their own
+ * instructions if the agent takes them, and the agent's instructions.
  * The tags of its input's forwardedProps that que knows go on its trace
  * (run/trace.ts): "eval" marks a run of the eval runner.
  */
@@ -36,7 +38,9 @@ import {
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import type { ThreadStore } from "@que/threads";
 import { catalogFor } from "../access/catalog.js";
+import { taken } from "../access/instructions.js";
 import { narrow } from "../access/narrow.js";
+import { userInstructions } from "../access/users.js";
 import { agents, models } from "../mount/mounted.js";
 import { messages, run, running, stop } from "../runner/pi/harness.js";
 import { configFor } from "./config.js";
@@ -81,6 +85,10 @@ export function runs(store: ThreadStore) {
     const config = configFor(agents, thread.agent ?? undefined);
     const model = modelFor(models, config, thread.model ?? undefined);
     const catalog = narrow(await catalogFor(user), config.plugins ?? []);
+    // Their own text, if the agent takes it: a file the deployment names is read only then.
+    const own = config.userInstructions
+      ? (await userInstructions(user)).text
+      : undefined;
     await store.setStopped(threadId, false);
 
     return streamSSE(c, async (sse) => {
@@ -106,7 +114,16 @@ export function runs(store: ThreadStore) {
       const { error } = await run(
         threadId,
         model,
-        { catalog, user, agent: config.name, tags: tagsOf(forwardedProps) },
+        {
+          catalog,
+          user,
+          agent: config.name,
+          tags: tagsOf(forwardedProps),
+          prompt: {
+            user: { ...c.get("user"), instructions: taken(config, own) },
+            instructions: config.instructions,
+          },
+        },
         {
           runId,
           before: messages.slice(0, -1).map((m) => m.id),
