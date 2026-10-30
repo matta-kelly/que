@@ -4,6 +4,8 @@
  * names why. One tag publishes the pair from one job, with provenance, and no package of the pair is published by hand.
  */
 
+import { satisfies } from "semver";
+
 /** A package's manifest at the commit: its package.json, of which the guard reads these fields. */
 export type Manifest = {
   name: string;
@@ -49,8 +51,40 @@ export type Release = (
   npm: Pair<NpmVersions>,
 ) => Decision;
 
-// Not built yet: a stub that refuses with no reason and names no package.
-export const release: Release = () => ({
-  publish: [],
-  refused: [{ name: "", why: "peer" }],
-});
+/** The same ranges, in any key order. A manifest with no field has none. */
+const same = (
+  here: Record<string, string> = {},
+  there: Record<string, string> = {},
+) =>
+  Object.keys(here).length === Object.keys(there).length &&
+  Object.entries(here).every(([name, range]) => there[name] === range);
+
+/** Why npm's record refuses the manifest's version, or nothing when npm has none or the same one, attested. */
+const refuses = (manifest: Manifest, npm: NpmVersions): Why | undefined => {
+  const published = npm[manifest.version];
+  if (!published) return undefined;
+  if (
+    !same(manifest.dependencies, published.dependencies) ||
+    !same(manifest.peerDependencies, published.peerDependencies)
+  )
+    return "manifest";
+  if (!published.dist?.attestations?.provenance) return "attestation";
+  return undefined;
+};
+
+export const release: Release = (manifests, npm) => {
+  const { plugin, harness } = manifests;
+  const onPlugin = harness.peerDependencies?.[plugin.name];
+  const refused: Refusal[] = [];
+  if (onPlugin === undefined || !satisfies(plugin.version, onPlugin))
+    refused.push({ name: harness.name, why: "peer" });
+  for (const side of ["plugin", "harness"] as const) {
+    const why = refuses(manifests[side], npm[side]);
+    if (why) refused.push({ name: manifests[side].name, why });
+  }
+  if (refused.length) return { publish: [], refused };
+  const publish = (["plugin", "harness"] as const)
+    .filter((side) => !npm[side][manifests[side].version])
+    .map((side) => manifests[side].name);
+  return { publish, refused };
+};
