@@ -17,8 +17,9 @@
  * it. A thread with no run going is joined as a run that ended: RUN_STARTED,
  * the chat, RUN_FINISHED. A join holds the runs this process streams.
  *
- * The thread runs the deployment's first agent, on its model, with the ops
- * of its plugins that the signed-in user can reach, as that user.
+ * The thread runs the agent config it picks (run/threads.ts), else the
+ * deployment's first, on the model it picks, else the agent's, with the ops
+ * of the agent's plugins that the signed-in user can reach, as that user.
  */
 
 import { randomUUID } from "node:crypto";
@@ -74,8 +75,8 @@ export function runs(store: ThreadStore) {
     const last = messages.at(-1);
     if (last?.role !== "user")
       return c.json({ error: "the last message is not the user's" }, 400);
-    const config = configFor(agents, undefined);
-    const model = modelFor(models, config, undefined);
+    const config = configFor(agents, thread.agent ?? undefined);
+    const model = modelFor(models, config, thread.model ?? undefined);
     const catalog = narrow(await catalogFor(user), config.plugins ?? []);
     await store.setStopped(threadId, false);
 

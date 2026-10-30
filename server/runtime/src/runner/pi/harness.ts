@@ -7,7 +7,8 @@
  * the conversation the branch rule (branch.ts) chooses: the thread's, a fork of
  * it, or a new one, which the thread then points at. A new conversation gets
  * its agent then: a change to what the agent is built from takes effect from
- * the next chat, and a fork keeps its parent's. The user's catalog is read
+ * the next chat, and a fork keeps its parent's. The model is the run's own:
+ * a conversation on another model is moved to it. The user's catalog is read
  * at each run: each user has an extension of their own, installed again
  * with their catalog before each of their runs, and the thread's
  * conversation selects it.
@@ -24,6 +25,7 @@ import {
   createRegistry,
   Harness,
   watchEvents,
+  type Conversation,
   type ConversationId,
   type Extension,
   type SubmissionId,
@@ -107,6 +109,18 @@ async function conversationOf(thread: string) {
 }
 
 /**
+ * The conversation, on `model`: a thread whose model pick changed since its
+ * conversation was made changes its conversation's model.
+ */
+async function onModel(conversation: Conversation, model: Model) {
+  const ref = { provider: providerOf(model), modelId: providerModelOf(model) };
+  const { model: had } = await conversation.agent(context);
+  if (had?.provider !== ref.provider || had.modelId !== ref.modelId)
+    await conversation.configure({ model: ref }, context);
+  return conversation;
+}
+
+/**
  * The conversation a run goes on, chosen by the branch rule, and made the
  * thread's; with `resend`, the run is one that is made already. A thread's
  * runs choose one at a time, in the order they came. A conversation that
@@ -126,11 +140,18 @@ function conversationFor(
       ? heldOf((await current.context(context)).entries)
       : [];
     const branch = branchOf(held, input);
-    if (current && (branch.kind === "same" || branch.kind === "resend"))
-      return { conversation: current, resend: branch.kind === "resend" };
+    if (current && branch.kind === "resend")
+      return { conversation: current, resend: true };
+    if (current && branch.kind === "same") {
+      await onModel(current, model);
+      return { conversation: current, resend: false };
+    }
     const conversation =
       current && branch.kind === "fork"
-        ? await current.fork(branch.at, { ownership }, context)
+        ? await onModel(
+            await current.fork(branch.at, { ownership }, context),
+            model,
+          )
         : await harness.createConversation(
             {
               ownership,

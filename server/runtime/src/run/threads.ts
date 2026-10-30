@@ -1,12 +1,18 @@
 /**
  * The thread routes, mounted at /threads: a user makes, lists and opens their
- * own threads, and runs, joins and stops them (run/runs.ts). A thread says
- * whether its run goes: a join gives the rest of it. Another user's thread
- * gets the same 404 as one that is not there, so no answer says that it exists.
+ * own threads, renames, archives and deletes them, picks the agent config and
+ * the model their runs take, and runs, joins and stops them (run/runs.ts). A
+ * thread says whether its run goes: a join gives the rest of it. A pick is
+ * made on PATCH /threads/:id, or on POST /threads before the thread exists; it
+ * names an agent or a model the deployment lists, or is null to follow the
+ * deployment's first agent and the agent's model. Another user's thread gets
+ * the same 404 as one that is not there, so no answer says that it exists.
  */
 
 import { Hono } from "hono";
+import * as z from "zod";
 import { createStore } from "@que/threads";
+import { agents, models } from "../mount/mounted.js";
 import { messages } from "../runner/pi/harness.js";
 import { goes, runs } from "./runs.js";
 import { signedIn, type SignedIn } from "./signed-in.js";
@@ -17,7 +23,43 @@ export const threads = new Hono<SignedIn>();
 
 threads.use(signedIn);
 
-threads.post("/", async (c) => c.json(await store.make(c.get("userId")), 201));
+const pick = {
+  agent: z
+    .enum(agents.map((agent) => agent.name))
+    .nullable()
+    .optional(),
+  model: z
+    .enum(models.map((model) => model.name))
+    .nullable()
+    .optional(),
+};
+const Pick = z.object(pick);
+const Change = z.object({
+  title: z.string().optional(),
+  archived: z.boolean().optional(),
+  ...pick,
+});
+
+/** The request's body, read by `schema`: an empty body is `{}`, a change of nothing. */
+async function bodyOf<T>(text: Promise<string>, schema: z.ZodType<T>) {
+  const body = await text;
+  let json: unknown;
+  try {
+    json = body === "" ? {} : JSON.parse(body);
+  } catch {
+    return { error: "the body is not JSON" };
+  }
+  const read = schema.safeParse(json);
+  return read.success
+    ? { data: read.data }
+    : { error: z.prettifyError(read.error) };
+}
+
+threads.post("/", async (c) => {
+  const { data, error } = await bodyOf(c.req.text(), Pick);
+  if (!data) return c.json({ error }, 400);
+  return c.json(await store.make(c.get("userId"), data), 201);
+});
 
 threads.get("/", async (c) => c.json(await store.list(c.get("userId"))));
 
@@ -31,5 +73,22 @@ threads.get("/:id", async (c) => {
       })
     : c.json({ error: "not found" }, 404);
 });
+
+threads.patch("/:id", async (c) => {
+  const user = c.get("userId");
+  const id = c.req.param("id");
+  if (!(await store.get(user, id))) return c.json({ error: "not found" }, 404);
+  const { data, error } = await bodyOf(c.req.text(), Change);
+  if (!data) return c.json({ error }, 400);
+  // A thread deleted since it was read is not found.
+  const changed = await store.change(user, id, data);
+  return changed ? c.json(changed) : c.json({ error: "not found" }, 404);
+});
+
+threads.delete("/:id", async (c) =>
+  (await store.remove(c.get("userId"), c.req.param("id")))
+    ? c.body(null, 204)
+    : c.json({ error: "not found" }, 404),
+);
 
 threads.route("/", runs(store));
