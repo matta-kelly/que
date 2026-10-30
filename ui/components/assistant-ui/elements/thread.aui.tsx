@@ -11,6 +11,7 @@ import { ToolStep } from "@/components/chat/activity/tool-step";
 import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/follow-up-suggestions.aui";
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { MessageQueue } from "@/components/chat/message-queue/message-queue";
+import { ThreadFiles } from "@/components/chat/attachment/thread-files";
 import { RunStates } from "@/components/chat/run-states/run-states";
 import { RunPickers } from "@/components/chat/run-pickers/run-pickers";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
@@ -152,6 +153,8 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
   autoFocus,
 }) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
+  // A chat's files are its thread's on que's server: a new chat has none yet.
+  const remoteId = useAuiState((s) => s.threadListItem.remoteId);
 
   return (
     <ThreadPrimitive.Root
@@ -190,6 +193,8 @@ const ThreadRoot: FC<{ isEmpty: boolean; autoFocus: boolean }> = ({
               {() => <ThreadMessage />}
             </ThreadPrimitive.Messages>
           </div>
+
+          {remoteId && <ThreadFiles threadId={remoteId} />}
 
           <ThreadPrimitive.ViewportFooter
             className={cn(
