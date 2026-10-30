@@ -40,8 +40,13 @@ import { extension } from "./extension.js";
 export const models = createModels();
 models.setProvider(fireworks(mounted.models));
 
-// Every op runs through the door, on the runtime's access.
-const call = door(access.getConnection);
+// Every op runs through the door, on the runtime's access, with every op of every mounted plugin in reach.
+const call = door(
+  access.getConnection,
+  mounted.plugins.flatMap(({ definition }) =>
+    definition.ops.map((op) => ({ plugin: definition.plugin, op })),
+  ),
+);
 
 const registry = createRegistry();
 const harness = await Harness.open(

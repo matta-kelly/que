@@ -3,7 +3,12 @@
  * and its login, and where it runs.
  */
 
-import { SpanStatusCode, trace } from "@opentelemetry/api";
+import {
+  context,
+  SpanStatusCode,
+  trace,
+  type Context,
+} from "@opentelemetry/api";
 import { OpFailed, type Op, type Plugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
 import type { Connect } from "../access/access.js";
@@ -37,50 +42,94 @@ export function strictInput(input: Op["input"]): Op["input"] {
 /** One line, for the model to read. */
 const oneLine = (text: string) => text.replace(/\s*\n\s*/g, " ");
 
-/** The door, on access asked by op and the mounted ops: its `call`. */
-export function door(connect: Connect, _ops: PlacedOp[] = []): Call {
+/**
+ * The door, on access asked by op and the mounted ops: its `call`. A domain op's context is the ops it lists in `uses`,
+ * each bound to that op and the calling user; a connector op's is its connection.
+ */
+export function door(connect: Connect, ops: PlacedOp[] = []): Call {
   // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
-  // the span.
-  return ({ plugin, op }, params, user) =>
-    tracer.startActiveSpan(op.name, async (span) => {
-      try {
-        // The door is the one parse. Extra arguments are refused, as the shown schema says there are none.
-        // A refine or a transform that throws is a failed parse too, with the throw's message.
-        let parsed;
+  // the span. A nested call names its caller's span as its parent, so it sits under the call that made it.
+  function call(
+    { plugin, op }: PlacedOp,
+    params: unknown,
+    user: string,
+    parent?: Context,
+  ): Promise<unknown> {
+    return tracer.startActiveSpan(
+      op.name,
+      {},
+      parent ?? context.active(),
+      async (span) => {
         try {
-          parsed = await z.safeParseAsync(strictInput(op.input), params);
-        } catch (thrown) {
-          throw new OpFailed(
-            oneLine(
-              `invalid ${op.name} input: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
-            ),
-          );
+          // The door is the one parse. Extra arguments are refused, as the shown schema says there are none.
+          // A refine or a transform that throws is a failed parse too, with the throw's message.
+          let parsed;
+          try {
+            parsed = await z.safeParseAsync(strictInput(op.input), params);
+          } catch (thrown) {
+            throw new OpFailed(
+              oneLine(
+                `invalid ${op.name} input: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
+              ),
+            );
+          }
+          if (!parsed.success)
+            throw new OpFailed(
+              oneLine(
+                `invalid ${op.name} input: ${parsed.error.issues
+                  .map(({ path, message }) =>
+                    [...path.map(String), message].join(": "),
+                  )
+                  .join("; ")}`,
+              ),
+            );
+          const input = parsed.data;
+          const ctx =
+            plugin.kind === "domain"
+              ? {
+                  ops: listedBy(
+                    op,
+                    user,
+                    trace.setSpan(context.active(), span),
+                  ),
+                }
+              : { conn: await connect(plugin, op.role, user) };
+          return await (
+            op.run as (ctx: unknown, params: unknown) => Promise<unknown>
+          )(ctx, input);
+        } catch (error) {
+          // A failed call shows on its span: status ERROR, and the throw as an exception event.
+          // A throw that is no Error is recorded as its text.
+          const thrown = error instanceof Error ? error : String(error);
+          span.recordException(thrown);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: typeof thrown === "string" ? thrown : thrown.message,
+          });
+          throw error;
+        } finally {
+          span.end();
         }
-        if (!parsed.success)
-          throw new OpFailed(
-            oneLine(
-              `invalid ${op.name} input: ${parsed.error.issues
-                .map(({ path, message }) =>
-                  [...path.map(String), message].join(": "),
-                )
-                .join("; ")}`,
-            ),
-          );
-        const input = parsed.data;
-        const conn = await connect(plugin, op.role, user);
-        return await (op.run as Op["run"])({ conn }, input);
-      } catch (error) {
-        // A failed call shows on its span: status ERROR, and the throw as an exception event.
-        // A throw that is no Error is recorded as its text.
-        const thrown = error instanceof Error ? error : String(error);
-        span.recordException(thrown);
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: typeof thrown === "string" ? thrown : thrown.message,
-        });
-        throw error;
-      } finally {
-        span.end();
-      }
-    });
+      },
+    );
+  }
+
+  // The ops a domain op lists, each the door bound to it and the calling user: found among every mounted op, as an
+  // agent config can narrow the catalog to the domain alone.
+  function listedBy(op: PlacedOp["op"], user: string, parent: Context) {
+    return Object.fromEntries(
+      (op.uses ?? []).map((name) => [
+        name,
+        (params: unknown) =>
+          call(
+            ops.find((placed) => placed.op.name === name)!,
+            params,
+            user,
+            parent,
+          ),
+      ]),
+    );
+  }
+
+  return call;
 }
