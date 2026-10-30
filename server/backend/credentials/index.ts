@@ -81,11 +81,7 @@ function encrypt(values: Record<string, unknown>): string {
 
 function decrypt(secret: string, key: Buffer): Record<string, unknown> {
   const raw = Buffer.from(secret, "base64");
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    key,
-    raw.subarray(0, 12),
-  );
+  const decipher = createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12));
   decipher.setAuthTag(raw.subarray(12, 28));
   return JSON.parse(
     Buffer.concat([
