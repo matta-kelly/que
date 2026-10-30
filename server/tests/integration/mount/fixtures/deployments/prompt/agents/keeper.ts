@@ -4,8 +4,8 @@ export default defineAgent({
   name: "keeper",
   type: "agent",
   description:
-    "The agent of a fixture that uses the till, with every op a tool from the start, on instructions of its own.",
-  plugins: ["till"],
+    "The agent of a fixture that uses source, with every op a tool from the start, on instructions of its own.",
+  plugins: ["source"],
   model: "small",
   loop: "long-chat",
   loading: "eager",
