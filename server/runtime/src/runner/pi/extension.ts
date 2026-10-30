@@ -1,7 +1,9 @@
 /**
  * que's catalog as a pi Extension, for one user, with no name: the Harness names one for each conversation. Each op is
- * a tool whose run is one call to the door, as that user, and each skill is read by its tool. Every op is offered from
- * the first request.
+ * a tool whose run is one call to the door, as that user, and each skill is read by its tool. The agent's way says
+ * when the model is offered an op: eager's from the first request; on-demand's once the agent has loaded it with
+ * load_operation, which pi records on the conversation's branch (pi-durable's deferred tools), so the op stays offered
+ * at each later request of that chat, after a compaction and after a restart.
  */
 
 import type {
@@ -14,7 +16,22 @@ import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
 import { strictInput, type Call } from "../../assemble/door.js";
-import { READ_SKILL } from "../../assemble/names.js";
+import {
+  LOAD_OPERATION,
+  OPEN_PLUGIN,
+  READ_SKILL,
+  READ_SKILL_DESCRIPTION,
+} from "../../assemble/names.js";
+import {
+  load,
+  LOAD_DESCRIPTION,
+  loadSchema,
+  open,
+  openDescription,
+  openSchema,
+  reach,
+} from "../../assemble/on-demand/open.js";
+import type { Way } from "../../assemble/way.js";
 
 /** A schema's input side as JSON Schema, which pi-ai takes as it is (no TypeBox kind). */
 const schemaOf = (schema: z.core.$ZodType) =>
@@ -55,9 +72,7 @@ export function extension(
   catalog: Catalog,
   call: Call,
   user: string,
-  // The agent's way of loading (assemble/eager, assemble/on-demand): a stub, not read yet.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _way: { readonly name: string },
+  way: Way,
 ): Omit<Extension, "name"> {
   const ops = catalog.flatMap(({ plugin: { definition } }) =>
     definition.ops.map((op): ToolRegistration => ({
@@ -66,6 +81,7 @@ export function extension(
       // The input side of the op's input (a transform shows what goes in, a default is not required), with no other
       // fields. pi checks the arguments against it and hands them on as they are, so the door is the one parse.
       parameters: schemaOf(strictInput(op.input)),
+      ...(way.deferred ? { deferred: true as const } : {}),
       execute: (args) =>
         result(
           async () =>
@@ -83,8 +99,7 @@ export function extension(
   );
   const readSkill: ToolRegistration = {
     name: READ_SKILL,
-    description:
-      "Read Skill: returns the full text of a skill, by its id, as the prompt lists it.",
+    description: READ_SKILL_DESCRIPTION,
     parameters: schemaOf(
       z.strictObject({
         id: z.string().describe("Skill id, e.g. odoo-lookup-company"),
@@ -98,5 +113,40 @@ export function extension(
         return skill.body;
       }),
   };
-  return { tools: skills.size ? [...ops, readSkill] : ops };
+  return {
+    tools: [
+      ...(way.deferred ? onDemand(catalog) : []),
+      ...ops,
+      ...(skills.size ? [readSkill] : []),
+    ],
+  };
+}
+
+/**
+ * The tools to open a plugin and to load an op, for the ones the catalog holds something for. A load that succeeds
+ * has pi offer the op from the next request.
+ */
+function onDemand(catalog: Catalog): ToolRegistration[] {
+  const { open: opens, load: loads } = reach(catalog);
+  if (!opens) return [];
+  const openPlugin: ToolRegistration = {
+    name: OPEN_PLUGIN,
+    description: openDescription(loads),
+    parameters: schemaOf(openSchema),
+    execute: (args) =>
+      result(async () => open(catalog, (args as { plugin: string }).plugin)),
+  };
+  const loadOperation: ToolRegistration = {
+    name: LOAD_OPERATION,
+    description: LOAD_DESCRIPTION,
+    parameters: schemaOf(loadSchema),
+    execute: async (args) => {
+      const { plugin, operation } = args as z.infer<typeof loadSchema>;
+      const loaded = await result(async () => load(catalog, plugin, operation));
+      return loaded.isError
+        ? loaded
+        : { ...loaded, control: { addTools: [operation] } };
+    },
+  };
+  return loads ? [openPlugin, loadOperation] : [openPlugin];
 }

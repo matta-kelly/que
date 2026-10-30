@@ -8,4 +8,10 @@ import { prompt } from "./prompt.js";
 import { send } from "./send.js";
 import { tools } from "./tools.js";
 
-export const onDemand: Config = { name: "on-demand", prompt, tools, send };
+export const onDemand: Config = {
+  name: "on-demand",
+  prompt,
+  deferred: true,
+  tools,
+  send,
+};

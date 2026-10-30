@@ -21,7 +21,9 @@
  * deployment's first, on the model it picks, else the agent's, with the ops
  * of the agent's plugins that the signed-in user can reach, as that user, and
  * the agent's system prompt for that user: who they are, their own
- * instructions if the agent takes them, and the agent's instructions.
+ * instructions if the agent takes them, and the agent's instructions. Its
+ * `loading` (run/loading.ts) says how the prompt shows the plugins, and when
+ * the model is offered an op: from the first request, or once it loads it.
  * The tags of its input's forwardedProps that que knows go on its trace
  * (run/trace.ts): "eval" marks a run of the eval runner.
  */
@@ -44,6 +46,7 @@ import { userInstructions } from "../access/users.js";
 import { agents, models } from "../mount/mounted.js";
 import { messages, run, running, stop } from "../runner/pi/harness.js";
 import { configFor } from "./config.js";
+import { loadingFor } from "./loading.js";
 import { modelFor } from "./model.js";
 import type { SignedIn } from "./signed-in.js";
 import { tagsOf } from "./trace.js";
@@ -123,6 +126,7 @@ export function runs(store: ThreadStore) {
             user: { ...c.get("user"), instructions: taken(config, own) },
             instructions: config.instructions,
           },
+          way: loadingFor(config),
         },
         {
           runId,

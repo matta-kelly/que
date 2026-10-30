@@ -40,8 +40,8 @@ import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
 import { door } from "../../assemble/door.js";
-import { prompt as eager } from "../../assemble/eager/prompt.js";
 import { systemPrompt } from "../../assemble/prompt.js";
+import type { Way } from "../../assemble/way.js";
 import * as mounted from "../../mount/mounted.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
@@ -233,9 +233,8 @@ function conversationFor(
  * it. What it gives is the message of a model call that failed, if one did.
  * Its tools are the ops of `catalog`, each called through the door as `user`.
  * Its system prompt is the agent's, as assemble's `systemPrompt` gives it from
- * `prompt` and `catalog`, sent as it is. Its environment is eager's: every op
- * is offered from the first request (extension.ts), whatever the agent's
- * `loading` says.
+ * `prompt`, `catalog` and `way`, the agent's way of loading, sent as it is; the
+ * way also says when an op is offered (extension.ts).
  * Its trace names `user`, the thread and `agent`, the agent config it runs,
  * and holds `tags`.
  */
@@ -248,12 +247,14 @@ export async function run(
     agent,
     tags,
     prompt,
+    way,
   }: {
     catalog: Catalog;
     user: string;
     agent: string;
     tags?: string[];
     prompt: Omit<Parameters<typeof systemPrompt>[0], "catalog" | "environment">;
+    way: Way;
   },
   {
     runId,
@@ -266,9 +267,9 @@ export async function run(
   },
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
-  const text = systemPrompt({ ...prompt, catalog, environment: eager });
+  const text = systemPrompt({ ...prompt, catalog, environment: way.prompt });
   const que = {
-    ...extension(catalog, call, user),
+    ...extension(catalog, call, user, way),
     // One section, untagged: the model reads the prompt as the LangGraph path sends it.
     sections: [section("prompt", () => text, { tag: false })],
     hooks: tracing.hooks,

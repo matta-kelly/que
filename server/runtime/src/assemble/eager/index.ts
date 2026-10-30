@@ -9,6 +9,7 @@ import { prompt } from "./prompt.js";
 export const eager: Config = {
   name: "eager",
   prompt,
+  deferred: false,
   tools: () => [],
   send: (_messages, operations) => operations,
 };
