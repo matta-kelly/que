@@ -74,23 +74,29 @@ export const SETUP = `
     created_at timestamptz NOT NULL DEFAULT now()
   )`;
 
-/** The columns added beside the table, so one an earlier version made gets them: the conversation, and the stop. */
+/** The columns added beside the table, so one an earlier version made gets them: the conversation, the stop, and the user's changes. */
 const ALTER = `ALTER TABLE threads
   ADD COLUMN IF NOT EXISTS conversation text,
-  ADD COLUMN IF NOT EXISTS stopped boolean NOT NULL DEFAULT false`;
+  ADD COLUMN IF NOT EXISTS stopped boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS title text,
+  ADD COLUMN IF NOT EXISTS archived boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS agent text,
+  ADD COLUMN IF NOT EXISTS model text`;
 
-type Row = { id: string; owner: string; created_at: Date; stopped: boolean };
+type Row = Omit<Thread, "createdAt"> & { created_at: Date };
 const toThread = (r: Row): Thread => ({
   id: r.id,
   owner: r.owner,
   createdAt: r.created_at,
   stopped: r.stopped,
-  // Not kept yet (F3).
-  title: null,
-  archived: false,
-  agent: null,
-  model: null,
+  title: r.title,
+  archived: r.archived,
+  agent: r.agent,
+  model: r.model,
 });
+
+/** The columns a change may set: the keys of `ThreadChange`. */
+const CHANGED = ["title", "archived", "agent", "model"] as const;
 
 export function createStore(
   databaseUrl = process.env.DATABASE_URL,
@@ -110,11 +116,11 @@ export function storeOn(db: Queryable): ThreadStore {
   const ready = db.query(SETUP).then(() => db.query(ALTER));
 
   return {
-    async make(owner) {
+    async make(owner, pick = {}) {
       await ready;
       const { rows } = await db.query(
-        "INSERT INTO threads (owner) VALUES ($1) RETURNING *",
-        [owner],
+        "INSERT INTO threads (owner, agent, model) VALUES ($1, $2, $3) RETURNING *",
+        [owner, pick.agent ?? null, pick.model ?? null],
       );
       return toThread(rows[0]);
     },
@@ -149,12 +155,26 @@ export function storeOn(db: Queryable): ThreadStore {
         conversation,
       ]);
     },
-    // Not implemented yet (F3): no change, and no delete.
-    async change() {
-      return undefined;
+    async change(owner, id, changes) {
+      await ready;
+      const set = CHANGED.filter((field) => changes[field] !== undefined);
+      const { rows } = await db.query(
+        `UPDATE threads SET ${[
+          // A change of no field still answers whether the thread is the owner's.
+          "id = id",
+          ...set.map((field, i) => `${field} = $${i + 3}`),
+        ].join(", ")} WHERE owner = $1 AND id = $2 RETURNING *`,
+        [owner, id, ...set.map((field) => changes[field])],
+      );
+      return rows[0] && toThread(rows[0]);
     },
-    async remove() {
-      return false;
+    async remove(owner, id) {
+      await ready;
+      const { rows } = await db.query(
+        "DELETE FROM threads WHERE owner = $1 AND id = $2 RETURNING id",
+        [owner, id],
+      );
+      return rows.length > 0;
     },
     async setStopped(id, stopped) {
       await ready;
