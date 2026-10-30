@@ -375,7 +375,7 @@ test("stops, naming the agent and the loop, when an agent names a loop the deplo
   );
 });
 
-test("stops, naming the model and both agents, when two agents on one model have loops that summarize differently: pi sets compaction per model", async () => {
+test("stops, naming the model and both agents and saying what to do (one agent on its own model, or loops that summarize alike), when two agents on one model have loops that summarize differently: pi sets compaction per model", async () => {
   for (const [name, other] of [
     ["model-loops-differ", "auditor"],
     ["model-loops-off", "archivist"],
@@ -385,6 +385,9 @@ test("stops, naming the model and both agents, when two agents on one model have
       assert.match(error.message, /\bsmall\b/);
       assert.match(error.message, /\bteller\b/);
       assert.match(error.message, new RegExp(`\\b${other}\\b`));
+      // What to do: one agent on a model entry of its own, or loops that summarize alike.
+      assert.match(error.message, /its own model/);
+      assert.match(error.message, /summarize alike/);
       return true;
     });
 });
