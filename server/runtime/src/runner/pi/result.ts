@@ -85,7 +85,8 @@ async function inResults(env: ExecutionEnv, path: string, context: Context) {
 }
 
 /**
- * `answer`, or, when its text is over `max` tokens, a pointer to a file that holds the text. The file is named by
+ * `answer`, or, when its text is over `max` tokens, a pointer to a file that holds the text: a failed call's too, which
+ * stays failed, with its details and its control (a stop's text holds the error whole). The file is named by
  * the call's task, which is unique in the Harness, so a rerun after a restart writes the same one and a fork, which
  * keeps its parent's cwd, never writes over its parent's.
  */
@@ -96,7 +97,7 @@ export async function moved(
   context: Context,
 ): Promise<ToolExecutionResult> {
   const [only] = answer.output ?? [];
-  if (answer.isError || only?.type !== "text") return answer;
+  if (only?.type !== "text") return answer;
   if (only.text.length <= max * CHARS_PER_TOKEN) return answer;
   const path = `${DIR}/${api.taskId}.json`;
   const bytes = new TextEncoder().encode(only.text);
