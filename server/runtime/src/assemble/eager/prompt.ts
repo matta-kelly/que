@@ -5,7 +5,7 @@
  */
 
 import type { Catalog } from "../../access/catalog.js";
-import { READ_SKILL, skillLine } from "../skills.js";
+import { READ_SKILL, skillLine } from "../names.js";
 
 export const prompt = (catalog: Catalog) => {
   const hasOperations = catalog.some(

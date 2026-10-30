@@ -4,7 +4,7 @@
  */
 
 import type { BaseMessage } from "langchain";
-import { LOAD_OPERATION } from "./tools.js";
+import { LOAD_OPERATION } from "../names.js";
 
 type ToolCall = { id?: string; name: string; args: Record<string, unknown> };
 

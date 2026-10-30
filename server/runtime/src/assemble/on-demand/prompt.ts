@@ -4,8 +4,7 @@
  */
 
 import type { Catalog } from "../../access/catalog.js";
-import { READ_SKILL } from "../skills.js";
-import { LOAD_OPERATION, OPEN_PLUGIN } from "./tools.js";
+import { LOAD_OPERATION, OPEN_PLUGIN, READ_SKILL } from "../names.js";
 
 const environment = (hasOperations: boolean, hasSkills: boolean) =>
   [

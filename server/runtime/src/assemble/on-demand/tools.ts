@@ -8,10 +8,7 @@ import { tool, type StructuredTool } from "langchain";
 import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
-import { skillLine } from "../skills.js";
-
-export const OPEN_PLUGIN = "open_plugin";
-export const LOAD_OPERATION = "load_operation";
+import { LOAD_OPERATION, OPEN_PLUGIN, skillLine } from "../names.js";
 
 // A description opens with what the thing is for; the rest is how to use it.
 const firstSentence = (text: string) => text.split(/(?<=[.!?])\s/)[0];
