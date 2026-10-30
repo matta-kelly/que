@@ -455,6 +455,53 @@ test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing() {
   fi
 }
 
+# Given a CLI call the maker's 900s bound cuts before it answers, when the maker runs, then it retries
+# the call instead of failing, and the container it leaves is the CLI's with the file's install in it.
+# The bound is a literal in the script, so the stub below shorts the first call and passes the rest
+# through unchanged: the maker still sees a timeout, and the create is not waited out.
+test_a_create_the_bound_cuts_is_made_again_and_leaves_a_working_container() {
+  cd "$root" || return 1
+  clean
+  make_deployment || return 1
+  local stub state real out code id started elapsed
+  real=$(command -v timeout)
+  stub="$tmp/timeout-stub"
+  state="$tmp/timeout-stub.state"
+  rm -rf "$stub" "$state"
+  mkdir -p "$stub" "$state"
+  cat >"$stub/timeout" <<EOF
+#!/usr/bin/env bash
+if [ -e "$state/first-call-done" ]; then
+  exec "$real" "\$@"
+fi
+: >"$state/first-call-done"
+exec "$real" 5 "\${@:2}"
+EOF
+  chmod +x "$stub/timeout" || return 1
+  started=$(date +%s%3N)
+  out=$(PATH="$stub:$PATH" "$root/scripts/container.sh" "$dep" 2>&1)
+  code=$?
+  elapsed=$(($(date +%s%3N) - started))
+  rm -rf "$stub" "$state"
+  assert_eq 0 "$code" "the maker passes when its first create is cut: $out" || return 1
+  assert_contains "$out" "The dev container CLI stopped answering. Making the container again." \
+    "the maker says the CLI stopped answering and makes the container again" || return 1
+  if [ "$elapsed" -ge 900000 ]; then
+    fail "the maker waited ${elapsed}ms for the cut CLI: the bound is what cuts it, not a 900s wait"
+    return 1
+  fi
+  id=$(cid)
+  [ -n "$id" ] || {
+    fail "the maker left no container after the retried create"
+    return 1
+  }
+  assert_made_by_the_cli "$id" || return 1
+  if ! podman exec -u node "$id" test -f "$root/server/node_modules/.package-lock.json"; then
+    fail "the retried create left no install in the container"
+    return 1
+  fi
+}
+
 # Given the file, when one of its container settings is changed, then the next container has the changed
 # value, so the file is the only source of the settings: no script passes one to podman itself.
 test_the_file_is_the_only_source_of_the_containers_settings() {
@@ -620,6 +667,7 @@ TESTS=(
   test_init_is_on_and_stop_is_immediate
   test_down_removes_the_container_and_the_four_file_volumes_but_not_the_deployments
   test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing
+  test_a_create_the_bound_cuts_is_made_again_and_leaves_a_working_container
   test_the_file_is_the_only_source_of_the_containers_settings
   test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume
   test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes
