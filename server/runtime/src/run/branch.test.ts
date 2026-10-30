@@ -10,9 +10,8 @@
  * while it runs. In the place of Fireworks, pi-ai's scripted provider (`faux`) answers under Fireworks' provider id,
  * so no model is called, and each of its answers records the request it answers.
  *
- * A stop is made the way the code can today, as there is no stop route yet (F1's): the client drops its connection,
- * which does not stop the run, and the test aborts the running conversation through the server's own Harness, which it
- * holds from `Harness.open`, as POST /threads/:id/stop will.
+ * A stop is made as the UI makes one: the client drops its connection, which does not stop the run, and calls
+ * POST /threads/:id/stop.
  */
 
 import { after, test } from "node:test";
@@ -23,7 +22,6 @@ import { join } from "node:path";
 import { serve } from "@hono/node-server";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
-import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import type { Message as PiMessage } from "@earendil-works/pi-ai";
 import {
   fauxAssistantMessage,
@@ -33,7 +31,6 @@ import {
   type FauxContentBlock,
   type FauxResponseStep,
 } from "@earendil-works/pi-ai/providers/faux";
-import { Harness } from "@earendil-works/pi-durable";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
 
 const db = await PGlite.create();
@@ -47,12 +44,6 @@ process.env.QUE_DEPLOYMENT = deploymentRoot(
 );
 delete process.env.DEV_USER_EMAIL;
 delete process.env.DEV_USER_NAME;
-
-// The server's Harness, held as it opens, so a test can stop a run through it.
-let harness: Harness | undefined;
-const open = Harness.open.bind(Harness);
-Harness.open = (async (...args: Parameters<typeof open>) =>
-  (harness = await open(...args))) as typeof Harness.open;
 
 const { app } = await import("../serve.js");
 const { models } = await import("../runner/pi/harness.js");
@@ -615,14 +606,15 @@ test("given a thread whose answer came after a tool round and a second exchange 
   }
 });
 
-/** The conversations that have a task running, aborted through the server's Harness: a stop. */
-async function stop() {
-  assert.ok(harness, "the server's Harness was opened");
-  const { tasks } = await harness.inspect(context);
-  const running = new Set(tasks.map((t) => t.record.conversationId));
-  assert.ok(running.size > 0, "a run goes when it is stopped");
-  for (const id of running)
-    await (await harness.conversation(id, context))?.abort(context);
+/** The thread's run, stopped through POST /threads/:id/stop. */
+async function stop(threadId: string) {
+  const stopped = await fetch(`${base}/threads/${threadId}/stop`, {
+    method: "POST",
+  });
+  assert.ok(
+    stopped.ok,
+    `the stop was taken: ${stopped.status} ${await stopped.text()}`,
+  );
 }
 
 test("given a run stopped while its tool runs, when the client sends its next message with the tool call but not the aborted result, then the run stays on the conversation, and the model's request holds the aborted result", async () => {
@@ -646,7 +638,7 @@ test("given a run stopped while its tool runs, when the client sends its next me
       drop,
     });
     // The tool runs now: the client goes, and the run is stopped.
-    await stop();
+    await stop(id);
     const start = seen.find((e) => e.type === "TOOL_CALL_START");
     const a1: Message = {
       id: String(start?.parentMessageId),

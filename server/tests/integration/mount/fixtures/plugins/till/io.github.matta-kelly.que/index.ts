@@ -56,6 +56,18 @@ export default definePlugin({
       },
     },
     {
+      name: "till-stall",
+      type: "op",
+      title: "Stall",
+      description:
+        "Counts an item and takes its time: it gives its count after five seconds, whatever happens to its run, as an op that ignores the abort signal does.",
+      input: z.object({ item: z.string().describe("The item's name") }),
+      run: async (_, { item }) => {
+        await new Promise((waited) => setTimeout(waited, 5_000));
+        return { item, counted: 3 };
+      },
+    },
+    {
       name: "till-jam",
       type: "op",
       title: "Jam",

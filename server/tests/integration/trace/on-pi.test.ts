@@ -231,3 +231,54 @@ test("given a run in which the model calls till-tally twice in one round, and th
     { ink: expected, nibs: expected },
   );
 });
+
+/**
+ * A model call that has not answered when its run is stopped: `asked` resolves
+ * when the model gets the request, and the call answers only once its signal
+ * aborts (or after 10 s, when no stop comes), as a provider's call does.
+ */
+const unanswered = () => {
+  let heard!: () => void;
+  const asked = new Promise<void>((resolve) => (heard = resolve));
+  const step = async (
+    _context: unknown,
+    options: { signal?: AbortSignal } | undefined,
+  ) => {
+    heard();
+    await new Promise<void>((done) => {
+      options?.signal?.addEventListener("abort", () => done(), { once: true });
+      setTimeout(done, 10_000);
+    });
+    return fauxAssistantMessage(fauxText("It never gets here."));
+  };
+  return { asked, step };
+};
+
+test("given a run stopped while the model has not answered its request, when its trace is sent, then the trace still holds that request as a generation, with its input", async () => {
+  const stopped = async (email: string, key: string, item: string) => {
+    await que.signIn(email, key);
+    const model = unanswered();
+    const { thread, stream } = await que.startOnPi(`How many ${item}?`, [
+      model.step,
+    ]);
+    await model.asked;
+    const taken = await que.stopOnPi(thread);
+    await stream;
+    const generations = (await traceOf(thread)).filter(
+      (span) => kind(span) === "generation",
+    );
+    return {
+      taken,
+      generations: generations.length,
+      asked: input(generations[0])?.includes(`How many ${item}?`) ?? false,
+    };
+  };
+  const expected = { taken: true, generations: 1, asked: true };
+  assert.deepEqual(
+    {
+      pens: await stopped("ana@example.com", "ana-key", "pens"),
+      ink: await stopped("bo@example.com", "bo-key", "ink"),
+    },
+    { pens: expected, ink: expected },
+  );
+});

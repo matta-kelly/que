@@ -261,16 +261,16 @@ export async function serveOnPi() {
 
   /**
    * One message on a new thread of the signed-in user, answered as `responses`
-   * script: the thread, once the run's stream has ended.
+   * script: the thread, and the run's stream as text once it has ended.
    */
-  const runOnPi = async (
+  const startOnPi = async (
     content: string,
     responses: Parameters<typeof faux.setResponses>[0],
   ) => {
     const made = await fetch(`${base}/threads`, { method: "POST" });
     const threadId = ((await made.json()) as { id: string }).id;
     faux.setResponses(responses);
-    const response = await fetch(`${base}/threads/${threadId}/runs`, {
+    const response = fetch(`${base}/threads/${threadId}/runs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -283,15 +283,33 @@ export async function serveOnPi() {
         forwardedProps: {},
       }),
     });
-    const stream = await response.text();
-    if (!stream.includes("RUN_FINISHED"))
-      throw new Error(`the run did not finish: ${stream}`);
-    return threadId;
+    return { thread: threadId, stream: response.then((r) => r.text()) };
   };
+
+  /**
+   * One message on a new thread of the signed-in user, answered as `responses`
+   * script: the thread, once the run's stream has ended.
+   */
+  const runOnPi = async (
+    content: string,
+    responses: Parameters<typeof faux.setResponses>[0],
+  ) => {
+    const { thread, stream } = await startOnPi(content, responses);
+    const text = await stream;
+    if (!text.includes("RUN_FINISHED"))
+      throw new Error(`the run did not finish: ${text}`);
+    return thread;
+  };
+
+  /** Stops the thread's run, through POST /threads/:id/stop: whether the route took the stop. */
+  const stopOnPi = async (thread: string) =>
+    (await fetch(`${base}/threads/${thread}/stop`, { method: "POST" })).ok;
 
   return {
     signIn,
+    startOnPi,
     runOnPi,
+    stopOnPi,
     close: async () => {
       await new Promise((closed) => server.close(closed));
       await database.stop();
