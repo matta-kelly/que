@@ -53,12 +53,27 @@ up deployment:
     curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
     echo "que is up at http://localhost:3000"
 
-# Stop everything (the dev container, which stops que's server and the UI, and the database, unless another que runs)
+# Stop everything (the dev container, which stops que's server and the UI, and the database, unless another que runs).
+# The container's own volumes go with it: the file names them with ${devcontainerId}, which is readable only
+# while a container exists. A volume the file names for every checkout, and one a deployment adds, stay.
 down:
     #!/usr/bin/env bash
     set -euo pipefail
     c=$(just _container)
-    [ -n "$c" ] && podman stop "$c" >/dev/null
+    if [ -n "$c" ]; then
+        own=()
+        # shellcheck disable=SC2016,SC2312 # The file's tokens are literal, and an empty grep is no volume.
+        while IFS= read -r dest; do
+            v=$(podman inspect --format "{{{{range .Mounts}}{{{{if eq .Destination \"$dest\"}}{{{{.Name}}{{{{end}}{{{{end}}" "$c")
+            [ -z "$v" ] || own+=("$v")
+        done < <(grep -F '${devcontainerId}' "{{root}}/.devcontainer/devcontainer.json" |
+            sed -n 's/.*target=\([^,]*\).*/\1/p' |
+            sed 's#\${containerWorkspaceFolder}#{{root}}#g')
+        podman rm -f "$c" >/dev/null
+        for v in "${own[@]}"; do
+            podman volume rm -f "$v" >/dev/null 2>&1 || true
+        done
+    fi
     # The database is every que's: it stops with the last one.
     others=$("{{root}}/scripts/serving-ques.sh" | paste -sd ' ' -)
     if [ -n "$others" ]; then
@@ -184,9 +199,11 @@ test-live: _require-up
     @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep @live
 
-# The dev container for this repo, found by its dev-container label
+# The id of this repo's dev container, by the label the CLI sets by default. Nothing reads the name the
+# CLI gives it.
 _container:
-    @podman ps -a --filter "label=devcontainer.local_folder={{root}}" --format '{{{{.Names}}' | head -1
+    @# shellcheck disable=SC2046 # The id is one word, and no container leaves nothing.
+    @podman inspect --format '{{{{.Id}}' $(podman ps -aq --filter "label=devcontainer.local_folder={{root}}" | head -1) 2>/dev/null || true
 
 _require-container:
     #!/usr/bin/env bash
