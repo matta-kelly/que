@@ -17,7 +17,7 @@ export const KEY = "fw-test";
 type Asked = { model?: string; messages?: { content?: unknown }[] };
 
 /** One streamed chat completion of the OpenAI API, the `n`th, that answers `text`: its events, in order. */
-export const completion = (
+const completion = (
   n: number,
   model: string | undefined,
   text: string,
