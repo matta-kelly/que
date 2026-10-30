@@ -12,6 +12,7 @@ import {
   manyOrNone,
   one,
   oneOrNone,
+  type Type,
 } from "@mku1tra/basis";
 import * as z from "zod";
 import { fn } from "./check.ts";
@@ -57,8 +58,11 @@ const op = defineType({
     // The role whose login it runs with, when its plugin lists roles.
     role: oneOrNone(() => accessRole),
     input,
-    // What it does: run(ctx, params), with the connection in ctx.
+    // What it does: run(ctx, params). A connector op gets its connection in ctx, and a domain op the ops it uses.
     run: fn,
+    // The ops it calls: a domain op's, each a connector's op. A connector op calls none.
+    // Its type is said, as a link to its own type would make op's type its own initializer's.
+    uses: manyOrNone((): Type => op),
   },
 });
 
