@@ -1,11 +1,13 @@
 /**
- * The engine's Harness: one for the server, on pi's memory storage, so a
- * restart loses it, and the link from each thread to its conversation is a
- * process Map. Each run goes on the conversation the branch rule (branch.ts)
- * chooses: the thread's, a fork of it, or a new one, which the thread then
- * points at. A new conversation gets its agent then: a change to what the
- * agent is built from takes effect from the next chat, and a fork keeps its
- * parent's. The user's catalog is read
+ * The engine's Harness: one for the server, on pi's storage in Postgres, on one
+ * dedicated connection (a commit's BEGIN and COMMIT must run on one
+ * connection, which a pool cannot promise), and the link from each thread to
+ * its conversation is its row. The connection takes a session advisory lock
+ * when this module loads, so one process owns a deployment. Each run goes on
+ * the conversation the branch rule (branch.ts) chooses: the thread's, a fork of
+ * it, or a new one, which the thread then points at. A new conversation gets
+ * its agent then: a change to what the agent is built from takes effect from
+ * the next chat, and a fork keeps its parent's. The user's catalog is read
  * at each run: each user has an extension of their own, installed again
  * with their catalog before each of their runs, and the thread's
  * conversation selects it.
@@ -14,20 +16,22 @@
  * Fireworks and the deployment's models on it from when this module loads.
  */
 
+import pg from "pg";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
 import {
   AssistantEntry,
   createRegistry,
   Harness,
-  MemoryStorage,
   watchEvents,
-  type Conversation,
+  type ConversationId,
   type Extension,
   type SubmissionId,
 } from "@earendil-works/pi-durable";
 import type { AGUIEvent } from "@ag-ui/core";
 import { fireworks } from "@que/chat-model";
+import { storageOn } from "@que/pi-storage";
+import { createStore } from "@que/threads";
 import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
@@ -53,14 +57,38 @@ const call = door(
 const tracing = tracingOnPi(settingsFor(process.env));
 
 const registry = createRegistry();
+
+// pi's storage runs on one connection of its own, and a session advisory lock on it says this process owns the
+// deployment: the lock goes when the connection does.
+const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+// A connection lost while nothing reads it says so with an "error" event; with no listener, node-postgres ends
+// the process (node-postgres, Client).
+client.on("error", (error) =>
+  console.error("que: pi's storage connection was lost:", error.message),
+);
+await client.connect();
+// The key is "que" and the deployment's number: one deployment per database.
+const { rows: locks } = await client.query(
+  "SELECT pg_try_advisory_lock($1, $2) AS owned",
+  [0x717565, 1],
+);
+if (!locks[0].owned) {
+  await client.end();
+  throw new Error(
+    "que: another process owns this deployment: its advisory lock on the database is held, so this one stops",
+  );
+}
 const harness = await Harness.open(
-  new MemoryStorage(),
+  storageOn(client),
   { models, registry, telemetry: tracing.telemetry },
   context,
 );
 
-/** Each thread's conversation: the one its last run chose, none before its first. */
-const conversations = new Map<string, Promise<Conversation | undefined>>();
+/** The thread records, and each thread's conversation, in its row. */
+const threads = createStore();
+
+/** Each thread's turn: its runs choose one at a time, in the order they came. */
+const turns = new Map<string, Promise<unknown>>();
 
 const ownership = { kind: "ownerless" } as const;
 
@@ -76,9 +104,13 @@ function conversationFor(
   que: Extension,
   input: { runId: string; before: readonly string[]; last: string },
 ) {
-  const had = conversations.get(thread);
+  const had = turns.get(thread) ?? Promise.resolve();
   const chosen = (async () => {
-    const current = await had;
+    await had.catch(() => {});
+    const kept = await threads.conversationOf(thread);
+    const current = kept
+      ? await harness.conversation(Number(kept) as ConversationId, context)
+      : undefined;
     const held = current
       ? heldOf((await current.context(context)).entries)
       : [];
@@ -101,14 +133,12 @@ function conversationFor(
             },
             context,
           );
+    await threads.setConversation(thread, String(conversation.id));
     return { conversation, resend: false };
   })();
-  conversations.set(
+  turns.set(
     thread,
-    chosen.then(
-      ({ conversation }) => conversation,
-      () => had,
-    ),
+    chosen.catch(() => undefined),
   );
   return chosen;
 }
@@ -202,7 +232,10 @@ export async function run(
 
 /** The thread's messages, as AG-UI messages: none before its first run. */
 export async function messages(thread: string) {
-  const conversation = await conversations.get(thread);
+  const kept = await threads.conversationOf(thread);
+  const conversation = kept
+    ? await harness.conversation(Number(kept) as ConversationId, context)
+    : undefined;
   return conversation
     ? heldOf((await conversation.context(context)).entries).map(
         (held) => held.message,
