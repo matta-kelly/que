@@ -5,7 +5,10 @@
 #
 #   DATABASE_URL=postgres://que:<password>@127.0.0.1:5433/que_b5_test tests/e2e/one-owner.sh
 #
-# DATABASE_URL names a database on a disposable Postgres server. The script
+# DATABASE_URL names a database on a disposable Postgres server. A container
+# started just before is fine: the script waits up to 30 seconds for the server
+# to answer twice, one second apart, since a fresh postgres container answers
+# during its init and then restarts. The script
 # makes a database of its own on that server (que_b5_e2e_<pid>, "postgres" is
 # used for that), and drops it on exit. It starts que's server from the branch
 # (`npm run server`, the listen path) on port 2025, by its PORT, so that port must be free.
@@ -23,6 +26,9 @@
 #      the restart, and its next run starts it a conversation
 #   4. a second server stops at start and says that another process owns the
 #      deployment, while the first still serves
+#   5. reads of a thread at the same time as each other, in waves of ten while a
+#      run writes to pi's storage, all answer GET /threads/:id with the thread's
+#      messages. PGlite cannot show this (README, Commands), so it is checked here
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../.." && pwd)
@@ -125,6 +131,22 @@ send() { # thread, runId, messages as JSON
 types() { sed -n 's/^data: //p' | jq -r .type; }
 get() { curl -sS -m 10 "$que$1" || stop "que did not answer GET $1"; }
 messagesOf() { get "/threads/$1" | jq -c '[.messages[] | {id, role, content}]'; }
+
+# --- the server up: it answers, and still does one second after ---------------
+
+held=""
+for _ in $(seq 1 30); do
+  if admin "SELECT 1" >/dev/null 2>&1; then
+    sleep 1
+    if admin "SELECT 1" >/dev/null 2>&1; then
+      held=1
+      break
+    fi
+  else
+    sleep 1
+  fi
+done
+[ -n "$held" ] || stop "the Postgres server of DATABASE_URL did not answer twice, one second apart, in 30 seconds"
 
 # --- 1. the threads table S1 made, and the ALTER ------------------------------
 
@@ -237,6 +259,44 @@ else
   fi
 fi
 curl -sf -m 2 -o /dev/null "$que/ok" && ok "the first server still serves" || bad "the first server stopped serving while the second tried to start"
+
+# --- 5. reads at the same time, while a run writes ------------------------------
+
+wave() { # thread wave: ten GET /threads/:id at once, each read's status and body in $tmp
+  local i reads=()
+  for i in $(seq 1 10); do
+    curl -sS -m 10 -o "$tmp/read-$2-$i.json" -w '%{http_code}' "$que/threads/$1" >"$tmp/read-$2-$i.status" 2>&1 &
+    reads+=("$!")
+  done
+  for i in "${reads[@]}"; do wait "$i" || true; done
+}
+
+made=$(curl -sS -m 10 -X POST "$que/threads") || stop "que did not make a thread"
+reading=$(jq -r .id <<<"$made")
+[ -n "$reading" ] && [ "$reading" != null ] || stop "que made no thread: $made"
+send "$reading" read-run-1 '[{"id":"r1","role":"user","content":"hello"}]' >/dev/null
+waves=0
+send "$reading" read-run-2 '[{"id":"r1","role":"user","content":"hello"},{"id":"r2","role":"user","content":"again"}]' >"$tmp/read-run-2" &
+run=$!
+while :; do
+  waves=$((waves + 1))
+  wave "$reading" "$waves"
+  alive "$run" || break
+done
+wait "$run" || stop "the run the reads went beside did not answer: $(cut -c1-400 "$tmp/read-run-2" | tr '\n' ' ')"
+wrong=""
+for status in "$tmp"/read-*.status; do
+  body=${status%.status}.json
+  code=$(<"$status")
+  if [ "$code" != 200 ] || ! jq -e '.messages[0].id == "r1"' "$body" >/dev/null 2>&1; then
+    wrong+="$code: $(head -c 200 "$body" 2>/dev/null || true); "
+  fi
+done
+if [ -z "$wrong" ]; then
+  ok "$((waves * 10)) reads of a thread, ten at once in $waves waves while a run wrote, all answered with its messages"
+else
+  bad "reads of a thread at the same time, while a run wrote, did not all answer with its messages: $wrong"
+fi
 
 echo
 if [ "$failed" = 0 ]; then echo "all passed"; else echo "$failed failed"; fi
