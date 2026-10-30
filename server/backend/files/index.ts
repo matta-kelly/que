@@ -39,8 +39,10 @@ export type FileStore = {
 
 /** What the store runs its queries on: a pg pool, or anything with the same `query`. */
 export type Queryable = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  query(text: string, values?: unknown[]): Promise<{ rows: any[] }>;
+  query<Row = unknown>(
+    text: string,
+    values?: unknown[],
+  ): Promise<{ rows: Row[] }>;
 };
 
 /**
