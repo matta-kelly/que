@@ -494,6 +494,65 @@ test("given a thread whose first answer came after a tool round, when the client
   }
 });
 
+test("given a thread whose answer came after a tool round, when the client sends its next message with the turn joined as one message, then the run stays on the conversation: the model's request holds the turn's answer, and GET /threads/:id gives the turn whole and the new exchange after it", async () => {
+  // The turn's first message with text before its tool call, and with none, as a model calls a tool at once.
+  for (const [item, said] of [
+    ["pens", "Let me count. "],
+    ["ink", ""],
+  ]) {
+    const id = await thread();
+    const u1 = user(`How many ${item}?`);
+    const call = `call-joined-${item}`;
+    faux.setResponses([
+      answer(
+        [
+          ...(said ? [fauxText(said)] : []),
+          fauxToolCall("till-count", { item }, { id: call }),
+        ],
+        true,
+      ),
+      answer(`There are ${item}.`),
+    ]);
+    await run(id, [u1]);
+    const turn = await held(id);
+    const [, first, result] = turn;
+    // A client that shows a turn as one reply sends it as one assistant message: the turn's first id, its text
+    // whole, and its tool call, then the call's result.
+    const joined: Message = {
+      id: first.id,
+      role: "assistant",
+      content: `${said}There are ${item}.`,
+      toolCalls: first.toolCalls,
+    };
+    const u2 = user("And the rest?");
+    faux.setResponses([answer("The rest is gone.")]);
+    requests.length = 0;
+    const next = await run(id, [u1, joined, result, u2]);
+    assert.deepEqual(
+      {
+        requests: [...requests],
+        chat: (await held(id)).map((m) => [m.role, m.id]),
+      },
+      {
+        requests: [
+          [
+            `user: How many ${item}?`,
+            `assistant: ${said}`,
+            `tool ${call}: ok`,
+            `assistant: There are ${item}.`,
+            "user: And the rest?",
+          ],
+        ],
+        chat: [
+          ...turn.map((m) => [m.role, m.id]),
+          ["user", u2.id],
+          ["assistant", idOf(next.events, "The rest is gone.")],
+        ],
+      },
+    );
+  }
+});
+
 /** The conversations that have a task running, aborted through the server's Harness: a stop. */
 async function stop() {
   assert.ok(harness, "the server's Harness was opened");
