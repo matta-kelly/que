@@ -238,6 +238,19 @@ assert_contains() {
   fail "$3: expected to contain [$2], got [$1]"
 }
 
+# Given a line-by-line output and a whole line it must not hold, when the two are compared, then no line
+# is that line. A line that names a folder names exactly that folder, so a folder whose path starts with
+# it is a different folder, and other lines say nothing about it.
+assert_no_line() {
+  local line
+  while IFS= read -r line; do
+    if [ "$line" = "$2" ]; then
+      fail "$3: names [$2], got [$1]"
+      return 1
+    fi
+  done <<<"$1"
+}
+
 # Given a container, when it is read, then the CLI made it from the file: its image is the one the CLI
 # builds, not a podman run of que's own. The CLI names that image after the folder, vsc-<folder>-<hash>,
 # and this machine prefixes it with the registry it was built into (localhost/), so the name is a
@@ -331,7 +344,9 @@ test_one_container_for_vscode_and_just() {
 }
 
 # Given a container the maker made, when just's recipes ask for it, then they find it by the CLI's label
-# and not by a name: `just _container` gives its id, and `just down` stops it. `just logs` asks the same
+# and not by a name: `just _container` gives its id, and `just down` stops it. The host runs several que
+# checkouts at once, so serving-ques.sh names the other ones that serve, and this checkout's folder is not
+# one of them: the assertion is about this checkout, not about an empty host. `just logs` asks the same
 # `_container`, and needs a serving que, so it is not driven here.
 test_just_finds_the_container_by_the_labels_the_cli_sets() {
   cd "$root" || return 1
@@ -353,7 +368,7 @@ test_just_finds_the_container_by_the_labels_the_cli_sets() {
   assert_eq "$id" "$(podman inspect --format '{{.Id}}' "$found" 2>/dev/null)" \
     "just _container gives the container by its label" || return 1
   out=$("$root/scripts/serving-ques.sh")
-  assert_eq "" "$out" "serving-ques.sh does not name this checkout as another que" || return 1
+  assert_no_line "$out" "$root" "serving-ques.sh does not name this checkout as another que" || return 1
   out=$(just down 2>&1)
   code=$?
   assert_eq 0 "$code" "just down finds the container and stops it: $out" || return 1
