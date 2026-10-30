@@ -911,6 +911,30 @@ test("given an on-demand config, when the model loads two ops at once, then both
   );
 });
 
+test("given an on-demand config, when the model calls an op it has not loaded, then it is a failed call, the door is not called, and the run goes on", async () => {
+  const requests = script([
+    [
+      { name: "shop-get-order", args: { id: 4 }, id: "c1" },
+      { name: "shop-list-orders", args: { customer: "Ana" }, id: "c2" },
+    ],
+    [],
+  ]);
+  doorCalls = [];
+  const { harness, chat } = await harnessOn(new MemoryStorage(), onDemand);
+  try {
+    await say(await chat(), "Go.");
+  } finally {
+    await harness.close(context);
+  }
+  assert.deepEqual(
+    ["c1", "c2"].map((id) => toolResultIn(requests, id)?.isError),
+    [true, true],
+  );
+  assert.deepEqual(doorCalls, []);
+  // The run went on to the model's answer, after the two failed calls.
+  assert.equal(requests.length, 2);
+});
+
 test("given an on-demand config, when a load fails, then it names what there is, and no op is offered", async () => {
   const requests = script([
     [
