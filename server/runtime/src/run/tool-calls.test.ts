@@ -229,3 +229,168 @@ test("given an op whose run throws an Error that is no OpFailed, when faux calls
     { pens: expected, ink: expected },
   );
 });
+
+/** An AG-UI message as GET /threads/:id gives it. */
+type Message = {
+  id: string;
+  role: string;
+  content?: unknown;
+  toolCalls?: {
+    id: string;
+    type: string;
+    function: { name: string; arguments: string };
+  }[];
+  toolCallId?: string;
+};
+
+/**
+ * The tool round of a run as its stream gave it, in AG-UI's messages: for each assistant message, its id, its text and
+ * its tool calls (the arguments parsed); for each tool message, its id, its call's id and its content.
+ */
+function streamedRound(events: Event[]) {
+  const assistants = new Map<
+    string,
+    { text: string; calls: { id: string; name: unknown; args: string }[] }
+  >();
+  const of = (id: string) => {
+    const made = assistants.get(id) ?? { text: "", calls: [] };
+    assistants.set(id, made);
+    return made;
+  };
+  const tools: { id: unknown; toolCallId: unknown; content: unknown }[] = [];
+  for (const e of events) {
+    if (e.type === "TEXT_MESSAGE_CONTENT")
+      of(String(e.messageId)).text += String(e.delta);
+    if (e.type === "TOOL_CALL_START")
+      of(String(e.parentMessageId)).calls.push({
+        id: String(e.toolCallId),
+        name: e.toolCallName,
+        args: "",
+      });
+    if (e.type === "TOOL_CALL_ARGS")
+      for (const message of assistants.values())
+        for (const call of message.calls)
+          if (call.id === e.toolCallId) call.args += String(e.delta);
+    if (e.type === "TOOL_CALL_RESULT")
+      tools.push({
+        id: e.messageId,
+        toolCallId: e.toolCallId,
+        content: e.content,
+      });
+  }
+  return {
+    assistants: [...assistants].map(([id, { text, calls }]) => ({
+      id,
+      content: text || undefined,
+      toolCalls: calls.length
+        ? calls.map((call) => ({
+            id: call.id,
+            name: call.name,
+            arguments: JSON.parse(call.args) as unknown,
+          }))
+        : undefined,
+    })),
+    tools,
+  };
+}
+
+/** The same projection of the messages GET /threads/:id gives. */
+function heldRound(messages: Message[]) {
+  return {
+    assistants: messages
+      .filter((m) => m.role === "assistant")
+      .map((m) => ({
+        id: m.id,
+        content: m.content || undefined,
+        toolCalls: m.toolCalls?.map((call) => ({
+          id: call.id,
+          name: call.function.name,
+          arguments: JSON.parse(call.function.arguments) as unknown,
+        })),
+      })),
+    tools: messages
+      .filter((m) => m.role === "tool")
+      .map((m) => ({ id: m.id, toolCallId: m.toolCallId, content: m.content })),
+  };
+}
+
+/** A message on a new thread of the signed-in user, answered as `responses` script: its thread and its events. */
+async function scriptedRun(responses: Parameters<typeof faux.setResponses>[0]) {
+  const made = await fetch(`${base}/threads`, { method: "POST" });
+  const threadId = ((await made.json()) as { id: string }).id;
+  faux.setResponses(responses);
+  const response = await fetch(`${base}/threads/${threadId}/runs`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      threadId,
+      runId: randomUUID(),
+      messages: [
+        { id: randomUUID(), role: "user", content: "Count the shop." },
+      ],
+      tools: [],
+      context: [],
+      state: {},
+      forwardedProps: {},
+    }),
+  });
+  return { threadId, events: await eventsOf(response) };
+}
+
+test("given a run with a tool round, when GET /threads/:id is read after it, then it gives the round as the stream gave it: each assistant message under its id with its toolCalls, and each tool message under its call id with its result", async () => {
+  as("ana@example.com");
+  await connect("ana-key");
+  const held = async (threadId: string) =>
+    (
+      (await (await fetch(`${base}/threads/${threadId}`)).json()) as {
+        messages?: Message[];
+      }
+    ).messages ?? [];
+
+  // One call, after some text of the same assistant message.
+  const one = await scriptedRun([
+    fauxAssistantMessage(
+      [
+        fauxText("Let me count. "),
+        fauxToolCall("till-count", { item: "pens" }, { id: "call-pens" }),
+      ],
+      {
+        stopReason: "toolUse",
+      },
+    ),
+    fauxAssistantMessage(fauxText("There are pens.")),
+  ]);
+  // Two calls in one round, with no text before them.
+  const two = await scriptedRun([
+    fauxAssistantMessage(
+      [
+        fauxToolCall("till-count", { item: "ink" }, { id: "call-ink" }),
+        fauxToolCall("till-count", { item: "nibs" }, { id: "call-nibs" }),
+      ],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage(fauxText("Both are counted.")),
+  ]);
+
+  // What the stream gave is a tool round, so the comparison is not of two empty lists.
+  assert.deepEqual(
+    streamedRound(one.events).tools.map((t) => t.toolCallId),
+    ["call-pens"],
+  );
+  assert.deepEqual(
+    streamedRound(two.events).tools.map((t) => t.toolCallId),
+    ["call-ink", "call-nibs"],
+  );
+  assert.deepEqual(
+    {
+      one: heldRound(await held(one.threadId)),
+      two: heldRound(await held(two.threadId)),
+    },
+    { one: streamedRound(one.events), two: streamedRound(two.events) },
+  );
+  // In GET, the tool messages come each after the assistant message that made its call, in call order.
+  assert.deepEqual(
+    (await held(two.threadId)).map((m) => m.role),
+    ["user", "assistant", "tool", "tool", "assistant"],
+  );
+});

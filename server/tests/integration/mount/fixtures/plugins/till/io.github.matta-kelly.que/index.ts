@@ -20,6 +20,18 @@ export default definePlugin({
       run: async ({ conn }, { item }) => ({ conn, item }),
     },
     {
+      name: "till-wait",
+      type: "op",
+      title: "Wait",
+      description:
+        "Counts an item slowly: it gives its count after a second and a half, so a run can be stopped while it runs.",
+      input: z.object({ item: z.string().describe("The item's name") }),
+      run: async (_, { item }) => {
+        await new Promise((waited) => setTimeout(waited, 1_500));
+        return { item, counted: 3 };
+      },
+    },
+    {
       name: "till-jam",
       type: "op",
       title: "Jam",
