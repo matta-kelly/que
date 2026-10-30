@@ -128,13 +128,12 @@ export function storeOn(db: Queryable, dataDir: string): FileStore {
 
     async remove(thread, id) {
       await ready;
+      await rm(fileDir(dataDir, thread, id), { recursive: true, force: true });
       const { rows } = await db.query<{ id: string }>(
         "DELETE FROM files WHERE thread = $1 AND id = $2 RETURNING id",
         [thread, id],
       );
-      if (rows.length === 0) return false;
-      await rm(fileDir(dataDir, thread, id), { recursive: true, force: true });
-      return true;
+      return rows.length > 0;
     },
   };
 }
