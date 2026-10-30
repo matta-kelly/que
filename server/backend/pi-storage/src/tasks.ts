@@ -90,10 +90,9 @@ export async function task(
   db: Queryable,
   id: number,
 ): Promise<TaskRecord<JsonValue, JsonValue, JsonValue> | undefined> {
-  const { rows } = await db.query(
-    "SELECT record FROM pi.tasks WHERE id = $1",
-    [id],
-  );
+  const { rows } = await db.query("SELECT record FROM pi.tasks WHERE id = $1", [
+    id,
+  ]);
   return rows[0] === undefined ? undefined : record(rows[0]);
 }
 

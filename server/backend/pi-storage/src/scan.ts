@@ -39,7 +39,13 @@ const isOrder = (value: unknown): value is ScanOrder =>
   value === "ascending" || value === "descending";
 
 /** The id bound and direction of an ordered scan: it moves away from the cursor on its own side. */
-export function scanSql({ order, after }: { order: ScanOrder; after?: number }): {
+export function scanSql({
+  order,
+  after,
+}: {
+  order: ScanOrder;
+  after?: number;
+}): {
   direction: "ASC" | "DESC";
   clause: string;
   param: number;
@@ -58,7 +64,5 @@ export function page<T extends { readonly id: number }>(
   more: boolean,
   order: ScanOrder,
 ): Page<T, Cursor> {
-  return more
-    ? { items, next: { after: items.at(-1)!.id, order } }
-    : { items };
+  return more ? { items, next: { after: items.at(-1)!.id, order } } : { items };
 }
