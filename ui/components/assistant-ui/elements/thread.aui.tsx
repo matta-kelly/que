@@ -289,6 +289,16 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
         data-slot="aui_composer-shell"
         className="border-foreground/10 focus-within:border-foreground/25 flex w-full cursor-text flex-col gap-2 rounded-(--composer-radius) border bg-(--composer-bg) p-(--composer-padding) transition-[border-color]"
       >
+        <ComposerPrimitive.Attachments>
+          {({ attachment }) => (
+            <span
+              key={attachment.id}
+              className="aui-composer-attachment text-muted-foreground truncate rounded-md border px-2 py-1 text-sm"
+            >
+              {attachment.name}
+            </span>
+          )}
+        </ComposerPrimitive.Attachments>
         <ComposerPrimitive.Input
           placeholder="Send a message..."
           className="aui-composer-input caret-primary placeholder:text-muted-foreground/60 max-h-48 min-h-10 w-full resize-none bg-transparent px-2.5 py-1 text-base leading-6 outline-none"
