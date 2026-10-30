@@ -663,3 +663,78 @@ test("a cursor used with another order is a StorageRequestError", async (t) => {
     });
   }
 });
+
+// The top of pi's id space: a safe integer, and so a legal record id.
+const TOP_ID = Number.MAX_SAFE_INTEGER;
+
+// The three scans B3 gives a cursor, each over a record at the top of the id space.
+const scansAtTop: readonly {
+  readonly name: string;
+  readonly write: (id: number) => StorageWrite;
+  readonly scan: Scan["scan"];
+}[] = [
+  {
+    name: "scanConversations",
+    write: conversation,
+    scan: (storage, order, limit, cursor) =>
+      storage.scanConversations(
+        order === undefined ? {} : { order },
+        limit,
+        cursor,
+        context,
+      ),
+  },
+  {
+    name: "scanTasks",
+    write: task,
+    scan: (storage, order, limit, cursor) =>
+      storage.scanTasks(
+        order === undefined ? {} : { order },
+        limit,
+        cursor,
+        context,
+      ),
+  },
+  {
+    name: "scanSubmissions",
+    write: submission,
+    scan: (storage, order, limit, cursor) =>
+      storage.scanSubmissions(
+        order === undefined ? {} : { order },
+        limit,
+        cursor,
+        context,
+      ),
+  },
+];
+
+test("a descending scan with no cursor returns a record at the top of the id space", async (t) => {
+  for (const { name, write, scan } of scansAtTop) {
+    for (const [example, ids] of [
+      ["alone", [TOP_ID]],
+      ["beside a lower id", [7, TOP_ID]],
+    ] as const) {
+      await t.test(`${name}, ${example}`, async (t) => {
+        // given: a storage that holds records at and below the top of the id space
+        const storage = storageOn(closedAfter(t, new PGlite()));
+        await storage.commit(ids.map(write), context);
+
+        // when: it scans descending with no cursor, and pages one at a time from the top
+        const all = await scan(storage, "descending", 10, undefined);
+        const first = await scan(storage, "descending", 1, undefined);
+
+        // then: both give the top record first, so no legal id is above a descending scan
+        assert.deepStrictEqual(
+          all.items.map((record) => record.id),
+          [...ids].reverse(),
+          `a cursorless descending scan returned no record at ${TOP_ID}`,
+        );
+        assert.deepStrictEqual(
+          first.items.map((record) => record.id),
+          [TOP_ID],
+          `the first descending page of one did not return the record at ${TOP_ID}`,
+        );
+      });
+    }
+  }
+});
