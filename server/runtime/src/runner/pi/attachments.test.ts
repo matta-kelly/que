@@ -30,7 +30,6 @@ import {
 } from "@earendil-works/pi-durable";
 import { PGlite } from "@electric-sql/pglite";
 // The run's attachment tools read the file store; the runtime's package allowlist gains @que/files with this cut.
-// eslint-disable-next-line no-restricted-imports
 import { storeOn, type FileStore } from "@que/files";
 import type { Model } from "@mku1tra/que-harness";
 import { fireworks, piModel } from "@que/chat-model";
@@ -75,7 +74,7 @@ models.setProvider(faux.provider);
 type Args = Parameters<typeof fauxToolCall>[1];
 type ModelCall = { name: string; args: Args; id: string };
 
-/** The content of a tool result as the model got it, one text for its text blocks and its diagnostics apart. */
+/** The content of a tool result as the model got it: `text` the tool's output, `notes` the diagnostics' messages. */
 type Got = {
   isError: boolean;
   text: string;
@@ -96,12 +95,16 @@ function resultIn(
     if (!ToolResultEntry.is(entry)) continue;
     const message = entry.model?.[0];
     if (message?.role !== "toolResult" || message.toolCallId !== id) continue;
+    const notes = entry.data.diagnostics;
+    const texts = message.content.map((block) =>
+      block.type === "text" ? block.text : "",
+    );
+    // The content ends with the rendered diagnostics when there are any (pi's ToolResultEntry).
+    const output = notes.length ? texts.slice(0, -1) : texts;
     return {
       isError: message.isError,
-      text: message.content
-        .map((block) => (block.type === "text" ? block.text : ""))
-        .join(""),
-      notes: entry.data.diagnostics.map((note) => note.message).join("\n"),
+      text: output.join(""),
+      notes: notes.map((note) => note.message).join("\n"),
       content: message.content,
     };
   }
@@ -653,7 +656,7 @@ test("given a named sheet, when read_attachment reads a window, then rows are on
 
   // then: each row is one line, and each cell is one tab-separated value
   assert.ok(got, "the model got no result of read_attachment");
-  assert.equal(got.isError, false, got.text);
+  assert.equal(got.isError, false, got.text || got.notes);
   const lines = got.text.split("\n");
   assert.deepEqual(lines.slice(0, 3), [
     "sku\tprice",
@@ -831,6 +834,8 @@ test("given a PNG and a JPEG, when read_attachment reads each, then it gives one
 });
 
 test("given a text-only model, when its next request holds the image block read_attachment gave it, then pi sends the placeholder for a tool image", async (t) => {
+  // The provider is made with a key, and calls the global fetch.
+  process.env.FIREWORKS_API_KEY ??= "none";
   // given: a PNG that read_attachment gives as an image block
   const { dir, files } = await openStore(t);
   const png = Buffer.from([
@@ -842,7 +847,7 @@ test("given a text-only model, when its next request holds the image block read_
   ]);
   const got = of("png");
   assert.ok(got, "the model got no result of read_attachment");
-  assert.equal(got.isError, false, got.text);
+  assert.equal(got.isError, false, got.text || got.notes);
 
   // when: the tool result goes to a model whose catalog entry is text alone
   const config: Model = {
@@ -920,9 +925,10 @@ test("given a text-only model, when its next request holds the image block read_
   const tool = (
     (sent[0]?.messages as { role: string; content: unknown }[]) ?? []
   ).find((message) => message.role === "tool");
-  assert.deepEqual(tool?.content, [
+  assert.equal(
+    tool?.content,
     "(tool image omitted: model does not support images)",
-  ]);
+  );
 });
 
 test("given a missing id, a malformed id and another thread's file id, when read_attachment reads each, then each fails with a message that names the id and the thread, and no store path or file system error", async (t) => {
@@ -995,8 +1001,13 @@ test("given a PDF and a workbook, when read_attachment reads them, then their te
     { name: READ, args: { file: thePdf.id, byte_offset: 0 }, id: "two" },
   ]);
 
-  // then: the second read is the cache
+  // then: the second read is the cache, and still names that the PDF ends
   assert.equal(again.of("two")?.text, "CACHED PDF TEXT");
+  assert.equal(
+    ends(again.of("two")),
+    true,
+    `the cached PDF read names no end:\n${again.of("two")?.notes}`,
+  );
 
   // when: two sheets of the workbook are read
   await ask({ files, thread: "T", dataDir: dir }, [
@@ -1027,6 +1038,11 @@ test("given a PDF and a workbook, when read_attachment reads them, then their te
     },
   ]);
   assert.equal(cachedSheet.of("again")?.text, "CACHED SHEET TEXT");
+  assert.equal(
+    ends(cachedSheet.of("again")),
+    true,
+    `the cached sheet read names no end:\n${cachedSheet.of("again")?.notes}`,
+  );
 
   // when: the files are removed
   await files.remove("T", thePdf.id);
