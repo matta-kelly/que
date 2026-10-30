@@ -35,6 +35,7 @@ import {
   reach,
 } from "../../assemble/on-demand/open.js";
 import type { Way } from "../../assemble/way.js";
+import { attachmentTools, type Attachments } from "./attachments.js";
 import { answered, failed, isStop } from "./repeat.js";
 import {
   moved,
@@ -98,6 +99,8 @@ export function extension(
   way: Way,
   // A loop that leaves it out, as the tests of other behaviors do, moves no result.
   limit: ResolvedLoop["result"] = false,
+  // The run's thread's files: without them, as the tests of other behaviors leave them, there are no attachment tools.
+  attachments: Attachments | undefined = undefined,
 ): Omit<Extension, "name"> {
   const ops = catalog.flatMap(({ plugin: { definition } }) =>
     definition.ops.map((op): ToolRegistration => ({
@@ -160,6 +163,7 @@ export function extension(
       ...ops,
       ...(skills.size ? [readSkill] : []),
       ...(limit ? [readResult] : []),
+      ...(attachments ? attachmentTools(attachments) : []),
     ],
   };
 }

@@ -33,7 +33,9 @@
     "@que/users": "*",
     "hono": "^4.13.8",
     "pg": "^8.16.0",
+    "read-excel-file": "9.3.14",
     "semver": "^7.8.5",
+    "unpdf": "^1.9.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

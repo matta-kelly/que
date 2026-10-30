@@ -42,6 +42,7 @@ import {
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { AGUIEvent } from "@ag-ui/core";
 import { fireworks, levelOf } from "@que/chat-model";
+import { storeOn } from "@que/files";
 import { storageOn } from "@que/pi-storage";
 import { createStore } from "@que/threads";
 import {
@@ -102,6 +103,15 @@ if (!locks[0].owned) {
 /** A conversation's own cwd, by its id. */
 const cwdOf = (id: ConversationId) =>
   join(mounted.dataDir, "conversations", String(id));
+
+/** The thread's files: the bytes under the data directory, and the rows on this deployment's database. */
+const files = storeOn(
+  {
+    query: <Row>(text: string, values?: unknown[]) =>
+      client.query(text, values) as unknown as Promise<{ rows: Row[] }>,
+  },
+  data,
+);
 
 /** A model's key in pi's settings: `provider/modelId`. */
 const keyOf = (model: Model) =>
@@ -333,7 +343,11 @@ export async function run(
 ): Promise<{ error?: string }> {
   const text = systemPrompt({ ...prompt, catalog, environment: way.prompt });
   const que = {
-    ...extension(catalog, call, user, way, result),
+    ...extension(catalog, call, user, way, result, {
+      files,
+      thread,
+      dataDir: data,
+    }),
     // One section, untagged: the model reads que's prompt whole, as systemPrompt writes it.
     sections: [section("prompt", () => text, { tag: false })],
     hooks: tracing.hooks,
