@@ -2,13 +2,18 @@ import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import type { JsonValue } from "@earendil-works/chord";
 import {
   ROOT_CONVERSATION_ID,
   StorageRequestError,
   type ConversationId,
+  type Cursor,
   type EntryId,
   type EntryRecord,
   type Storage,
+  type StorageWrite,
+  type SubmissionId,
+  type TaskId,
 } from "@earendil-works/pi-durable";
 import {
   createStorageConformance,
@@ -102,6 +107,61 @@ test(
   "continues an entry cursor below its last item after a newer commit",
   conformance(
     "continues an entry cursor below its last item after a newer commit",
+  ),
+);
+
+test(
+  "commits mixed table writes atomically and rolls all of them back on failure",
+  conformance(
+    "commits mixed table writes atomically and rolls all of them back on failure",
+  ),
+);
+
+test(
+  "detaches retained writes and every returned record",
+  conformance("detaches retained writes and every returned record"),
+);
+
+test(
+  "scans tables in either ID order and continues a cursor in its order",
+  conformance(
+    "scans tables in either ID order and continues a cursor in its order",
+  ),
+);
+
+test(
+  "indexes request IDs per conversation and replaces complete submission records",
+  conformance(
+    "indexes request IDs per conversation and replaces complete submission records",
+  ),
+);
+
+test(
+  "replaces complete task records and pages filtered task scans",
+  conformance("replaces complete task records and pages filtered task scans"),
+);
+
+test(
+  "stores and scans sleeping tasks by status",
+  conformance("stores and scans sleeping tasks by status"),
+);
+
+test(
+  "stores owners and scans waiting and completing tasks by status",
+  conformance("stores owners and scans waiting and completing tasks by status"),
+);
+
+test(
+  "stores passive write submissions without input-only lifecycle states",
+  conformance(
+    "stores passive write submissions without input-only lifecycle states",
+  ),
+);
+
+test(
+  "keeps one global record ID namespace and rejects exhausted ID minting",
+  conformance(
+    "keeps one global record ID namespace and rejects exhausted ID minting",
   ),
 );
 
@@ -372,6 +432,195 @@ test("scanEntries with an order that is not one of pi's rejects with a StorageRe
         assert.match(error.message, /Invalid scan order/);
         return true;
       });
+    });
+  }
+});
+
+// pi's cursor contract: a cursor is malformed, or it is used with an order that is not the one it was made with.
+function isStorageRequestError(error: unknown): true {
+  assert.ok(
+    error instanceof StorageRequestError,
+    `expected a StorageRequestError, got ${error}`,
+  );
+  return true;
+}
+
+// One task record, in the state it names.
+function task(id: number, status: "pending" | "running" = "pending"): StorageWrite {
+  return {
+    type: "task",
+    value: {
+      id: id as TaskId<JsonValue>,
+      conversationId: ROOT_CONVERSATION_ID,
+      kind: "test.task",
+      version: 1,
+      input: {},
+      state:
+        status === "pending"
+          ? { status: "pending", checkpoint: {} }
+          : { status: "running", checkpoint: {} },
+      background: false,
+      abortRequested: false,
+    },
+  };
+}
+
+// One queued input submission, with a request id of its own.
+function submission(id: number): StorageWrite {
+  return {
+    type: "submission",
+    value: {
+      id: id as SubmissionId,
+      conversationId: ROOT_CONVERSATION_ID,
+      requestId: `request-${id}`,
+      type: "input",
+      status: "queued",
+    },
+  };
+}
+
+type Scanned = {
+  readonly items: readonly { readonly id: number }[];
+  readonly next?: Cursor;
+};
+
+type Scan = {
+  readonly name: string;
+  readonly ids: readonly number[];
+  readonly seed: (storage: Storage) => Promise<unknown>;
+  readonly scan: (
+    storage: Storage,
+    order: "ascending" | "descending" | undefined,
+    limit: number,
+    cursor: Cursor | undefined,
+  ) => Promise<Scanned>;
+};
+
+// The three scans B3 gives a cursor, each over its own records.
+const scans: readonly Scan[] = [
+  {
+    name: "scanConversations",
+    ids: [ROOT_CONVERSATION_ID, 7, 8],
+    seed: (storage) =>
+      storage.commit(
+        [conversation(ROOT_CONVERSATION_ID), conversation(7), conversation(8)],
+        context,
+      ),
+    scan: (storage, order, limit, cursor) =>
+      storage.scanConversations(
+        order === undefined ? {} : { order },
+        limit,
+        cursor,
+        context,
+      ),
+  },
+  {
+    name: "scanTasks",
+    ids: [7, 8],
+    seed: (storage) =>
+      storage.commit(
+        [conversation(ROOT_CONVERSATION_ID), task(7), task(8)],
+        context,
+      ),
+    scan: (storage, order, limit, cursor) =>
+      storage.scanTasks(
+        order === undefined ? {} : { order },
+        limit,
+        cursor,
+        context,
+      ),
+  },
+  {
+    name: "scanSubmissions",
+    ids: [7, 8],
+    seed: (storage) =>
+      storage.commit(
+        [conversation(ROOT_CONVERSATION_ID), submission(7), submission(8)],
+        context,
+      ),
+    scan: (storage, order, limit, cursor) =>
+      storage.scanSubmissions(
+        order === undefined ? {} : { order },
+        limit,
+        cursor,
+        context,
+      ),
+  },
+];
+
+test("a scan takes an order, and continues its cursor in that order", async (t) => {
+  for (const { name, ids, seed, scan } of scans) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the records of one scan
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await seed(storage);
+
+      // when: it scans in each order, then pages newest first
+      const ascending = await scan(storage, "ascending", 10, undefined);
+      const descending = await scan(storage, "descending", 10, undefined);
+      const first = await scan(storage, "descending", 1, undefined);
+
+      // then: each order holds, and the cursor continues the order it was made with
+      assert.deepStrictEqual(
+        ascending.items.map((record) => record.id),
+        ids,
+        "ascending is oldest first",
+      );
+      assert.deepStrictEqual(
+        descending.items.map((record) => record.id),
+        [...ids].reverse(),
+        "descending is newest first",
+      );
+      assert.ok(first.next, "a page of one has a next cursor");
+      const second = await scan(storage, undefined, 10, first.next);
+      assert.deepStrictEqual(
+        second.items.map((record) => record.id),
+        [...ids].reverse().slice(1),
+        "a cursor with no order in its query continues newest first",
+      );
+    });
+  }
+});
+
+test("a malformed cursor is a StorageRequestError", async (t) => {
+  for (const { name, seed, scan } of scans) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the records of one scan
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await seed(storage);
+
+      // then: a cursor that is not pi's is a StorageRequestError
+      const malformed: Cursor[] = [
+        { after: "x" },
+        { after: 1.5 },
+        { after: 1, order: "bogus" },
+      ];
+      for (const cursor of malformed) {
+        await assert.rejects(
+          scan(storage, undefined, 10, cursor),
+          isStorageRequestError,
+          `cursor ${JSON.stringify(cursor)} is malformed`,
+        );
+      }
+    });
+  }
+});
+
+test("a cursor used with another order is a StorageRequestError", async (t) => {
+  for (const { name, seed, scan } of scans) {
+    await t.test(name, async (t) => {
+      // given: a storage that holds the records of one scan, and a cursor from a descending page
+      const storage = storageOn(closedAfter(t, new PGlite()));
+      await seed(storage);
+      const first = await scan(storage, "descending", 1, undefined);
+      assert.ok(first.next, "a page of one has a next cursor");
+
+      // then: the cursor is not an ascending one
+      await assert.rejects(
+        scan(storage, "ascending", 1, first.next),
+        isStorageRequestError,
+        "a descending cursor is not an ascending one",
+      );
     });
   }
 });

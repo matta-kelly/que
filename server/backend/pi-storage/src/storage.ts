@@ -79,6 +79,11 @@ export function storageOn(db: Queryable): Storage {
                 throw new Error(`ID ${id} already belongs to conversation`);
             } else if (write.type === "entry") {
               await writeEntry(db, write.value, seq);
+            } else if (
+              write.type === "task" ||
+              write.type === "submission"
+            ) {
+              // B3's stub: the write is accepted and not stored, so the tests reach their assertions.
             } else notImplemented();
             // A stored id the sequence has not reached moves it past that id, so mintId never gives it.
             await db.query(
@@ -152,11 +157,12 @@ export function storageOn(db: Queryable): Storage {
         await open();
         return scanEntries(db, query, limit, cursor);
       }),
-    task: notImplemented,
-    scanTasks: notImplemented,
-    submission: notImplemented,
-    scanSubmissions: notImplemented,
-    submissionByRequest: notImplemented,
+    // B3's stubs: a signature only, returning nothing, so the tests reach their assertions.
+    task: () => Promise.resolve(undefined),
+    scanTasks: () => Promise.resolve({ items: [] }),
+    submission: () => Promise.resolve(undefined),
+    scanSubmissions: () => Promise.resolve({ items: [] }),
+    submissionByRequest: () => Promise.resolve(undefined),
     findDocument: notImplemented,
     document: notImplemented,
     scanDocuments: notImplemented,
