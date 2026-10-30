@@ -15,7 +15,7 @@ import {
   type Seq,
 } from "@earendil-works/pi-durable";
 import { checkRecordId } from "./ids.ts";
-import { scanStart } from "./scan.ts";
+import { page, scanStart } from "./scan.ts";
 import type { Queryable } from "./storage.ts";
 
 // The record is JSON text, not jsonb: JSON.stringify escapes U+0000 and a lone surrogate, which jsonb refuses.
@@ -143,7 +143,5 @@ export async function scanEntries(
     limit + 1,
   );
   const items = rows.slice(0, limit).map(record);
-  return rows.length > limit
-    ? { items, next: { after: items.at(-1)!.id, order } }
-    : { items };
+  return page(items, rows.length > limit, order);
 }
