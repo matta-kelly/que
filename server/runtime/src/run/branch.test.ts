@@ -553,6 +553,68 @@ test("given a thread whose answer came after a tool round, when the client sends
   }
 });
 
+test("given a thread whose answer came after a tool round and a second exchange after it, when the client edits the second message with the turn joined as one message, then the run forks after the turn's answer: the model's request and GET /threads/:id hold the answer", async () => {
+  for (const [item, said] of [
+    ["pens", "Let me count. "],
+    ["ink", ""],
+  ]) {
+    const id = await thread();
+    const u1 = user(`How many ${item}?`);
+    const call = `call-edit-${item}`;
+    faux.setResponses([
+      answer(
+        [
+          ...(said ? [fauxText(said)] : []),
+          fauxToolCall("till-count", { item }, { id: call }),
+        ],
+        true,
+      ),
+      answer(`There are ${item}.`),
+    ]);
+    await run(id, [u1]);
+    const turn = await held(id);
+    const [, first, result] = turn;
+    // The turn as the UI holds it: one assistant message under its first id, its text whole, its tool call, and the result.
+    const joined: Message = {
+      id: first.id,
+      role: "assistant",
+      content: `${said}There are ${item}.`,
+      toolCalls: first.toolCalls,
+    };
+    const u2 = user("And the rest?");
+    faux.setResponses([answer("The rest is gone.")]);
+    const second = await run(id, [u1, joined, result, u2]);
+    // The second exchange is on the thread before the edit.
+    idOf(second.events, "The rest is gone.");
+    const u2edit = user("And the others?");
+    faux.setResponses([answer("The others are here.")]);
+    requests.length = 0;
+    const edit = await run(id, [u1, joined, result, u2edit]);
+    assert.deepEqual(
+      {
+        requests: [...requests],
+        chat: (await held(id)).map((m) => [m.role, m.id]),
+      },
+      {
+        requests: [
+          [
+            `user: How many ${item}?`,
+            `assistant: ${said}`,
+            `tool ${call}: ok`,
+            `assistant: There are ${item}.`,
+            "user: And the others?",
+          ],
+        ],
+        chat: [
+          ...turn.map((m) => [m.role, m.id]),
+          ["user", u2edit.id],
+          ["assistant", idOf(edit.events, "The others are here.")],
+        ],
+      },
+    );
+  }
+});
+
 /** The conversations that have a task running, aborted through the server's Harness: a stop. */
 async function stop() {
   assert.ok(harness, "the server's Harness was opened");
