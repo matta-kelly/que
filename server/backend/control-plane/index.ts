@@ -67,31 +67,151 @@ export type ControlPlane = {
   ): Promise<string | undefined>;
 };
 
+const que = (card: Card) => card.extensions["io.github.matta-kelly.que"];
+
 /** The grants table, made when it is not there: one row per user and domain. */
-export const SETUP = "";
+export const SETUP = `
+  DO $$
+  BEGIN
+    PERFORM pg_advisory_xact_lock(hashtext('que.grants'));
+    CREATE TABLE IF NOT EXISTS grants (
+      user_id    text        NOT NULL,
+      domain     text        NOT NULL,
+      granted_by text        NOT NULL,
+      granted_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, domain)
+    );
+  END
+  $$`;
+
+/** A domain of the cards, and each connector it reaches with the roles it gives there. */
+type Descriptor = Domain & { byConnector: Map<string, string[]> };
 
 /** The control plane, on a database it sets up first (`SETUP`), reading the plugin cards it is given. */
 export function controlOn(db: Queryable, cards: Card[]): ControlPlane {
-  // STUB: the interface only. Every answer is empty until da-hammer writes the logic.
-  void db;
-  void cards;
+  const ready = db.query(SETUP);
+  const byName = new Map(cards.map((card) => [card.name, card]));
+  const ops = new Map(
+    cards.flatMap((card) =>
+      que(card).ops.map((op) => [op.name, { card, op }] as const),
+    ),
+  );
+  const skills = new Map(
+    cards.flatMap((card) =>
+      que(card).skills.map((skill) => [skill.name, { card, skill }] as const),
+    ),
+  );
+
+  /** Each op a domain uses: those it names, and those of each skill it names. */
+  const opsUsed = (card: Card): string[] => [
+    ...que(card).usesOps,
+    ...que(card).usesSkills.flatMap(
+      (name) => skills.get(name)!.skill.uses ?? [],
+    ),
+  ];
+
+  /** Each domain the cards name, with each connector and role it reaches. */
+  const described: Descriptor[] = cards
+    .filter((card) => que(card).kind === "domain")
+    .map((card) => {
+      const byConnector = new Map<string, string[]>();
+      for (const name of opsUsed(card)) {
+        const { card: holder, op } = ops.get(name)!;
+        const roles = byConnector.get(holder.name) ?? [];
+        if (op.role !== undefined && !roles.includes(op.role))
+          roles.push(op.role);
+        byConnector.set(holder.name, roles.sort());
+      }
+      return {
+        name: card.name,
+        connectors: [...byConnector.keys()].sort(),
+        roles: [...byConnector.values()].flat().sort(),
+        byConnector,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  /** An internal connector: one with roles, which its ops run with. */
+  const internal = (name: string) => {
+    const card = byName.get(name);
+    return card !== undefined && que(card).roles.length > 0;
+  };
+
+  async function grantsOf(user: string): Promise<string[]> {
+    await ready;
+    const { rows } = await db.query(
+      "SELECT domain FROM grants WHERE user_id = $1 ORDER BY domain",
+      [user],
+    );
+    return rows.map((row) => row.domain as string);
+  }
+
+  async function reachOf(user: string): Promise<Reach> {
+    const granted = new Set(await grantsOf(user));
+    const mounted = described.filter((domain) => granted.has(domain.name));
+    const roles = new Map<string, string[]>();
+    for (const domain of mounted)
+      for (const [name, held] of domain.byConnector)
+        roles.set(
+          name,
+          [...new Set([...(roles.get(name) ?? []), ...held])].sort(),
+        );
+    return {
+      domains: mounted.map((domain) => domain.name),
+      connectors: [...roles.keys()].sort().map((name) => ({
+        name,
+        login: internal(name) ? { roles: roles.get(name) ?? [] } : "own",
+      })),
+    };
+  }
+
   return {
     async domains() {
-      return [];
+      return described.map(({ name, connectors, roles }) => ({
+        name,
+        connectors,
+        roles,
+      }));
     },
     async roles() {
-      return [];
+      return cards
+        .filter((card) => que(card).roles.length > 0)
+        .map((card) => ({
+          name: card.name,
+          roles: que(card)
+            .roles.map((role) => role.name)
+            .sort(),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
     },
-    async grant() {},
-    async revoke() {},
-    async grantsOf() {
-      return [];
+    async grant(user, domain, by) {
+      const card = byName.get(domain);
+      if (card === undefined || que(card).kind !== "domain")
+        throw new Error(`${domain} is no domain`);
+      await ready;
+      await db.query(
+        "INSERT INTO grants (user_id, domain, granted_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+        [user, domain, by],
+      );
     },
-    async reachOf() {
-      return { domains: [], connectors: [] };
+    async revoke(user, domain) {
+      await ready;
+      await db.query("DELETE FROM grants WHERE user_id = $1 AND domain = $2", [
+        user,
+        domain,
+      ]);
     },
-    async loginOf() {
-      return undefined;
+    grantsOf,
+    reachOf,
+    async loginOf(user, connector, role) {
+      const reached = (await reachOf(user)).connectors.find(
+        (c) => c.name === connector,
+      );
+      if (reached === undefined) return undefined;
+      if (reached.login === "own") return user;
+      return role !== undefined && reached.login.roles.includes(role)
+        ? `role:${role}`
+        : undefined;
     },
   };
 }
