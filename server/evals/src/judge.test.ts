@@ -1,14 +1,19 @@
 /**
  * The judge: its question and its reading of a reply, which have no model in
- * them, and its call, on the framework's model that is not real. Its own
- * model, by default, is the one a run on its config gets: a request to the
- * provider, answered here.
+ * them, and its call, on pi-ai's scripted provider (`faux`) under Fireworks'
+ * provider id, so no model is called. Its own model, by default, is the pi-ai
+ * model a run on its config gets: a request to Fireworks, answered here.
  */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { AIMessage, fakeModel } from "langchain";
-import { completion } from "../fixtures/provider-stand-in.js";
+import { createModels, type Context } from "@earendil-works/pi-ai";
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  fauxText,
+  fauxThinking,
+} from "@earendil-works/pi-ai/providers/faux";
 import { judge, judged, question, verdictOf } from "./judge.js";
 
 const byCustomer = {
@@ -140,68 +145,166 @@ test("a reply with no verdict line is no verdict", () => {
   });
 });
 
-test("a call to the model that fails is no verdict, and the next run is judged", async () => {
-  const model = fakeModel()
-    .respond(new Error("429 too many requests"))
-    .respond(new AIMessage("The answer says the order is open.\nVERDICT: yes"));
-  const ask = judge(small, () => model);
-  assert.deepEqual(await ask(byCustomer, open), {
-    none: "the call to the model failed: 429 too many requests",
+/** pi-ai's models, with the scripted provider in the place of Fireworks, serving `small`'s model. */
+function scripted() {
+  const faux = fauxProvider({
+    provider: "fireworks",
+    models: [{ id: "accounts/fireworks/models/small-model" }],
   });
-  assert.deepEqual(await ask(notAsked, orders), {
-    pass: true,
-    reason: "The answer says the order is open.",
-  });
+  const models = createModels();
+  models.setProvider(faux.provider);
+  return { faux, models };
+}
+
+/** The text of each user message the model was sent. */
+const said = (context: Context) =>
+  context.messages.flatMap((m) =>
+    m.role !== "user"
+      ? []
+      : typeof m.content === "string"
+        ? [m.content]
+        : m.content.flatMap((c) => (c.type === "text" ? [c.text] : [])),
+  );
+
+test("the model is sent the question of the case and the run, as the user's message", async () => {
+  const { faux, models } = scripted();
+  const sent: string[][] = [];
+  faux.setResponses(
+    [byCustomer, notAsked].map(() => (context: Context) => {
+      sent.push(said(context));
+      return fauxAssistantMessage("It is so.\nVERDICT: yes");
+    }),
+  );
+  const ask = judge(small, models);
+  await ask(byCustomer, open);
+  await ask(notAsked, orders);
+  assert.deepEqual(sent, [
+    [question(byCustomer, open)],
+    [question(notAsked, orders)],
+  ]);
 });
 
-/** A `fetch` that answers each request with one chat completion of `text`, and keeps each request. */
+test("a call to the model that fails is no verdict, and the next run is judged", async () => {
+  // pi-ai does not throw a failed call: its message ends with stopReason "error", and the error's message.
+  const { faux, models } = scripted();
+  faux.setResponses([
+    fauxAssistantMessage([], {
+      stopReason: "error",
+      errorMessage: "429 too many requests",
+    }),
+    fauxAssistantMessage("The answer says the order is open.\nVERDICT: yes"),
+    fauxAssistantMessage([], {
+      stopReason: "error",
+      errorMessage: "401 Unauthorized: the API key is not valid.",
+    }),
+    fauxAssistantMessage("The answer names no order.\nVERDICT: no"),
+  ]);
+  const ask = judge(small, models);
+  assert.deepEqual(
+    [
+      await ask(byCustomer, open),
+      await ask(notAsked, orders),
+      await ask(byCustomer, open),
+      await ask(notAsked, orders),
+    ],
+    [
+      { none: "the call to the model failed: 429 too many requests" },
+      { pass: true, reason: "The answer says the order is open." },
+      {
+        none: "the call to the model failed: 401 Unauthorized: the API key is not valid.",
+      },
+      { pass: false, reason: "The answer names no order." },
+    ],
+  );
+});
+
+test("the verdict is read from the reply's text, not from what the model thought", async () => {
+  const { faux, models } = scripted();
+  faux.setResponses([
+    fauxAssistantMessage([
+      fauxThinking("The order may be closed.\nVERDICT: no"),
+      fauxText("The answer says the order is open.\nVERDICT: yes"),
+    ]),
+    fauxAssistantMessage([
+      fauxThinking("The answer is fine.\nVERDICT: yes"),
+      fauxText("The answer names no order.\nVERDICT: no"),
+    ]),
+  ]);
+  const ask = judge(small, models);
+  assert.deepEqual(
+    [await ask(byCustomer, open), await ask(notAsked, orders)],
+    [
+      { pass: true, reason: "The answer says the order is open." },
+      { pass: false, reason: "The answer names no order." },
+    ],
+  );
+});
+
+/** A `fetch` that answers each request with one streamed chat completion of `text`, and keeps each request. */
 function answering(text: string) {
   const sent: { url: string; body: Record<string, unknown> }[] = [];
   const fetch: typeof globalThis.fetch = async (url, init) => {
     const body = JSON.parse(String(init?.body));
     sent.push({ url: String(url), body });
-    return Response.json(completion(sent.length, body.model, text));
+    const chunk = (delta: object, finish: string | null) => ({
+      id: `chatcmpl-${sent.length}`,
+      object: "chat.completion.chunk",
+      created: 1_791_878_400,
+      model: body.model,
+      choices: [{ index: 0, delta, finish_reason: finish }],
+    });
+    const events = [
+      chunk({ role: "assistant", content: text }, null),
+      chunk({}, "stop"),
+    ];
+    return new Response(
+      [
+        ...events.map((e) => `data: ${JSON.stringify(e)}\n\n`),
+        "data: [DONE]\n\n",
+      ].join(""),
+      { headers: { "content-type": "text/event-stream" } },
+    );
   };
   return { fetch, sent };
 }
 
-test("the judge's own model is a run's: a beam config gives verdicts, and each config's effort is sent", async () => {
-  // The provider's client is made with a key, and calls the global fetch.
-  process.env.BEAM_API_KEY ??= "none";
+test("the judge's own model is a run's: Fireworks' Chat Completions, with each config's model id and the most it gives in one reply", async () => {
+  // The provider is made with a key, and calls the global fetch.
   process.env.FIREWORKS_API_KEY ??= "none";
-  const beam = {
-    name: "beam",
+  const glm = {
+    name: "glm",
     type: "model" as const,
     description: "A model of a test.",
-    id: "beam:Beam-1.0-501B-A23B",
-    window: 1_048_576,
-    maxTokens: 131_072,
-    effort: "high",
+    id: "fireworks:accounts/fireworks/models/glm-5p3-flash",
+    window: 202_752,
+    maxTokens: 16_384,
   };
   const send = globalThis.fetch;
-  for (const [model, url] of [
-    [beam, "https://api.reflection.ai/openai/v1/chat/completions"],
+  for (const [model, reply, verdict] of [
     [
-      { ...small, effort: "low" },
-      "https://api.fireworks.ai/inference/v1/chat/completions",
+      small,
+      "The answer says the order is open.\nVERDICT: yes",
+      { pass: true, reason: "The answer says the order is open." },
+    ],
+    [
+      glm,
+      "The answer names no order.\nVERDICT: no",
+      { pass: false, reason: "The answer names no order." },
     ],
   ] as const) {
-    const { fetch, sent } = answering(
-      "The answer says the order is open.\nVERDICT: yes",
-    );
+    const { fetch, sent } = answering(reply);
     globalThis.fetch = fetch;
     try {
-      assert.deepEqual(await judge(model)(byCustomer, open), {
-        pass: true,
-        reason: "The answer says the order is open.",
-      });
+      assert.deepEqual(await judge(model)(byCustomer, open), verdict);
     } finally {
       globalThis.fetch = send;
     }
     assert.equal(sent.length, 1);
-    assert.equal(sent[0].url, url);
+    assert.equal(
+      sent[0].url,
+      "https://api.fireworks.ai/inference/v1/chat/completions",
+    );
     assert.equal(sent[0].body.model, model.id.slice(model.id.indexOf(":") + 1));
-    assert.equal(sent[0].body.max_tokens, model.maxTokens);
-    assert.equal(sent[0].body.reasoning_effort, model.effort);
+    assert.equal(sent[0].body.max_completion_tokens, model.maxTokens);
   }
 });
