@@ -4,15 +4,18 @@
 # the three Langfuse settings in its .env. It makes one run that calls a tool, and
 # the trace it leaves in Langfuse holds what the agent read.
 #
-#   tests/e2e/trace.sh <deployment folder>
+#   QUE_AGENT=<agent> tests/e2e/trace.sh <deployment folder>
 #
-# QUE_AGENT names the agent of the run (default chat): one that loads on demand, so it has open_plugin.
+# QUE_AGENT names an agent of the deployment, and must be set. It must load on demand, as the run calls open_plugin
+# and only such an agent has it. For example: `QUE_AGENT=chat tests/e2e/trace.sh <deployment folder>`.
 set -euo pipefail
 
+usage="usage: QUE_AGENT=<agent that loads on demand> trace.sh <deployment folder>"
 root=$(cd "$(dirname "$0")/../.." && pwd)
-dep=$(cd "${1:?usage: trace.sh <deployment folder>}" && pwd)
+agent=${QUE_AGENT:-}
+[ -n "$agent" ] || { echo "$usage" >&2; exit 2; }
+dep=$(cd "${1:?$usage}" && pwd)
 que=${QUE_URL:-http://localhost:2024}
-agent=${QUE_AGENT:-chat}
 failed=0
 
 ok() { echo "ok    $1"; }
@@ -38,9 +41,9 @@ curl -sS -o /dev/null --max-time 5 "$que/ok" || stop "que is not up at $que"
 # AG-UI events over SSE. The message asks for one call of que's own tool
 # open_plugin, which reads the plugin's ops and no record of its service, so the
 # trace holds a tool call and no business data. Only an agent that loads on
-# demand has open_plugin, so the thread names one.
+# demand has open_plugin, so the thread names QUE_AGENT.
 thread=$(post /threads "$(jq -nc --arg agent "$agent" '{agent: $agent}')" | jq -r .id)
-[ -n "$thread" ] && [ "$thread" != null ] || stop "que made no thread"
+[ -n "$thread" ] && [ "$thread" != null ] || stop "que made no thread for agent $agent, which must be an agent of the deployment"
 # The thread is kept: que's server deletes no thread before F3.
 input=$(jq -nc --arg thread "$thread" --arg run "$(cat /proc/sys/kernel/random/uuid)" --arg id "$(cat /proc/sys/kernel/random/uuid)" \
   '{threadId: $thread, runId: $run, messages: [{id: $id, role: "user", content: "Use open_plugin to open one of your plugins, and tell me its name. Call no other tool."}], tools: [], context: [], state: {}, forwardedProps: {}}')
