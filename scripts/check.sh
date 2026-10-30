@@ -215,6 +215,8 @@ shell_lint() {
 check_shell() {
   step "shell: tools" . shell_tools
   step "shell: lint" . shell_lint
+  # The smoke check's git step is decided by a command it runs in an image, so it is held without one.
+  step "shell: smoke-image's git step" . scripts/smoke-image.test.sh
 }
 
 # Each folder of notes is the root of one graph, with its own basis.config.ts: the repo's root (que's notes, of the
