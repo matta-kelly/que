@@ -122,15 +122,14 @@ step_data() {
     fi
 }
 
-# Then the image holds no .git that a process can read. A .git in it ships the repo's history, which
-# the image reads nothing of, and QUE_COMMIT is how it names its commit instead. No path is assumed.
-# find visits only what node can read and search: /root is 0700, so it is pruned rather than reported.
-# Only stdout is a path, so a permission error cannot read as a .git; a .git that node can read is
-# still printed and fails the step, and a find that does not finish still fails it.
+# Then the image holds no .git. A .git in it ships the repo's history, which the image reads nothing
+# of, and QUE_COMMIT is how it names its commit instead. No path is assumed: find runs as root, so
+# no folder is out of its reach, and a .git only root can read is still found. Only stdout is a
+# path, so a permission error cannot read as a .git, and a find that does not finish still fails it.
 step_git() {
     local out status=0
-    out=$(timeout 120 "$engine" run --rm "$image" \
-        find / -xdev \( ! -readable -o ! -executable \) -prune -o -type d -name .git -print) || status=$?
+    out=$(timeout 120 "$engine" run --rm --user root "$image" \
+        find / -xdev -type d -name .git -print) || status=$?
     if [ -n "$out" ]; then
         echo "the image holds a .git at: $out" >&2
         return 1
