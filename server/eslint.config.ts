@@ -83,10 +83,6 @@ function direction(folder: string, { inTest = false } = {}): Rule {
   };
 }
 
-const deepagents: Rule = {
-  path: /^deepagents$/,
-  why: "Only run/build names deepagents.",
-};
 const langfuse: Rule = {
   path: /^@langfuse\/|^@opentelemetry\//,
   why: "Only run/trace.ts names Langfuse or OpenTelemetry.",
@@ -105,13 +101,13 @@ const credentials: Rule = {
   why: "A way of loading does not reach for credentials.",
 };
 const chatModelAlone: Rule = {
-  path: /^(?!\.\/|@mku1tra\/que-harness$|langchain$|@langchain\/|@earendil-works\/pi-ai(?:\/|$)|node:)/,
-  why: "@que/chat-model imports only its own files, @mku1tra/que-harness, LangChain, pi-ai and node: the runtime and the eval runner both import it, never the other way.",
+  path: /^(?!\.\/|@mku1tra\/que-harness$|@earendil-works\/pi-ai(?:\/|$)|node:)/,
+  why: "@que/chat-model imports only its own files, @mku1tra/que-harness, pi-ai and node: the runtime and the eval runner both import it, never the other way.",
 };
 const providers: Rule = {
   // pi-ai's faux provider calls no service: a test scripts a model with it.
-  path: /^@langchain\/(?:openai|fireworks)(?:\/|$)|^@earendil-works\/pi-ai\/(?:providers\/(?!faux$)|bedrock-provider$|api\/)/,
-  why: "Only chat-model/ names a provider package, or a provider or provider API of pi-ai's.",
+  path: /^@earendil-works\/pi-ai\/(?:providers\/(?!faux$)|bedrock-provider$|api\/)/,
+  why: "Only chat-model/ names a provider or provider API of pi-ai's.",
 };
 const pluginAlone: Rule = {
   path: /^(?!\.\/|@mku1tra\/basis$|ajv(?:\/|$)|zod(?:\/|$)|node:)/,
@@ -158,24 +154,10 @@ const oneReader: Rule[] = [
   },
 ];
 
-// run/agent.ts takes its tracing from run/trace.ts, and names no part of it.
-const tracing = /langfuse|CallbackHandler|callbacks/i;
-const tracingWhy = "agent.ts takes its tracing from run/trace.ts.";
-const tracedByTrace: Rule[] = [
-  mustImport(/^\.\/trace\.js$/, tracingWhy),
-  { code: `Identifier[name=/${tracing.source}/i]`, why: tracingWhy },
-  { code: `Literal[value=/${tracing.source}/i]`, why: tracingWhy },
-  { code: `TemplateElement[value.raw=/${tracing.source}/i]`, why: tracingWhy },
-];
-
 const evals = "evals/src";
 const evalsAlone: Rule = {
   path: /^@que\/(?!chat-model$)|^(?:\.\.\/)+(?:plugin|harness|chat-model|runtime|backend)(?:\/|$)/,
   why: "The eval runner imports, of que's packages, only @mku1tra/que-plugin, @mku1tra/que-harness and the model maker, @que/chat-model, each by its name, and nothing from the runtime or the backend.",
-};
-const langGraphSdk: Rule = {
-  path: /langgraph/,
-  why: "The eval runner talks to que's server over AG-UI, through evals/src/que.ts: it imports no LangGraph SDK.",
 };
 const agUiClient: Rule = {
   path: /^@ag-ui\/client$/,
@@ -188,10 +170,6 @@ const langfuseSdk: Rule = {
 const judgeModel: Rule = {
   path: /^@que\/chat-model$/,
   why: "Only evals/src/judge.ts imports @que/chat-model, the maker of the judge's model.",
-};
-const evalsFramework: Rule = {
-  path: /^langchain(?:\/|$)|^@langchain\/(?!langgraph)/,
-  why: "The eval runner names no model framework: the judge's model comes from @que/chat-model.",
 };
 
 // One lint setup for the server: plugin, harness, backend, chat-model, runtime, evals and tests.
@@ -223,16 +201,7 @@ export default defineConfig([
   // The eval runner. Its tests can use what they need.
   hold(
     [`${evals}/*.ts`],
-    [
-      otherApp,
-      providers,
-      evalsAlone,
-      langGraphSdk,
-      agUiClient,
-      langfuseSdk,
-      judgeModel,
-      evalsFramework,
-    ],
+    [otherApp, providers, evalsAlone, agUiClient, langfuseSdk, judgeModel],
     tests,
   ),
   hold(
@@ -243,8 +212,6 @@ export default defineConfig([
       evalsAlone,
       langfuseSdk,
       judgeModel,
-      evalsFramework,
-      langGraphSdk,
       mustImport(agUiClient.path, agUiClient.why),
     ],
   ),
@@ -254,10 +221,8 @@ export default defineConfig([
       otherApp,
       providers,
       evalsAlone,
-      langGraphSdk,
       agUiClient,
       judgeModel,
-      evalsFramework,
       mustImport(langfuseSdk.path, langfuseSdk.why),
     ],
   ),
@@ -267,10 +232,8 @@ export default defineConfig([
       otherApp,
       providers,
       evalsAlone,
-      langGraphSdk,
       agUiClient,
       langfuseSdk,
-      evalsFramework,
       mustImport(judgeModel.path, judgeModel.why),
     ],
   ),
@@ -279,14 +242,7 @@ export default defineConfig([
   hold([`${src}/**/*.ts`], [otherApp, providers, runtimeAlone]),
   hold(
     [`${src}/mount/**/*.ts`],
-    [
-      otherApp,
-      providers,
-      runtimeAlone,
-      direction("mount"),
-      deepagents,
-      langfuse,
-    ],
+    [otherApp, providers, runtimeAlone, direction("mount"), langfuse],
     tests,
   ),
   hold(
@@ -296,21 +252,13 @@ export default defineConfig([
       providers,
       runtimeAlone,
       direction("mount"),
-      deepagents,
       langfuse,
       ...oneReader,
     ],
   ),
   hold(
     [`${src}/access/**/*.ts`],
-    [
-      otherApp,
-      providers,
-      runtimeAlone,
-      direction("access"),
-      deepagents,
-      langfuse,
-    ],
+    [otherApp, providers, runtimeAlone, direction("access"), langfuse],
     tests,
   ),
   hold(
@@ -320,7 +268,6 @@ export default defineConfig([
       providers,
       runtimeAlone,
       direction("assemble"),
-      deepagents,
       langfuse,
       credentials,
     ],
@@ -333,14 +280,13 @@ export default defineConfig([
       providers,
       runtimeAlone,
       direction("assemble"),
-      deepagents,
       langfuseButSpanApi,
       credentials,
     ],
   ),
   hold(
     [`${src}/run/*.ts`],
-    [otherApp, providers, runtimeAlone, deepagents, langfuse, loading],
+    [otherApp, providers, runtimeAlone, langfuse, loading],
     tests,
   ),
   hold(
@@ -349,7 +295,6 @@ export default defineConfig([
       otherApp,
       providers,
       runtimeAlone,
-      deepagents,
       langfuse,
       mustImport(loading.path, loading.why),
     ],
@@ -360,47 +305,17 @@ export default defineConfig([
       otherApp,
       providers,
       runtimeAlone,
-      deepagents,
       loading,
       {
-        path: /^@langfuse\/(?!langchain$|otel$|tracing$)|^@opentelemetry\/(?!api$|sdk-node$)/,
-        why: "run/trace.ts names five packages: @langfuse/langchain, @langfuse/otel, @langfuse/tracing, @opentelemetry/api and @opentelemetry/sdk-node.",
+        path: /^@langfuse\/(?!otel$|tracing$)|^@opentelemetry\/(?!api$|sdk-node$)/,
+        why: "run/trace.ts names four packages: @langfuse/otel, @langfuse/tracing, @opentelemetry/api and @opentelemetry/sdk-node.",
       },
-      mustImport(/^@langfuse\/langchain$/, langfuse.why),
       mustImport(/^@langfuse\/otel$/, langfuse.why),
       mustImport(/^@langfuse\/tracing$/, langfuse.why),
       mustImport(/^@opentelemetry\/api$/, langfuse.why),
       mustImport(/^@opentelemetry\/sdk-node$/, langfuse.why),
     ],
   ),
-  hold(
-    [`${src}/run/agent.ts`],
-    [
-      otherApp,
-      providers,
-      runtimeAlone,
-      deepagents,
-      langfuse,
-      loading,
-      ...tracedByTrace,
-    ],
-  ),
-  hold(
-    [`${src}/run/build/**/*.ts`],
-    [otherApp, providers, runtimeAlone, langfuse],
-    tests,
-  ),
-  hold(
-    [`${src}/run/build/build.ts`],
-    [
-      otherApp,
-      providers,
-      runtimeAlone,
-      langfuse,
-      mustImport(deepagents.path, deepagents.why),
-    ],
-  ),
-
   // A test obeys the direction too. The one exception: it can take the fixture of assemble, which is a test file itself.
   ...["mount", "access", "assemble"].map((folder) =>
     hold(

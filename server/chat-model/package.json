@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The model maker: the framework's model for a model config, Beam's included. The runtime and the eval runner both make their models with it.",
+  "description": "The model maker: the pi-ai model for a model config, and the Fireworks provider that serves it. The runtime and the eval runner both make their models with it.",
   "exports": {
     ".": "./index.ts"
   },

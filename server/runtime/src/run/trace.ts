@@ -3,12 +3,11 @@
  * an OpenTelemetry SDK.
  *
  * A deployment turns it on with three settings in its `.env`: the two keys and
- * the URL of its Langfuse. With none of them, que sends nothing and a run gets
- * the agent as it was built. A Langfuse that refuses a trace or cannot be
- * reached never stops a run: the SDK sends in the background.
+ * the URL of its Langfuse. With none of them, que sends nothing. A Langfuse
+ * that refuses a trace or cannot be reached never stops a run: the SDK sends
+ * in the background.
  *
- * A run on LangGraph is traced by Langfuse's LangChain handler (`traced`). A
- * run on pi is traced by pi's own spans, on OpenTelemetry (`tracingOnPi`): each
+ * A run is traced by pi's own spans, on OpenTelemetry (`tracingOnPi`): each
  * request and answer, and each tool call with its arguments and its result,
  * come from pi's hooks, and a tool's span is the active one while the tool
  * runs, so a span the door or a plugin opens is under it.
@@ -26,7 +25,6 @@ import type {
   TelemetryPropagation,
   TelemetrySpan,
 } from "@earendil-works/pi-telemetry";
-import { CallbackHandler } from "@langfuse/langchain";
 import { isDefaultExportSpan, LangfuseSpanProcessor } from "@langfuse/otel";
 import {
   LangfuseOtelSpanAttributes as Langfuse,
@@ -43,7 +41,6 @@ import {
   type Span,
 } from "@opentelemetry/api";
 import { NodeSDK } from "@opentelemetry/sdk-node";
-import { isRun } from "./chats.js";
 
 export type Settings = {
   publicKey: string;
@@ -53,7 +50,7 @@ export type Settings = {
   release?: string;
 };
 
-/** What a trace says of its run. `tags` are on a run on pi only. */
+/** What a trace says of its run. */
 export type Run = {
   user?: string;
   thread?: string;
@@ -101,22 +98,6 @@ export function settingsFor(env: Env): Settings | undefined {
   return settings;
 }
 
-/** What the trace of this call says, or undefined when the call is not a run. */
-export function runOf(
-  config: { configurable?: Record<string, unknown> } | undefined,
-  runtime: { accessContext?: string } | undefined,
-  agent: { name: string },
-): Run | undefined {
-  if (!isRun(runtime)) return undefined;
-  const { langgraph_auth_user_id: user, thread_id: thread } =
-    config?.configurable ?? {};
-  return {
-    ...(typeof user === "string" && { user }),
-    ...(typeof thread === "string" && { thread }),
-    agent: agent.name,
-  };
-}
-
 /** The attribute every span of a run on pi holds, from the run's context: its agent. */
 const AGENT = `${Langfuse.TRACE_METADATA}.agent`;
 
@@ -135,29 +116,6 @@ function send(settings: Settings) {
       }),
     ],
   }).start();
-}
-
-/**
- * Starts the sending, one time, and gives back `traced`: it puts the trace of
- * a run on an agent. The LangGraph server runs the agent itself and passes no
- * handler of que's, so the handler goes on the agent with `withConfig`.
- */
-export function startTracing(settings: Settings | undefined) {
-  if (settings) send(settings);
-
-  return function traced<
-    A extends { withConfig(config: { callbacks: CallbackHandler[] }): unknown },
-  >(agent: A, run: Run | undefined): A | ReturnType<A["withConfig"]> {
-    if (!settings || !run) return agent;
-    const handler = new CallbackHandler({
-      userId: run.user,
-      sessionId: run.thread,
-      traceMetadata: { agent: run.agent },
-    });
-    return agent.withConfig({
-      callbacks: [handler],
-    }) as ReturnType<A["withConfig"]>;
-  };
 }
 
 const pi = trace.getTracer("pi");

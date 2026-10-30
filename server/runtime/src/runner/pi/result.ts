@@ -26,7 +26,7 @@ export const WINDOW = 50 * 1024;
 /** The bytes of the result's head, and of its tail, that the pointer shows. */
 const PREVIEW = 500;
 
-/** The characters of one token, as the LangGraph path counted them (deepagents' eviction). */
+/** The characters of one token, as a rough count: a result's size in tokens is its characters over this. */
 const CHARS_PER_TOKEN = 4;
 
 /** The directory of the moved results, relative to the run's cwd. */

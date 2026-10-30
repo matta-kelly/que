@@ -1,35 +1,7 @@
 /**
- * The model makers for a model config: the framework's (here), and the pi-ai
- * maker (./pi.ts). A run of the runtime makes its model with one of them. The
- * judge of the eval runner takes the pi-ai maker, as a run on pi does.
+ * The model maker for a model config: the pi-ai maker (./pi.ts). A run of the
+ * runtime on pi makes its model with it, and so does the judge of the eval
+ * runner.
  */
-
-import { initChatModel } from "langchain";
-import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
-import { ChatBeam } from "./beam.js";
-
-export { ChatBeam };
-
-/**
- * The framework's model for a config: its provider's model, with the most it gives in one reply.
- * It reads no field of the run: left to itself the framework takes `configurable.model`,
- * the name of a model config, as the provider's model. Beam has no package of the framework's:
- * its model is que's own (./beam.ts). The config's effort goes out as `reasoning_effort`.
- */
-export const chatModel = async (model: Model) =>
-  providerOf(model) === "beam"
-    ? new ChatBeam({
-        model: providerModelOf(model),
-        maxTokens: model.maxTokens,
-        effort: model.effort,
-      })
-    : initChatModel(model.id, {
-        maxTokens: model.maxTokens,
-        // As ChatBeam sends it: the framework sends its own `reasoning` only for the names of OpenAI's reasoning models.
-        ...(model.effort && {
-          modelKwargs: { reasoning_effort: model.effort },
-        }),
-        configurableFields: [],
-      });
 
 export { fireworks, levelOf, piModel } from "./pi.js";

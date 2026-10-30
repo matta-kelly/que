@@ -2,7 +2,6 @@ node_modules
 dist
 .env
 .env*.local
-.langgraph_api
 *.tsbuildinfo
 next-env.d.ts
 # A test deployment's installed plugins: links into its fixtures, as npm links a workspace's packages.

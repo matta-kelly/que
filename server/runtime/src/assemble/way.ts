@@ -1,6 +1,6 @@
 /**
  * A way of putting the user's plugins in front of the agent, as pi takes it: its prompt, and whether an operation
- * waits for the agent to load it. No LangChain type, so pi's path needs none; config.ts adds the LangGraph path's parts.
+ * waits for the agent to load it.
  */
 
 import type { Catalog } from "../access/catalog.js";

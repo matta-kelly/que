@@ -1,6 +1,4 @@
 
-# LangGraph API
-.langgraph_api
 # The copy of the repo's LICENSE that `npm pack` puts in the tarball of @mku1tra/que-plugin.
 plugin/LICENSE
 # The copy of the repo's LICENSE that `npm pack` puts in the tarball of @mku1tra/que-harness.

@@ -1,6 +1,6 @@
 /**
- * The names of que's own tools, read_skill's description, and the line a skill is listed by: what the prompts and the tools share, with no
- * LangChain, so both the LangGraph path and pi's take them.
+ * The names of que's own tools, read_skill's description, and the line a skill is listed by: what the prompts and the
+ * tools share.
  */
 
 import type { Skill } from "@mku1tra/que-plugin";

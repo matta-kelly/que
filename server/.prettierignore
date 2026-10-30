@@ -1,7 +1,5 @@
 # Prose is written by hand.
 *.md
 package-lock.json
-# Run state.
-.langgraph_api
 # The builds of the published packages.
 */dist

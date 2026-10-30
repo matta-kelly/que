@@ -7,7 +7,6 @@
     "node": ">=22.19"
   },
   "scripts": {
-    "start": "tsx src/run/cli.ts",
     "server": "tsx src/listen.ts"
   },
   "dependencies": {

@@ -1,6 +1,6 @@
 /**
- * What the on-demand tools do, with no LangChain, so the LangGraph path (tools.ts) and pi's (runner/pi/extension.ts)
- * give the model the same tools: open_plugin shows what a plugin holds, load_operation checks an operation is there.
+ * What the on-demand tools do, as pi's extension (runner/pi/extension.ts) gives them to the model: open_plugin shows
+ * what a plugin holds, load_operation checks an operation is there.
  * Each reads any plugin through the plugin contract (@mku1tra/que-plugin) and knows nothing about a specific one.
  */
 

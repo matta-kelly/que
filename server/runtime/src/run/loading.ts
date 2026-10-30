@@ -4,12 +4,12 @@
  */
 
 import type { Agent, Loading } from "@mku1tra/que-harness";
-import type { Config } from "../assemble/config.js";
+import type { Way } from "../assemble/way.js";
 import { eager } from "../assemble/eager/index.js";
 import { onDemand } from "../assemble/on-demand/index.js";
 
-const WAYS: Record<Loading, Config> = { "on-demand": onDemand, eager };
+const WAYS: Record<Loading, Way> = { "on-demand": onDemand, eager };
 
-export function loadingFor(agent: Agent): Config {
+export function loadingFor(agent: Agent): Way {
   return WAYS[agent.loading ?? "on-demand"];
 }

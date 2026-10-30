@@ -1,6 +1,5 @@
 /**
- * Connections API, served by que's server (serve.ts), and by the LangGraph
- * server alongside the agent (langgraph.json → http.app). Lists plugins that
+ * Connections API, served by que's server (serve.ts). Lists plugins that
  * need a credential and whether the user has connected them; saves and
  * removes credentials.
  * Credential values are never returned.
