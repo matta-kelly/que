@@ -19,6 +19,10 @@ export type ThreadStore = {
   get(owner: string, id: string): Promise<Thread | undefined>;
   /** The threads `owner` owns, and no other user's. */
   list(owner: string): Promise<Thread[]>;
+  /** The thread's conversation, or none: a thread before its first run, or one made before B5. */
+  conversationOf(id: string): Promise<string | null>;
+  /** Points the thread at its conversation. */
+  setConversation(id: string, conversation: string): Promise<void>;
 };
 
 /** What the store runs its queries on: a pg pool, or anything with the same `query`. */
@@ -87,5 +91,10 @@ export function storeOn(db: Queryable): ThreadStore {
       );
       return rows.map(toThread);
     },
+    // Stubs: the signatures the tests fix, no logic.
+    async conversationOf() {
+      return null;
+    },
+    async setConversation() {},
   };
 }
