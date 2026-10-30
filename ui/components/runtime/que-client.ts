@@ -3,8 +3,8 @@ import { HttpAgent, type Message } from "@ag-ui/client";
 // que's server, through the Next.js proxy at /api: the user's threads, and an
 // AG-UI agent that runs one of them.
 
-/** A thread of the signed-in user's, as que's server gives one. */
-export type QueThread = { id: string; createdAt: string };
+/** A thread of the signed-in user's, as que's server gives one: `stopped` says its last run was stopped. */
+export type QueThread = { id: string; createdAt: string; stopped: boolean };
 
 const thread = (id: string) => `/api/threads/${encodeURIComponent(id)}`;
 
@@ -20,6 +20,11 @@ export const threads = {
   /** A thread, with its messages as AG-UI messages, each with the id que's server gave it. */
   get: async (id: string) =>
     json<QueThread & { messages: Message[] }>(await fetch(thread(id))),
+  /** Stops the thread's run on que's server. */
+  stop: async (id: string) => {
+    const res = await fetch(`${thread(id)}/stop`, { method: "POST" });
+    if (!res.ok) throw new Error(`que's server answered ${res.status}`);
+  },
 };
 
 /**

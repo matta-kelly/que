@@ -10,6 +10,7 @@ import {
 } from "@assistant-ui/react";
 import { fromAgUiMessages, useAgUiRuntime } from "@assistant-ui/react-ag-ui";
 import { loadDeployment } from "@/components/chat/run-pickers/pick-store";
+import { setStopped } from "@/components/chat/run-states/store";
 import { oneReplyPerTurn } from "@/components/runtime/one-reply-per-turn";
 import { ThreadAgent, threads } from "@/components/runtime/que-client";
 import { threadListAdapter } from "@/components/runtime/thread-list-adapter";
@@ -23,9 +24,12 @@ function useChatRuntime() {
   const aui = useAui();
   const agent = useMemo(
     () =>
-      new ThreadAgent(
-        async () => (await aui.threadListItem().initialize()).remoteId,
-      ),
+      new ThreadAgent(async () => {
+        const { remoteId } = await aui.threadListItem().initialize();
+        // A run that starts ends the stop, as it does on que's server.
+        setStopped(remoteId, false);
+        return remoteId;
+      }),
     [aui],
   );
   const history = useMemo<ThreadHistoryAdapter>(
@@ -33,7 +37,8 @@ function useChatRuntime() {
       async load() {
         const { remoteId } = aui.threadListItem().getState();
         if (!remoteId) return { messages: [] };
-        const { messages } = await threads.get(remoteId);
+        const { messages, stopped } = await threads.get(remoteId);
+        setStopped(remoteId, stopped);
         return ExportedMessageRepository.fromArray(
           oneReplyPerTurn(fromAgUiMessages(messages)),
         );

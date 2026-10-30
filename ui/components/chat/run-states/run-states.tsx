@@ -41,8 +41,8 @@ export const RunStates: FC = () => {
     <div className="px-1 pb-2">
       <StoppedRun
         reason="Stopped"
-        // The part of the reply that came in is not in the saved chat: a run saves a step when it ends.
-        note="The reply in progress was not saved. Continue writes it again."
+        // que's server keeps the reply as far as it came; Continue answers again, beside it.
+        note="The reply so far is kept. Continue writes a new one."
         onContinue={() => {
           if (asked) aui.thread().startRun({ parentId: asked });
         }}

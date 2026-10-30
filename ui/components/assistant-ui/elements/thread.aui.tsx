@@ -1,9 +1,9 @@
 "use client";
 
 // Vendored from assistant-ui's Thread component (tracks @assistant-ui/react
-// 0.15.21) and edited: que's activity steps, welcome and suggestions; no voice,
-// dictation or feedback UI, since the runtime configures none of those
-// adapters. Upgrades are diffed by hand, not re-added via the registry.
+// 0.15.21) and edited: que's activity steps, welcome and suggestions; the Stop
+// button also stops the run on que's server; no voice, dictation or feedback
+// UI, since the runtime configures none of those adapters. Upgrades are diffed by hand, not re-added via the registry.
 
 import { Activity } from "@/components/chat/activity/activity";
 import { ThinkingStep } from "@/components/chat/activity/thinking-step";
@@ -12,6 +12,7 @@ import { ThreadFollowupSuggestions } from "@/components/assistant-ui/elements/fo
 import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-indicator";
 import { MessageQueue } from "@/components/chat/message-queue/message-queue";
 import { RunStates } from "@/components/chat/run-states/run-states";
+import { stop } from "@/components/chat/run-states/stop";
 import { RunPickers } from "@/components/chat/run-pickers/run-pickers";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
@@ -30,6 +31,7 @@ import {
   MessagePrimitive,
   SuggestionPrimitive,
   ThreadPrimitive,
+  useAui,
   useAuiState,
 } from "@assistant-ui/react";
 import {
@@ -303,6 +305,7 @@ const Composer: FC<{ autoFocus: boolean }> = ({ autoFocus }) => {
 };
 
 const ComposerAction: FC = () => {
+  const aui = useAui();
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <RunPickers />
@@ -331,6 +334,11 @@ const ComposerAction: FC = () => {
               size="icon"
               className="aui-composer-cancel size-7 rounded-full"
               aria-label="Stop generating"
+              // The user's Stop stops the run on que's server too; the cancel only ends the stream in the page.
+              onClick={() => {
+                const { remoteId } = aui.threadListItem().getState();
+                if (remoteId) void stop(remoteId);
+              }}
             >
               <SquareIcon className="aui-composer-cancel-icon size-3.5 fill-current" />
             </Button>

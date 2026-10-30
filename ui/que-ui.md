@@ -25,13 +25,13 @@ The chat UI of [[que]]: a Next.js app in `ui/`, in front of que's server.
 	- que's own chat features are in `ui/components/chat/`, a folder each; lint keeps them out of `assistant-ui/`
 	- the runtime is assistant-ui's AG-UI adapter (`useAgUiRuntime`), inside its remote thread list. A run is `POST /threads/:id/runs` on que's server, through the proxy at `/api`, and its answer streams back as AG-UI events. A turn is one reply, live and when a chat is loaded: its model calls and tool calls are joined in the order they came
 - Where a thing comes from
-	- behavior from que's server: a run goes on on the server when its stream ends. The UI has no way to stop it there, or to pick it up again
+	- behavior from que's server: a run goes on on the server when its stream ends, until the user's Stop stops it there. The UI has no way to pick it up again
 	- looks from assistant-ui: its elements, in their standalone mode. que hands them its own values
 		- an element is copied into the repo, and edited when que needs it to say a thing the library's does not. The file says at its top what was changed. `surfaces.tsx` and `utils/range.ts` are the library's own, shared by its elements, and are not edited
 		- their other mode reads usage and model from a runtime made for another backend. que's runtime does not fill those
 	- data from que's server: `GET /que/deployment` (agents, models, prices), and each thread with its messages (`GET /threads/:id`). A message keeps the id que's server gave it, and an edit or a refresh sends those ids back: the server goes on from them
 - que's server keeps a thread with its owner and its messages, and no title, archived mark or pick. A pick of agent and model is kept in the browser's memory, and no run is sent it
-- A stop ends the stream in the browser. The run goes on on que's server, and its answer is in the thread when the chat is opened again
+- The Stop button stops the run on que's server (`POST /threads/:id/stop`), which keeps the reply as far as it came, and the thread says it was stopped until its next run. A chat left while its reply goes is not stopped: the run goes on on que's server, and its answer is in the thread when the chat is opened again
 
 ## What it shows
 

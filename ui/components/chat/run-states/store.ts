@@ -1,6 +1,8 @@
 // What the chat knows of a run that did not go the plain way, by thread: that
 // its reply was stopped, and that the chat is picking its run up again. In
-// memory. Nothing writes them now: F1 (stop) and F2 (rejoin) write them.
+// memory. `stopped` is as que's server says when the chat loads, set by the
+// user's Stop (stop.ts) and cleared when a run starts. Nothing writes
+// `reconnecting` now: F2 (rejoin) writes it.
 
 import { create } from "zustand";
 
