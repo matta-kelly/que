@@ -56,9 +56,9 @@ export function loadedOf(
 
 /**
  * The source of the plugins under `folder`, for the lint of the root `root`: each path is from `root`. A file that
- * cannot be read is a problem of its own, and the lint goes on (loadedOf). Each name a plugin uses (its usesOps and
- * usesSkills) that no plugin under the folder gives is there and not read, at its definition: what a plugin uses is
- * given by the deployment that names it, so a link to it is no problem here.
+ * cannot be read is a problem of its own, and the lint goes on (loadedOf). Each name a plugin uses (its usesOps, made
+ * from its ops and skills, and its usesSkills) that no plugin under the folder gives is there and not read, at its
+ * definition: what a plugin uses is given by the deployment that names it, so a link to it is no problem here.
  */
 export function plugins(folder: string, root: string): Source {
   const from = (path: string) => relative(root, path).split(sep).join("/");

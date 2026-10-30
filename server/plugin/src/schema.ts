@@ -129,7 +129,8 @@ const pluginType = defineType({
     capabilities: manyOrNone(() => capability),
     // The roles of an internal service.
     roles: manyOrNone(() => accessRole),
-    // What a domain uses from connectors: their ops, and their skills.
+    // What a domain uses from connectors: their ops, made from its ops' and skills' uses when it is read (readPlugin) and
+    // never written, and their skills.
     usesOps: manyOrNone(() => op),
     usesSkills: manyOrNone(() => skill),
     // The cases in its cases.ts, found by their file, as its skills are by their folders.
