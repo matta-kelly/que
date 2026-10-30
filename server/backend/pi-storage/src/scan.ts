@@ -51,9 +51,15 @@ export function scanSql({
   param: number;
 } {
   const descending = order === "descending";
+  // A cursorless scan starts at the end of the id range: ascending below its smallest legal id, descending at its
+  // largest, which is a record and so is included.
   return {
     direction: descending ? "DESC" : "ASC",
-    clause: descending ? "id < $1" : "id > $1",
+    clause: descending
+      ? after === undefined
+        ? "id <= $1"
+        : "id < $1"
+      : "id > $1",
     param: after ?? (descending ? Number.MAX_SAFE_INTEGER : 0),
   };
 }
