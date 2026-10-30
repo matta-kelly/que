@@ -13,15 +13,11 @@ import { createHash } from "node:crypto";
 import type { Context } from "@earendil-works/chord/context";
 import type {
   EntryRecord,
-  HookRegistration,
   ToolExecutionApi,
   ToolExecutionResult,
 } from "@earendil-works/pi-durable";
 
 export const REPEAT_MAX = 3;
-
-/** No hooks: the guard is `failed`. repeat.test.ts installs this, until its runs get the guard from the tool's run. */
-export const repeatGuard: HookRegistration[] = [];
 
 /**
  * The details of a failed call: a digest of its whole error. pi bounds the
