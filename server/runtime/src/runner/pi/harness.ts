@@ -33,6 +33,7 @@ import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
 import { door } from "../../assemble/door.js";
 import * as mounted from "../../mount/mounted.js";
+import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
 import { branchOf } from "./branch.js";
 import { extension } from "./extension.js";
@@ -48,10 +49,13 @@ const call = door(
   ),
 );
 
+// A run is traced when the deployment's `.env` says where to send the trace (run/trace.ts).
+const tracing = tracingOnPi(settingsFor(process.env));
+
 const registry = createRegistry();
 const harness = await Harness.open(
   new MemoryStorage(),
-  { models, registry },
+  { models, registry, telemetry: tracing.telemetry },
   context,
 );
 
@@ -118,11 +122,12 @@ function conversationFor(
  * depend on `send`: it goes on, and its ids are recorded, when no one reads
  * it. What it gives is the message of a model call that failed, if one did.
  * Its tools are the ops of `catalog`, each called through the door as `user`.
+ * Its trace names `user`, the thread and `agent`, the agent config it runs.
  */
 export async function run(
   thread: string,
   model: Model,
-  { catalog, user }: { catalog: Catalog; user: string },
+  { catalog, user, agent }: { catalog: Catalog; user: string; agent: string },
   {
     runId,
     before,
@@ -134,7 +139,7 @@ export async function run(
   },
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
-  const que = extension(catalog, call, user);
+  const que = { ...extension(catalog, call, user), hooks: tracing.hooks };
   registry.install(que);
   const { conversation, resend } = await conversationFor(thread, model, que, {
     runId,
@@ -174,14 +179,16 @@ export async function run(
       }),
     );
     // A resend whose message is not placed yet is not in the conversation, so the rule cannot see it: pi's own idempotency gives the submission it has.
-    const submission = await conversation.submit(
-      {
-        type: "input",
-        requestId: runId,
-        content: last.content,
-        entry: userEntry(last.id, runId),
-      },
-      context,
+    const submission = await tracing.ofRun({ user, thread, agent }, () =>
+      conversation.submit(
+        {
+          type: "input",
+          requestId: runId,
+          content: last.content,
+          entry: userEntry(last.id, runId),
+        },
+        context,
+      ),
     );
     given(submission.id);
     const closed = await Promise.race([ended, events.closed]);

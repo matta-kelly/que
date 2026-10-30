@@ -54,7 +54,7 @@ export function runs(store: ThreadStore) {
       const { error } = await run(
         threadId,
         model,
-        { catalog, user },
+        { catalog, user, agent: config.name },
         {
           runId,
           before: messages.slice(0, -1).map((m) => m.id),
