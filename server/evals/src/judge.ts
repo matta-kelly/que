@@ -6,7 +6,7 @@
  */
 
 import { createModels, type Models } from "@earendil-works/pi-ai";
-import { fireworks, piModel } from "@que/chat-model";
+import { fireworks, levelOf, piModel } from "@que/chat-model";
 import type { Model } from "@mku1tra/que-harness";
 import type { LoadedCase } from "./load.js";
 import type { RunRecord } from "./record.js";
@@ -74,11 +74,15 @@ export function judge(
   models: Models = withFireworks(model),
 ): Ask {
   return async (c, record) => {
-    const reply = await models.completeSimple(piModel(model), {
-      messages: [
-        { role: "user", content: question(c, record), timestamp: Date.now() },
-      ],
-    });
+    const reply = await models.completeSimple(
+      piModel(model),
+      {
+        messages: [
+          { role: "user", content: question(c, record), timestamp: Date.now() },
+        ],
+      },
+      { reasoning: levelOf(model) },
+    );
     if (reply.stopReason === "error")
       return { none: `the call to the model failed: ${reply.errorMessage}` };
     return verdictOf(
