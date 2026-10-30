@@ -242,7 +242,7 @@ const resultOf = (results: Result[], id: string) =>
 // pi's own text of a stack frame, or a path into an install.
 const stack = /node_modules|\bat .*:\d+:\d+/;
 
-test("given faux calling an op, when its tool runs, then the door is called once with that op, the arguments the model sent and the user, and the model gets the op's result", async () => {
+test("given faux calling an op, when its tool runs, then the door is called once with that op, the arguments after pi's check and the user, and the model gets the op's result", async () => {
   const ana = await turn([
     { name: "shop-get-order", args: { id: 4 }, id: "c1" },
   ]);
@@ -479,10 +479,11 @@ test("given an op that throws an OpFailed, when the model calls it, then the mod
   assert.equal(answer, "Done.");
 });
 
-test("given arguments that fail the op's input schema, when the model calls it, then the model gets a failed call that names the field and the type it expected on one line, with no stack, and the run goes on", async () => {
+test("given arguments that fail the op's input schema and that pi cannot convert, when the model calls it, then the model gets a failed call that names the field and the type it expected on one line, with no stack, and the run goes on", async () => {
   const { results, answer } = await turn([
     { name: "shop-get-order", args: { id: "a" }, id: "c1" },
-    { name: "shop-list-orders", args: { customer: 5 }, id: "c2" },
+    // pi's check converts what it can (5 to "5" for a string): an object it cannot, so it refuses it.
+    { name: "shop-list-orders", args: { customer: {} }, id: "c2" },
   ]);
   const [id, customer] = ["c1", "c2"].map((call) => resultOf(results, call));
   assert.equal(id?.isError, true);
