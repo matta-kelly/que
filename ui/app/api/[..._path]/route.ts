@@ -64,7 +64,9 @@ async function handleRequest(req: NextRequest, method: string) {
     };
 
     if (["POST", "PUT", "PATCH"].includes(method)) {
-      options.body = await req.text();
+      // The bytes as they came: a multipart body's boundary and file bytes are
+      // not text, and turning them into text corrupts both.
+      options.body = await req.arrayBuffer();
     }
 
     const res = await fetch(`${apiUrl}/${path}${queryString}`, options);
