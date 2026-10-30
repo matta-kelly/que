@@ -16,15 +16,23 @@ const src = "runtime/src";
 /** A selector for a path, with the slashes that end it escaped. */
 const matching = (path: RegExp) => `/${path.source}/`;
 
+/** No file imports a framework of agents: que runs on pi. */
+const frameworks: Rule = {
+  path: /^(?:langchain|deepagents|@langfuse\/langchain|@assistant-ui\/react-langgraph)(?:\/|$)|^@langchain\//,
+  why: "que runs on pi: nothing imports LangChain, LangGraph, deepagents or their adapters.",
+};
+
 /**
- * Hold a set of files to its rules. ESLint keeps only the last options a file
- * gets for one rule, so each call names every rule its files obey.
+ * Hold a set of files to its rules, and to `frameworks`, which every file
+ * obeys. ESLint keeps only the last options a file gets for one rule, so each
+ * call names every other rule its files obey.
  * A path is forbidden in `import … from`, `export … from`, `import()` and a
  * type `import()`.
  */
 function hold(files: string[], rules: Rule[], ignores: string[] = []) {
-  const paths = rules.filter((rule) => "path" in rule);
-  const code = rules.filter((rule) => "code" in rule);
+  const all = [frameworks, ...rules];
+  const paths = all.filter((rule) => "path" in rule);
+  const code = all.filter((rule) => "code" in rule);
   return {
     files,
     ignores,

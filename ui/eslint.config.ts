@@ -8,6 +8,21 @@ import { defineConfig, globalIgnores } from "eslint/config";
 const fromServer = /(?:^|\/)\.\.\/server(?:\/|$)|^@que\//;
 const fromServerWhy =
   "The UI imports nothing from server/: neither app imports from the other.";
+const frameworks =
+  /^(?:langchain|deepagents|@langfuse\/langchain|@assistant-ui\/react-langgraph)(?:\/|$)|^@langchain\//;
+const frameworksWhy =
+  "que runs on pi, and the UI talks to it over AG-UI: nothing imports LangChain, LangGraph, deepagents or their adapters.";
+
+/** The `import()` and type `import()` of each path a pattern forbids. Each entry that sets no-restricted-syntax spreads them, as ESLint keeps only its last options. */
+const dynamicImports = [
+  [fromServer, fromServerWhy],
+  [frameworks, frameworksWhy],
+].flatMap(([path, why]) =>
+  ["ImportExpression", "TSImportType"].map((node) => ({
+    selector: `${node}[source.value=/${(path as RegExp).source}/]`,
+    message: `'import()' of this path is restricted. ${why}`,
+  })),
+);
 
 export default defineConfig([
   // Build output, test artifacts, and vendored shadcn primitives.
@@ -33,7 +48,7 @@ export default defineConfig([
     rules: { "sonarjs/no-commented-code": "error" },
   },
   // Neither app imports from the other: the UI takes nothing from server/, by path or by package name.
-  // And the UI's unit tests use Vitest, not node's runner.
+  // No file imports LangChain, LangGraph or their adapters. And the UI's unit tests use Vitest, not node's runner.
   {
     files: ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
     rules: {
@@ -46,16 +61,13 @@ export default defineConfig([
               message: "UI unit tests run under Vitest: import from 'vitest'.",
             },
           ],
-          patterns: [{ regex: fromServer.source, message: fromServerWhy }],
+          patterns: [
+            { regex: fromServer.source, message: fromServerWhy },
+            { regex: frameworks.source, message: frameworksWhy },
+          ],
         },
       ],
-      "no-restricted-syntax": [
-        "error",
-        ...["ImportExpression", "TSImportType"].map((node) => ({
-          selector: `${node}[source.value=/${fromServer.source}/]`,
-          message: `'import()' of this path is restricted. ${fromServerWhy}`,
-        })),
-      ],
+      "no-restricted-syntax": ["error", ...dynamicImports],
     },
   },
   // Vendored from assistant-ui: memoizes by reading a ref during render, on purpose.
@@ -78,6 +90,7 @@ export default defineConfig([
     rules: {
       "no-restricted-syntax": [
         "error",
+        ...dynamicImports,
         {
           selector: "Program",
           message:
@@ -101,6 +114,7 @@ export default defineConfig([
     rules: {
       "no-restricted-syntax": [
         "error",
+        ...dynamicImports,
         {
           selector: "Program",
           message:
