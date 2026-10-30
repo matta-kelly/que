@@ -9,7 +9,7 @@
  * thread then points at. A new conversation gets
  * its agent then: a change to what the agent is built from takes effect from
  * the next chat, and a fork keeps its parent's. The model is the run's own:
- * a conversation on another model is moved to it. The user's catalog is read
+ * a conversation on another model is moved to it, and to its effort. The user's catalog is read
  * at each run: each user has an extension of their own, installed again
  * with their catalog before each of their runs, and the thread's
  * conversation selects it.
@@ -32,7 +32,7 @@ import {
   type SubmissionId,
 } from "@earendil-works/pi-durable";
 import type { AGUIEvent } from "@ag-ui/core";
-import { fireworks } from "@que/chat-model";
+import { fireworks, levelOf } from "@que/chat-model";
 import { storageOn } from "@que/pi-storage";
 import { createStore } from "@que/threads";
 import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
@@ -110,15 +110,25 @@ async function conversationOf(thread: string) {
   return conversationAt(await threads.conversationOf(thread));
 }
 
+/** What a conversation on `model` runs with: the model, and the thinking level that sends its effort. */
+const agentOn = (model: Model) => ({
+  model: { provider: providerOf(model), modelId: providerModelOf(model) },
+  thinkingLevel: levelOf(model) ?? ("off" as const),
+});
+
 /**
  * The conversation, on `model`: a thread whose model pick changed since its
- * conversation was made changes its conversation's model.
+ * conversation was made changes its conversation's model and thinking level.
  */
 async function onModel(conversation: Conversation, model: Model) {
-  const ref = { provider: providerOf(model), modelId: providerModelOf(model) };
-  const { model: had } = await conversation.agent(context);
-  if (had?.provider !== ref.provider || had.modelId !== ref.modelId)
-    await conversation.configure({ model: ref }, context);
+  const on = agentOn(model);
+  const had = await conversation.agent(context);
+  if (
+    had.model?.provider !== on.model.provider ||
+    had.model.modelId !== on.model.modelId ||
+    had.thinkingLevel !== on.thinkingLevel
+  )
+    await conversation.configure(on, context);
   return conversation;
 }
 
@@ -162,13 +172,7 @@ function conversationFor(
         : await harness.createConversation(
             {
               ownership,
-              agent: {
-                model: {
-                  provider: providerOf(model),
-                  modelId: providerModelOf(model),
-                },
-                extensions: [que],
-              },
+              agent: { ...agentOn(model), extensions: [que] },
             },
             context,
           );
