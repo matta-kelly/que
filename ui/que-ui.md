@@ -31,7 +31,7 @@ The chat UI of [[que]]: a Next.js app in `ui/`, in front of que's server.
 		- their other mode reads usage and model from a runtime made for another backend. que's runtime does not fill those
 	- data from que's server: `GET /que/deployment` (agents, models, prices), and each thread with its messages (`GET /threads/:id`). A message keeps the id que's server gave it, and an edit or a refresh sends those ids back: the server goes on from them
 - que's server keeps a thread with its owner and its messages, and no title, archived mark or pick. A pick of agent and model is kept in the browser's memory, and no run is sent it
-- The Stop button stops the run on que's server (`POST /threads/:id/stop`), which keeps the reply as far as it came, and the thread says it was stopped until its next run. A chat left while its reply goes is not stopped: the run goes on on que's server, and its answer is in the thread when the chat is opened again
+- The user's Stop (the Stop button, or Escape in the composer) stops the run on que's server (`POST /threads/:id/stop`), which keeps the reply as far as it came, and the thread says it was stopped until its next run. A chat left while its reply goes is not stopped: the run goes on on que's server, and its answer is in the thread when the chat is opened again
 
 ## What it shows
 

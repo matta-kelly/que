@@ -4,14 +4,16 @@ import { useAui, useAuiState } from "@assistant-ui/react";
 import type { FC } from "react";
 import { ConnectionState } from "./connection-state";
 import { StoppedRun } from "./stopped-run";
+import { useStop } from "./stop";
 import { useRunStates } from "./store";
 
 /**
  * Above the composer, what the open chat's run is in when it did not go the
  * plain way: a line while the chat picks its run up again, and a mark when its
- * reply was stopped, with a way to go on.
+ * reply was stopped, with a way to go on. The user's Stop is heard here.
  */
 export const RunStates: FC = () => {
+  useStop();
   // The open chat's id on the server. None before its first message.
   const thread = useAuiState(
     (s) =>
