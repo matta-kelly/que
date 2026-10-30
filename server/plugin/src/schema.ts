@@ -10,6 +10,7 @@ import {
   defineSchema,
   defineType,
   manyOrNone,
+  type Graph,
   one,
   oneOrNone,
   type Type,
@@ -189,10 +190,24 @@ const opRole = defineRule({
   },
 });
 
-// What a plugin uses, op or skill, by the field that lists it.
-const usesOf = (node: { usesOps?: string[]; usesSkills?: string[] }) => [
-  ...(node.usesOps ?? []).map((name) => ({ name, field: "/usesOps" })),
-  ...(node.usesSkills ?? []).map((name) => ({ name, field: "/usesSkills" })),
+// What a plugin uses, by the field that lists it, and the list of the plugin that holds it: each skill of its
+// usesSkills, and each op its skills list. What its ops list, op-uses checks.
+const usesOf = (
+  node: { skills?: string[]; usesSkills?: string[] },
+  graph: Graph,
+) => [
+  ...(node.usesSkills ?? []).map((name) => ({
+    name,
+    field: "/usesSkills",
+    of: "skills" as const,
+  })),
+  ...(node.skills ?? []).flatMap((name, i) =>
+    (graph.get(name, skill)?.uses ?? []).map((used) => ({
+      name: used,
+      field: `/skills/${i}`,
+      of: "ops" as const,
+    })),
+  ),
 ];
 
 // A domain reaches a service only through a connector's ops: the connection is the connector's. Each field it gives is
@@ -222,51 +237,61 @@ const domainConnection = defineRule({
 const domainUses = defineRule({
   name: "domain-uses",
   description:
-    "Only a plugin that says kind domain lists what it uses (usesOps and usesSkills).",
+    "Only a plugin that says kind domain lists the skills it uses (usesSkills).",
   on: pluginType,
   check: (node) =>
-    node.kind === "domain"
-      ? []
-      : (["usesOps", "usesSkills"] as const)
-          .filter((field) => node[field]?.length)
-          .map((field) => ({
-            field: `/${field}`,
-            message: `${node.name} lists what it uses in ${field}, and does not say kind "domain": a domain says its kind.`,
-          })),
+    node.kind !== "domain" && node.usesSkills?.length
+      ? [
+          {
+            field: "/usesSkills",
+            message: `${node.name} lists what it uses in usesSkills, and does not say kind "domain": a domain says its kind.`,
+          },
+        ]
+      : [],
 });
 
-// Its own ops and skills are a plugin's already: what it uses is another plugin's.
+// Its own ops and skills are a plugin's already: what a domain uses is another plugin's. A connector's skill lists its
+// own ops, which connector-use checks.
 const ownUse = defineRule({
   name: "own-use",
-  description: "A plugin uses no op or skill of its own.",
+  description: "A domain uses no op or skill of its own.",
   on: pluginType,
-  check: (node) => {
-    const own = new Set([...(node.ops ?? []), ...(node.skills ?? [])]);
-    return usesOf(node)
-      .filter(({ name }) => own.has(name))
-      .map(({ name, field }) => ({
-        field,
-        message: `${name} is its own: a plugin uses only other plugins' ops and skills.`,
-      }));
-  },
+  check: (node, graph) =>
+    node.kind === "domain"
+      ? usesOf(node, graph)
+          .filter(({ name, of }) => node[of]?.includes(name))
+          .map(({ name, field }) => ({
+            field,
+            message: `${name} is its own: a plugin uses only other plugins' ops and skills.`,
+          }))
+      : [],
 });
 
-// A plugin that uses others (a domain) uses only plugins that use none (connectors): so there are no chains and no
-// cycles.
+// A domain uses only connectors, and a connector's skill lists only its own ops: so there are no chains and no
+// cycles. A name that is no op or skill, basis/link reports, so each fault is said once.
 const connectorUse = defineRule({
   name: "connector-use",
   description:
-    "A plugin uses only the ops and skills of a plugin that uses nothing.",
+    "A domain uses only connectors' ops and skills, and a connector's skill lists only its own ops.",
   on: pluginType,
   check: (node, graph) => {
     const plugins = graph.all(pluginType);
-    return usesOf(node).flatMap(({ name, field }) => {
+    return usesOf(node, graph).flatMap(({ name, field, of }) => {
       const holder = plugins.find(
-        (other) =>
-          other.name !== node.name &&
-          [...(other.ops ?? []), ...(other.skills ?? [])].includes(name),
+        (other) => other.name !== node.name && other[of]?.includes(name),
       );
-      return holder && usesOf(holder).length
+      if (!holder) return [];
+      // A connector's usesSkills, domain-uses reports.
+      if (node.kind !== "domain")
+        return of === "ops"
+          ? [
+              {
+                field,
+                message: `${name} is ${holder.name}'s, and ${node.name} is a connector: a connector's skill lists only its own ops.`,
+              },
+            ]
+          : [];
+      return holder.kind === "domain"
         ? [
             {
               field,

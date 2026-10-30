@@ -121,8 +121,9 @@ function heldIn(list: unknown, field: Held, type: Kind) {
   };
 }
 
-// The lists of a plugin that its folder gives, not its code: its skills, by their folders, and its cases, by its
-// cases.ts. A list given in code would be dropped for the folder's, so it is a fault.
+// The lists of a plugin that its code does not give: its skills, by their folders, and its cases, by its cases.ts; and
+// its usesOps, made from its ops' and skills' uses when it is read (readPlugin). A list given in code would be dropped
+// for the one made, so it is a fault.
 const fromFolder = (plugin: unknown): string[] =>
   typeof plugin === "object" && plugin !== null
     ? [
@@ -133,6 +134,11 @@ const fromFolder = (plugin: unknown): string[] =>
           : []),
         ...("cases" in plugin
           ? ["cases are found in cases.ts: a plugin's code gives none"]
+          : []),
+        ...("usesOps" in plugin
+          ? [
+              "usesOps is made from its ops' and skills' uses: a plugin's code gives none, and each op and skill lists the ops it uses",
+            ]
           : []),
       ]
     : [];
@@ -148,7 +154,10 @@ export function definePlugin<
   Conn,
   K extends PluginKind = "connector",
 >(
-  definition: Omit<Plugin<S, Conn>, Held | "skills" | "cases" | "kind"> & {
+  definition: Omit<
+    Plugin<S, Conn>,
+    Held | "skills" | "cases" | "usesOps" | "kind"
+  > & {
     kind?: K;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ops?: Op<Conn, any, K>[];

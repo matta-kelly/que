@@ -109,5 +109,16 @@ export async function readPlugin(dir: string): Promise<ReadPlugin> {
       unreadable(file, `The skill cannot be read: ${reason(error)}`);
     }
   }
+  // What it uses of other plugins' ops is what its ops and skills list, each name once, and none of its own ops.
+  if (read.definition) {
+    const own = new Set(read.definition.plugin.ops);
+    read.definition.plugin.usesOps = [
+      ...new Set(
+        [...read.definition.ops, ...read.skills].flatMap(
+          ({ uses }) => uses ?? [],
+        ),
+      ),
+    ].filter((name) => !own.has(name));
+  }
   return read;
 }

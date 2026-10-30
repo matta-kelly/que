@@ -39,9 +39,13 @@ export function piecesOf(
   });
   if (definition) {
     const { plugin, ops, roles, capabilities } = definition;
+    // Its usesOps is made from its ops' and skills' uses, which the lint links and checks where they are listed: a
+    // second list would say each fault twice.
+    const { usesOps, ...listed } = plugin;
+    void usesOps;
     pieces.push(
       piece(at(files.definition), {
-        ...plugin,
+        ...listed,
         skills: skillNames,
         cases: cases.map((kase) => kase.name),
       }),
