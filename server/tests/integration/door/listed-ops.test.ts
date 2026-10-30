@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { trace } from "@opentelemetry/api";
 import {
@@ -37,9 +38,14 @@ trace.setGlobalTracerProvider(
   }),
 );
 
-const mounted = await mountDeployment(
-  deploymentRoot(join(import.meta.dirname, "fixtures"), "interop"),
-);
+const root = deploymentRoot(join(import.meta.dirname, "fixtures"), "interop");
+const mounted = await mountDeployment(root);
+// The record the fixture's domain op makes, from the copy the mount imported.
+const { listedCallFailures } = (await import(
+  pathToFileURL(
+    join(root, "plugins/interop-domain/io.github.matta-kelly.que/index.ts"),
+  ).href
+)) as { listedCallFailures: unknown[] };
 const store = storeOn(new PGlite());
 const access = accessOn(store);
 const connector = mounted.plugins.find(
@@ -80,10 +86,25 @@ test("given a user with the connector's login, when the domain op is called, the
 });
 
 test("given a user with no login for the connector, when the domain op is called, then the call fails with the OpFailed that names the connector, and the domain op gets it", async () => {
-  await assert.rejects(
-    () => bound("bo")(sync, { code: "B-1" }),
-    (error) =>
-      error instanceof OpFailed && /\binterop-connector\b/.test(error.message),
+  listedCallFailures.length = 0;
+  const failed = await bound("bo")(sync, { code: "B-1" }).catch(
+    (error: unknown) => error,
+  );
+
+  const [recorded] = listedCallFailures;
+  assert.ok(
+    recorded instanceof OpFailed &&
+      /\binterop-connector\b/.test(recorded.message),
+    `expected the domain op to record an OpFailed naming interop-connector, got ${String(recorded)}`,
+  );
+  assert.equal(
+    recorded,
+    failed,
+    "the call rejects with the OpFailed its listed call threw",
+  );
+  assert.ok(
+    failed instanceof OpFailed && /\binterop-connector\b/.test(failed.message),
+    `expected an OpFailed naming interop-connector, got ${String(failed)}`,
   );
 });
 

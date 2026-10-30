@@ -1,6 +1,9 @@
 import { definePlugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
 
+/** The errors the domain op's listed call threw, as its run caught them: a test reads it to see the domain op got the failure. */
+export const listedCallFailures: unknown[] = [];
+
 export default definePlugin({
   name: "interop-domain",
   type: "plugin",
@@ -15,10 +18,16 @@ export default definePlugin({
       description: "Sync a thing through the connector op it lists.",
       uses: ["interop-find"],
       input: z.object({ code: z.string().describe("The thing's code") }),
-      run: async ({ ops }, { code }) => ({
-        answer: await ops["interop-find"]({ code }),
-        listed: Object.keys(ops),
-      }),
+      run: async ({ ops }, { code }) => {
+        let answer;
+        try {
+          answer = await ops["interop-find"]({ code });
+        } catch (error) {
+          listedCallFailures.push(error);
+          throw error;
+        }
+        return { answer, listed: Object.keys(ops) };
+      },
     },
   ],
 });
