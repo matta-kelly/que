@@ -1,11 +1,11 @@
 /**
  * A plugin's card: its `plugin.json`, the manifest of Agent Plugins 1.0. A bridge: que writes it from the plugin's
  * nodes when the plugin is published, so a harness that runs no code can read the plugin. It is never committed, and
- * nothing of que's reads it back: mount, the evals and the lint read the plugin's code. The standard's fields describe
- * the plugin to every harness; que's part, under its namespace in `extensions`, is the plugin's nodes in the plugin
- * schema (plugin, op, access-role, capability, case), by their names and fields, each live value written as data: a
- * zod schema as JSON Schema, and a function left out. A connector's skills are in it, each by name with the ops it
- * uses; a domain's are not, as a skill's folder is the standard's.
+ * que reads it back only in memory, by the control plane: mount, the evals and the lint read the plugin's code. The
+ * standard's fields describe the plugin to every harness; que's part, under its namespace in `extensions`, is the
+ * plugin's nodes in the plugin schema (plugin, op, access-role, capability, case), by their names and fields, each live
+ * value written as data: a zod schema as JSON Schema, and a function left out. A connector's skills are in it, each by
+ * name with the ops it uses; a domain's are not, as a skill's folder is the standard's.
  *
  * A card is checked against the standard's own schema (kept in que, never fetched: Agent Plugins §5.2) when it is
  * made.
