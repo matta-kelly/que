@@ -36,7 +36,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 	- so an agent does not control compaction. It survives it
 - record and view
 	- the record: the saved chat. Added to, never edited
-	- the view: what one call is sent, made again for each call. Middleware makes it from the record
+	- the view: what one call is sent, made again for each call. The harness makes it from the record
 		- a summary is a pointer in the record (where it ends, and its text), not a rewrite. The view is the summary and what follows
 		- loading only appends, so the prompt cache holds. A change to an earlier message breaks the cache from there on
 		- results are most of the tokens, not definitions
@@ -65,6 +65,6 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 	- open: limits. They do not act yet. que's own would count from the saved chat
 - outside a loop
 	- cheap to lose: a rule of the harness and of how a plugin answers. No agent opts out
-	- repair of an unanswered tool call: always on. The call gets a result that says it was cancelled
+	- repair of an unanswered tool call: always on. The call gets pi's result that says it was aborted (`Tool <name> was aborted`)
 	- approval: which operations wait for a yes. On the agent, because it is about the job
 	- audit of tool calls: on for every agent. Not built

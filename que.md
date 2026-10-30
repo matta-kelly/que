@@ -64,9 +64,9 @@ environment ───────────▶  mount     load and check the p
   plugins
                           access    for one user: the plugins they
                                     can reach
-agent ─────────────────▶  assemble  turn its units into prompt,
-  units                             tools, middleware
-                          run       give those to pi,
+agent ─────────────────▶  assemble  turn its units into a prompt
+  units                             and a way of loading
+                          run       build pi's agent from those,
                                     serve the answer
                           ─────────────────────────────────────
                           backend   identity, credentials, state
@@ -95,18 +95,18 @@ agent ─────────────────▶  assemble  turn its
 - **Agent**: a harness config over part of an environment
 	- written as a file of its own in the deployment's `agents/`, made with `defineAgent`. The deployment's definition names its agents, as `agents`
 		- it holds a `name`, `type`, `description`, `model` and `loop`, which are required, and `plugins`, and `instructions`, `loading` and `userInstructions`, which are optional: left out, que's role text, `on-demand`, and no user instructions
-		- a deployment can name several. A run names the one it wants, and a run that names none gets the first
+		- a deployment can name several. A thread picks the one it wants, kept on its record, and a thread that picks none gets the first
 		- a deployment names at least one agent, one model and one loop. que owns no config of its own
 		- a unit goes in the config when it has two variants
 	- a config is made of units, not slots
-		- slot: where a thing lands in a model request (prompt, tools, middleware)
+		- slot: where a thing lands in a model request (the system prompt, the tools)
 		- unit: one decision that can change while the others stay the same. One unit can write to more than one slot
 		- a unit is written in que's own types, as the plugin contract is
 	- what the agent is
 		- model. A model config is a file in `models/` with a name, the provider's model, and the most tokens of one reply. A deployment names several in `models`
 			- the file holds the choices. What is true of the model, its window and its price, is a fact, and each fact has one place: pi's model catalog (`@earendil-works/pi-ai`, as installed with `@mku1tra/que-harness`) gives it by the model's id, as a source of the deployment's root (`deploymentSources`), for a model it has an entry for; the model's file gives it for one it has not. Both is two pieces of one field, and the lint refuses it (basis/merge)
 			- the window is needed, as a run sizes a loop's shares by it: a model with none from either place fails the lint (basis/fields). The price can be left out: the chat shows no cost for that model
-			- which one a run gets: the one the run names, else the one the agent config names
+			- which one a run gets: the one its thread picks, else the one the agent config names
 			- the chat UI has a picker for the agent and one for the model, and keeps the pick with the thread
 		- instructions. From the config, in place of que's role text
 		- the user's own instructions. Text that belongs to the user, and not to the agent: how the agent works with them. A config takes them with `userInstructions`, and one that does not say gets none
@@ -143,8 +143,8 @@ agent ─────────────────▶  assemble  turn its
 	- composition: what each layer owns, and what it hands to the next
 		- mount (`mount/`): what exists. Reads the deployment, each agent, loop and model config and each plugin it names (`readDeployment`), and lints them as one graph from the deployment's root, the root whose ground holds its folder (`deploymentGraph`): a lint starts only at a root. Stops on any problem: a file that cannot be read, a name that is no node (a plugin an agent names that is not mounted, a loop or a model the deployment does not give), a rule, a model file that writes a window or a price. Hands on: the root's graph's nodes, the mounted plugins and configs
 		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog
-		- assemble (`assemble/`): the agent. The catalog and the agent's units in, the slots out (prompt, tools, middleware). Built for one unit, loading: one config on a shared base. Hands on: the agent
-		- run (`run/`): serving the agent. Hands the slots to pi, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names the engine: pi, through `runner/pi/`
+		- assemble (`assemble/`): what the agent is shown. The catalog and the agent's units in; the system prompt (`assemble/prompt.ts`) and the way of loading (`assemble/way.ts`: whether an op waits to be loaded, and the text that explains the environment) out. Every op runs through its door (`assemble/door.ts`). Built for one unit, loading: one way on a shared base. Hands on: the prompt and the way
+		- run (`run/`, `runner/pi/`): serving the agent. Builds pi's agent from the prompt, the way and the model (`runner/pi/harness.ts`), with the catalog as a pi extension that gives the tools and runs the loop policy (`runner/pi/extension.ts`), serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names the engine: pi, through `runner/pi/`
 	- flow: when each layer runs
 		- que starts: mount, once, the same for every user
 		- each run: access, then assemble, then run. A run reads the user's catalog and their own instructions when it starts, so an edit to either takes effect from the next run
