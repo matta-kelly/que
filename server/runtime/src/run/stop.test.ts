@@ -162,9 +162,20 @@ async function eventsOf(
   }
 }
 
-/** POST /threads/:id/stop: its status. */
-const stop = async (threadId: string) =>
-  (await fetch(`${base}/threads/${threadId}/stop`, { method: "POST" })).status;
+/** POST /threads/:id/stop: its status, and its answer's body as JSON (none when it is not JSON). */
+const stop = async (threadId: string) => {
+  const answered = await fetch(`${base}/threads/${threadId}/stop`, {
+    method: "POST",
+  });
+  const text = await answered.text();
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = undefined;
+  }
+  return { status: answered.status, body };
+};
 
 /** The thread as GET /threads/:id gives it. */
 const record = async (threadId: string) =>
@@ -185,7 +196,7 @@ const isAborted = (op: string, content: unknown) =>
  * A run on a new thread in which the model says "Counting. " and calls `op` for `item` under the call id `call`, then
  * would answer "It never gets here.": stopped through the route once the stream shows the call. Its thread, the
  * messages the client then holds (the user's, and the assistant's with its tool call, under the ids the stream gave),
- * the stop's status and the run's events.
+ * the stop's status and its answer's body, and the run's events.
  */
 async function stoppedInTool(op: string, item: string) {
   const id = await thread();
@@ -200,11 +211,12 @@ async function stoppedInTool(op: string, item: string) {
   ]);
   const calls = faux.state.callCount;
   let status = 0;
+  let answer: unknown;
   let stoppedAt = 0;
   const { events, ended } = await eventsOf(await post(id, [u1]), {
     until: (e) => e.type === "TOOL_CALL_END",
     then: async () => {
-      status = await stop(id);
+      ({ status, body: answer } = await stop(id));
       stoppedAt = Date.now();
     },
   });
@@ -227,6 +239,7 @@ async function stoppedInTool(op: string, item: string) {
     u1,
     a1,
     status,
+    answer,
     stoppedAt,
     events,
     ended,
@@ -234,7 +247,7 @@ async function stoppedInTool(op: string, item: string) {
   };
 }
 
-test("given a run whose tool runs, when POST /threads/:id/stop is called, then the run's stream ends, the tool call's result in the stream and in GET /threads/:id is pi's aborted result, and the model is not asked again", async () => {
+test("given a run whose tool runs, when POST /threads/:id/stop is called, then it answers that it stopped a run, the run's stream ends, the tool call's result in the stream and in GET /threads/:id is pi's aborted result, and the model is not asked again", async () => {
   await signIn("ana@example.com", "ana-key");
   const seen = async (op: string, item: string) => {
     const run = await stoppedInTool(op, item);
@@ -246,6 +259,8 @@ test("given a run whose tool runs, when POST /threads/:id/stop is called, then t
     return {
       // The route takes the stop.
       taken: run.status >= 200 && run.status < 300,
+      // The stop says it stopped a run.
+      answer: run.answer,
       ended: run.ended,
       last: run.events.at(-1)?.type,
       streamed: isAborted(op, result?.content),
@@ -261,6 +276,7 @@ test("given a run whose tool runs, when POST /threads/:id/stop is called, then t
   };
   const expected = {
     taken: true,
+    answer: { stopped: true },
     ended: true,
     // A stop is no failure: the run ends as the user asked.
     last: "RUN_FINISHED",
@@ -316,7 +332,7 @@ test("given threads whose runs ended, when GET /threads/:id is read, then a thre
   );
 });
 
-test("given threads with no run going, one never run and one whose run finished, when POST /threads/:id/stop is called on each, then the route answers, and GET /threads/:id says neither is stopped", async () => {
+test("given threads with no run going, one never run and one whose run finished, when POST /threads/:id/stop is called on each, then the route answers that it stopped no run, and GET /threads/:id says neither is stopped", async () => {
   await signIn("ana@example.com", "ana-key");
   const never = await thread();
   const finished = await thread();
@@ -324,13 +340,15 @@ test("given threads with no run going, one never run and one whose run finished,
   await (await post(finished, [user("Hi")])).text();
 
   const idle = async (threadId: string) => {
-    const status = await stop(threadId);
+    const { status, body } = await stop(threadId);
     return {
       taken: status >= 200 && status < 300,
+      // The stop says it stopped no run.
+      answer: body,
       stopped: (await record(threadId)).stopped,
     };
   };
-  const expected = { taken: true, stopped: false };
+  const expected = { taken: true, answer: { stopped: false }, stopped: false };
   assert.deepEqual(
     { never: await idle(never), finished: await idle(finished) },
     { never: expected, finished: expected },
@@ -414,8 +432,8 @@ test("given a run of Bo's, when Ana calls POST /threads/:id/stop on his thread, 
       until: (e) => e.type === "TOOL_CALL_END",
       then: async () => {
         process.env.DEV_USER_EMAIL = "ana@example.com";
-        anas = await stop(bos);
-        nowhere = await stop(randomUUID());
+        anas = (await stop(bos)).status;
+        nowhere = (await stop(randomUUID())).status;
         process.env.DEV_USER_EMAIL = "bo@example.com";
       },
     },
