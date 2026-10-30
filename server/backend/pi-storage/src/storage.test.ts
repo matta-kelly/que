@@ -165,6 +165,56 @@ test(
   ),
 );
 
+test(
+  "reconstructs rewindable documents and preserves half-open incarnations",
+  conformance(
+    "reconstructs rewindable documents and preserves half-open incarnations",
+  ),
+);
+
+test(
+  "streams long document tails across root replacement deltas",
+  conformance("streams long document tails across root replacement deltas"),
+);
+
+test(
+  "copies stored document bases independently and rejects ambiguous sources",
+  conformance(
+    "copies stored document bases independently and rejects ambiguous sources",
+  ),
+);
+
+test(
+  "uses bases for version transitions and rejects historical reads of current-only documents",
+  conformance(
+    "uses bases for version transitions and rejects historical reads of current-only documents",
+  ),
+);
+
+test(
+  "indexes logical addresses and exact-scope scans independently",
+  conformance("indexes logical addresses and exact-scope scans independently"),
+);
+
+test(
+  "keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime",
+  conformance(
+    "keeps document lifecycle failures atomic and gives create-plus-retire an empty lifetime",
+  ),
+);
+
+test(
+  "rolls back record tables and secondary indexes when a document command fails",
+  conformance(
+    "rolls back record tables and secondary indexes when a document command fails",
+  ),
+);
+
+test(
+  "keeps indexed string identities lossless",
+  conformance("keeps indexed string identities lossless"),
+);
+
 // A database closed when the test ends, also when it fails: an open PGlite keeps the test process running.
 function closedAfter(t: TestContext, db: PGlite): PGlite {
   t.after(() => db.close());
