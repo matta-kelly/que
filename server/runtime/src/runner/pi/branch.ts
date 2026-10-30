@@ -7,9 +7,10 @@
  *   so the model still sees that the call was aborted;
  * - an earlier message: the run goes on a fork made at it;
  * - none: the run goes on a new conversation.
- * A message of the head's turn (its assistant records and their tool results,
- * after the last user message) counts as the head: a client that shows a turn
- * as one message knows only some of its records' ids.
+ * A known record of a turn (its assistant records and their tool results,
+ * up to the next user message) stands for the whole turn, so the kept message
+ * is the turn's last record: a client that shows a turn as one message knows
+ * only some of its records' ids. A record of the head's turn is the head.
  * The last message the run keeps is the last one the thread knows before the
  * new user message. A user message the thread already holds is sent again:
  * by the run that sent it, a resend, which makes no run; by a new run, a
@@ -49,12 +50,10 @@ export function branchOf(
   const head = [...held]
     .reverse()
     .find((h) => h.message.role !== "tool" || sent.has(h.message.id));
-  // The records from the kept message to the head: one turn when no user message is among them.
-  const between = head
-    ? held.slice(held.indexOf(keep), held.indexOf(head) + 1)
-    : [];
-  return keep === head ||
-    (between.includes(keep) && between.every((h) => h.message.role !== "user"))
-    ? { kind: "same" }
-    : { kind: "fork", at: keep.at };
+  // A turn's record stands for the turn: the kept message is its last, before the next user message.
+  const at = held.indexOf(keep);
+  const next = held.findIndex((h, i) => i > at && h.message.role === "user");
+  if (keep.message.role !== "user" && next < 0) return { kind: "same" };
+  const kept = keep.message.role === "user" ? keep : held[next - 1]!;
+  return kept === head ? { kind: "same" } : { kind: "fork", at: kept.at };
 }
