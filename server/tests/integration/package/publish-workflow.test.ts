@@ -63,7 +63,10 @@ const steps = (): Step[] => {
   for (const line of lines.slice(at + 1)) {
     if (line.trim() === "") continue;
     if (indent(line) <= indent(lines[at])) break;
-    if (/^\s*- /.test(line) && (item < 0 || indent(line) === indent(items[0][0])))
+    if (
+      /^\s*- /.test(line) &&
+      (item < 0 || indent(line) === indent(items[0][0]))
+    )
       items[++item] = [line];
     else if (item >= 0) items[item].push(line);
   }
@@ -122,9 +125,7 @@ test("given a version npm already has, when the job runs, then no step passes it
   ] as const)
     assert.match(
       step.if ?? "",
-      new RegExp(
-        `steps\\.${guard.id}\\.outputs\\.${side}\\s*==\\s*'true'`,
-      ),
+      new RegExp(`steps\\.${guard.id}\\.outputs\\.${side}\\s*==\\s*'true'`),
       `the publish of ${side} runs only when the guard names it`,
     );
 });
@@ -201,4 +202,23 @@ test("given the README, when a release is read there, then one tag of the workfl
     prefix && readme.includes(prefix),
     `the README names the tag that publishes the pair, ${pattern}`,
   );
+});
+
+test("given the guard writes each package's dist-tag, when a package is published, then its step passes that tag as --tag", () => {
+  const all = steps();
+  const guard = all.find((step) => step.run.includes("pair-release-live.ts"));
+  assert.ok(guard?.id, `a step with an id runs the guard:\n${show(all)}`);
+  for (const side of ["plugin", "harness"]) {
+    const publish = all.find(
+      (step) =>
+        step.dir === `server/${side}` && /\bnpm publish\b/.test(step.run),
+    );
+    assert.match(
+      publish?.run ?? "",
+      new RegExp(
+        `npm publish\\b.*--tag[ =]"?\\$\\{\\{\\s*steps\\.${guard.id}\\.outputs\\.${side}_tag\\s*\\}\\}`,
+      ),
+      `the publish of ${side} names the guard's ${side}_tag:\n${show(all)}`,
+    );
+  }
 });

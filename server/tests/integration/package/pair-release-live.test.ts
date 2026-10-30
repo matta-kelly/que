@@ -116,14 +116,20 @@ const guard = async (
   return { code, output: readFileSync(output, "utf8"), said };
 };
 
-/** The decision as the publish steps read it: each `name=value` line of GITHUB_OUTPUT. */
-const sides = (output: string) =>
+/** Each `name=value` line of GITHUB_OUTPUT, as the publish steps read it. */
+const lines = (output: string): Record<string, string> =>
   Object.fromEntries(
     output
       .split("\n")
       .filter((line) => line.includes("="))
       .map((line) => line.split("=", 2).map((part) => part.trim())),
   );
+
+/** The decision: which side of the pair to publish. */
+const sides = (output: string) => {
+  const { plugin, harness } = lines(output);
+  return { plugin, harness };
+};
 
 test("given npm has neither version at the commit, when the guard's step runs, then it names both to publish", async () => {
   const run = await guard({});
@@ -188,4 +194,20 @@ test("given npm has plugin's version with other peer ranges than the commit's, w
   );
   assert.notEqual(run.code, 0, "a refusal stops the job");
   assert.doesNotMatch(run.output, /=\s*true/, "no side is named to publish");
+});
+
+test("given npm has neither version, when the guard's step runs, then it writes each package's dist-tag, latest for a release version, for the publish step's --tag", async () => {
+  for (const side of [plugin, harness])
+    assert.equal(
+      side.version.includes("-"),
+      false,
+      `the case reads ${side.name}@${side.version} as a release version`,
+    );
+  const run = await guard({});
+  const written = lines(run.output);
+  assert.deepEqual(
+    { plugin_tag: written.plugin_tag, harness_tag: written.harness_tag },
+    { plugin_tag: "latest", harness_tag: "latest" },
+    `GITHUB_OUTPUT: ${JSON.stringify(run.output)}; the step said: ${run.said}`,
+  );
 });
