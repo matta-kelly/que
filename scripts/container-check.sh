@@ -383,8 +383,18 @@ test_just_finds_the_container_by_the_labels_the_cli_sets() {
     "just _container gives the container by its label" || return 1
   out=$("$root/scripts/serving-ques.sh")
   assert_no_line "$out" "$root" "serving-ques.sh does not name this checkout as another que" || return 1
+  # `just down` stops the shared que-postgres when no other que is serving, so this test records whether
+  # the database runs, and starts it again after, to leave the machine as it found it: a test must not
+  # leave a service container stopped. If it was not running, it stays stopped and nothing starts.
+  local db_running=
+  if [ -n "$(podman ps --filter name=que-postgres --format '{{.Names}}')" ]; then
+    db_running=1
+  fi
   out=$(just down 2>&1)
   code=$?
+  if [ -n "$db_running" ]; then
+    podman start que-postgres >/dev/null 2>&1 || true
+  fi
   assert_eq 0 "$code" "just down finds the container and stops it: $out" || return 1
   if running "$id"; then
     fail "just down left the container running"
