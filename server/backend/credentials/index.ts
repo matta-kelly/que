@@ -79,11 +79,11 @@ function encrypt(values: Record<string, unknown>): string {
   return Buffer.concat([iv, cipher.getAuthTag(), ct]).toString("base64");
 }
 
-function decrypt(secret: string): Record<string, unknown> {
+function decrypt(secret: string, key: Buffer): Record<string, unknown> {
   const raw = Buffer.from(secret, "base64");
   const decipher = createDecipheriv(
     "aes-256-gcm",
-    getKey(),
+    key,
     raw.subarray(0, 12),
   );
   decipher.setAuthTag(raw.subarray(12, 28));
@@ -119,9 +119,21 @@ export function storeOn(db: Queryable): CredentialStore {
         "SELECT secret, updated_at FROM credentials WHERE rep = $1 AND plugin = $2",
         [userId, plugin],
       );
-      return rows[0]
-        ? { values: decrypt(rows[0].secret), updatedAt: rows[0].updated_at }
-        : undefined;
+      if (!rows[0]) return undefined;
+      // A record another key wrote is not this connector's login: it reads as
+      // none. A key or database fault is not that, so those still throw.
+      const key = getKey();
+      try {
+        return {
+          values: decrypt(rows[0].secret, key),
+          updatedAt: rows[0].updated_at,
+        };
+      } catch {
+        console.error(
+          `que: a credential for ${plugin} saved by ${userId} cannot be decrypted; save it again`,
+        );
+        return undefined;
+      }
     },
     async set(userId, plugin, values) {
       await ready;
