@@ -222,3 +222,19 @@ test("given the guard writes each package's dist-tag, when a package is publishe
     );
   }
 });
+
+test("given harness's publish fails, when the job runs, then the failure stands: no step or job goes on after an error, and no publish masks its exit", () => {
+  const all = steps();
+  const goesOn = lines.filter((line) =>
+    /^\s*-?\s*continue-on-error:/.test(line),
+  );
+  assert.deepEqual(goesOn, [], "no step or job has continue-on-error");
+  for (const step of all.filter(
+    (one) => one.dir && /\bnpm publish\b/.test(one.run),
+  ))
+    assert.doesNotMatch(
+      step.run,
+      /\|\|/,
+      `the publish in ${step.dir} keeps npm's exit:\n${step.run}`,
+    );
+});
