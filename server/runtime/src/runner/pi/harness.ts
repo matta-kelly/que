@@ -61,6 +61,7 @@ import { loopFor } from "../../run/loop.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
 import { branchedFrom, branchOf } from "./branch.js";
+import { compactionOf } from "./compaction.js";
 import { endsRun, extension } from "./extension.js";
 
 export const models = createModels();
@@ -117,29 +118,11 @@ const keyOf = (model: Model) =>
   `${providerOf(model)}/${providerModelOf(model)}`;
 
 /**
- * pi's compaction for a loop's `summarize` on a model's `window`: a request
- * past `at` of it waits for a summary that keeps about `keep` of it, and no
- * summary is made in the background.
- */
-const compactionOf = (
-  window: number,
-  summarize: ResolvedLoop["summarize"],
-): Partial<CompactionPolicy> =>
-  summarize === false
-    ? { enabled: false }
-    : {
-        enabled: true,
-        reserveTokens: Math.round((1 - summarize.at) * window),
-        keepRecentTokens: Math.round(summarize.keep * window),
-        backgroundTokens: 0,
-      };
-
-/**
- * Each model's compaction, by its key: pi's settings are per model, not per
- * conversation. Each agent's own model has its loop's from startup, so a run
- * pi resumes after a restart has it too (mount refuses two agents on one model
- * that summarize differently), and a run sets its model's from its loop, for
- * a model a thread picks.
+ * Each model's compaction, by its key: pi's settings are per model id, not
+ * per conversation. Each agent's own model has its loop's from startup, so a
+ * run pi resumes after a restart has it too (mount refuses two agents on one
+ * model id that would get different ones), and a run sets its model's from its
+ * loop, for a model a thread picks.
  */
 const compactions: Record<string, Partial<CompactionPolicy>> = {};
 for (const agent of mounted.agents) {
