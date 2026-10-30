@@ -40,7 +40,7 @@ import {
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { createReadTool } from "@earendil-works/pi-durable/tools";
 import * as z from "zod";
-import { definePlugin } from "@mku1tra/que-plugin";
+import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { ResolvedLoop } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { door } from "../../assemble/door.js";
@@ -52,6 +52,9 @@ const WINDOW = 50 * 1024;
 
 const rows = (count: number) =>
   Array.from({ length: count }, (_, i) => `row ${i} of the report`).join("\n");
+
+/** The message of shop-refuse's failure. */
+const refusal = (count: number) => `the report was refused: ${rows(count)}`;
 
 const shop = definePlugin({
   name: "shop",
@@ -74,6 +77,17 @@ const shop = definePlugin({
       description: "Filler text of about that many characters.",
       input: z.object({ chars: z.number().describe("How many characters") }),
       run: async (_, { chars }) => "lorem ipsum ".repeat(Math.ceil(chars / 12)),
+    },
+    {
+      name: "shop-refuse",
+      type: "op",
+      title: "Refuse",
+      description:
+        "Fails, with the rows of the report it refused in its message.",
+      input: z.object({ rows: z.number().describe("How many rows") }),
+      run: async (_, { rows: count }) => {
+        throw new OpFailed(refusal(count));
+      },
     },
   ],
 });
@@ -205,7 +219,11 @@ async function chat(
     );
     await submission.wait(context);
     const { entries } = await conversation.context(context);
-    return { tools, of: (id: string) => resultIn(entries, id) };
+    return {
+      tools,
+      asked: requests.length,
+      of: (id: string) => resultIn(entries, id),
+    };
   } finally {
     await harness.close(context);
   }
@@ -240,7 +258,12 @@ const big = (rowCount: number): Call => ({
 test("given result.max of 100, when an op's result is over it, then it is one file under large_tool_results/ in the run's cwd, the model gets its head, its tail and the path, and it is offered read_result and no other tool of files", async () => {
   await inCwd(async (cwd) => {
     const { tools, of } = await chat(cwd, { max: 100 }, once(big(200)));
-    assert.deepEqual(tools[0], ["read_result", "shop-filler", "shop-report"]);
+    assert.deepEqual(tools[0], [
+      "read_result",
+      "shop-filler",
+      "shop-refuse",
+      "shop-report",
+    ]);
 
     const files = await moved(cwd);
     assert.equal(files.length, 1, `files moved: ${files.join(", ")}`);
@@ -460,7 +483,7 @@ test("given result on or off, when an op's result is under result.max, or result
   // Result off: a result of about 130KB, whole, and the model is offered the op alone.
   await inCwd(async (cwd) => {
     const { tools, of } = await chat(cwd, false, once(big(5000)));
-    assert.deepEqual(tools[0], ["shop-filler", "shop-report"]);
+    assert.deepEqual(tools[0], ["shop-filler", "shop-refuse", "shop-report"]);
     assert.equal(of("big")?.whole.length, reportText(5000).length);
     assert.equal(of("big")?.whole, reportText(5000));
     assert.deepEqual(await moved(cwd), []);
@@ -582,5 +605,85 @@ test("given a run's own moved result, when read_result is given a path out of th
     assert.ok(back, "the model got no path to read");
     assert.ok(!back.isError, back.whole);
     assert.equal(back.text, reportText(200));
+  });
+});
+
+/** The text of the call `id`'s result in the requests the model got. */
+const sentIn = (requests: readonly Message[][], id: string) =>
+  requests
+    .at(-1)!
+    .flatMap((m) =>
+      m.role === "toolResult" && m.toolCallId === id ? m.content : [],
+    )
+    .map((b) => (b.type === "text" ? b.text : ""))
+    .join("");
+
+test("given result.max of 100, when an op fails with a message over it, then the model gets a pointer to the message's file, the call still failed, and read_result gives the message back", async () => {
+  for (const count of [200, 400])
+    await inCwd(async (cwd) => {
+      const error = refusal(count);
+      const { of } = await chat(cwd, { max: 100 }, (requests) => {
+        if (requests.length === 1)
+          return [{ name: "shop-refuse", args: { rows: count }, id: "no" }];
+        if (requests.length !== 2) return [];
+        const path = pathIn(sentIn(requests, "no"));
+        return path
+          ? [
+              {
+                name: "read_result",
+                args: { path, byte_offset: 0 },
+                id: "back",
+              },
+            ]
+          : [];
+      });
+      const pointer = of("no");
+      assert.ok(pointer, "no result of shop-refuse");
+      assert.ok(pointer.isError, "the moved failure is no failed call");
+      assert.ok(
+        pointer.whole.length < error.length / 2,
+        `the model got ${pointer.whole.length} characters of a ${error.length}-character error`,
+      );
+      const files = await moved(cwd);
+      assert.equal(files.length, 1, `files moved: ${files.join(", ")}`);
+      assert.equal(pathIn(pointer.whole), files[0]);
+      assert.equal(await readFile(join(cwd, files[0]!), "utf8"), error);
+      const back = of("back");
+      assert.ok(back, "the model got no path to read");
+      assert.ok(!back.isError, back.whole);
+      assert.equal(back.text, error);
+    });
+});
+
+test("given result.max of 100, when the repeat guard stops a call whose error is over it, then the stop is moved to its file too, is a failed call, and still ends the run", async () => {
+  await inCwd(async (cwd) => {
+    const error = refusal(300);
+    const { of, asked } = await chat(cwd, { max: 100 }, (requests) =>
+      requests.length <= 3
+        ? [
+            {
+              name: "shop-refuse",
+              args: { rows: 300 },
+              id: `no${requests.length}`,
+            },
+          ]
+        : [],
+    );
+    // The third failure in a row is the stop: no model request follows it.
+    assert.equal(asked, 3, `the model was asked ${asked} times`);
+    const stop = of("no3");
+    assert.ok(stop, "no result of the third call");
+    assert.ok(stop.isError);
+    assert.ok(
+      stop.whole.length < error.length / 2,
+      `the model got ${stop.whole.length} characters of the stop`,
+    );
+    const path = pathIn(stop.whole);
+    assert.ok(path, `the stop names no file: ${stop.whole.slice(0, 300)}`);
+    const kept = await readFile(join(cwd, path), "utf8");
+    assert.match(kept, /^I stopped: the call shop-refuse/);
+    assert.ok(kept.endsWith(error), "the stop's file does not hold the error");
+    // Each failure before it was moved too: three files.
+    assert.equal((await moved(cwd)).length, 3);
   });
 });
