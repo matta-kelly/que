@@ -66,7 +66,7 @@ environment ───────────▶  mount     load and check the p
                                     can reach
 agent ─────────────────▶  assemble  turn its units into prompt,
   units                             tools, middleware
-                          run       give those to the framework,
+                          run       give those to pi,
                                     serve the answer
                           ─────────────────────────────────────
                           backend   identity, credentials, state
@@ -104,7 +104,7 @@ agent ─────────────────▶  assemble  turn its
 		- a unit is written in que's own types, as the plugin contract is
 	- what the agent is
 		- model. A model config is a file in `models/` with a name, the provider's model, and the most tokens of one reply. A deployment names several in `models`
-			- the file holds the choices. What is true of the model, its window and its price, is a fact, and each fact has one place: pi's model catalog (`@earendil-works/pi-ai`, as installed with `@mku1tra/que-harness`) gives it by the model's id, as a source of the deployment's root (`deploymentSources`), for a model it has an entry for; the model's file gives it for one it has not (Beam). Both is two pieces of one field, and the lint refuses it (basis/merge)
+			- the file holds the choices. What is true of the model, its window and its price, is a fact, and each fact has one place: pi's model catalog (`@earendil-works/pi-ai`, as installed with `@mku1tra/que-harness`) gives it by the model's id, as a source of the deployment's root (`deploymentSources`), for a model it has an entry for; the model's file gives it for one it has not. Both is two pieces of one field, and the lint refuses it (basis/merge)
 			- the window is needed, as a run sizes a loop's shares by it: a model with none from either place fails the lint (basis/fields). The price can be left out: the chat shows no cost for that model
 			- which one a run gets: the one the run names, else the one the agent config names
 			- the chat UI has a picker for the agent and one for the model, and keeps the pick with the thread
@@ -117,8 +117,8 @@ agent ─────────────────▶  assemble  turn its
 			- it sets the text that explains the environment, the tools for finding the way around, and which operations go out with each request
 			- two variants, named in `loading`: `on-demand`, where the model opens a plugin, then loads an operation or reads a skill; and `eager`, with every operation in reach from the first message
 		- [[loop-policy|loop policy]]. A loop config is a file in `loops/` with a name and settings. A deployment names several in `loops`, and an agent config names one in `loop`
-			- every agent is LangChain `createAgent`, and each setting that acts adds one middleware to it
-			- a big tool result goes to a file store, and the model reads it back with `read_file`. On pi, to a file in the conversation's workspace, and the model reads it back with `read_result`, in windows of bytes
+			- every agent runs on pi, and each setting that acts changes only its own part of the run
+			- a big tool result goes to a file in the conversation's workspace, and the model reads it back with `read_result`, in windows of bytes
 			- a summary of a long chat replaces the old part of the thread
 			- an agent names its loop. A setting a loop leaves out takes que's value for it
 		- interception: hooks on the loop. Not built
@@ -144,7 +144,7 @@ agent ─────────────────▶  assemble  turn its
 		- mount (`mount/`): what exists. Reads the deployment, each agent, loop and model config and each plugin it names (`readDeployment`), and lints them as one graph from the deployment's root, the root whose ground holds its folder (`deploymentGraph`): a lint starts only at a root. Stops on any problem: a file that cannot be read, a name that is no node (a plugin an agent names that is not mounted, a loop or a model the deployment does not give), a rule, a model file that writes a window or a price. Hands on: the root's graph's nodes, the mounted plugins and configs
 		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog
 		- assemble (`assemble/`): the agent. The catalog and the agent's units in, the slots out (prompt, tools, middleware). Built for one unit, loading: one config on a shared base. Hands on: the agent
-		- run (`run/`): serving the agent. Hands the slots to the framework, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names a framework: LangChain and the LangGraph server
+		- run (`run/`): serving the agent. Hands the slots to pi, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names the engine: pi, through `runner/pi/`
 	- flow: when each layer runs
 		- que starts: mount, once, the same for every user
 		- a chat starts: access, then assemble. The chat keeps that agent: an edit to access or to the user's instructions is in the next chat

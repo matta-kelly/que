@@ -48,7 +48,7 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 `users.ts`
 
-- one users store for the harness: the auth hook, the API and the CLI use it
+- one users store for the harness: the server's sign-in (`run/signed-in.ts`), the API and a run use it
 - it binds the instructions file the deployment names, and a user's instructions, from [[#Instructions]]
 
 ## Instructions

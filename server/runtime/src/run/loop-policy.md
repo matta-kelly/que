@@ -41,7 +41,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 		- loading only appends, so the prompt cache holds. A change to an earlier message breaks the cache from there on
 		- results are most of the tokens, not definitions
 		- open: what starts compaction, and what it must not touch
-	- in LangGraph: state (channels, each with its merge rule; messages is one), the checkpointer (one thread), the store (across threads)
+	- on pi: the conversation in pi's storage, on Postgres (one thread), with its documents (`que.repeat`), and the conversation's folder for its big results
 - rules by kind, which follow from the two above
 	- tool definitions: keep nothing. Derived from the mount
 	- what is open: one short line, on every call
@@ -62,7 +62,7 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 - harness side: what is shown and dropped. Works only where que runs the loop
 	- rendering, retention, compaction. Under another harness it does nothing, and cheap to lose does the work
 - in que: a loop is a file of settings with a name, and an agent names one. `loop.ts` in `@mku1tra/que-harness` says which settings act
-	- open: limits. The framework's own middleware leaves a thread that cannot go on, or ends a run with no answer. que's own would count from the saved chat
+	- open: limits. They do not act yet. que's own would count from the saved chat
 - outside a loop
 	- cheap to lose: a rule of the harness and of how a plugin answers. No agent opts out
 	- repair of an unanswered tool call: always on. The call gets a result that says it was cancelled
