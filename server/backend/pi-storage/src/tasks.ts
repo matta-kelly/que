@@ -13,6 +13,7 @@ import type {
   TaskQuery,
   TaskRecord,
 } from "@earendil-works/pi-durable";
+import { checkRecordId } from "./ids.ts";
 import { page, scanSql, scanStart } from "./scan.ts";
 import type { Queryable } from "./storage.ts";
 
@@ -20,31 +21,12 @@ type Row = { record: string };
 
 const record = <T>(row: Row) => JSON.parse(row.record) as T;
 
-// The type of the record that holds `id`, if any: pi's ids are one namespace.
-async function recordType(
-  db: Queryable,
-  id: number,
-): Promise<string | undefined> {
-  const { rows } = await db.query(
-    `SELECT type FROM (
-       SELECT 'conversation' AS type FROM pi.conversations WHERE id = $1
-       UNION ALL SELECT 'entry' FROM pi.entries WHERE id = $1
-       UNION ALL SELECT 'task' FROM pi.tasks WHERE id = $1
-       UNION ALL SELECT 'submission' FROM pi.submissions WHERE id = $1
-     ) records LIMIT 1`,
-    [id],
-  );
-  return rows[0]?.type;
-}
-
 /** A task is replaced whole; its id may not belong to a record of another type. */
 export async function writeTask(
   db: Queryable,
   task: TaskRecord<JsonValue, JsonValue, JsonValue>,
 ): Promise<void> {
-  const type = await recordType(db, task.id);
-  if (type !== undefined && type !== "task")
-    throw new Error(`ID ${task.id} already belongs to ${type}`);
+  await checkRecordId(db, task.id, "task");
   await db.query(
     `INSERT INTO pi.tasks (id, conversation_id, kind, status, abort_requested, background, record)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -68,9 +50,7 @@ export async function writeSubmission(
   db: Queryable,
   submission: SubmissionRecord,
 ): Promise<void> {
-  const type = await recordType(db, submission.id);
-  if (type !== undefined && type !== "submission")
-    throw new Error(`ID ${submission.id} already belongs to ${type}`);
+  await checkRecordId(db, submission.id, "submission");
   await db.query(
     `INSERT INTO pi.submissions (id, conversation_id, request_id, status, record)
      VALUES ($1, $2, $3, $4, $5)

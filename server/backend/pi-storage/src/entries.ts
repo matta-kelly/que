@@ -14,6 +14,7 @@ import {
   type Page,
   type Seq,
 } from "@earendil-works/pi-durable";
+import { checkRecordId } from "./ids.ts";
 import { scanStart } from "./scan.ts";
 import type { Queryable } from "./storage.ts";
 
@@ -24,6 +25,7 @@ export async function writeEntry(
   entry: EntryRecord,
   seq: Seq,
 ): Promise<void> {
+  await checkRecordId(db, entry.id, "entry");
   await db.query(
     `INSERT INTO pi.entries (id, conversation_id, head, commit_seq, record)
      VALUES ($1, $2, $3, $4, $5)`,

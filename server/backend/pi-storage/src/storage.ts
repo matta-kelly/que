@@ -18,6 +18,7 @@ import {
   scanEntries,
   writeEntry,
 } from "./entries.ts";
+import { checkRecordId } from "./ids.ts";
 import { page, scanSql, scanStart } from "./scan.ts";
 import { SETUP } from "./schema.ts";
 import {
@@ -75,6 +76,7 @@ export function storageOn(db: Queryable): Storage {
           for (const write of writes) {
             if (write.type === "conversation") {
               const { id, owner } = write.value;
+              await checkRecordId(db, id, "conversation");
               const { rows } = await db.query(
                 `INSERT INTO pi.conversations (id, owner_conversation_id, owner_task_id, record)
                VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO NOTHING RETURNING id`,
