@@ -6,8 +6,10 @@
  * at each later request of that chat, after a compaction and after a restart.
  */
 
+import type { Context } from "@earendil-works/chord/context";
 import type {
   Extension,
+  ToolExecutionApi,
   ToolExecutionResult,
   ToolRegistration,
 } from "@earendil-works/pi-durable";
@@ -32,6 +34,7 @@ import {
   reach,
 } from "../../assemble/on-demand/open.js";
 import type { Way } from "../../assemble/way.js";
+import { failed } from "./repeat.js";
 
 /** A schema's input side as JSON Schema, which pi-ai takes as it is (no TypeBox kind). */
 const schemaOf = (schema: z.core.$ZodType) =>
@@ -48,17 +51,19 @@ export const isBug = (details: unknown) =>
   details.que === BUG.que;
 
 /**
- * A tool's run as its result: its text for the model, or a failed call with an OpFailed's text. Any other throw is a
- * bug: the result holds none of its text (the door's span records it), and ends the run with no other model request.
+ * A tool's run as its result: its text for the model, or a failed call with an OpFailed's text, which the repeat guard
+ * may turn into a stop. Any other throw is a bug: the result holds none of its text (the door's span records it), and
+ * ends the run with no other model request.
  */
 async function result(
   run: () => Promise<string>,
+  api: ToolExecutionApi,
+  context: Context,
 ): Promise<ToolExecutionResult> {
   try {
     return { output: [{ type: "text", text: await run() }] };
   } catch (error) {
-    if (error instanceof OpFailed)
-      return { isError: true, output: [{ type: "text", text: error.message }] };
+    if (error instanceof OpFailed) return failed(error.message, api, context);
     return {
       isError: true,
       output: [{ type: "text", text: "the tool failed" }],
@@ -82,13 +87,15 @@ export function extension(
       // fields. pi checks the arguments against it and hands them on as they are, so the door is the one parse.
       parameters: schemaOf(strictInput(op.input)),
       ...(way.deferred ? { deferred: true as const } : {}),
-      execute: (args) =>
+      execute: (args, api, context) =>
         result(
           async () =>
             // An op that gives back nothing gives the JSON text null.
             JSON.stringify(
               await call({ plugin: definition.plugin, op }, args, user),
             ) ?? "null",
+          api,
+          context,
         ),
     })),
   );
@@ -106,13 +113,17 @@ export function extension(
         id: z.string().describe("Skill id, e.g. odoo-lookup-company"),
       }),
     ),
-    execute: (args) =>
-      result(async () => {
-        const { id } = args as { id: string };
-        const skill = skills.get(id);
-        if (!skill) throw new OpFailed(`no skill "${id}"`);
-        return skill.body;
-      }),
+    execute: (args, api, context) =>
+      result(
+        async () => {
+          const { id } = args as { id: string };
+          const skill = skills.get(id);
+          if (!skill) throw new OpFailed(`no skill "${id}"`);
+          return skill.body;
+        },
+        api,
+        context,
+      ),
   };
   return {
     tools: [
@@ -134,16 +145,24 @@ function onDemand(catalog: Catalog): ToolRegistration[] {
     name: OPEN_PLUGIN,
     description: openDescription(loads),
     parameters: schemaOf(openSchema),
-    execute: (args) =>
-      result(async () => open(catalog, (args as { plugin: string }).plugin)),
+    execute: (args, api, context) =>
+      result(
+        async () => open(catalog, (args as { plugin: string }).plugin),
+        api,
+        context,
+      ),
   };
   const loadOperation: ToolRegistration = {
     name: LOAD_OPERATION,
     description: LOAD_DESCRIPTION,
     parameters: schemaOf(loadSchema),
-    execute: async (args) => {
+    execute: async (args, api, context) => {
       const { plugin, operation } = args as z.infer<typeof loadSchema>;
-      const loaded = await result(async () => load(catalog, plugin, operation));
+      const loaded = await result(
+        async () => load(catalog, plugin, operation),
+        api,
+        context,
+      );
       return loaded.isError
         ? loaded
         : { ...loaded, control: { addTools: [operation] } };
