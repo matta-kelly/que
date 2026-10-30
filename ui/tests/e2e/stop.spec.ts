@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openApp, openChats } from "./helpers";
+import { newChat, openApp, openChatWith } from "./helpers";
 
 // A stop is a call of its own to que's server: Stop on a running reply is
 // POST /threads/:id/stop, and the thread says it was stopped, also after a
@@ -10,8 +10,6 @@ import { openApp, openChats } from "./helpers";
 const LONG =
   "Write the numbers from 1 to 3000, one per line, as digits. No other text.";
 
-const items = (page: Page) =>
-  page.locator('[data-slot="aui_thread-list-item"]');
 const stopButton = (page: Page) =>
   page.getByRole("button", { name: "Stop generating" });
 const sendButton = (page: Page) =>
@@ -61,31 +59,6 @@ async function stoppedOf(page: Page, thread: string) {
   const res = await page.request.get(`/api/threads/${thread}`);
   expect(res.ok()).toBe(true);
   return ((await res.json()) as { stopped?: unknown }).stopped;
-}
-
-/**
- * Open the chat whose first message is `text`. A chat has no title of its own
- * yet (F3), so each chat at the top of the list is opened until one is it.
- */
-async function openChatWith(page: Page, text: string) {
-  await openChats(page);
-  const sent = page.locator('[data-role="user"]', { hasText: text });
-  const count = Math.min(await items(page).count(), 10);
-  for (let i = 0; i < count; i++) {
-    await items(page)
-      .nth(i)
-      .locator('[data-slot="aui_thread-list-item-trigger"]')
-      .click();
-    // isVisible does not wait: the chat's messages load after the click.
-    const loaded = await expect(sent.first())
-      .toBeVisible({ timeout: 5_000 })
-      .then(
-        () => true,
-        () => false,
-      );
-    if (loaded) return;
-  }
-  throw new Error(`no chat near the top of the list holds "${text}"`);
 }
 
 test("stop: Stop on a running reply stops its run on que's server, the chat says Stopped, also after a reload, and the next message runs @live", async ({
@@ -158,9 +131,7 @@ test("stop: a chat left for a new chat while its reply goes is not stopped @live
   await partWay(page);
 
   // The chat is left: its runtime is torn down, which cancels the run in the page.
-  await page.locator("header").click();
-  await page.keyboard.press("Control+k");
-  await page.getByRole("option", { name: "New chat", exact: true }).click();
+  await newChat(page);
   await expect(page.getByPlaceholder("Send a message...")).toBeEmpty();
   await expect(replies(page)).toHaveCount(0);
 

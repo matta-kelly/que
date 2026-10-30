@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { openApp, openChats } from "./helpers";
+import { newChat, openApp, openChatWith, openChats } from "./helpers";
 
 // Chats live on que's server: each is a thread of the signed-in user's, made
 // by POST /threads, listed by GET /threads, and opened by GET /threads/:id.
@@ -77,37 +77,6 @@ async function send(page: Page, text: string) {
   );
   await expect(sendButton(page)).toBeVisible();
   return { thread, answer };
-}
-
-async function newChat(page: Page) {
-  await page.locator("header").click();
-  await page.keyboard.press("Control+k");
-  await page.getByRole("option", { name: "New chat", exact: true }).click();
-}
-
-/**
- * Open the chat whose first message is `text`. A chat has no title of its own
- * yet (F3), so each chat at the top of the list is opened until one is it.
- */
-async function openChatWith(page: Page, text: string) {
-  await openChats(page);
-  const sent = page.locator('[data-role="user"]', { hasText: text });
-  const count = Math.min(await items(page).count(), 10);
-  for (let i = 0; i < count; i++) {
-    await items(page)
-      .nth(i)
-      .locator('[data-slot="aui_thread-list-item-trigger"]')
-      .click();
-    // isVisible does not wait: the chat's messages load after the click.
-    const loaded = await expect(sent.first())
-      .toBeVisible({ timeout: 5_000 })
-      .then(
-        () => true,
-        () => false,
-      );
-    if (loaded) return;
-  }
-  throw new Error(`no chat near the top of the list holds "${text}"`);
 }
 
 test("threads: a new chat makes a thread of the user's on que's server, and the list shows the user's threads @live", async ({

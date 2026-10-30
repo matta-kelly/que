@@ -18,6 +18,13 @@ export async function openChats(page: Page) {
   await expect(list).toBeVisible();
 }
 
+// Start a new chat from the command palette.
+export async function newChat(page: Page) {
+  await page.locator("header").click();
+  await page.keyboard.press("Control+k");
+  await page.getByRole("option", { name: "New chat", exact: true }).click();
+}
+
 // Give the chat just made a title no other chat has, so a test can open it
 // again by name: its place in the list is not its own when another session
 // makes chats on the same server.
@@ -39,4 +46,30 @@ export async function openChat(page: Page, title: string) {
     .locator('[data-slot="aui_thread-list-item-trigger"]')
     .click();
   await expect(page.locator('[data-slot="page-title"]')).toHaveText(title);
+}
+
+/**
+ * Open the chat whose first message is `text`. A chat has no title of its own
+ * yet (F3), so each chat at the top of the list is opened until one is it.
+ */
+export async function openChatWith(page: Page, text: string) {
+  await openChats(page);
+  const items = page.locator('[data-slot="aui_thread-list-item"]');
+  const sent = page.locator('[data-role="user"]', { hasText: text });
+  const count = Math.min(await items.count(), 10);
+  for (let i = 0; i < count; i++) {
+    await items
+      .nth(i)
+      .locator('[data-slot="aui_thread-list-item-trigger"]')
+      .click();
+    // isVisible does not wait: the chat's messages load after the click.
+    const loaded = await expect(sent.first())
+      .toBeVisible({ timeout: 5_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    if (loaded) return;
+  }
+  throw new Error(`no chat near the top of the list holds "${text}"`);
 }
