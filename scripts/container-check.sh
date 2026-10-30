@@ -40,7 +40,11 @@ for cmd in podman just jq npx git sha256sum; do
     skip "the container tests need $cmd on the host; the pipeline runs scripts/check.sh with no podman and no dev container CLI"
 done
 
-tmp=$(mktemp -d)
+# The fixture sits on the host's real disk, outside this worktree, never /tmp: /tmp is RAM here, and the
+# container's private user namespace cannot enter a mode-700 folder under it. It is open to every user so
+# the container's `node` can make the deployment's node_modules inside it.
+tmp=$(mktemp -d "$(dirname "$root")/c5-fixture.XXXXXX")
+chmod 777 "$tmp"
 trap 'rm -rf "$tmp"' EXIT
 
 # The deployment the tests hand the maker: a copy of the template in a git repo of its own, outside que,
@@ -50,6 +54,7 @@ dep="$tmp/deployment"
 make_deployment() {
   rm -rf "$dep"
   cp -r "$root/templates/deployment" "$dep" || return 1
+  chmod 777 "$dep" || return 1
   git -C "$dep" init -q || return 1
   # One dependency, so `npm ci` makes node_modules and the maker's install leaves something a probe can
   # outlive or not. Its lockfile is written here, so the test needs no npm on the host.
