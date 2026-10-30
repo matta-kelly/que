@@ -490,7 +490,15 @@ async function hostThread() {
     const { error } = await host.run(
       id,
       small,
-      { catalog, user: "ana", agent: "test", prompt: {}, way: eager },
+      {
+        catalog,
+        user: "ana",
+        agent: "test",
+        prompt: {},
+        way: eager,
+        // Never summarized: the guard's cases are short chats.
+        summarize: false,
+      },
       { runId, before, last },
       async (event) => {
         // A call's id is not one: faux's call ids are the same in each run.
