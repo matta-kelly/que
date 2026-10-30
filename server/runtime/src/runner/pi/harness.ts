@@ -26,6 +26,7 @@ import {
   createRegistry,
   Harness,
   section,
+  ToolResultEntry,
   watchEvents,
   type Conversation,
   type ConversationId,
@@ -46,7 +47,7 @@ import * as mounted from "../../mount/mounted.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
 import { branchedFrom, branchOf } from "./branch.js";
-import { extension } from "./extension.js";
+import { endsRun, extension } from "./extension.js";
 
 export const models = createModels();
 models.setProvider(fireworks(mounted.models));
@@ -295,6 +296,17 @@ export async function run(
           if (event.type === "run_start") mine = event.inputs.includes(id);
           if (!mine) continue;
           for (const out of agui.of(event)) await send(out);
+          // A result the run ends on ends it from here: pi ends a run on a tool's word only when every call of its round asks.
+          if (
+            event.type === "tool_execution_end" &&
+            ToolResultEntry.is(event.entry) &&
+            endsRun(event.entry.model?.[0]?.details)
+          )
+            void conversation
+              .abort(context)
+              .catch((error: Error) =>
+                console.error("que: the run was not stopped:", error.message),
+              );
           const kept = agui.kept();
           if (
             event.type === "message_end" &&
