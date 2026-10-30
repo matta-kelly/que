@@ -3,18 +3,79 @@
  * each skill read by its tool. Every op is offered from the first request.
  */
 
-import type { Extension } from "@earendil-works/pi-durable";
+import type {
+  Extension,
+  ToolExecutionResult,
+  ToolRegistration,
+} from "@earendil-works/pi-durable";
+import type { TSchema } from "@earendil-works/pi-ai";
+import * as z from "zod";
+import { OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
-import type { Call } from "../../assemble/door.js";
+import { strictInput, type Call } from "../../assemble/door.js";
+import { READ_SKILL } from "../../assemble/names.js";
+
+/** A schema's input side as JSON Schema, which pi-ai takes as it is (no TypeBox kind). */
+const schemaOf = (schema: z.core.$ZodType) =>
+  z.toJSONSchema(schema, { io: "input" }) as unknown as TSchema;
+
+/** A tool's run as its result: its text for the model, or a failed call with an OpFailed's text. Any other throw is pi's. */
+async function result(
+  run: () => Promise<string>,
+): Promise<ToolExecutionResult> {
+  try {
+    return { output: [{ type: "text", text: await run() }] };
+  } catch (error) {
+    if (!(error instanceof OpFailed)) throw error;
+    return { isError: true, output: [{ type: "text", text: error.message }] };
+  }
+}
 
 export function extension(
   catalog: Catalog,
   call: Call,
   user: string,
 ): Extension {
-  void catalog;
-  void call;
-  void user;
-  // Not built yet: an extension with no tools.
-  return { name: "que" };
+  const ops = catalog.flatMap(({ plugin: { definition } }) =>
+    definition.ops.map((op): ToolRegistration => ({
+      name: op.name,
+      description: `${op.title}: ${op.description}`,
+      // The input side of the op's input (a transform shows what goes in, a default is not required), with no other
+      // fields. pi checks the arguments against it and hands them on as they are, so the door is the one parse.
+      parameters: schemaOf(strictInput(op.input)),
+      execute: (args) =>
+        result(async () =>
+          JSON.stringify(
+            await call({ plugin: definition.plugin, op }, args, user),
+          ),
+        ),
+    })),
+  );
+  const skills = new Map(
+    catalog.flatMap(({ plugin }) =>
+      plugin.skills.map((s) => [s.name, s] as const),
+    ),
+  );
+  const readSkill: ToolRegistration = {
+    name: READ_SKILL,
+    description:
+      "Read Skill: returns the full text of a skill, by its id, as the prompt lists it.",
+    parameters: schemaOf(
+      z.strictObject({
+        id: z.string().describe("Skill id, e.g. odoo-lookup-company"),
+      }),
+    ),
+    execute: (args) =>
+      result(async () => {
+        const { id } = args as { id: string };
+        const skill = skills.get(id);
+        if (!skill) throw new OpFailed(`no skill "${id}"`);
+        return skill.body;
+      }),
+  };
+  // One user's extension: its name is theirs, so installing it again changes no other user's tools.
+  return {
+    name: `que.${user}`,
+    tools: skills.size ? [...ops, readSkill] : ops,
+  };
 }

@@ -2,7 +2,10 @@
  * The engine's Harness: one for the server, one conversation for each thread,
  * on pi's memory storage, so a restart loses both. A thread's conversation is
  * made at its first run, with its agent set then: a change to what the agent
- * is built from takes effect from the next chat.
+ * is built from takes effect from the next chat. The user's catalog is read
+ * at each run: each user has an extension of their own, installed again
+ * with their catalog before each of their runs, and the thread's
+ * conversation selects it.
  *
  * `models` is the pi-ai models collection the Harness reads at each use, with
  * Fireworks and the deployment's models on it from when this module loads.
@@ -17,26 +20,35 @@ import {
   MemoryStorage,
   watchEvents,
   type Conversation,
+  type Extension,
   type SubmissionId,
 } from "@earendil-works/pi-durable";
 import type { AGUIEvent } from "@ag-ui/core";
 import { fireworks } from "@que/chat-model";
 import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
+import type { Catalog } from "../../access/catalog.js";
+import { access } from "../../access/connections.js";
+import { door } from "../../assemble/door.js";
 import * as mounted from "../../mount/mounted.js";
 import { aguiRun, idEntry, messagesOf, userEntry } from "./agui.js";
+import { extension } from "./extension.js";
 
 export const models = createModels();
 models.setProvider(fireworks(mounted.models));
 
+// Every op runs through the door, on the runtime's access.
+const call = door(access.getConnection);
+
+const registry = createRegistry();
 const harness = await Harness.open(
   new MemoryStorage(),
-  { models, registry: createRegistry() },
+  { models, registry },
   context,
 );
 
 const conversations = new Map<string, Promise<Conversation>>();
 
-function conversationOf(thread: string, model: Model) {
+function conversationOf(thread: string, model: Model, que: Extension) {
   const made =
     conversations.get(thread) ??
     harness.createConversation(
@@ -47,6 +59,7 @@ function conversationOf(thread: string, model: Model) {
             provider: providerOf(model),
             modelId: providerModelOf(model),
           },
+          extensions: [que],
         },
       },
       context,
@@ -65,14 +78,18 @@ function conversationOf(thread: string, model: Model) {
  * waits for a run that goes on the conversation already. The run does not
  * depend on `send`: it goes on, and its ids are recorded, when no one reads
  * it. What it gives is the message of a model call that failed, if one did.
+ * Its tools are the ops of `catalog`, each called through the door as `user`.
  */
 export async function run(
   thread: string,
   model: Model,
+  { catalog, user }: { catalog: Catalog; user: string },
   message: { id: string; content: string },
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
-  const conversation = await conversationOf(thread, model);
+  const que = extension(catalog, call, user);
+  registry.install(que);
+  const conversation = await conversationOf(thread, model, que);
   const events = await watchEvents(harness, conversation.id, context);
   try {
     const agui = aguiRun();

@@ -7,7 +7,9 @@
  * - an assistant message's id is made from its run's first submission id and
  *   its place in the run, so it is known while it streams. Once its entry is
  *   written, a `que.message-id` entry records it against that entry: a write
- *   of only kind and data, which the model never sees.
+ *   of only kind and data, which the model never sees;
+ * - a tool message's id is its call's id. A tool call shows whole once its
+ *   assistant message ends, and its result once the tool's run does.
  */
 
 import {
@@ -23,6 +25,7 @@ import type {
 import {
   AssistantEntry,
   defineEntry,
+  ToolResultEntry,
   type AgentEvent,
   type EntryRecord,
 } from "@earendil-works/pi-durable";
@@ -137,6 +140,25 @@ export function aguiRun() {
         ? append(index, "thinking", block.thinking.slice(sent[index] ?? 0))
         : [];
 
+  /** A tool call of the assistant message, whole: it shows once the message ends. */
+  const toolCall = (block: Block): AGUIEvent[] =>
+    block.type === "toolCall"
+      ? [
+          {
+            type: EventType.TOOL_CALL_START,
+            toolCallId: block.id,
+            toolCallName: block.name,
+            parentMessageId: id,
+          },
+          {
+            type: EventType.TOOL_CALL_ARGS,
+            toolCallId: block.id,
+            delta: JSON.stringify(block.arguments),
+          },
+          { type: EventType.TOOL_CALL_END, toolCallId: block.id },
+        ]
+      : [];
+
   const of = (event: AgentEvent): AGUIEvent[] => {
     switch (event.type) {
       case "run_start":
@@ -170,6 +192,7 @@ export function aguiRun() {
           ...(text
             ? [{ type: EventType.TEXT_MESSAGE_END, messageId: id } as const]
             : []),
+          ...(message?.content ?? []).flatMap(toolCall),
         ];
         const failed = message?.stopReason === "error";
         error = failed
@@ -178,6 +201,23 @@ export function aguiRun() {
         // A failed attempt the viewer got no text of is not one of its messages.
         kept = failed && !text ? undefined : id;
         return out;
+      }
+      case "tool_execution_end": {
+        // A tool message's id is its call's id.
+        const result = ToolResultEntry.is(event.entry)
+          ? event.entry.model?.[0]
+          : undefined;
+        return result
+          ? [
+              {
+                type: EventType.TOOL_CALL_RESULT,
+                messageId: event.toolCallId,
+                toolCallId: event.toolCallId,
+                role: "tool",
+                content: textOf(result),
+              },
+            ]
+          : [];
       }
       default:
         return [];
