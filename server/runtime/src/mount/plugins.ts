@@ -13,17 +13,24 @@ import { join } from "node:path";
 import { satisfies } from "semver";
 import { lintRoot, rootOf } from "@mku1tra/basis";
 import {
+  checkedCard,
   locatePlugin,
   plugin,
   readPlugin,
   sayProblem,
+  type Card,
   type Definition,
   type PluginFiles,
   type ReadPlugin,
   type Skill,
 } from "@mku1tra/que-plugin";
 
-export type MountedPlugin = { definition: Definition; skills: Skill[] };
+export type MountedPlugin = {
+  definition: Definition;
+  skills: Skill[];
+  /** The card checkedCard makes of the plugin, checked against the standard. */
+  card: Card;
+};
 
 type Manifest = { peerDependencies?: Record<string, string> };
 
@@ -109,5 +116,9 @@ export async function mountPlugin(dir: string): Promise<MountedPlugin> {
     throw new Error(
       `mount: the root ${root} gives no plugin ${read.definition.plugin.name}: its schema's sources do not read ${dir}`,
     );
-  return { definition: read.definition, skills: read.skills };
+  return {
+    definition: read.definition,
+    skills: read.skills,
+    card: checkedCard(dir, read),
+  };
 }

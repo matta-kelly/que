@@ -22,7 +22,7 @@ import {
   type Loop,
   type Model,
 } from "@mku1tra/que-harness";
-import { sayProblem } from "@mku1tra/que-plugin";
+import { checkedCard, sayProblem } from "@mku1tra/que-plugin";
 import { PROVIDERS } from "./models.js";
 import { deploymentFolder } from "./deployment-folder.js";
 import { checkRange, type MountedPlugin } from "./plugins.js";
@@ -93,7 +93,14 @@ export async function mountDeployment(
       const plugin = read.plugins.find(
         (p) => p.definition!.plugin.name === name,
       )!;
-      return { definition: plugin.definition!, skills: plugin.skills };
+      return {
+        definition: plugin.definition!,
+        skills: plugin.skills,
+        card: checkedCard(plugin.dir, {
+          ...plugin,
+          definition: plugin.definition!,
+        }),
+      };
     }),
     agents,
     loops,

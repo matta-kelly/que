@@ -145,8 +145,8 @@ const backendAlone: Rule = {
   why: "The backend imports nothing from @que/runtime, @que/chat-model or @que/evals: the runtime stands on it, never the other way.",
 };
 const runtimeAlone: Rule = {
-  path: /^@que\/(?!chat-model$|credentials$|files$|identity$|pi-storage$|threads$|users$)|^(?:\.\.\/)+(?:plugin|harness|chat-model|backend|evals)\//,
-  why: "@que/runtime imports, of que's packages, only @mku1tra/que-plugin, @mku1tra/que-harness, @que/chat-model and the backend (@que/credentials, @que/files, @que/identity, @que/pi-storage, @que/threads, @que/users), each by its name: it builds on them, and no package imports it.",
+  path: /^@que\/(?!chat-model$|control-plane$|credentials$|files$|identity$|pi-storage$|threads$|users$)|^(?:\.\.\/)+(?:plugin|harness|chat-model|backend|evals)\//,
+  why: "@que/runtime imports, of que's packages, only @mku1tra/que-plugin, @mku1tra/que-harness, @que/chat-model and the backend (@que/control-plane, @que/credentials, @que/files, @que/identity, @que/pi-storage, @que/threads, @que/users), each by its name: it builds on them, and no package imports it.",
 };
 
 // A deployment's files are read by one function, readDeployment in @mku1tra/que-harness: mount imports no file and

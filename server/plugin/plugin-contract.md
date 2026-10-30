@@ -22,7 +22,7 @@ Agent Plugins 1.0 ([agent-plugins.org](https://agent-plugins.org/specification))
 
 - what it is: a folder any harness can read
 	- `plugin.json`, the card: `name` (required), and `version`, `description`, `author` and the like
-		- a bridge: que writes it from the plugin's nodes at publish (`cardOf` in `@mku1tra/que-plugin`, run by `just card`), for a harness that runs no code. It is never committed, and nothing of que's reads it back: mount, the evals and the lint read the code, whatever a `plugin.json` in the folder holds
+		- a bridge: que writes it from the plugin's nodes at publish (`cardOf` in `@mku1tra/que-plugin`, run by `just card`), for a harness that runs no code. It is never committed, and que reads it back only in memory, from the cards mount makes for the control plane: mount, the evals and the lint read the code, whatever a `plugin.json` in the folder holds
 		- `name` and `description` from the plugin node, `version` from the plugin's `package.json`
 		- que's part, under `extensions.io.github.matta-kelly.que`: the plugin's nodes in the plugin schema, by their real names and fields, each live value as data: `format` (6), `title`, `kind` (`connector` when the plugin leaves it out), `credential` and each op's `input` as JSON Schema, `ops` (with each op's `role` and `uses`), `skills` (a connector's, each by name with its `uses`; a domain's are not), `roles`, `usesOps` (made from its ops' and skills' `uses`), `usesSkills`, `capabilities`, `cases`. A function is left out. A skill's folder is the standard's; que's part says which ops each of a connector's skills uses
 		- checked against the standard's own schema when it is written, kept in que (`plugin/standards/agent-plugins-1.0.0/`), never fetched
@@ -159,11 +159,11 @@ basis leaves two invariants to the schema that states a relation or writes a bri
 		- an op's plugin, when the plugin lists roles: the plugin's `ops` gives it, and so does its role, which one plugin holds
 			- rule: `plugin/op-role`
 	- gap: no rule fails a link that states the reverse of a link already there. The types hold this as they are, and review holds a change to them
-- nothing reads what que writes to the card's shape: the card, `plugin.json`, is a bridge, written at publish, never committed, and read by nothing of que's
+- only the control plane reads a card: the card, `plugin.json`, is a bridge, written at publish, never committed; mount makes one for each plugin, in memory, and the control plane reads those, and nothing else of que's reads a card
 	- the plugin schema names one bridge, `SkillFrontmatter`: the shape of a `SKILL.md`, which the plugin's author writes and que reads. que writes nothing to it, so this invariant does not reach it. The card is the one shape que writes, and it is no zod object, so it is not in `bridges`
-	- nothing reads it
-		- construction: `writeCard` (`just card`) is the one user of the card's path (`pluginFiles`). `readPlugin`, mount, the evals and the source read the plugin's code and skills. A plugin whose `plugin.json` holds anything checks, mounts and gives the same pieces (the tests of `just check-plugin`, mount and the source)
-		- gap: no rule fails new code that reads the card. Review holds it
+	- one reader, in memory
+		- construction: `writeCard` (`just card`) is the one user of the card's path (`pluginFiles`). `checkedCard` makes each mounted plugin's card in memory, and `access/control.ts` gives the control plane those cards; `readPlugin`, mount, the evals and the source read the plugin's code and skills, never a `plugin.json` in the folder. A plugin whose `plugin.json` holds anything checks, mounts and gives the same pieces (the tests of `just check-plugin`, mount and the source)
+		- gap: no rule fails new code that reads a card, or a `plugin.json`, beyond the control plane. Review holds it
 	- written at publish
 		- construction: `just card` is the one writer
 		- no rule yet: no publish of a plugin runs it, and que does not see a publish

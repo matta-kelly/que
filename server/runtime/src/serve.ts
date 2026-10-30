@@ -5,6 +5,7 @@
  */
 
 import { Hono } from "hono";
+import { admin } from "./run/admin.js";
 import { app as api } from "./run/api.js";
 import { threads } from "./run/threads.js";
 
@@ -14,4 +15,5 @@ export const app = new Hono();
 app.get("/ok", (c) => c.json({ ok: true }));
 
 app.route("/threads", threads);
+app.route("/", admin);
 app.route("/", api);
