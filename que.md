@@ -118,7 +118,7 @@ agent ─────────────────▶  assemble  turn its
 			- two variants, named in `loading`: `on-demand`, where the model opens a plugin, then loads an operation or reads a skill; and `eager`, with every operation in reach from the first message
 		- [[loop-policy|loop policy]]. A loop config is a file in `loops/` with a name and settings. A deployment names several in `loops`, and an agent config names one in `loop`
 			- every agent is LangChain `createAgent`, and each setting that acts adds one middleware to it
-			- a big tool result goes to a file store, and the model reads it back with `read_file`
+			- a big tool result goes to a file store, and the model reads it back with `read_file`. On pi, to a file in the conversation's workspace, and the model reads it back with `read_result`, in windows of bytes
 			- a summary of a long chat replaces the old part of the thread
 			- an agent names its loop. A setting a loop leaves out takes que's value for it
 		- interception: hooks on the loop. Not built
@@ -126,7 +126,7 @@ agent ─────────────────▶  assemble  turn its
 	- where the agent runs. Each one is a request to the backend
 		- principal: who it acts as. Per user
 		- state. que's thread record, and the pi conversation it is on
-		- workspace. None
+		- workspace. On pi, a folder of the conversation's own in the deployment's folder, `.que/conversations/<id>`, that holds its big tool results. A fork keeps its parent's
 		- trigger and lifetime. A chat
 - **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/runtime`. Four layers, each one a folder in `server/runtime/src/`
 	- boundary: what crosses into and out of the harness
