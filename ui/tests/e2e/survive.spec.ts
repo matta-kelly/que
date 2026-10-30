@@ -2,9 +2,10 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { newChat, openApp, openChatWith } from "./helpers";
 
 // A run of the chat outlives the page that started it. A chat opened while its
-// reply goes, after a reload or a switch to another chat and back, shows its
-// messages and the reply so far, joins the run on que's server
-// (GET /threads/:id/join), and gets the rest of the reply live, once. Each run
+// reply goes after a reload shows its messages and the reply so far, joins the
+// run on que's server (GET /threads/:id/join), and gets the rest of the reply
+// live, once. After a switch to another chat and back, the page still holds
+// the chat and the stream of its run, and the reply goes on over it. Each run
 // is a call to the real model, as each @live test's is.
 
 const LONG =
@@ -121,7 +122,7 @@ test("survive: a reload while a reply goes shows the chat and the reply so far, 
   expect(requests.joins()).toEqual([`/api/threads/${thread}/join`]);
 });
 
-test("survive: a switch to a new chat and back while a reply with a tool call goes loads the chat and joins its run in one step: the tool call shows, not waiting on the client, and the reply goes on to the whole of it @live", async ({
+test("survive: a switch to a new chat and back while a reply with a tool call goes shows the chat, and the reply goes on to the whole of it over its one run: the tool call shows, not waiting on the client @live", async ({
   page,
 }) => {
   const requests = watchRequests(page);
@@ -140,15 +141,10 @@ test("survive: a switch to a new chat and back while a reply with a tool call go
   // The tool call is in the chat. A chat that held it as waiting on the client would be idle, with Send and not
   // Stop, and its reply would not grow: joined() sees the run go on.
   await expect(steps(page).first()).toBeVisible();
-  await expect
-    .poll(() => requests.joins(), {
-      message: `the page did not join the run: ${requests.said()}`,
-    })
-    .toEqual([`/api/threads/${thread}/join`]);
   await joined(page);
   await wholeOnce(page);
   await expect(steps(page).first()).toBeVisible();
-  // The switch sent no run of its own, and joined once.
+  // The page kept the chat's runtime and the stream of its run: the switch sent no run of its own, and no join.
   expect(requests.runs()).toEqual([`/api/threads/${thread}/runs`]);
-  expect(requests.joins()).toEqual([`/api/threads/${thread}/join`]);
+  expect(requests.joins()).toEqual([]);
 });
