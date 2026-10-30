@@ -1,8 +1,8 @@
 // Node runs in this container, so node_modules never lands in the repo folder:
 // the folder sits in a notes vault whose indexer reads every file.
 // Opens the whole repo: server/ and ui/ are two apps, each with its own node_modules.
-// This file is VS Code's. scripts/container.sh, which `just` calls, makes the same container
-// with podman alone: a change here is made there too.
+// This is the one description of que's container: VS Code and scripts/container.sh, which `just`
+// calls, both make it from here through the dev container CLI, so a change is made once.
 {
   "name": "que",
   "build": { "dockerfile": "Dockerfile" },
@@ -15,17 +15,19 @@
   // keep-id: map your host user onto the image's `node` user (uid 1000), so files
   // written into the repo from inside stay owned by you.
   // network=host: the browser reaches the UI (3000) and que's server (2024) on
-  // localhost, without VS Code's port forwarding.
-  "runArgs": ["--userns=keep-id:uid=1000,gid=1000", "--network=host"],
+  // localhost, without VS Code's port forwarding. --init stops the container at once
+  // on `podman stop`, which `sleep` as the first process would not. The CPU budget
+  // bounds this checkout's container: 3 CPUs, and its shares when the host is contended.
+  "runArgs": ["--userns=keep-id:uid=1000,gid=1000", "--security-opt", "label=disable", "--network=host", "--init", "--cpus=3", "--cpu-shares=256"],
   "remoteUser": "node",
   "updateRemoteUserUID": false,
 
   "mounts": [
     // Packages live in a podman volume, not the repo folder. One set per checkout
     // (devcontainerId comes from the folder), so a second checkout of que, such as
-    // a deployment's pinned one, never installs over this one's. scripts/container.sh
-    // names them by a hash of the folder in its place. `just` uses VS Code's container
-    // while it sees the folder, and removes it when it makes its own.
+    // a deployment's pinned one, never installs over this one's. The CLI names them,
+    // so `just` and VS Code mount the same set. `just` uses VS Code's container while
+    // it sees the folder, and makes one when it cannot.
     "source=que-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/server/node_modules,type=volume",
     "source=que-ui-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
     // The user's cache: Playwright's Chromium and the check's pinned tools, kept
