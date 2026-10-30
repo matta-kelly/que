@@ -248,3 +248,99 @@ test("a store made after the first is closed, on the same database and data dire
   );
   assert.deepEqual(Buffer.from(read.bytes), bytes);
 });
+
+test("remove by an id that names a path removes nothing, and the file's own thread still has it", async (t) => {
+  // given: thread U holds a CSV
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  const bytes = Buffer.from("a,b\n1,2\n");
+  const file = await store.put(OTHER, {
+    name: "../order.csv",
+    mimeType: "text/csv",
+    bytes,
+  });
+
+  // when: thread T removes the file by a path in the id that points into U's folder
+  const removed = await store.remove(THREAD, `../${OTHER}/${file.id}`);
+
+  // then: T's remove says it removed nothing
+  assert.equal(removed, false);
+
+  // and: U's file still gives its name, mime and bytes
+  await assert.doesNotReject(
+    store.get(OTHER, file.id),
+    "T's remove took U's file",
+  );
+  const read = await store.get(OTHER, file.id);
+  assert.ok(read, "U's file is gone after T's remove");
+  assert.deepEqual(
+    { name: read.name, mimeType: read.mimeType, bytes: Buffer.from(read.bytes) },
+    { name: "../order.csv", mimeType: "text/csv", bytes },
+  );
+
+  // and: U still lists it
+  assert.deepEqual(
+    (await store.list(OTHER)).map((f) => ({ id: f.id, name: f.name })),
+    [{ id: file.id, name: "../order.csv" }],
+  );
+});
+
+test("remove by a thread that names a path removes nothing, and the file's own thread still has it", async (t) => {
+  // given: thread U holds a CSV
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  const bytes = Buffer.from("a,b\n1,2\n");
+  const file = await store.put(OTHER, {
+    name: "../order.csv",
+    mimeType: "text/csv",
+    bytes,
+  });
+
+  // when: thread T removes by a thread string that climbs into U's folder
+  // the call may reject: either way, it removes nothing
+  const removed = await store
+    .remove(`../files/${OTHER}`, file.id)
+    .catch(() => false);
+
+  // then: the remove says it removed nothing
+  assert.equal(removed, false);
+
+  // and: U's file still gives its name, mime and bytes
+  await assert.doesNotReject(
+    store.get(OTHER, file.id),
+    "T's remove took U's file",
+  );
+  const read = await store.get(OTHER, file.id);
+  assert.ok(read, "U's file is gone after T's remove");
+  assert.deepEqual(
+    { name: read.name, mimeType: read.mimeType, bytes: Buffer.from(read.bytes) },
+    { name: "../order.csv", mimeType: "text/csv", bytes },
+  );
+});
+
+test("a put for a thread string that names a path writes nothing outside the files folder", async (t) => {
+  // given: thread T holds a file, so the files folder is there
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  await store.put(THREAD, {
+    name: "kept.csv",
+    mimeType: "text/csv",
+    bytes: Buffer.from("1\n"),
+  });
+
+  // when: a file is put for the thread string ../escaped
+  // the call may reject: either way, it writes nothing outside the files folder
+  await store
+    .put("../escaped", {
+      name: "escaped.csv",
+      mimeType: "text/csv",
+      bytes: Buffer.from("2\n"),
+    })
+    .catch(() => undefined);
+
+  // then: the data directory holds the files folder and nothing beside it
+  assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+});
