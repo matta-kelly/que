@@ -79,15 +79,26 @@ const make = async (model?: string) => {
   return ((await made.json()) as { id: string }).id;
 };
 
-/** One run on the thread; the model and the reasoning_effort of each request it sent (null: none). */
+type Message = { id: string; role: string; content?: unknown };
+
+/**
+ * One run on the thread, as a client sends it: the thread's messages, and a new one of the user's, so a thread's
+ * next run goes on its conversation. The model, the reasoning_effort (null: none) and the count of user messages of
+ * each request it sent.
+ */
 const runOn = async (thread: string) => {
   const from = sent.length;
+  const held = (
+    (await (await app.request(`/threads/${thread}`)).json()) as {
+      messages: Message[];
+    }
+  ).messages;
   const ran = await app.request(
     `/threads/${thread}/runs`,
     json("POST", {
       threadId: thread,
       runId: randomUUID(),
-      messages: [{ id: randomUUID(), role: "user", content: "Hi" }],
+      messages: [...held, { id: randomUUID(), role: "user", content: "Hi" }],
       tools: [],
       context: [],
       state: {},
@@ -101,6 +112,9 @@ const runOn = async (thread: string) => {
     reasoning_effort: Object.hasOwn(body, "reasoning_effort")
       ? body.reasoning_effort
       : null,
+    users: (body.messages as { role: string }[]).filter(
+      (m) => m.role === "user",
+    ).length,
   }));
 };
 
@@ -122,11 +136,37 @@ test("given a thread on a model with an effort, when it runs on pi, then Firewor
   assert.deepEqual(
     { ...first, pickedKeen: await runOn(plain) },
     {
-      keen: [{ model: "keen-model", reasoning_effort: "high" }],
-      calm: [{ model: "calm-model", reasoning_effort: "low" }],
+      keen: [{ model: "keen-model", reasoning_effort: "high", users: 1 }],
+      calm: [{ model: "calm-model", reasoning_effort: "low", users: 1 }],
       // The agent's own model, which has no effort.
-      plain: [{ model: "small-model", reasoning_effort: null }],
-      pickedKeen: [{ model: "keen-model", reasoning_effort: "high" }],
+      plain: [{ model: "small-model", reasoning_effort: null, users: 1 }],
+      // On the same conversation: its second user message.
+      pickedKeen: [{ model: "keen-model", reasoning_effort: "high", users: 2 }],
+    },
+  );
+});
+
+test("given a thread on a model with an effort, when its model is picked to one with another effort, then the run sends that effort; and picked to one with none, it sends none", async () => {
+  const thread = await make("keen");
+  const pick = async (model: string) => {
+    const picked = await app.request(
+      `/threads/${thread}`,
+      json("PATCH", { model }),
+    );
+    assert.equal(picked.status, 200, await picked.clone().text());
+    return runOn(thread);
+  };
+  assert.deepEqual(
+    {
+      keen: await runOn(thread),
+      calm: await pick("calm"),
+      small: await pick("small"),
+    },
+    {
+      keen: [{ model: "keen-model", reasoning_effort: "high", users: 1 }],
+      // Each on the same conversation.
+      calm: [{ model: "calm-model", reasoning_effort: "low", users: 2 }],
+      small: [{ model: "small-model", reasoning_effort: null, users: 3 }],
     },
   );
 });

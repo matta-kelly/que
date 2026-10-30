@@ -151,3 +151,42 @@ test("a config's effort is sent to Fireworks as reasoning_effort, and a config w
     ],
   );
 });
+
+test("an effort that is not a pi-ai level is sent to Fireworks as its own word", async () => {
+  // The provider is made with a key, and calls the global fetch.
+  process.env.FIREWORKS_API_KEY ??= "none";
+  // "off" is pi-ai's word for no level, not a level a call passes; "none" is not pi-ai's at all.
+  const configs = [
+    { ...small, name: "none", id: "fireworks:none-model", effort: "none" },
+    { ...small, name: "off", id: "fireworks:off-model", effort: "off" },
+  ];
+  const models = createModels();
+  models.setProvider(fireworks(configs));
+  const { fetch, sent } = answering();
+  const send = globalThis.fetch;
+  globalThis.fetch = fetch;
+  try {
+    for (const config of configs)
+      await models.completeSimple(
+        piModel(config),
+        {
+          messages: [
+            { role: "user", content: "Hello.", timestamp: Date.now() },
+          ],
+        },
+        { reasoning: levelOf(config) },
+      );
+  } finally {
+    globalThis.fetch = send;
+  }
+  assert.deepEqual(
+    sent.map((body) => ({
+      model: body.model,
+      reasoning_effort: body.reasoning_effort,
+    })),
+    [
+      { model: "none-model", reasoning_effort: "none" },
+      { model: "off-model", reasoning_effort: "off" },
+    ],
+  );
+});
