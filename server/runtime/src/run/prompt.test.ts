@@ -27,6 +27,8 @@ import {
   getCurrentSystemPrompt,
   getCurrentTools,
 } from "@earendil-works/pi-ai/utils/transcript";
+import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
+import { Harness, type ConversationId } from "@earendil-works/pi-durable";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
 
 const db = await PGlite.create();
@@ -40,6 +42,13 @@ process.env.QUE_DEPLOYMENT = deploymentRoot(
 );
 delete process.env.DEV_USER_EMAIL;
 delete process.env.DEV_USER_NAME;
+
+// The server's Harness, as the server opens it: which conversation a request is on.
+let harness!: Harness;
+const open = Harness.open.bind(Harness);
+Harness.open = (async (...args: Parameters<typeof open>) =>
+  (harness = await open(...args))) as typeof Harness.open;
+
 const { app } = await import("../serve.js");
 const { models } = await import("../runner/pi/harness.js");
 const mounted = await import("../mount/mounted.js");
@@ -96,15 +105,34 @@ const thread = async (agent: string) => {
   return ((await made.json()) as { id: string }).id;
 };
 
+/** The messages GET /threads/:id gives: the chat as the client holds it. */
+const held = async (threadId: string) =>
+  (
+    (await (await fetch(`${base}/threads/${threadId}`)).json()) as {
+      messages?: unknown[];
+    }
+  ).messages ?? [];
+
+/** The conversations whose tasks are live now: during a request, the one it is on. */
+const liveConversations = async () =>
+  (await harness.inspect(context)).tasks.map((t) => t.record.conversationId);
+
+/** The conversations of the requests of each `prompts` run, in order. */
+let on: ConversationId[][] = [];
+
 /**
- * One message on the thread, which the model answers at once: the system prompt of each request pi-ai sent the model
- * in the run, as the request's system messages give it, replayed.
+ * One message on the thread after the chat it holds, which the model answers at once: the system prompt of each
+ * request pi-ai sent the model in the run, as the request's system messages give it, replayed. The conversations each
+ * request is on go to `on`.
  */
 async function prompts(threadId: string, content: string) {
   const sent: string[] = [];
+  const conversations: ConversationId[] = [];
+  on.push(conversations);
   faux.setResponses([
-    (request) => {
+    async (request) => {
       sent.push(getCurrentSystemPrompt(request.messages));
+      conversations.push(...(await liveConversations()));
       return fauxAssistantMessage(fauxText("Done."));
     },
   ]);
@@ -113,7 +141,10 @@ async function prompts(threadId: string, content: string) {
     json("POST", {
       threadId,
       runId: randomUUID(),
-      messages: [{ id: randomUUID(), role: "user", content }],
+      messages: [
+        ...(await held(threadId)),
+        { id: randomUUID(), role: "user", content },
+      ],
       tools: [],
       context: [],
       state: {},
@@ -170,8 +201,13 @@ test("given an eager agent, when a user's run on it sends its first request, the
   const bo = keeperPrompt({ name: "Bo Berg", email: "bo@example.com" });
 
   as("ana@example.com", "Ana Lima");
+  on = [];
   const [anaFirst] = await prompts(anas, "How many pens?");
+  // A follow-up after the answer, with the chat the thread holds: on the same conversation.
   const [anaNext] = await prompts(anas, "And ink?");
+  const [first, next] = on;
+  assert.equal(first?.length, 1, `the first run's request was on ${first}`);
+  assert.deepEqual(next, first, "the next run is on another conversation");
   as("bo@example.com", "Bo Berg");
   const [boFirst] = await prompts(bos, "How many nibs?");
 

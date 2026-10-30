@@ -170,7 +170,8 @@ async function turn(
   { user = "ana", of = catalog }: { user?: string; of?: Catalog } = {},
 ) {
   doorCalls = [];
-  const que = extension(of, call, user);
+  // The extension takes its name where it is installed: here, one Harness per turn.
+  const que = { ...extension(of, call, user), name: "que" };
   const registry = createRegistry();
   registry.install(que);
   const harness = await Harness.open(
