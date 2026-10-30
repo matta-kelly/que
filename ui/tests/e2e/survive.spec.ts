@@ -152,10 +152,20 @@ test("survive: a reload while a reply with a tool call goes shows the chat and t
   await input.press("Enter");
   const sent = ((await next).postDataJSON() as { messages: Message[] })
     .messages;
+  // The UI sends a turn as its first record and its tool results (S6's one reply per turn), so the run's messages
+  // before the new one are records GET holds, in GET's order, not each of them.
+  const before = sent.slice(0, -1).map((m) => `${m.role} ${m.id}`);
+  const holds = held.map((m) => `${m.role} ${m.id}`);
+  const inOrder = (subset: string[], all: string[]) => {
+    let at = 0;
+    return subset.every((one) => (at = all.indexOf(one, at) + 1) > 0);
+  };
   expect(
-    sent.slice(0, -1).map((m) => [m.role, m.id]),
-    "the run's messages before the new one are the chat que's server holds, under its ids",
-  ).toEqual(held.map((m) => [m.role, m.id]));
+    { inOrder: inOrder(before, holds), sent: before },
+    "the run's messages before the new one are records que's server holds, under its ids, in its order",
+  ).toEqual({ inOrder: true, sent: before });
+  // The joined turn is among them: the user's message and the reply's first record, under GET's ids.
+  expect(before).toEqual(expect.arrayContaining(holds.slice(0, 2)));
   await expect(replies(page)).toHaveCount(2, { timeout: 60_000 });
   await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
   await expect(replies(page).last()).toContainText("after");
@@ -180,7 +190,10 @@ test("survive: a reload while a reply with a tool call goes shows the chat and t
   await openChatWith(page, asked);
   await expect(replies(page)).toHaveCount(2);
   await expect(page.locator('[data-role="user"]')).toHaveCount(2);
-  await expect(steps(page).first()).toBeVisible();
+  // The joined reply is the first one now: its tool step is still there.
+  await expect(
+    replies(page).first().locator('[data-slot="marker"]').first(),
+  ).toBeVisible();
   await expect
     .poll(() => onceEach(replies(page).first()))
     .toEqual([1, 1, 1, 1]);
