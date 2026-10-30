@@ -48,6 +48,9 @@ export type Queryable = {
 /**
  * The table, made when it is not there. The id is text, so an id from a path
  * that is not one finds no file, and is not an error.
+ * One statement, so Postgres runs it in one transaction: the lock is taken
+ * before the CREATE. The lock makes two que processes that start together
+ * make the table one after the other, so the second finds it done.
  */
 export const SETUP = `
   DO $$
