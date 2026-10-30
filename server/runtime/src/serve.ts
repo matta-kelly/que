@@ -1,7 +1,6 @@
 /**
  * que's server: who is asking (@que/identity), `/ok`, the thread routes
- * and `/que/*` (run/api.ts). The UI and the evals do not use it yet: they
- * use LangGraph on port 2024.
+ * and `/que/*` (run/api.ts). The UI talks to it, on port 2024 (listen.ts).
  * Importing this module does not listen on a port: listen.ts does.
  */
 

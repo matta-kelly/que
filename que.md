@@ -125,7 +125,7 @@ agent ─────────────────▶  assemble  turn its
 		- delegation: another agent, called as a tool. Not built
 	- where the agent runs. Each one is a request to the backend
 		- principal: who it acts as. Per user
-		- state. The LangGraph thread
+		- state. que's thread record, and the pi conversation it is on
 		- workspace. None
 		- trigger and lifetime. A chat
 - **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/runtime`. Four layers, each one a folder in `server/runtime/src/`
@@ -136,7 +136,7 @@ agent ─────────────────▶  assemble  turn its
 			- the backend: users, credentials, identity and thread records (`@que/users`, `@que/credentials`, `@que/identity`, `@que/threads`)
 			- models (`@que/chat-model`)
 		- out
-			- the agent, to the LangGraph server
+			- the agent's runs, to que's server, on pi
 			- que's API, to the UI
 			- traces, to Langfuse
 			- a plugin's card (`plugin.json`), at its publish: `card/` writes it from the plugin's nodes, and nothing of que's reads it
@@ -152,7 +152,8 @@ agent ─────────────────▶  assemble  turn its
 - **Backend**: what an agent runs on. Part of que. One exists
 	- what it supplies
 		- identity, users and credentials: on Postgres
-		- state and the trigger: the LangGraph server
+		- state: the thread records and pi's conversations, on Postgres, with each thread's conversation in its row
+		- the trigger: que's server, `POST /threads/:id/runs`
 		- workspace: none
 	- its settings, in a `.env`
 		- user: `DEV_USER_EMAIL`, `DEV_USER_NAME`, and `DEV_USER_INSTRUCTIONS`, a file with the user's own instructions. With none named, they are on the user's account

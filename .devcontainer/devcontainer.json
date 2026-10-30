@@ -14,7 +14,7 @@
 
   // keep-id: map your host user onto the image's `node` user (uid 1000), so files
   // written into the repo from inside stay owned by you.
-  // network=host: the browser reaches the UI (3000) and LangGraph server (2024) on
+  // network=host: the browser reaches the UI (3000) and que's server (2024) on
   // localhost, without VS Code's port forwarding.
   "runArgs": ["--userns=keep-id:uid=1000,gid=1000", "--network=host"],
   "remoteUser": "node",

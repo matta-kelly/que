@@ -3,7 +3,7 @@ type: component
 description: "que's chat UI: what it is built on, what it shows today, and the outside components that fit it. Its Work lists the designs and specs in flight on the UI; read before adding to or changing the chat."
 status: running
 ---
-The chat UI of [[que]]: a Next.js app in `ui/`, in front of the LangGraph server.
+The chat UI of [[que]]: a Next.js app in `ui/`, in front of que's server.
 - [[#What it is]] the stack, and the rule for where behavior and looks come from
 - [[#What it shows]] the parts of the chat today
 - [[#Sources]] outside components that fit, by what they are for
@@ -23,29 +23,25 @@ The chat UI of [[que]]: a Next.js app in `ui/`, in front of the LangGraph server
 - Next.js, with shadcn components (`ui/components/ui/`) and [assistant-ui](https://www.assistant-ui.com/docs) for the chat
 	- the thread is a copy of assistant-ui's `Thread`, edited in the repo (`ui/components/assistant-ui/elements/`). An upgrade is a diff by hand
 	- que's own chat features are in `ui/components/chat/`, a folder each; lint keeps them out of `assistant-ui/`
-	- the runtime is assistant-ui's LangGraph adapter. It speaks to the LangGraph server through the proxy at `/api`
+	- the runtime is assistant-ui's AG-UI adapter (`useAgUiRuntime`), inside its remote thread list. A run is `POST /threads/:id/runs` on que's server, through the proxy at `/api`, and its answer streams back as AG-UI events. A turn is one reply: its model calls and tool calls are joined in the order they came
 - Where a thing comes from
-	- behavior from LangGraph: what a run does when it is queued, stopped or cut off is a setting of the run on the server
+	- behavior from que's server: a run goes on on the server when its stream ends. The UI has no way to stop it there, or to pick it up again
 	- looks from assistant-ui: its elements, in their standalone mode. que hands them its own values
 		- an element is copied into the repo, and edited when que needs it to say a thing the library's does not. The file says at its top what was changed. `surfaces.tsx` and `utils/range.ts` are the library's own, shared by its elements, and are not edited
 		- their other mode reads usage and model from a runtime made for another backend. que's runtime does not fill those
-	- data from que's server: `GET /que/deployment` (agents, models, windows), and the stamp on each reply (`response_metadata.que.model`)
-- State the browser keeps is kept with the thread, in its metadata: title, archived, and the pick of agent and model
-- A run outlives its connection: it goes on when its stream is cut, by a reload, a look at another chat, or a network that drops. The chat picks it up again when it is opened, and stop is a call that cancels the run. The id of the run a thread is on is kept in the browser's session storage
+	- data from que's server: `GET /que/deployment` (agents, models, prices), and each thread with its messages (`GET /threads/:id`). A message keeps the id que's server gave it, and an edit or a refresh sends those ids back: the server goes on from them
+- que's server keeps a thread with its owner and its messages, and no title, archived mark or pick. A pick of agent and model is kept in the browser's memory, and no run is sent it
+- A stop ends the stream in the browser. The run goes on on que's server, and its answer is in the thread when the chat is opened again
 
 ## What it shows
 
-- sidebar: the areas of the deployment, and the chats (rename, archive, delete, select several)
+- sidebar: the areas of the deployment, and the user's chats, the newest first. A chat has no title of its own: rename, archive and delete fail, as que's server has no route for them
 - chat
 	- a reply, with its thinking and tool calls folded into steps
-	- composer: the agent and model pickers, the meter, send and stop
+	- composer: the agent and model pickers, send and stop
 		- each model in the picker has its price beside it
-		- the meter is a ring that fills as the chat grows, with what the chat cost beside it. Its panel has the parts of the chat's last model call, the window, the model and the cost. It warns past the share the agent summarizes at, or when the window is nearly full
-	- under a reply: copy, refresh, and the model, the tokens and the cost of the turn
-	- a cost is an estimate, counted in the browser from the usage on each reply and the price of its model
+	- under a reply: copy and refresh
 	- a message sent while a run is going: it waits above the composer, can be taken back, and is sent when that run ends. The waiting messages are kept in the browser
-	- a stopped reply: a `Stopped` mark above the composer, with `Continue`, which writes the reply again from the last saved step
-	- a chat that joins its run after a reload: a `Reconnecting` line, then the rest of the reply
 	- a failed run: a box with the error text, under the reply
 - settings: account, connections (a credential per plugin), users
 - command palette

@@ -8,7 +8,7 @@ root := justfile_directory()
 default:
     @just --list
 
-# Start the database, the dev container, the agent server and the UI, from one deployment folder.
+# Start the database, the dev container, que's server and the UI, from one deployment folder.
 # Nothing in que picks the deployment: a deployment starts que this way from its own `just start`.
 up deployment:
     #!/usr/bin/env bash
@@ -23,9 +23,9 @@ up deployment:
     [ -z "$others" ] || { echo "Another que is serving: $others. Run 'just down' in the deployment that started it first." >&2; exit 1; }
     c=$(just _container)
     running() { [ -n "$c" ] && podman exec "$c" pgrep -f "$1" >/dev/null 2>&1; }
-    # A server on localhost may hold either address: Node's langgraphjs binds ::1.
+    # A server on localhost may hold either address: Node binds ::1.
     listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null || (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null; }
-    for server in "langgraphjs dev:2024" "next dev:3000"; do
+    for server in "src/listen.ts:2024" "next dev:3000"; do
         if ! running "${server%:*}" && listening "${server##*:}"; then
             echo "Port ${server##*:} is taken, and not by a que. Stop what holds it first." >&2
             exit 1
@@ -33,8 +33,8 @@ up deployment:
     done
     ./scripts/db.sh "$dep/.env"
     c=$(./scripts/container.sh "$dep")
-    if running "langgraphjs dev"; then
-        echo "The agent server is already running. Run 'just down' first to start it from another deployment."
+    if running "src/listen.ts"; then
+        echo "que's server is already running. Run 'just down' first to start it from another deployment."
     else
         # The commit que runs from, for the trace of a run. Code that is not committed does not carry the name of a commit.
         commit=$(git -C "{{root}}" rev-parse HEAD 2>/dev/null || true)
@@ -52,7 +52,7 @@ up deployment:
     curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
     echo "que is up at http://localhost:3000"
 
-# Stop everything (the dev container, which stops the server and UI, and the database, unless another que runs)
+# Stop everything (the dev container, which stops que's server and the UI, and the database, unless another que runs)
 down:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -67,7 +67,7 @@ down:
     podman stop que-postgres >/dev/null 2>&1 || true
     echo "que is down"
 
-# Follow the agent server and UI logs
+# Follow que's server and UI logs
 logs: _require-up
     @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log

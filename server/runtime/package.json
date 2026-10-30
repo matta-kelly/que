@@ -8,8 +8,7 @@
   },
   "scripts": {
     "start": "tsx src/run/cli.ts",
-    "server": "langgraphjs dev --port 2024 --no-browser",
-    "serve": "tsx src/listen.ts"
+    "server": "tsx src/listen.ts"
   },
   "dependencies": {
     "@ag-ui/core": "1.0.3",

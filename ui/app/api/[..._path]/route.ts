@@ -30,7 +30,7 @@ async function handleRequest(req: NextRequest, method: string) {
   if (!isAllowedRequestContext(req)) return crossOriginResponse();
 
   try {
-    const apiUrl = agentServer(process.env.LANGGRAPH_API_URL);
+    const apiUrl = agentServer(process.env.QUE_URL);
 
     const path = req.nextUrl.pathname.replace(/^\/?api\//, "");
     const searchParams = new URLSearchParams(req.nextUrl.search);
@@ -41,9 +41,6 @@ async function handleRequest(req: NextRequest, method: string) {
       : "";
 
     const headers = new Headers();
-    const apiKey = process.env.LANGCHAIN_API_KEY?.trim();
-    if (apiKey) headers.set("x-api-key", apiKey);
-
     const accept = req.headers.get("accept");
     if (accept) headers.set("accept", accept);
 
@@ -54,8 +51,8 @@ async function handleRequest(req: NextRequest, method: string) {
     const lastEventId = req.headers.get("last-event-id");
     if (lastEventId) headers.set("last-event-id", lastEventId);
 
-    // Who's asking is decided by the LangGraph server's auth hook. Pass along
-    // Cloudflare Access's signed identity token for when that's wired in.
+    // Who's asking is decided by que's server. Pass along Cloudflare Access's
+    // signed identity token for when that's wired in.
     const accessToken = req.headers.get("cf-access-jwt-assertion");
     if (accessToken) headers.set("cf-access-jwt-assertion", accessToken);
 
@@ -79,7 +76,7 @@ async function handleRequest(req: NextRequest, method: string) {
     ) {
       await res.body?.cancel().catch(() => undefined);
       return NextResponse.json(
-        { error: "LangGraph returned an unexpected redirect." },
+        { error: "que's server returned an unexpected redirect." },
         { status: 502 },
       );
     }

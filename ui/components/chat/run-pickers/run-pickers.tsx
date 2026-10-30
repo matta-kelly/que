@@ -2,7 +2,7 @@
 
 import { useAuiState } from "@assistant-ui/react";
 import { ChevronDownIcon } from "lucide-react";
-import { useMemo, type FC } from "react";
+import type { FC } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,8 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useChatPick } from "@/components/chat/run-pickers/use-chat-pick";
-import { createClient } from "@/components/runtime/langgraph-client";
-import { priced } from "@/components/chat/usage/cost";
+import { priced } from "@/components/chat/run-pickers/price";
 import { agentPick, type RunPick } from "@/components/chat/run-pickers/pick";
 import { changePick } from "@/components/chat/run-pickers/pick-store";
 
@@ -24,17 +23,11 @@ import { changePick } from "@/components/chat/run-pickers/pick-store";
  * than two entries is not shown.
  */
 export const RunPickers: FC = () => {
-  const client = useMemo(() => createClient(), []);
-  const { deployment, thread, remoteId, shown } = useChatPick();
+  const { deployment, thread, shown } = useChatPick();
   const started = useAuiState((s) => s.thread.messages.length > 0);
   if (!deployment) return <div />;
 
-  const change = (next: RunPick) => {
-    changePick(thread, next);
-    // A thread not made yet gets its pick when it is made.
-    if (remoteId)
-      client.threads.update(remoteId, { metadata: next }).catch(() => {});
-  };
+  const change = (next: RunPick) => changePick(thread, next);
 
   return (
     <div data-slot="run-pickers" className="flex items-center gap-0.5">

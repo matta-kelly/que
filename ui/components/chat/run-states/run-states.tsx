@@ -1,9 +1,7 @@
 "use client";
 
-import { useAuiState } from "@assistant-ui/react";
-import { useLangGraphSend } from "@assistant-ui/react-langgraph";
+import { useAui, useAuiState } from "@assistant-ui/react";
 import type { FC } from "react";
-import { runs } from "@/components/runtime/runs/run-of-thread";
 import { ConnectionState } from "./connection-state";
 import { StoppedRun } from "./stopped-run";
 import { useRunStates } from "./store";
@@ -25,7 +23,11 @@ export const RunStates: FC = () => {
   const reconnecting = useRunStates(
     (s) => !!thread && !!s.reconnecting[thread],
   );
-  const send = useLangGraphSend();
+  // The last message of the user's: a stopped reply is run again from it.
+  const asked = useAuiState(
+    (s) => s.thread.messages.findLast((m) => m.role === "user")?.id,
+  );
+  const aui = useAui();
   if (!thread) return null;
 
   if (reconnecting)
@@ -42,9 +44,7 @@ export const RunStates: FC = () => {
         // The part of the reply that came in is not in the saved chat: a run saves a step when it ends.
         note="The reply in progress was not saved. Continue writes it again."
         onContinue={() => {
-          // With no run kept, a send of no message is a new run from the last saved step, and not a join.
-          runs.clear(thread);
-          void send([], {});
+          if (asked) aui.thread().startRun({ parentId: asked });
         }}
       />
     </div>

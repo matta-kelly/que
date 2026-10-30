@@ -16,5 +16,5 @@ export function useChatPick() {
   );
   const thread = remoteId ?? localId;
   const pick = useRunPicks((s) => pickOf(s, thread));
-  return { deployment, thread, remoteId, shown: resolve(pick, deployment) };
+  return { deployment, thread, shown: resolve(pick, deployment) };
 }

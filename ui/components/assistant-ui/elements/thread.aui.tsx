@@ -13,7 +13,6 @@ import { ThinkingIndicator } from "@/components/assistant-ui/elements/thinking-i
 import { MessageQueue } from "@/components/chat/message-queue/message-queue";
 import { RunStates } from "@/components/chat/run-states/run-states";
 import { RunPickers } from "@/components/chat/run-pickers/run-pickers";
-import { ContextMeter, ReplyUsage } from "@/components/chat/usage/usage";
 import { MarkdownText } from "@/components/assistant-ui/elements/markdown-text";
 import { TooltipIconButton } from "@/components/assistant-ui/elements/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
@@ -308,7 +307,6 @@ const ComposerAction: FC = () => {
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
       <RunPickers />
       <div className="flex items-center gap-1.5">
-        <ContextMeter />
         {/* While a run is going, send is there only for a message that is written: it then waits its turn. */}
         <AuiIf condition={(s) => !s.thread.isRunning || !s.composer.isEmpty}>
           <ComposerPrimitive.Send asChild>
@@ -428,9 +426,6 @@ const AssistantMessage: FC = () => {
       >
         <BranchPicker />
         <AssistantActionBar />
-        <AuiIf condition={(s) => s.message.status?.type !== "running"}>
-          <ReplyUsage />
-        </AuiIf>
       </div>
     </MessagePrimitive.Root>
   );

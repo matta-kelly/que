@@ -1,81 +1,72 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import {
-  useLangGraphRuntime,
-  type LangChainMessage,
-} from "@assistant-ui/react-langgraph";
-import { checkpointFor } from "@/components/runtime/runs/checkpoint";
-import { createClient } from "@/components/runtime/langgraph-client";
-import { setStopped } from "@/components/chat/run-states/store";
-import {
-  loadDeployment,
-  pickIn,
-  rememberPick,
-} from "@/components/chat/run-pickers/pick-store";
-import { JoinsRuns } from "@/components/runtime/runs/joins-runs";
-import { StopsRuns } from "@/components/runtime/runs/stops-runs";
-import { createStreamCall } from "@/components/runtime/runs/stream-call";
-import { createThreadListAdapter } from "@/components/runtime/thread-list-adapter";
-import { withReasoning } from "@/components/runtime/with-reasoning";
+  AssistantRuntimeProvider,
+  ExportedMessageRepository,
+  useAui,
+  useRemoteThreadListRuntime,
+  type ThreadHistoryAdapter,
+} from "@assistant-ui/react";
+import { fromAgUiMessages, useAgUiRuntime } from "@assistant-ui/react-ag-ui";
+import { loadDeployment } from "@/components/chat/run-pickers/pick-store";
+import { ThreadAgent, threads } from "@/components/runtime/que-client";
+import { threadListAdapter } from "@/components/runtime/thread-list-adapter";
 
-// How far back in a thread a checkpoint is looked for. A turn is one state for
-// each step of it, so this is ten turns or more.
-const HISTORY = 100;
+/**
+ * One chat's runtime: its runs go to que's server over AG-UI, and its messages
+ * are loaded from its thread there, with the ids que's server gave them. An
+ * edit or a regenerate sends those ids back, and que's server goes on from them.
+ */
+function useChatRuntime() {
+  const aui = useAui();
+  const agent = useMemo(
+    () =>
+      new ThreadAgent(
+        async () => (await aui.threadListItem().initialize()).remoteId,
+      ),
+    [aui],
+  );
+  const history = useMemo<ThreadHistoryAdapter>(
+    () => ({
+      async load() {
+        const { remoteId } = aui.threadListItem().getState();
+        if (!remoteId) return { messages: [] };
+        const { messages } = await threads.get(remoteId);
+        return ExportedMessageRepository.fromArray(fromAgUiMessages(messages));
+      },
+      // que's server keeps each message of a run.
+      async append() {},
+    }),
+    [aui],
+  );
+  return useAgUiRuntime({
+    agent,
+    adapters: { history },
+    // A turn is one reply: its model calls and tool calls, in the order they came.
+    joinStrategy: "concat-content",
+    // A message sent while a run is going waits, and is sent when that run ends.
+    unstable_enableMessageQueue: true,
+  });
+}
 
 export function RuntimeProvider({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const client = useMemo(() => createClient(), []);
-  const stream = useMemo(() => createStreamCall(client), [client]);
-
   useEffect(() => {
     // Without the list there are no pickers, and a chat runs on the deployment's own choices.
     loadDeployment().catch(() => {});
   }, []);
 
-  const threadListAdapter = useMemo(
-    () => createThreadListAdapter(client),
-    [client],
-  );
-
-  const runtime = useLangGraphRuntime({
-    unstable_allowCancellation: true,
-    // A message sent while a run is going waits, and is sent when that run ends.
-    unstable_enableMessageQueue: true,
-    stream,
-    unstable_threadListAdapter: threadListAdapter,
-    // With this, a reply can be made again and a sent message edited: the run
-    // starts from the checkpoint that held the messages before it.
-    getCheckpointId: async (threadId, parents) =>
-      checkpointFor(
-        await client.threads.getHistory(threadId, { limit: HISTORY }),
-        parents,
-      ),
-    load: async (externalId) => {
-      const [state, thread] = await Promise.all([
-        client.threads.getState<{ messages: LangChainMessage[] }>(externalId),
-        client.threads.get(externalId),
-      ]);
-      rememberPick(externalId, pickIn(thread.metadata));
-      setStopped(
-        externalId,
-        (thread.metadata as { stopped?: unknown } | null)?.stopped === true,
-      );
-      return {
-        messages: (state.values?.messages ?? []).map(withReasoning),
-        interrupts: state.tasks[0]?.interrupts,
-      };
-    },
+  const runtime = useRemoteThreadListRuntime({
+    runtimeHook: useChatRuntime,
+    adapter: threadListAdapter,
   });
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <StopsRuns client={client} />
-      <JoinsRuns client={client} />
       {children}
     </AssistantRuntimeProvider>
   );
