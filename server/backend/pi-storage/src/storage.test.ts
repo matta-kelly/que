@@ -482,6 +482,42 @@ function submission(id: number): StorageWrite {
   };
 }
 
+test("a commit that writes an entry with the id of a committed task rejects with pi's error, one global record ID namespace", async (t) => {
+  // given: a storage that holds the root conversation and task 100
+  const storage = storageOn(closedAfter(t, new PGlite()));
+  await storage.commit(
+    [conversation(ROOT_CONVERSATION_ID), task(100)],
+    context,
+  );
+
+  // when: a commit writes an entry with ID 100
+  const commit = storage.commit(
+    [
+      {
+        type: "entry",
+        value: {
+          id: 100 as EntryId,
+          conversationId: ROOT_CONVERSATION_ID,
+          kind: "note",
+        },
+      },
+    ],
+    context,
+  );
+
+  // then: it rejects as pi's MemoryStorage does: the namespace is one across both tables
+  await assert.rejects(commit, (error: unknown) => {
+    assert.ok(error instanceof Error, `expected an Error, got ${error}`);
+    assert.strictEqual(
+      error.constructor,
+      Error,
+      `expected pi's plain Error, got ${error.name}`,
+    );
+    assert.strictEqual(error.message, "ID 100 already belongs to task");
+    return true;
+  });
+});
+
 type Scanned = {
   readonly items: readonly { readonly id: number }[];
   readonly next?: Cursor;
