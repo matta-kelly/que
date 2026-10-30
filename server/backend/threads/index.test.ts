@@ -233,3 +233,30 @@ test("given a threads table made before F3, when the store opens on it, then its
   });
   assert.equal(await store.conversationOf("b5-thread"), "7");
 });
+
+test("given a thread from before F3, on a conversation and with none other kept, when a run moves it to a fork, then it still has the conversation it was on, so a send from that branch is read against it", async () => {
+  for (const [was, fork, again] of [
+    ["7", "12", "15"],
+    ["40", "41", "52"],
+  ]) {
+    const db = new PGlite();
+    await db.query(S1_SETUP);
+    await db.query(
+      "ALTER TABLE threads ADD COLUMN conversation text, ADD COLUMN stopped boolean NOT NULL DEFAULT false",
+    );
+    await db.query(
+      "INSERT INTO threads (id, owner, conversation) VALUES ('b5-thread', 'ana', $1)",
+      [was],
+    );
+    const store = storeOn(db);
+    assert.deepEqual(await store.conversationsOf("b5-thread"), [was]);
+    await store.setConversation("b5-thread", fork);
+    const afterEdit = await store.conversationsOf("b5-thread");
+    await store.setConversation("b5-thread", again);
+    assert.deepEqual(
+      { afterEdit, afterNext: await store.conversationsOf("b5-thread") },
+      // The thread's own conversation first, then the ones it has left, newest first.
+      { afterEdit: [fork, was], afterNext: [again, fork, was] },
+    );
+  }
+});
