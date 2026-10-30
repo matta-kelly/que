@@ -117,9 +117,32 @@ test("get and list give a thread's file, and nothing of another thread's", async
   );
   assert.deepEqual(Buffer.from(readPhoto.bytes), png);
 
-  // and: list gives both files
-  const listed = (await store.list(THREAD)).map((f) => f.id).sort();
-  assert.deepEqual(listed, [order.id, photo.id].sort());
+  // and: list gives both files, with their metadata
+  const listed = (await store.list(THREAD))
+    .map((f) => ({
+      id: f.id,
+      name: f.name,
+      mimeType: f.mimeType,
+      size: f.size,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  assert.deepEqual(
+    listed,
+    [
+      {
+        id: order.id,
+        name: "../order.csv",
+        mimeType: "text/csv",
+        size: csv.length,
+      },
+      {
+        id: photo.id,
+        name: "photo.png",
+        mimeType: "image/png",
+        size: png.length,
+      },
+    ].sort((a, b) => a.id.localeCompare(b.id)),
+  );
 
   // and: another thread gets neither, by get or by list
   assert.equal(await store.get(OTHER, order.id), undefined);
