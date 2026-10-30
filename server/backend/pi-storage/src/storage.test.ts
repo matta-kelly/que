@@ -446,7 +446,10 @@ function isStorageRequestError(error: unknown): true {
 }
 
 // One task record, in the state it names.
-function task(id: number, status: "pending" | "running" = "pending"): StorageWrite {
+function task(
+  id: number,
+  status: "pending" | "running" = "pending",
+): StorageWrite {
   return {
     type: "task",
     value: {
