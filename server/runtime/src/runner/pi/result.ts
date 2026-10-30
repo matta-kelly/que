@@ -8,11 +8,13 @@
  * lines, so of such a line it shows the first 50KB and no more.
  */
 
+import { isAbsolute, relative, sep } from "node:path";
 import type { Context } from "@earendil-works/chord/context";
 import type {
   ToolExecutionApi,
   ToolExecutionResult,
 } from "@earendil-works/pi-durable";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
 
@@ -59,6 +61,30 @@ function envOf(api: ToolExecutionApi) {
 }
 
 /**
+ * The absolute path of `path`, as the env resolves it against the conversation's cwd, when it is inside the cwd's
+ * `large_tool_results/`; any other path, absolute, with `..`, or in another conversation's folder, is a failed call.
+ */
+async function inResults(env: ExecutionEnv, path: string, context: Context) {
+  const [file, dir] = await Promise.all([
+    env.absolutePath(path, context),
+    env.absolutePath(DIR, context),
+  ]);
+  if (!file.ok) throw new OpFailed(file.error.message);
+  if (!dir.ok) throw new OpFailed(dir.error.message);
+  const inside = relative(dir.value, file.value);
+  if (
+    !inside ||
+    inside === ".." ||
+    inside.startsWith(`..${sep}`) ||
+    isAbsolute(inside)
+  )
+    throw new OpFailed(
+      `${READ_RESULT} reads only a result moved to ${DIR}/, as its pointer names it: ${path} is not one`,
+    );
+  return file.value;
+}
+
+/**
  * `answer`, or, when its text is over `max` tokens, a pointer to a file that holds the text. The file is named by
  * the call's task, which is unique in the Harness, so a rerun after a restart writes the same one and a fork, which
  * keeps its parent's cwd, never writes over its parent's.
@@ -93,14 +119,18 @@ export async function moved(
 
 /**
  * The window of the file at `path` from `offset`: at most `WINDOW` bytes, cut on a character boundary. A diagnostic
- * names the next window's byte offset, or says the result ends. A file that cannot be read is a failed call.
+ * names the next window's byte offset, or says the result ends. A path that is not in this conversation's
+ * `large_tool_results/`, or a file that cannot be read, is a failed call.
  */
 export async function windowAt(
   { path, byte_offset: offset }: z.infer<typeof readResultSchema>,
   api: ToolExecutionApi,
   context: Context,
 ) {
-  const opened = await envOf(api).openBinaryReader(path, undefined, context);
+  const env = envOf(api);
+  const file = await inResults(env, path, context);
+  // No link is followed at the end of the path: a link there could name a file anywhere.
+  const opened = await env.openBinaryReader(file, { noFollow: true }, context);
   if (!opened.ok) throw new OpFailed(opened.error.message);
   const reader = opened.value;
   try {
