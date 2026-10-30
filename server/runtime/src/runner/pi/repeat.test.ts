@@ -72,6 +72,8 @@ let failure: string | undefined;
 
 /** What a failing get-order waits for before it fails, if anything. */
 let held: Promise<void> | undefined;
+/** How many failing calls go before the one that waits for `held`. */
+let heldAfter = 0;
 
 const shop = definePlugin({
   name: "shop",
@@ -87,7 +89,7 @@ const shop = definePlugin({
       input: z.object({ id: z.number().describe("Order id") }),
       run: async (_, { id }) => {
         if (id < 0 && failure !== undefined) {
-          await held;
+          if (heldAfter-- <= 0) await held;
           throw new OpFailed(failure);
         }
         return { id };
@@ -444,6 +446,15 @@ function script(calls: (Args | Args[])[], answer = "Done.") {
   return asked;
 }
 
+/** The status of pi's submission of the run `runId`'s input: queued, placed or done. */
+async function statusOf(runId: string) {
+  const { rows } = await pi.query<{ status: string }>(
+    "SELECT status FROM pi.submissions WHERE request_id LIKE '%' || $1 || '%'",
+    [runId],
+  );
+  return rows.map((row) => row.status).join();
+}
+
 /**
  * Whether the run `runId`'s input is queued in its conversation's inbox,
  * by pi's submission of it, within 5 seconds.
@@ -511,7 +522,7 @@ async function hostThread() {
     return false;
   }
 
-  return { send, holds };
+  return { id, send, holds };
 }
 
 /**
@@ -594,6 +605,54 @@ test(
     ]);
     assert.equal(next?.text, "Done.", "the queued message was not answered");
     assert.equal(asked.count, 2);
+  },
+);
+
+test(
+  "given a run whose every response has the stuck call beside a call that answers, and the user's next message queued behind it on the same thread, when the host stops the run on the third round, then that message is still queued, not withdrawn",
+  { timeout },
+  async () => {
+    const thread = await hostThread();
+    failure = "no such order";
+    // The third stuck call fails only once pi holds the next message queued behind the run.
+    let release!: () => void;
+    held = new Promise<void>((go) => (release = go));
+    heldAfter = 2;
+    script(Array.from({ length: 6 }, () => [failing, { id: 4 }]));
+    const nextRun = randomUUID();
+    let wasQueued: Promise<boolean> | undefined;
+    const stopped = await thread.send((event) => {
+      if (
+        event.type === EventType.TOOL_CALL_START &&
+        event.toolCallId === "c2.0" &&
+        !wasQueued
+      )
+        wasQueued = (async () => {
+          try {
+            if (!(await thread.holds(event.parentMessageId ?? "")))
+              return false;
+            void thread.send(undefined, nextRun);
+            return await queuedIn(nextRun);
+          } finally {
+            release();
+          }
+        })();
+    });
+    held = undefined;
+    heldAfter = 0;
+    assert.equal(
+      await wasQueued,
+      true,
+      "the next message was not queued behind the run",
+    );
+    assert.match(
+      String(stopped.results.get("c2.0")),
+      /failed 3 times in a row/,
+    );
+    const status = await statusOf(nextRun);
+    // The thread's work ends here, so the queued run takes none of a later case's model responses.
+    await host.stop(thread.id);
+    assert.equal(status, "queued");
   },
 );
 
