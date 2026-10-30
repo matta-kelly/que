@@ -154,12 +154,18 @@ async function eventsOf(
   let rest = "";
   let reached = false;
   for (;;) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const read = await Promise.race([
       reader.read(),
-      new Promise<"late">((late) =>
-        setTimeout(() => late("late"), Math.max(deadline - Date.now(), 0)),
-      ),
+      new Promise<"late">((late) => {
+        timer = setTimeout(
+          () => late("late"),
+          Math.max(deadline - Date.now(), 0),
+        );
+      }),
     ]);
+    // A timer left to run would hold the process open past the last test.
+    clearTimeout(timer);
     if (read === "late") {
       await reader.cancel();
       return { seen, ended: false };
