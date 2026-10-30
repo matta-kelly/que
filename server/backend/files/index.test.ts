@@ -275,7 +275,11 @@ test("remove by an id that names a path removes nothing, and the file's own thre
   const read = await store.get(OTHER, file.id);
   assert.ok(read, "U's file is gone after T's remove");
   assert.deepEqual(
-    { name: read.name, mimeType: read.mimeType, bytes: Buffer.from(read.bytes) },
+    {
+      name: read.name,
+      mimeType: read.mimeType,
+      bytes: Buffer.from(read.bytes),
+    },
     { name: "../order.csv", mimeType: "text/csv", bytes },
   );
 
@@ -315,7 +319,11 @@ test("remove by a thread that names a path removes nothing, and the file's own t
   const read = await store.get(OTHER, file.id);
   assert.ok(read, "U's file is gone after T's remove");
   assert.deepEqual(
-    { name: read.name, mimeType: read.mimeType, bytes: Buffer.from(read.bytes) },
+    {
+      name: read.name,
+      mimeType: read.mimeType,
+      bytes: Buffer.from(read.bytes),
+    },
     { name: "../order.csv", mimeType: "text/csv", bytes },
   );
 });
@@ -343,4 +351,139 @@ test("a put for a thread string that names a path writes nothing outside the fil
 
   // then: the data directory holds the files folder and nothing beside it
   assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+});
+
+test("a put for a thread of . is refused, and adds no folder to files", async (t) => {
+  // given: thread T holds a file, so the files folder is there
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  await store.put(THREAD, {
+    name: "kept.csv",
+    mimeType: "text/csv",
+    bytes: Buffer.from("1\n"),
+  });
+
+  // when: a file is put for the thread .
+  // then: the call refuses the thread, as it and the id name no file folder
+  await assert.rejects(
+    store.put(".", {
+      name: "escaped.csv",
+      mimeType: "text/csv",
+      bytes: Buffer.from("2\n"),
+    }),
+    /not a file folder/,
+  );
+
+  // and: the data directory holds the files folder and nothing beside it, and files holds only T's folder
+  assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+  assert.deepEqual((await readdir(join(dir, "files"))).sort(), [THREAD]);
+});
+
+test("a put for a thread of .. is refused, and writes nothing beside the files folder", async (t) => {
+  // given: thread T holds a file, so the files folder is there
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  await store.put(THREAD, {
+    name: "kept.csv",
+    mimeType: "text/csv",
+    bytes: Buffer.from("1\n"),
+  });
+
+  // when: a file is put for the thread ..
+  // then: the call refuses the thread, as it and the id name no file folder
+  await assert.rejects(
+    store.put("..", {
+      name: "escaped.csv",
+      mimeType: "text/csv",
+      bytes: Buffer.from("2\n"),
+    }),
+    /not a file folder/,
+  );
+
+  // and: the data directory holds the files folder and nothing beside it, and files holds only T's folder
+  assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+  assert.deepEqual((await readdir(join(dir, "files"))).sort(), [THREAD]);
+});
+
+test("a put for an empty thread is refused, and adds no folder to files", async (t) => {
+  // given: thread T holds a file, so the files folder is there
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  await store.put(THREAD, {
+    name: "kept.csv",
+    mimeType: "text/csv",
+    bytes: Buffer.from("1\n"),
+  });
+
+  // when: a file is put for the empty thread
+  // then: the call refuses the thread, as it and the id name no file folder
+  await assert.rejects(
+    store.put("", {
+      name: "escaped.csv",
+      mimeType: "text/csv",
+      bytes: Buffer.from("2\n"),
+    }),
+    /not a file folder/,
+  );
+
+  // and: the data directory holds the files folder and nothing beside it, and files holds only T's folder
+  assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+  assert.deepEqual((await readdir(join(dir, "files"))).sort(), [THREAD]);
+});
+
+test("a put for a thread holding a backslash is refused, and adds no folder to files", async (t) => {
+  // given: thread T holds a file, so the files folder is there
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  await store.put(THREAD, {
+    name: "kept.csv",
+    mimeType: "text/csv",
+    bytes: Buffer.from("1\n"),
+  });
+
+  // when: a file is put for a thread whose name holds a backslash
+  // then: the call refuses the thread, as it and the id name no file folder
+  await assert.rejects(
+    store.put("a\\b", {
+      name: "escaped.csv",
+      mimeType: "text/csv",
+      bytes: Buffer.from("2\n"),
+    }),
+    /not a file folder/,
+  );
+
+  // and: the data directory holds the files folder and nothing beside it, and files holds only T's folder
+  assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+  assert.deepEqual((await readdir(join(dir, "files"))).sort(), [THREAD]);
+});
+
+test("a put for a thread holding a NUL is refused, and writes nothing", async (t) => {
+  // given: thread T holds a file, so the files folder is there
+  const dir = await dataDir(t);
+  const db = closedAfter(t, new PGlite());
+  const store = storeOn(db, dir);
+  await store.put(THREAD, {
+    name: "kept.csv",
+    mimeType: "text/csv",
+    bytes: Buffer.from("1\n"),
+  });
+
+  // when: a file is put for a thread whose name holds a NUL
+  // then: the call refuses the thread, as it and the id name no file folder
+  await assert.rejects(
+    store.put("a\0b", {
+      name: "escaped.csv",
+      mimeType: "text/csv",
+      bytes: Buffer.from("2\n"),
+    }),
+    /not a file folder/,
+  );
+
+  // and: the data directory holds the files folder and nothing beside it, and files holds only T's folder
+  assert.deepEqual((await readdir(dir)).sort(), ["files"]);
+  assert.deepEqual((await readdir(join(dir, "files"))).sort(), [THREAD]);
 });
