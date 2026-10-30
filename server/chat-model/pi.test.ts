@@ -80,3 +80,68 @@ test("the Fireworks provider put on pi's models is Fireworks, and serves each co
     ],
   );
 });
+
+/** A `fetch` that answers each request with one streamed chat completion, and keeps each request's body. */
+function answering() {
+  const sent: Record<string, unknown>[] = [];
+  const fetch: typeof globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    sent.push(body);
+    const chunk = (delta: object, finish: string | null) =>
+      `data: ${JSON.stringify({
+        id: `chatcmpl-${sent.length}`,
+        object: "chat.completion.chunk",
+        created: 1_791_878_400,
+        model: body.model,
+        choices: [{ index: 0, delta, finish_reason: finish }],
+      })}\n\n`;
+    return new Response(
+      chunk({ role: "assistant", content: "It is so." }, null) +
+        chunk({}, "stop") +
+        "data: [DONE]\n\n",
+      { headers: { "content-type": "text/event-stream" } },
+    );
+  };
+  return { fetch, sent };
+}
+
+test("a config's effort is sent to Fireworks as reasoning_effort, and a config with no effort sends none", async () => {
+  // The provider is made with a key, and calls the global fetch.
+  process.env.FIREWORKS_API_KEY ??= "none";
+  const configs = [
+    { ...glm, effort: "low" },
+    { ...small, effort: "high" },
+    { ...small, name: "plain", id: "fireworks:plain-model" },
+  ];
+  const models = createModels();
+  models.setProvider(fireworks(configs));
+  const { fetch, sent } = answering();
+  const send = globalThis.fetch;
+  globalThis.fetch = fetch;
+  try {
+    for (const config of configs)
+      // As a run and the judge call it: with the config's model, and no thinking level of their own.
+      await models.completeSimple(piModel(config), {
+        messages: [{ role: "user", content: "Hello.", timestamp: Date.now() }],
+      });
+  } finally {
+    globalThis.fetch = send;
+  }
+  assert.deepEqual(
+    sent.map((body) => ({
+      model: body.model,
+      // null: the request has no reasoning_effort.
+      reasoning_effort: Object.hasOwn(body, "reasoning_effort")
+        ? body.reasoning_effort
+        : null,
+    })),
+    [
+      {
+        model: "accounts/fireworks/models/glm-5p3-flash",
+        reasoning_effort: "low",
+      },
+      { model: "small-model", reasoning_effort: "high" },
+      { model: "plain-model", reasoning_effort: null },
+    ],
+  );
+});
