@@ -74,8 +74,30 @@ type Row = {
   size: number;
 };
 
-/** The folder a file's bytes and cached text are in. Only the id and the thread name a path. */
+/** A uuid, as `randomUUID` makes one: the only id a file can have. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether `value` is one path segment: not empty, and no folder in it, by either separator. */
+function isSegment(value: string): boolean {
+  return (
+    value !== "" && value !== "." && value !== ".." && !/[/\\\0]/.test(value)
+  );
+}
+
+/** Whether a thread and an id can name a file's folder: a thread is one segment, and an id is a uuid. */
+function isFolder(thread: string, id: string): boolean {
+  return isSegment(thread) && UUID.test(id);
+}
+
+/**
+ * The folder a file's bytes and cached text are in. Only the id and the thread
+ * name a path, and neither may climb out of `files`: a caller's string is never
+ * joined before it is checked.
+ */
 function fileDir(dataDir: string, thread: string, id: string): string {
+  if (!isFolder(thread, id)) {
+    throw new Error(`not a file folder: ${thread}/${id}`);
+  }
   return join(dataDir, "files", thread, id);
 }
 
@@ -131,6 +153,7 @@ export function storeOn(db: Queryable, dataDir: string): FileStore {
 
     async remove(thread, id) {
       await ready;
+      if (!isFolder(thread, id)) return false;
       await rm(fileDir(dataDir, thread, id), { recursive: true, force: true });
       const { rows } = await db.query<{ id: string }>(
         "DELETE FROM files WHERE thread = $1 AND id = $2 RETURNING id",
