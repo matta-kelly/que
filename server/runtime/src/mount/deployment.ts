@@ -31,6 +31,8 @@ export async function mountDeployment(
   dir: string,
   env: { MODEL?: string } = {},
 ): Promise<{
+  /** The deployment's name, which names its data (runner/pi/harness.ts). */
+  name: string;
   plugins: MountedPlugin[];
   agents: Agent[];
   loops: Loop[];
@@ -79,6 +81,7 @@ export async function mountDeployment(
     type: T,
   ) => names.map((name) => graph.get(name, type)!);
   return {
+    name: deployment.name,
     plugins: (deployment.plugins ?? []).map((name) => {
       const plugin = read.plugins.find(
         (p) => p.definition!.plugin.name === name,

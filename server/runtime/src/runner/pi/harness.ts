@@ -20,7 +20,7 @@
  * Fireworks and the deployment's models on it from when this module loads.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
@@ -55,7 +55,6 @@ import { access } from "../../access/connections.js";
 import { door } from "../../assemble/door.js";
 import { systemPrompt } from "../../assemble/prompt.js";
 import type { Way } from "../../assemble/way.js";
-import { deploymentFolder } from "../../mount/deployment-folder.js";
 import * as mounted from "../../mount/mounted.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
@@ -98,15 +97,18 @@ if (!locks[0].owned) {
     "que: another process owns this deployment: its advisory lock on the database is held, so this one stops",
   );
 }
-// The conversations' cwds: in the deployment's folder, as the database that keeps the conversations is the
-// deployment's, so a moved result outlives the container as its conversation does, and is not in que's checkout. Under
-// `.que/`, a dot folder, which basis does not read, and whose own .gitignore keeps it out of the deployment's repo.
-const cwds = join(deploymentFolder(process.env), ".que", "conversations");
-mkdirSync(cwds, { recursive: true });
-writeFileSync(join(cwds, "..", ".gitignore"), "*\n");
+// The deployment's data: QUE_DATA_DIR, where a server mounts a volume, or the user's data folder (XDG). Not the
+// deployment's folder, which is a checkout of code: in the vault on this machine, replaced at each deploy on a server.
+const data =
+  process.env.QUE_DATA_DIR ||
+  join(
+    process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+    "que",
+    mounted.name,
+  );
 
 /** A conversation's own cwd, by its id. */
-const cwdOf = (id: ConversationId) => join(cwds, String(id));
+const cwdOf = (id: ConversationId) => join(data, "conversations", String(id));
 
 const harness = await Harness.open(
   storageOn(client),

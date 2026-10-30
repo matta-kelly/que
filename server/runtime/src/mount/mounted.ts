@@ -2,7 +2,7 @@ import { deploymentFolder } from "./deployment-folder.js";
 import { mountDeployment } from "./deployment.js";
 
 // Mounted once, when this module first loads; shared by the agent and the API.
-export const { plugins, agents, loops, models } = await mountDeployment(
+export const { name, plugins, agents, loops, models } = await mountDeployment(
   deploymentFolder(process.env),
   process.env,
 );
