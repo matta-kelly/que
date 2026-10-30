@@ -8,7 +8,7 @@
 # DATABASE_URL names a database on a disposable Postgres server. The script
 # makes a database of its own on that server (que_b5_e2e_<pid>, "postgres" is
 # used for that), and drops it on exit. It starts que's server from the branch
-# (`npm run serve`, the listen path) on port 2025, so that port must be free.
+# (`npm run server`, the listen path) on port 2025, by its PORT, so that port must be free.
 # The deployment is templates/deployment in a temp folder, with que's packages
 # linked in. It has no model key, so a run's model call fails and the run ends
 # with RUN_ERROR; the user's message is written first, and it is the chat this
@@ -83,7 +83,7 @@ alive() { # pid
   [ -n "$state" ] && [ "${state:0:1}" != Z ]
 }
 
-start() { # log [prefix...] -> $pid, the process group of one `npm run serve`
+start() { # log [prefix...] -> $pid, the process group of one `npm run server`
   local log=$1
   shift
   set -m
@@ -92,7 +92,8 @@ start() { # log [prefix...] -> $pid, the process group of one `npm run serve`
     DATABASE_URL="$dburl" \
     DEV_USER_EMAIL=b5@example.com \
     QUE_CREDENTIALS_KEY="$(head -c32 /dev/urandom | base64)" \
-    "$@" npm run serve ) >"$log" 2>&1 &
+    PORT="$port" \
+    "$@" npm run server ) >"$log" 2>&1 &
   pid=$!
   set +m
   pids+=("$pid")
