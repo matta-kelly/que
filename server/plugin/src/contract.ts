@@ -25,13 +25,30 @@ export class OpFailed extends Error {
 /** A plugin's kind, as the plugin type says it: a connector, or a domain. */
 type PluginKind = NonNullable<NodeOf<"plugin">["kind"]>;
 
+/** One file an op reads: its bytes, and what they are. Never where the store keeps it. */
+export type OpFile = {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  bytes: Uint8Array;
+};
+
+/** The run's thread's files, as an op's context gets them: by the thread's own, never by a path. */
+export type OpFiles = {
+  /** The file `id` of the run's thread; an id of another thread is an OpFailed that names it. */
+  get(id: string): Promise<OpFile>;
+  /** The run's thread's files, by their metadata. */
+  list(): Promise<Omit<OpFile, "bytes">[]>;
+};
+
 /**
  * What an op's run gets, by its plugin's kind: a connector op gets its connection, and a domain op the ops it uses,
- * each by its name.
+ * each by its name. Every op gets the run's thread's files.
  */
-type Context<Conn, K extends PluginKind> = K extends "domain"
+type Context<Conn, K extends PluginKind> = (K extends "domain"
   ? { ops: Record<string, (params: unknown) => Promise<unknown>> }
-  : { conn: Conn };
+  : { conn: Conn }) & { files: OpFiles };
 
 /**
  * One operation a plugin exposes: an op node. Its name is its tool's name. `run` gets its context, by the kind of its

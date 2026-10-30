@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { rmSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import {
@@ -13,6 +17,7 @@ import * as z from "zod";
 import * as zm from "zod/mini";
 import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import { storeOn } from "@que/credentials";
+import { storeOn as fileStoreOn } from "@que/files";
 import { accessOn } from "../access/access.js";
 import { door, type PlacedOp } from "./door.js";
 
@@ -495,4 +500,209 @@ test("given an op whose input has an async refine, when it is called, then a goo
   assert.ok(refused instanceof OpFailed, `the door gave ${String(refused)}`);
   assert.match(refused.message, /the sku is no product/);
   assert.doesNotMatch(refused.message, /\n/);
+});
+
+/**
+ * The files of two threads: a store of the test's own, and the data folder its bytes are under. T has one file, U has
+ * two, and V's name is one that climbs: the name is kept, and it names no folder of the store.
+ */
+const filesDir = await mkdtemp(join(tmpdir(), "que-op-files-"));
+const fileDb = new PGlite();
+const fileStore = fileStoreOn(fileDb, filesDir);
+process.on("exit", () => rmSync(filesDir, { recursive: true, force: true }));
+
+const csv = (...rows: string[]) =>
+  Buffer.from([["name", "qty"], ...rows].join("\n") + "\n");
+const orderBytes = csv("Ana,3", "Bo,4");
+const order = await fileStore.put("T", {
+  name: "orders.csv",
+  mimeType: "text/csv",
+  bytes: orderBytes,
+});
+const prices = await fileStore.put("U", {
+  name: "prices.csv",
+  mimeType: "text/csv",
+  bytes: csv("Nibs,7"),
+});
+const credits = await fileStore.put("U", {
+  name: "credits.csv",
+  mimeType: "text/csv",
+  bytes: csv("Bo,2"),
+});
+const returns = await fileStore.put("V", {
+  name: "../returns.csv",
+  mimeType: "text/csv",
+  bytes: csv("Ana,1"),
+});
+
+// What an op's context gives, as the test reads it: the thread's files by name, so their order is the test's, and one
+// file by its id.
+const reading = async (
+  ctx: {
+    files: {
+      get(id: string): Promise<unknown>;
+      list(): Promise<{ name: string }[]>;
+    };
+  },
+  id: string,
+) => ({
+  listed: [...(await ctx.files.list())].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  ),
+  got: await ctx.files.get(id),
+});
+
+const vault = definePlugin({
+  name: "vault",
+  type: "plugin",
+  title: "Vault",
+  description: "Reads the run's files.",
+  ops: [
+    {
+      name: "vault-files",
+      type: "op",
+      title: "Read the files",
+      description: "Lists the run's files and reads one by its id.",
+      input: z.object({ file: z.string().describe("A file id") }),
+      run: async (ctx, { file }) => reading(ctx, file),
+    },
+  ],
+});
+
+const claims = definePlugin({
+  name: "claims",
+  type: "plugin",
+  kind: "domain",
+  title: "Claims",
+  description:
+    "A domain that reads the run's files, and one that calls the vault's op.",
+  ops: [
+    {
+      name: "claims-files",
+      type: "op",
+      title: "Read the files",
+      description: "Lists the run's files and reads one by its id.",
+      input: z.object({ file: z.string().describe("A file id") }),
+      run: async (ctx, { file }) => reading(ctx, file),
+    },
+    {
+      name: "claims-forward",
+      type: "op",
+      title: "Forward to the vault",
+      description:
+        "Reads the run's files itself, and through the vault's op it lists.",
+      uses: ["vault-files"],
+      input: z.object({ file: z.string().describe("A file id") }),
+      run: async ({ ops, files }, { file }) => ({
+        own: (await files.list()).map(({ name }) => name).sort(),
+        nested: await ops["vault-files"]({ file }),
+      }),
+    },
+  ],
+});
+
+const vaultFiles: PlacedOp = { plugin: vault.plugin, op: vault.ops[0] };
+const claimsFiles: PlacedOp = { plugin: claims.plugin, op: claims.ops[0] };
+const claimsForward: PlacedOp = { plugin: claims.plugin, op: claims.ops[1] };
+const fileCall = door(
+  async (plugin, role, user) => `${plugin.name}:${role ?? "none"}:${user}`,
+  [vaultFiles, claimsFiles, claimsForward],
+);
+
+test("given a connector op and a domain op on a thread with a file, when each is called, then its context's files are that thread's: get gives the bytes and what they are, and list gives their metadata", async () => {
+  const scope = { files: fileStore, thread: "T" };
+  const expected = { listed: [order], got: { ...order, bytes: orderBytes } };
+  const answered = (op: PlacedOp) =>
+    fileCall(op, { file: order.id }, "ana", scope).catch(
+      (error: unknown) => error,
+    );
+
+  assert.deepEqual(
+    await answered(vaultFiles),
+    expected,
+    "a connector op's context has the run thread's files",
+  );
+  assert.deepEqual(
+    await answered(claimsFiles),
+    expected,
+    "a domain op's context has the run thread's files",
+  );
+
+  const { got } = (await answered(vaultFiles)) as { got: object };
+  assert.deepEqual(
+    Object.keys(got).sort(),
+    ["bytes", "id", "mimeType", "name", "size"],
+    "a file is its id, name, mime type, size and bytes",
+  );
+  assert.equal(
+    JSON.stringify(got).includes(filesDir),
+    false,
+    "a file names no store path",
+  );
+});
+
+test("given an op on a thread with a file and a file of another thread, when the op asks for that file's id, then the call is an OpFailed that names the file and no store path", async () => {
+  const scope = { files: fileStore, thread: "T" };
+  const refused = (id: string) =>
+    fileCall(vaultFiles, { file: id }, "ana", scope).catch(
+      (error: unknown) => error,
+    );
+
+  const other = await refused(prices.id);
+  assert.ok(
+    other instanceof OpFailed,
+    `expected an OpFailed for U's file, got ${String(other)}`,
+  );
+  assert.ok(
+    other.message.includes(prices.id),
+    `expected the OpFailed to name ${prices.id}, got "${other.message}"`,
+  );
+  assert.equal(
+    other.message.includes(filesDir),
+    false,
+    "the failure names no store path",
+  );
+
+  const climbing = await refused(returns.id);
+  assert.ok(
+    climbing instanceof OpFailed,
+    `expected an OpFailed for V's file, got ${String(climbing)}`,
+  );
+  assert.ok(
+    climbing.message.includes(returns.id),
+    `expected the OpFailed to name ${returns.id}, got "${climbing.message}"`,
+  );
+  assert.equal(
+    climbing.message.includes(filesDir),
+    false,
+    "the failure names no store path",
+  );
+});
+
+test("given a domain op whose op calls a connector op it lists, when the domain op is called on a thread, then the nested call gets the same thread's files", async () => {
+  const answered = (thread: string, file: string) =>
+    fileCall(claimsForward, { file }, "ana", {
+      files: fileStore,
+      thread,
+    }).catch((error: unknown) => error);
+
+  assert.deepEqual(
+    await answered("T", order.id),
+    {
+      own: ["orders.csv"],
+      nested: { listed: [order], got: { ...order, bytes: orderBytes } },
+    },
+    "the nested call reads T's file, the thread of the call that made it",
+  );
+  assert.deepEqual(
+    await answered("U", credits.id),
+    {
+      own: ["credits.csv", "prices.csv"],
+      nested: {
+        listed: [credits, prices],
+        got: { ...credits, bytes: csv("Bo,2") },
+      },
+    },
+    "the nested call reads U's files, not the last call's thread",
+  );
 });

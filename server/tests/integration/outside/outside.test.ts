@@ -44,7 +44,16 @@ test("a plugin outside que gets que's @mku1tra/que-plugin, its source, so an OpF
   const [notes] = await mount("deployment");
   const [find] = notes.definition.ops;
   await assert.rejects(
-    find.run({ conn: undefined }, { title: "a note" }),
+    find.run(
+      {
+        conn: undefined,
+        files: {
+          get: async () => Promise.reject(new Error("unused")),
+          list: async () => [],
+        },
+      },
+      { title: "a note" },
+    ),
     (error: Error) =>
       error instanceof OpFailed &&
       error.message === "the notes are not reachable",

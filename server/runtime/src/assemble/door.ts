@@ -10,6 +10,7 @@ import {
   type Context,
 } from "@opentelemetry/api";
 import { OpFailed, type Op, type Plugin } from "@mku1tra/que-plugin";
+import type { FileStore } from "@que/files";
 import * as z from "zod";
 import type { Connect } from "../access/access.js";
 
@@ -21,11 +22,15 @@ export type PlacedOp = {
   op: Op | Op<unknown, z.ZodObject, "domain">;
 };
 
-/** One call of an op, as one user: what the op's run gives back, or the OpFailed it throws. */
+/** The run's files a call is scoped to: the store, and the run's thread. */
+export type FilesScope = { files: FileStore; thread: string };
+
+/** One call of an op, as one user and the run's thread's files: what the op's run gives back, or the OpFailed it throws. */
 export type Call = (
   op: PlacedOp,
   params: unknown,
   user: string,
+  files?: FilesScope,
 ) => Promise<unknown>;
 
 /** The door's call bound to one user, as a run hands it to its tools. */
@@ -53,6 +58,7 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
     { plugin, op }: PlacedOp,
     params: unknown,
     user: string,
+    _files?: FilesScope,
     parent?: Context,
   ): Promise<unknown> {
     return tracer.startActiveSpan(
@@ -125,6 +131,7 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
             ops.find((placed) => placed.op.name === name)!,
             params,
             user,
+            undefined,
             parent,
           ),
       ]),
