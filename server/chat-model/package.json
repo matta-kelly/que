@@ -9,10 +9,6 @@
   },
   "dependencies": {
     "@earendil-works/pi-ai": "1.4.0",
-    "@langchain/core": "^1.2.17",
-    "@langchain/fireworks": "^0.2.13",
-    "@langchain/openai": "^1.5.13",
-    "@mku1tra/que-harness": "*",
-    "langchain": "^1.5.10"
+    "@mku1tra/que-harness": "*"
   }
 }

@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@hono/node-server": "^2.1.5",
     "@mku1tra/it": "^0.9.0",
     "@tsconfig/recommended": "^1.0.13",
     "@types/node": "^22",
@@ -30,7 +31,6 @@
   },
   "overrides": {
     "js-yaml": "4.3.2",
-    "langsmith": "0.9.0",
     "ws": "8.21.3"
   }
 }

@@ -16,9 +16,6 @@
     "@earendil-works/pi-durable": "1.4.0",
     "@earendil-works/pi-telemetry": "1.4.0",
     "@hono/node-server": "^2.1.5",
-    "@langchain/core": "^1.2.17",
-    "@langchain/langgraph-sdk": "^1.11.2",
-    "@langfuse/langchain": "^5.13.1",
     "@langfuse/otel": "^5.13.1",
     "@langfuse/tracing": "^5.13.1",
     "@mku1tra/basis": "^0.30.0",
@@ -32,10 +29,7 @@
     "@que/pi-storage": "*",
     "@que/threads": "*",
     "@que/users": "*",
-    "deepagents": "^1.14.2",
     "hono": "^4.13.8",
-    "langchain": "^1.5.10",
-    "lru-cache": "^11.5.3",
     "pg": "^8.16.0",
     "semver": "^7.8.5",
     "zod": "^4.6.5"
@@ -43,7 +37,6 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@electric-sql/pglite-socket": "0.2.11",
-    "@langchain/langgraph-cli": "^1.5.0",
     "@opentelemetry/sdk-trace": "^2.12.0",
     "@types/node": "^22",
     "dotenv": "^17.4.2",
