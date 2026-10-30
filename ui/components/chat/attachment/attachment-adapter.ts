@@ -20,7 +20,9 @@ const mention = (file: QueFile) => `${file.name} (id ${file.id})`;
  * content type names. FormData is serialized by the platform, so the boundary
  * is the one `Response` put in the header.
  */
-async function multipart(file: File): Promise<{ body: ArrayBuffer; contentType: string }> {
+async function multipart(
+  file: File,
+): Promise<{ body: ArrayBuffer; contentType: string }> {
   const form = new FormData();
   form.append("file", file, file.name);
   const encoded = new Response(form);
