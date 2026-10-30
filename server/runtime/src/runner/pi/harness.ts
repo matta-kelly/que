@@ -345,7 +345,7 @@ export async function run(
     prompt: Omit<Parameters<typeof systemPrompt>[0], "catalog" | "environment">;
     way: Way;
     result?: ResolvedLoop["result"];
-    summarize?: ResolvedLoop["summarize"];
+    summarize: ResolvedLoop["summarize"];
   },
   {
     runId,
@@ -372,8 +372,7 @@ export async function run(
   });
   if (chosen.resend) return {};
   const { conversation, own } = chosen;
-  if (summarize !== undefined)
-    compactions[keyOf(model)] = compactionOf(model.window, summarize);
+  compactions[keyOf(model)] = compactionOf(model.window, summarize);
   const events = await watchEvents(harness, conversation.id, context);
   try {
     const agui = aguiRun();
