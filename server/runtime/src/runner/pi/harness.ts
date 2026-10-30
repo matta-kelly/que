@@ -376,7 +376,8 @@ const callsOf = (entry: EntryRecord) =>
  */
 async function endRun(conversation: Conversation, id: SubmissionId) {
   try {
-    const run = (await harness.snapshot(LiveDoc, conversation.id, context))?.run;
+    const run = (await harness.snapshot(LiveDoc, conversation.id, context))
+      ?.run;
     if (run?.inputs.includes(id)) await harness.abortTask(run.taskId, context);
   } catch (error) {
     console.error("que: the run was not stopped:", (error as Error).message);

@@ -71,7 +71,8 @@ async function result(
     await answered(call, api, context);
     return { output: [{ type: "text", text }] };
   } catch (error) {
-    if (error instanceof OpFailed) return failed(call, error.message, api, context);
+    if (error instanceof OpFailed)
+      return failed(call, error.message, api, context);
     return {
       isError: true,
       output: [{ type: "text", text: "the tool failed" }],
