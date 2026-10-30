@@ -121,7 +121,11 @@ export default defineModel({ name: "beam", type: "model", description: "Beam.", 
         {
           path: "models/small.ts#catalog",
           name: "small",
-          fields: { type: "model", ...factsOf(glm) },
+          fields: {
+            type: "model",
+            window: factsOf(glm)!.window,
+            price: factsOf(glm)!.price,
+          },
         },
       ],
     );

@@ -280,7 +280,12 @@ test("a model whose maxTokens is above its window fails harness/max-tokens-in-wi
     (
       await said(
         deploymentOf({
-          "glm-flash": { id, ...facts, maxTokens: facts.window + 1 },
+          "glm-flash": {
+            id,
+            window: facts.window,
+            price: facts.price,
+            maxTokens: facts.window + 1,
+          },
         }),
       )
     ).map(([path, rule]) => [path, rule]),

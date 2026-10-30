@@ -482,7 +482,14 @@ test("the template deployment mounts as a copy of it is, its model with the mode
       window,
       price,
     })),
-    [{ name: "glm-flash", id: glm, ...factsOf(glm) }],
+    [
+      {
+        name: "glm-flash",
+        id: glm,
+        window: factsOf(glm)!.window,
+        price: factsOf(glm)!.price,
+      },
+    ],
   );
   assert.deepEqual(
     mounted.agents.map((agent) => agent.name),

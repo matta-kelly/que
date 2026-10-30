@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createModels } from "@earendil-works/pi-ai";
+import { createModels, type Message } from "@earendil-works/pi-ai";
 import { fireworks, levelOf, piModel } from "./index.js";
 
 // A model config as a deployment gives it: its id, its window and the most it gives in one reply.
@@ -46,6 +46,20 @@ test("the pi model for a Fireworks config is Fireworks' Chat Completions model, 
     baseUrl: "https://api.fireworks.ai/inference/v1",
     contextWindow: 64_000,
   });
+});
+
+test("the pi model for a config takes the input modalities the catalog gives its model, and text alone for one the catalog has no entry for", () => {
+  const minimax = {
+    name: "mini",
+    type: "model" as const,
+    description: "A text-only model of a test.",
+    id: "fireworks:accounts/fireworks/models/minimax-m3",
+    window: 512_000,
+    maxTokens: 16_384,
+  };
+  assert.deepEqual(piModel(glm).input, ["text", "image"]);
+  assert.deepEqual(piModel(minimax).input, ["text"]);
+  assert.deepEqual(piModel(small).input, ["text"]);
 });
 
 test("the Fireworks provider put on pi's models is Fireworks, and serves each config's model on Chat Completions at Fireworks' base URL", () => {
@@ -188,5 +202,102 @@ test("an effort that is not a pi-ai level is sent to Fireworks as its own word",
       { model: "none-model", reasoning_effort: "none" },
       { model: "off-model", reasoning_effort: "off" },
     ],
+  );
+});
+
+/** The messages of a run whose tool returned one image block: the ask, the model's call, and the tool's result. */
+function withToolImage(config: ReturnType<typeof piModel>): Message[] {
+  return [
+    { role: "user", content: "What is in the file?", timestamp: 1 },
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "toolCall",
+          id: "call-1",
+          name: "read_attachment",
+          arguments: { file: "file-1" },
+        },
+      ],
+      api: config.api,
+      provider: config.provider,
+      model: config.id,
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: "toolUse",
+      timestamp: 1,
+    },
+    {
+      role: "toolResult",
+      toolCallId: "call-1",
+      toolName: "read_attachment",
+      content: [{ type: "image", data: "aGVsbG8=", mimeType: "image/png" }],
+      isError: false,
+      timestamp: 1,
+    },
+  ];
+}
+
+test("a tool's image block is in the next model request for a model the catalog gives image input, and is pi's placeholder for one it gives text", async () => {
+  process.env.FIREWORKS_API_KEY ??= "none";
+  // glm is a catalog model with image input; small is a model the catalog has no entry for.
+  const configs = [glm, small];
+  const models = createModels();
+  models.setProvider(fireworks(configs));
+  const { fetch, sent } = answering();
+  const send = globalThis.fetch;
+  globalThis.fetch = fetch;
+  try {
+    for (const config of configs)
+      await models.completeSimple(piModel(config), {
+        messages: withToolImage(piModel(config)),
+      });
+  } finally {
+    globalThis.fetch = send;
+  }
+  const messagesOf = (body: Record<string, unknown>) =>
+    body.messages as { role: string; content: unknown }[];
+  const imagesOf = (body: Record<string, unknown>) =>
+    messagesOf(body).flatMap((message) =>
+      Array.isArray(message.content)
+        ? message.content.filter(
+            (block) => (block as { type?: string }).type === "image_url",
+          )
+        : [],
+    );
+  const toolTextOf = (body: Record<string, unknown>) =>
+    messagesOf(body)
+      .filter((message) => message.role === "tool")
+      .map((message) => message.content);
+  assert.deepEqual(
+    {
+      image: imagesOf(sent[0]),
+      tool: toolTextOf(sent[0]),
+    },
+    {
+      image: [
+        {
+          type: "image_url",
+          image_url: { url: "data:image/png;base64,aGVsbG8=" },
+        },
+      ],
+      tool: ["(see attached image)"],
+    },
+  );
+  assert.deepEqual(
+    {
+      image: imagesOf(sent[1]),
+      tool: toolTextOf(sent[1]),
+    },
+    {
+      image: [],
+      tool: ["(tool image omitted: model does not support images)"],
+    },
   );
 });

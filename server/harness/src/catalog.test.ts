@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import { factsOf } from "./catalog.ts";
 
-test("factsOf gives the window and the price pi's model catalog has for a model, by its provider and its name there", () => {
-  for (const name of [
-    "accounts/fireworks/models/glm-5p3-flash",
-    "accounts/fireworks/models/minimax-m3",
-    "accounts/fireworks/models/deepseek-v4p1-flash",
-  ]) {
+test("factsOf gives the window, the price and the input modalities pi's model catalog has for a model, by its provider and its name there", () => {
+  for (const [name, input] of [
+    ["accounts/fireworks/models/glm-5p3-flash", ["text", "image"]],
+    ["accounts/fireworks/models/minimax-m3", ["text"]],
+    ["accounts/fireworks/models/deepseek-v4p1-flash", ["text", "image"]],
+  ] as const) {
     const entry = getBuiltinModel("fireworks", name as never);
     assert.ok(entry, `pi's catalog has no fireworks ${name}`);
     assert.deepEqual(factsOf(`fireworks:${name}`), {
@@ -18,6 +18,7 @@ test("factsOf gives the window and the price pi's model catalog has for a model,
         output: entry.cost.output,
         cachedInput: entry.cost.cacheRead,
       },
+      input: [...input],
     });
   }
 });
