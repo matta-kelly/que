@@ -361,7 +361,7 @@ export async function run(
   const text = systemPrompt({ ...prompt, catalog, environment: way.prompt });
   const que = {
     ...extension(catalog, call, user, way, result),
-    // One section, untagged: the model reads the prompt as the LangGraph path sends it.
+    // One section, untagged: the model reads que's prompt whole, as systemPrompt writes it.
     sections: [section("prompt", () => text, { tag: false })],
     hooks: tracing.hooks,
   };

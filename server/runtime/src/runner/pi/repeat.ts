@@ -73,7 +73,7 @@ export async function answered(
  * `REPEAT_MAX`th failure in a row with that error or more, a stop that names
  * the call and the error and ends the run with no other model request. A
  * failure counts only from the chat's head on: one a summary replaced does
- * not, as LangGraph's summary removed the turns it replaced.
+ * not, as the model no longer sees it.
  */
 export async function failed(
   call: string,
