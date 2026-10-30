@@ -2,15 +2,14 @@
 
 import { useAui, useAuiState } from "@assistant-ui/react";
 import type { FC } from "react";
-import { ConnectionState } from "./connection-state";
 import { StoppedRun } from "./stopped-run";
 import { useStop } from "./stop";
 import { useRunStates } from "./store";
 
 /**
  * Above the composer, what the open chat's run is in when it did not go the
- * plain way: a line while the chat picks its run up again, and a mark when its
- * reply was stopped, with a way to go on. The user's Stop is heard here.
+ * plain way: a mark when its reply was stopped, with a way to go on. The
+ * user's Stop is heard here.
  */
 export const RunStates: FC = () => {
   useStop();
@@ -22,23 +21,12 @@ export const RunStates: FC = () => {
   );
   const running = useAuiState((s) => s.thread.isRunning);
   const stopped = useRunStates((s) => !!thread && !!s.stopped[thread]);
-  const reconnecting = useRunStates(
-    (s) => !!thread && !!s.reconnecting[thread],
-  );
   // The last message of the user's: a stopped reply is run again from it.
   const asked = useAuiState(
     (s) => s.thread.messages.findLast((m) => m.role === "user")?.id,
   );
   const aui = useAui();
-  if (!thread) return null;
-
-  if (reconnecting)
-    return (
-      <div className="flex justify-center pb-2">
-        <ConnectionState phase="reconnecting" />
-      </div>
-    );
-  if (!stopped || running) return null;
+  if (!thread || !stopped || running) return null;
   return (
     <div className="px-1 pb-2">
       <StoppedRun
