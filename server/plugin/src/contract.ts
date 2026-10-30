@@ -22,16 +22,29 @@ export class OpFailed extends Error {
   override name = "OpFailed";
 }
 
-/** One operation a plugin exposes: an op node. Its name is its tool's name. `run` gets the connection and the input. */
+/** A plugin's kind, as the plugin type says it: a connector, or a domain. */
+type PluginKind = NonNullable<NodeOf<"plugin">["kind"]>;
+
+/**
+ * What an op's run gets, by its plugin's kind: a connector op gets its connection, and a domain op the ops it uses,
+ * each by its name.
+ */
+type Context<Conn, K extends PluginKind> = K extends "domain"
+  ? { ops: Record<string, (params: unknown) => Promise<unknown>> }
+  : { conn: Conn };
+
+/**
+ * One operation a plugin exposes: an op node. Its name is its tool's name. `run` gets its context, by the kind of its
+ * plugin (`K`), and the input.
+ */
 export type Op<
   Conn = unknown,
   S extends z.ZodObject = z.ZodObject,
-  // Stub for I4's tests: the kind of the plugin that holds the op. Not read yet: the conditional gives unknown.
-  K extends "connector" | "domain" = "connector",
+  K extends PluginKind = "connector",
 > = Omit<NodeOf<"op">, "input" | "run"> & {
   input: S;
-  run(ctx: { conn: Conn }, params: z.infer<S>): Promise<unknown>;
-} & (K extends unknown ? unknown : never);
+  run(ctx: Context<Conn, K>, params: z.infer<S>): Promise<unknown>;
+};
 
 /** One outcome a plugin gives: a capability node. Its cases name it. */
 export type Capability = NodeOf<"capability">;
@@ -67,10 +80,14 @@ export type Plugin<S extends z.ZodObject = z.ZodObject, Conn = unknown> = Omit<
 export type Uses = Pick<NodeOf<"plugin">, "usesOps" | "usesSkills">;
 
 /** A plugin and the nodes it holds: what `definePlugin` returns, and a plugin exports as its default. */
-export type Definition<S extends z.ZodObject = z.ZodObject, Conn = unknown> = {
+export type Definition<
+  S extends z.ZodObject = z.ZodObject,
+  Conn = unknown,
+  K extends PluginKind = "connector",
+> = {
   plugin: Plugin<S, Conn>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ops: Op<Conn, any>[];
+  ops: Op<Conn, any, K>[];
   roles: AccessRole[];
   capabilities: Capability[];
 };
@@ -126,14 +143,19 @@ const fromFolder = (plugin: unknown): string[] =>
  * their names. Throws one error that lists every fault, each after the field it is in. Links and the plugin schema's
  * rules are the lint's: a definition is parsed alone, and what it names may be another's.
  */
-export function definePlugin<S extends z.ZodObject, Conn>(
-  definition: Omit<Plugin<S, Conn>, Held | "skills" | "cases"> & {
+export function definePlugin<
+  S extends z.ZodObject,
+  Conn,
+  K extends PluginKind = "connector",
+>(
+  definition: Omit<Plugin<S, Conn>, Held | "skills" | "cases" | "kind"> & {
+    kind?: K;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ops?: Op<Conn, any>[];
+    ops?: Op<Conn, any, K>[];
     roles?: AccessRole[];
     capabilities?: Capability[];
   },
-): Definition<S, Conn> {
+): Definition<S, Conn, K> {
   const { ops = [], roles = [], capabilities = [], ...own } = definition;
   const held = {
     ops: heldIn(ops, "ops", "op"),
@@ -158,9 +180,11 @@ export function definePlugin<S extends z.ZodObject, Conn>(
   );
   const node = <N extends { name: string; type: string }>(parsed: N): N =>
     markDefinition(parsed, { name: parsed.name, type: parsed.type });
-  const parsed: Definition<S, Conn> = {
+  const parsed: Definition<S, Conn, K> = {
     plugin: node(types.plugin.schema.parse(plugin) as Plugin<S, Conn>),
-    ops: ops.map((op) => node(types.op.schema.parse(op) as Op<Conn>)),
+    ops: ops.map((op) =>
+      node(types.op.schema.parse(op) as Op<Conn, z.ZodObject, K>),
+    ),
     roles: roles.map((role) => node(types["access-role"].schema.parse(role))),
     capabilities: capabilities.map((capability) =>
       node(types.capability.schema.parse(capability)),
