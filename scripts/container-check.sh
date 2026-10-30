@@ -239,14 +239,14 @@ assert_contains() {
 }
 
 # Given a container, when it is read, then the CLI made it from the file: its image is the one the CLI
-# builds, not a podman run of que's own.
+# builds, not a podman run of que's own. The CLI names that image after the folder, vsc-<folder>-<hash>,
+# and this machine prefixes it with the registry it was built into (localhost/), so the name is a
+# substring, not the whole.
 assert_made_by_the_cli() {
-  local image
+  local image made
   image=$(field "$1" '{{.ImageName}}')
-  case "$image" in
-    vsc-que-*) return 0 ;;
-  esac
-  fail "the container is not the one the CLI makes from the file: image [$image], expected vsc-que-*"
+  made="vsc-$(basename "$root")-"
+  assert_contains "$image" "$made" "the container is not the one the CLI makes from the file: image [$image], expected $made*"
 }
 
 # --- the behaviors ---
