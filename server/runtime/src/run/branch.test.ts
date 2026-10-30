@@ -606,6 +606,90 @@ test("given a thread whose answer came after a tool round and a second exchange 
   }
 });
 
+test("given a thread whose second message was edited, when the client goes back to the branch it left and sends from there, a follow-up after its last answer or an edit of its third message, then the run forks at that branch's message: the model's request holds the left branch up to it, and GET /threads/:id gives those messages the ids they had", async () => {
+  for (const [first, second, third] of [
+    ["apples", "pears", "plums"],
+    ["red", "green", "blue"],
+  ]) {
+    // u1 a1 u2 a2 u3 a3, then u2 edited: the thread is on a fork made at a1, which holds none of u2, a2, u3 or a3.
+    const { id, u1, a1, u2, a2 } = await twoExchanges(first, second);
+    const u3 = user(third);
+    faux.setResponses([answer(`About ${third}.`)]);
+    const a3 = assistant(
+      idOf((await run(id, [u1, a1, u2, a2, u3])).events, `About ${third}.`),
+      `About ${third}.`,
+    );
+    faux.setResponses([answer("About the edit.")]);
+    await run(id, [u1, a1, user(`not ${second}`)]);
+
+    // Back on the branch it left, through the UI's branch picker: a follow-up after its last answer.
+    const u4 = user("and then?");
+    faux.setResponses([answer("Then more.")]);
+    requests.length = 0;
+    const followUp = await run(id, [u1, a1, u2, a2, u3, a3, u4]);
+    const followed = {
+      request: requests.at(-1),
+      chat: await chat(id),
+    };
+
+    // And on that branch, an edit of its third message: it keeps u2 and a2, which only that branch holds.
+    const u3edit = user(`not ${third}`);
+    faux.setResponses([answer(`Not ${third}, then.`)]);
+    requests.length = 0;
+    const edit = await run(id, [u1, a1, u2, a2, u3edit]);
+    assert.deepEqual(
+      {
+        followed,
+        edited: { request: requests.at(-1), chat: await chat(id) },
+      },
+      {
+        followed: {
+          request: [
+            `user: ${first}`,
+            `assistant: About ${first}.`,
+            `user: ${second}`,
+            `assistant: About ${second}.`,
+            `user: ${third}`,
+            `assistant: About ${third}.`,
+            "user: and then?",
+          ],
+          chat: [
+            ["user", u1.id, first],
+            ["assistant", a1.id, `About ${first}.`],
+            ["user", u2.id, second],
+            ["assistant", a2.id, `About ${second}.`],
+            ["user", u3.id, third],
+            ["assistant", a3.id, `About ${third}.`],
+            ["user", u4.id, "and then?"],
+            ["assistant", idOf(followUp.events, "Then more."), "Then more."],
+          ],
+        },
+        edited: {
+          request: [
+            `user: ${first}`,
+            `assistant: About ${first}.`,
+            `user: ${second}`,
+            `assistant: About ${second}.`,
+            `user: not ${third}`,
+          ],
+          chat: [
+            ["user", u1.id, first],
+            ["assistant", a1.id, `About ${first}.`],
+            ["user", u2.id, second],
+            ["assistant", a2.id, `About ${second}.`],
+            ["user", u3edit.id, `not ${third}`],
+            [
+              "assistant",
+              idOf(edit.events, `Not ${third}, then.`),
+              `Not ${third}, then.`,
+            ],
+          ],
+        },
+      },
+    );
+  }
+});
+
 /** The thread's run, stopped through POST /threads/:id/stop. */
 async function stop(threadId: string) {
   const stopped = await fetch(`${base}/threads/${threadId}/stop`, {
