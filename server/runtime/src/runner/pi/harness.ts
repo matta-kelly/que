@@ -20,7 +20,6 @@
  * Fireworks and the deployment's models on it from when this module loads.
  */
 
-import { homedir } from "node:os";
 import { join } from "node:path";
 import pg from "pg";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
@@ -100,18 +99,9 @@ if (!locks[0].owned) {
     "que: another process owns this deployment: its advisory lock on the database is held, so this one stops",
   );
 }
-// The deployment's data: QUE_DATA_DIR, where a server mounts a volume, or the user's data folder (XDG). Not the
-// deployment's folder, which is a checkout of code: in the vault on this machine, replaced at each deploy on a server.
-const data =
-  process.env.QUE_DATA_DIR ||
-  join(
-    process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
-    "que",
-    mounted.name,
-  );
-
 /** A conversation's own cwd, by its id. */
-const cwdOf = (id: ConversationId) => join(data, "conversations", String(id));
+const cwdOf = (id: ConversationId) =>
+  join(mounted.dataDir, "conversations", String(id));
 
 /** A model's key in pi's settings: `provider/modelId`. */
 const keyOf = (model: Model) =>

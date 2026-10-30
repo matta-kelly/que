@@ -11,14 +11,13 @@
  */
 
 import { rm } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import pg from "pg";
 import { storeOn, type FileStore } from "@que/files";
 import type { ThreadStore } from "@que/threads";
-import { name } from "../mount/mounted.js";
+import { dataDir } from "../mount/mounted.js";
 import type { SignedIn } from "./signed-in.js";
 
 /** The most a file may be, in bytes: 25 MB. */
@@ -33,15 +32,6 @@ const TOO_BIG = { error: `a file may be ${CAP} bytes at most` };
 /** The answer to a body with no "file" part: one that cannot be read as a form is one too. */
 const NO_FILE = { error: 'the body has no "file" part' };
 
-// The deployment's data: QUE_DATA_DIR, where a server mounts a volume, or the user's data folder (XDG).
-const data =
-  process.env.QUE_DATA_DIR ||
-  join(
-    process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
-    "que",
-    name,
-  );
-
 /** The store, on a pool of the server's own, with its bytes under the data directory. */
 function createStore(databaseUrl = process.env.DATABASE_URL): FileStore {
   if (!databaseUrl) throw new Error("DATABASE_URL is not set");
@@ -51,7 +41,7 @@ function createStore(databaseUrl = process.env.DATABASE_URL): FileStore {
   pool.on("error", (error) =>
     console.error("que: an idle Postgres connection was lost:", error.message),
   );
-  return storeOn(pool, data);
+  return storeOn(pool, dataDir);
 }
 
 const store = createStore();
@@ -61,7 +51,7 @@ export async function removeFiles(thread: string): Promise<void> {
   for (const file of await store.list(thread)) {
     await store.remove(thread, file.id);
   }
-  await rm(join(data, "files", thread), { recursive: true, force: true });
+  await rm(join(dataDir, "files", thread), { recursive: true, force: true });
 }
 
 /** The file routes, under a thread of `threads`: each one is the user's own. */
