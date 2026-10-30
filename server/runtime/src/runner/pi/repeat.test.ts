@@ -71,7 +71,7 @@ const models = createModels();
 models.setProvider(faux.provider);
 
 type Args = Parameters<typeof fauxToolCall>[1];
-type Result = { isError: boolean; text: string };
+type Result = { id: string; isError: boolean; text: string };
 
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => block.text ?? "").join("");
@@ -107,14 +107,16 @@ async function chat() {
 
   /**
    * One turn: the user asks, the model calls get-order with each argument
-   * of `calls`, one call to a response, then answers `answer`; get-order
+   * of `calls`, one response for each, then answers `answer`; a list of
+   * arguments is one response with a call for each, the call `c<i>.<j>`
+   * (else `c<i>`). get-order
    * fails with `fails`, and answers when `fails` is given as undefined.
    * Each tool result of the turn, the text of its last
    * message (an answer or a tool result), and how many times the model was
    * called.
    */
   async function turn(
-    calls: Args[],
+    calls: (Args | Args[])[],
     given: { answer?: string; fails?: string | undefined } = {},
   ) {
     const answer = given.answer ?? "Done.";
@@ -124,7 +126,11 @@ async function chat() {
       ...calls.map((args, i) => () => {
         modelCalls++;
         return fauxAssistantMessage(
-          fauxToolCall("shop-get-order", args, { id: `c${i}` }),
+          Array.isArray(args)
+            ? args.map((one, j) =>
+                fauxToolCall("shop-get-order", one, { id: `c${i}.${j}` }),
+              )
+            : fauxToolCall("shop-get-order", args, { id: `c${i}` }),
           { stopReason: "toolUse" },
         );
       }),
@@ -145,6 +151,7 @@ async function chat() {
               : undefined;
             if (message?.role === "toolResult") {
               results.push({
+                id: message.toolCallId,
                 isError: message.isError,
                 text: textOf(message.content),
               });
@@ -295,22 +302,6 @@ test(
 );
 
 test(
-  "given a saved chat in which the call failed twice and the model then answered, when the user writes again, then the model is called",
-  { timeout },
-  async () => {
-    const c = await chat();
-    try {
-      await c.turn([failing, failing], { answer: "That did not work." });
-      const { last, modelCalls } = await c.turn([]);
-      assert.equal(modelCalls, 1);
-      assert.equal(last, "Done.");
-    } finally {
-      await c.close();
-    }
-  },
-);
-
-test(
   "given a chat whose run the guard stopped on the result that reached the stop, when the user writes again, then the model is called",
   { timeout },
   async () => {
@@ -342,6 +333,85 @@ test(
       await c.turn([failing, failing, failing]);
       const { last } = await c.turn([failing]);
       assert.match(last, /failed 4 times in a row/);
+    } finally {
+      await c.close();
+    }
+  },
+);
+
+/**
+ * A turn of six responses, each with the stuck call beside `sibling`, then
+ * "Done.". The guard stops the run on the third round: its stuck call's
+ * result names the call and the error, and the model is called once more
+ * at most, never as far as the answer.
+ */
+async function mixedRounds(sibling: Args) {
+  const c = await chat();
+  try {
+    const round = [failing, sibling];
+    const { results, last, modelCalls } = await c.turn(
+      Array.from({ length: 6 }, () => round),
+    );
+    assert.ok(
+      modelCalls <= 4,
+      `the model was called ${modelCalls} times, past the stop round and one more`,
+    );
+    assert.notEqual(last, "Done.");
+    const stuck = results.find((r) => r.id === "c2.0");
+    assert.match(String(stuck?.text), /shop-get-order\(\{"id":-1\}\)/);
+    assert.match(String(stuck?.text), /failed 3 times in a row/);
+    assert.match(String(stuck?.text), /no such order/);
+  } finally {
+    await c.close();
+  }
+}
+
+test(
+  "given a model that calls the stuck call beside a call that answers, in every response, when the stuck call fails the third time, then the run ends within one more model call, on the stuck call's result that names it and the error",
+  { timeout },
+  () => mixedRounds({ id: 4 }),
+);
+
+test(
+  "given a model that calls the stuck call beside a call that pi refuses for its schema, in every response, when the stuck call fails the third time, then the run ends within one more model call, on the stuck call's result that names it and the error",
+  { timeout },
+  () => mixedRounds({ id: "a" }),
+);
+
+test(
+  "given a long saved chat in which the call failed once, then 60 turns of another call that answered, then failed once more, when it fails again, then the run ends on that call",
+  { timeout: 60_000 },
+  async () => {
+    const c = await chat();
+    try {
+      await c.turn([failing], { answer: "That did not work." });
+      for (let i = 0; i < 60; i++)
+        await c.turn([{ id: i }], { answer: "Here it is." });
+      await c.turn([failing], { answer: "That did not work." });
+      const { results, last, modelCalls } = await c.turn([failing, failing]);
+      assert.equal(results.length, 1);
+      assert.equal(modelCalls, 1);
+      assert.match(last, /failed 3 times in a row/);
+    } finally {
+      await c.close();
+    }
+  },
+);
+
+test(
+  "given a long saved chat of 60 turns in which the call failed twice, then answered, when it fails twice more, then the run goes on to the answer",
+  { timeout: 60_000 },
+  async () => {
+    const c = await chat();
+    try {
+      await c.turn([failing], { answer: "That did not work." });
+      for (let i = 0; i < 60; i++)
+        await c.turn([{ id: i }], { answer: "Here it is." });
+      await c.turn([failing], { answer: "That did not work." });
+      await c.turn([failing], { answer: "Here it is.", fails: undefined });
+      const { results, last } = await c.turn([failing, failing]);
+      assert.equal(results.length, 2);
+      assert.equal(last, "Done.");
     } finally {
       await c.close();
     }
