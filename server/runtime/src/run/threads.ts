@@ -2,7 +2,8 @@
  * The thread routes, mounted at /threads: a user makes, lists and opens their
  * own threads, renames, archives and deletes them, picks the agent config and
  * the model their runs take, and runs, joins and stops them (run/runs.ts). A
- * thread says whether its run goes: a join gives the rest of it. A pick is
+ * thread says whether its run goes: a join gives the rest of it. A delete
+ * stops the thread's run first, if one goes. A pick is
  * made on PATCH /threads/:id, or on POST /threads before the thread exists; it
  * names an agent or a model the deployment lists, or is null to follow the
  * deployment's first agent and the agent's model. Another user's thread gets
@@ -13,7 +14,7 @@ import { Hono } from "hono";
 import * as z from "zod";
 import { createStore } from "@que/threads";
 import { agents, models } from "../mount/mounted.js";
-import { messages } from "../runner/pi/harness.js";
+import { messages, stop } from "../runner/pi/harness.js";
 import { goes, runs } from "./runs.js";
 import { signedIn, type SignedIn } from "./signed-in.js";
 
@@ -85,10 +86,15 @@ threads.patch("/:id", async (c) => {
   return changed ? c.json(changed) : c.json({ error: "not found" }, 404);
 });
 
-threads.delete("/:id", async (c) =>
-  (await store.remove(c.get("userId"), c.req.param("id")))
+threads.delete("/:id", async (c) => {
+  const user = c.get("userId");
+  const thread = await store.get(user, c.req.param("id"));
+  if (!thread) return c.json({ error: "not found" }, 404);
+  // A run that goes is stopped first, so it ends on a thread that is still there.
+  await stop(thread.id);
+  return (await store.remove(user, thread.id))
     ? c.body(null, 204)
-    : c.json({ error: "not found" }, 404),
-);
+    : c.json({ error: "not found" }, 404);
+});
 
 threads.route("/", runs(store));
