@@ -147,8 +147,7 @@ agent ─────────────────▶  assemble  turn its
 		- run (`run/`): serving the agent. Hands the slots to pi, serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names the engine: pi, through `runner/pi/`
 	- flow: when each layer runs
 		- que starts: mount, once, the same for every user
-		- a chat starts: access, then assemble. The chat keeps that agent: an edit to access or to the user's instructions is in the next chat
-		- each message: run
+		- each run: access, then assemble, then run. A run reads the user's catalog and their own instructions when it starts, so an edit to either takes effect from the next run
 - **Backend**: what an agent runs on. Part of que. One exists
 	- what it supplies
 		- identity, users and credentials: on Postgres

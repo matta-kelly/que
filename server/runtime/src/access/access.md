@@ -57,7 +57,7 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 - the user's own instructions for a chat come from one of two places
 	- the file a deployment names in `DEV_USER_INSTRUCTIONS`. A relative path is taken from the deployment's folder
-		- read whole each time a chat's agent is built, so an edit is in the next chat
+		- read whole when each run starts, so an edit is in the next run
 		- a file that cannot be read is an error that names it, and que stops at startup
 	- with no file named, the text saved on the user's account
 		- at most 16,000 characters. Blank text is saved as none
