@@ -25,11 +25,13 @@ import {
   AssistantEntry,
   createRegistry,
   Harness,
+  LiveDoc,
   section,
   ToolResultEntry,
   watchEvents,
   type Conversation,
   type ConversationId,
+  type EntryRecord,
   type Extension,
   type SubmissionId,
 } from "@earendil-works/pi-durable";
@@ -289,6 +291,8 @@ export async function run(
     let given!: (id: SubmissionId) => void;
     const own = new Promise<SubmissionId>((resolve) => (given = resolve));
     let mine = false;
+    /** The tool round of the run's last response: its calls, its results so far, and those the run ends on. */
+    let round = { calls: 0, results: 0, ends: 0 };
     const ended = new Promise<void>((end) =>
       events.start(async (batch) => {
         const id = await own;
@@ -296,17 +300,23 @@ export async function run(
           if (event.type === "run_start") mine = event.inputs.includes(id);
           if (!mine) continue;
           for (const out of agui.of(event)) await send(out);
-          // A result the run ends on ends it from here: pi ends a run on a tool's word only when every call of its round asks.
-          if (
-            event.type === "tool_execution_end" &&
-            ToolResultEntry.is(event.entry) &&
-            endsRun(event.entry.model?.[0]?.details)
-          )
-            void conversation
-              .abort(context)
-              .catch((error: Error) =>
-                console.error("que: the run was not stopped:", error.message),
-              );
+          if (event.type === "message_end" && AssistantEntry.is(event.entry))
+            round = { calls: callsOf(event.entry), results: 0, ends: 0 };
+          if (event.type === "tool_execution_end" && event.entry) {
+            round.results++;
+            if (
+              ToolResultEntry.is(event.entry) &&
+              endsRun(event.entry.model?.[0]?.details)
+            )
+              round.ends++;
+            // pi ended the run itself when every result asked; one that did not keeps it going, so it is ended here.
+            if (
+              round.results === round.calls &&
+              round.ends > 0 &&
+              round.ends < round.calls
+            )
+              void endRun(conversation, id);
+          }
           const kept = agui.kept();
           if (
             event.type === "message_end" &&
@@ -350,6 +360,26 @@ export async function run(
         error.message,
       ),
     );
+  }
+}
+
+/** The tool calls of a model response. */
+const callsOf = (entry: EntryRecord) =>
+  (entry.model?.[0]?.role === "assistant" ? entry.model[0].content : []).filter(
+    (block) => block.type === "toolCall",
+  ).length;
+
+/**
+ * Ends the run of input `id`, if it still goes: its generation alone is
+ * aborted, so an input queued behind it is not withdrawn (pi's
+ * `Conversation.abort` withdraws it).
+ */
+async function endRun(conversation: Conversation, id: SubmissionId) {
+  try {
+    const run = (await harness.snapshot(LiveDoc, conversation.id, context))?.run;
+    if (run?.inputs.includes(id)) await harness.abortTask(run.taskId, context);
+  } catch (error) {
+    console.error("que: the run was not stopped:", (error as Error).message);
   }
 }
 
