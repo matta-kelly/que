@@ -1,10 +1,12 @@
 /**
- * The repeat guard on pi: the cases the guard on LangGraph had, carried to
- * pi, each a run on a Harness of its own, on pi's memory storage. pi-ai's
- * scripted provider (`faux`) makes the model's calls,
- * one tool call to a response, so no model is called. The guard is in
- * que's run of each tool, so every run has it. A saved chat is the turns
- * before on the same conversation.
+ * The repeat guard on pi: a call that fails the same way three times in a row
+ * ends the run, an op's call and a load alike; the count is kept across the
+ * turns of a saved chat, and starts again when the call answers, fails with
+ * another error or has other arguments. Each case is a run on a Harness of its
+ * own, on pi's memory storage. pi-ai's scripted provider (`faux`) makes the
+ * model's calls, one tool call to a response, so no model is called. The
+ * guard is in que's run of each tool, so every run has it. A saved chat is
+ * the turns before on the same conversation.
  *
  * A round with more than one call is stopped by que's host, in the watch of
  * harness.ts's run, so those cases run through that run, on a thread of

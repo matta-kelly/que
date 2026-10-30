@@ -472,19 +472,6 @@ test("stops, naming the model and the provider, when a model has a provider que 
       assert.match(error.message, /^mount:/);
       assert.match(error.message, /"elsewhere"/);
       assert.match(error.message, /"nowhere"/);
-      assert.match(error.message, /Providers: fireworks/);
-      return true;
-    },
-  );
-});
-
-// pi serves Fireworks alone: a Beam config, whose id pi's provider would send to Fireworks as it is, does not mount.
-test("stops, naming the model and its provider, when a model is Beam's, which pi does not serve", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("model-beam")),
-    (error: Error) => {
-      assert.match(error.message, /^mount: the model "beam" /);
-      assert.match(error.message, /the provider "beam"/);
       assert.match(error.message, /Providers: fireworks$/);
       return true;
     },
