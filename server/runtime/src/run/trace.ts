@@ -1,6 +1,6 @@
 /**
  * The trace of a run, sent to Langfuse. The one file that names Langfuse or
- * OpenTelemetry.
+ * an OpenTelemetry SDK.
  *
  * A deployment turns it on with three settings in its `.env`: the two keys and
  * the URL of its Langfuse. With none of them, que sends nothing and a run gets

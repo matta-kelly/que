@@ -95,6 +95,8 @@ test("given two users, each running the agent clerk on a thread of their own, wh
       user: roots[0]?.attributes["user.id"],
       session: roots[0]?.attributes["session.id"],
       agent: roots[0]?.attributes["langfuse.trace.metadata.agent"],
+      // The trace is named after the run's agent, not after pi's first span.
+      name: roots[0]?.attributes["langfuse.trace.name"],
       // The run's model calls and its tool call are in its trace, not in one of their own.
       generations: spans.filter((span) => kind(span) === "generation").length,
       tools: spans.filter((span) => kind(span) === "tool").length,
@@ -108,6 +110,7 @@ test("given two users, each running the agent clerk on a thread of their own, wh
         user: ana,
         session: anaThread,
         agent: "clerk",
+        name: "clerk",
         generations: 2,
         tools: 1,
       },
@@ -116,6 +119,7 @@ test("given two users, each running the agent clerk on a thread of their own, wh
         user: bo,
         session: boThread,
         agent: "clerk",
+        name: "clerk",
         generations: 2,
         tools: 1,
       },
