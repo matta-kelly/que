@@ -33,6 +33,7 @@ import {
   section,
   ToolResultEntry,
   watchEvents,
+  type CompactionPolicy,
   type Conversation,
   type ConversationId,
   type EntryRecord,
@@ -110,11 +111,36 @@ const data =
 /** A conversation's own cwd, by its id. */
 const cwdOf = (id: ConversationId) => join(data, "conversations", String(id));
 
+/**
+ * Each model's compaction, by its `provider/modelId`: pi's settings are per
+ * model, not per conversation, so a run sets its model's from its loop.
+ */
+const compactions: Record<string, Partial<CompactionPolicy>> = {};
+
+/**
+ * pi's compaction for a loop's `summarize` on a model's `window`: a request
+ * past `at` of it waits for a summary that keeps about `keep` of it, and no
+ * summary is made in the background.
+ */
+const compactionOf = (
+  window: number,
+  summarize: ResolvedLoop["summarize"],
+): Partial<CompactionPolicy> =>
+  summarize === false
+    ? { enabled: false }
+    : {
+        enabled: true,
+        reserveTokens: Math.round((1 - summarize.at) * window),
+        keepRecentTokens: Math.round(summarize.keep * window),
+        backgroundTokens: 0,
+      };
+
 const harness = await Harness.open(
   storageOn(client),
   {
     models,
     registry,
+    settings: { compaction: { modelOverrides: compactions } },
     telemetry: tracing.telemetry,
     // A run's files are in its conversation's cwd. A conversation made before it had one gets its own.
     env: ({ conversationId, cwd }) =>
@@ -280,8 +306,9 @@ function conversationFor(
  * `prompt`, `catalog` and `way`, the agent's way of loading, sent as it is; the
  * way also says when an op is offered (extension.ts). A result over the loop's
  * `result` setting is moved to a file in the conversation's cwd (result.ts).
- * Its trace names `user`, the thread and `agent`, the agent config it runs,
- * and holds `tags`.
+ * The loop's `summarize` setting is set as its model's compaction. Its trace
+ * names `user`, the thread and `agent`, the agent config it runs, and holds
+ * `tags`.
  */
 export async function run(
   thread: string,
@@ -294,6 +321,7 @@ export async function run(
     prompt,
     way,
     result,
+    summarize,
   }: {
     catalog: Catalog;
     user: string;
@@ -302,6 +330,7 @@ export async function run(
     prompt: Omit<Parameters<typeof systemPrompt>[0], "catalog" | "environment">;
     way: Way;
     result?: ResolvedLoop["result"];
+    summarize?: ResolvedLoop["summarize"];
   },
   {
     runId,
@@ -328,6 +357,9 @@ export async function run(
   });
   if (chosen.resend) return {};
   const { conversation, own } = chosen;
+  if (summarize !== undefined)
+    compactions[`${providerOf(model)}/${providerModelOf(model)}`] =
+      compactionOf(model.window, summarize);
   const events = await watchEvents(harness, conversation.id, context);
   try {
     const agui = aguiRun();

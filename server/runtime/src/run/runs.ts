@@ -88,6 +88,7 @@ export function runs(store: ThreadStore) {
       return c.json({ error: "the last message is not the user's" }, 400);
     const config = configFor(agents, thread.agent ?? undefined);
     const model = modelFor(models, config, thread.model ?? undefined);
+    const loop = loopFor(loops, config);
     const catalog = narrow(await catalogFor(user), config.plugins ?? []);
     // Their own text, if the agent takes it: a file the deployment names is read only then.
     const own = config.userInstructions
@@ -128,7 +129,8 @@ export function runs(store: ThreadStore) {
             instructions: config.instructions,
           },
           way: loadingFor(config),
-          result: loopFor(loops, config).result,
+          result: loop.result,
+          summarize: loop.summarize,
         },
         {
           runId,
