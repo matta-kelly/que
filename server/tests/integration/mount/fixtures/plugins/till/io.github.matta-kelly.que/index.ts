@@ -19,5 +19,16 @@ export default definePlugin({
       // What the op got: the connection the door asked for, and the item.
       run: async ({ conn }, { item }) => ({ conn, item }),
     },
+    {
+      name: "till-jam",
+      type: "op",
+      title: "Jam",
+      description:
+        "Jams the till on an item: a bug, whose message holds a path.",
+      input: z.object({ item: z.string().describe("The item's name") }),
+      run: async (_, { item }) => {
+        throw new Error(`secret ${item} at /x/y.ts:1:2`);
+      },
+    },
   ],
 });

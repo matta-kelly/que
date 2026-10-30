@@ -88,14 +88,14 @@ const connect = async (key: string) => {
 };
 
 /**
- * A message on a new thread of the signed-in user, in which the model calls `till-count` for `item` under the call id
+ * A message on a new thread of the signed-in user, in which the model calls the op `op` for `item` under the call id
  * `id` and then answers "Done.": the events streamed back.
  */
-async function countRun(item: string, id: string) {
+async function callRun(op: string, item: string, id: string) {
   const made = await fetch(`${base}/threads`, { method: "POST" });
   const threadId = ((await made.json()) as { id: string }).id;
   faux.setResponses([
-    fauxAssistantMessage([fauxToolCall("till-count", { item }, { id })], {
+    fauxAssistantMessage([fauxToolCall(op, { item }, { id })], {
       stopReason: "toolUse",
     }),
     fauxAssistantMessage(fauxText("Done.")),
@@ -151,9 +151,9 @@ test("given two signed-in users, each with a till key of their own, when faux ca
   assert.notEqual(ana, bo);
 
   as("ana@example.com");
-  const anaRun = await countRun("pens", "call-ana");
+  const anaRun = await callRun("till-count", "pens", "call-ana");
   as("bo@example.com");
-  const boRun = await countRun("ink", "call-bo");
+  const boRun = await callRun("till-count", "ink", "call-bo");
 
   const order = [
     "RUN_STARTED",
@@ -189,5 +189,43 @@ test("given two signed-in users, each with a till key of their own, when faux ca
         order,
       },
     },
+  );
+});
+
+test("given an op whose run throws an Error that is no OpFailed, when faux calls it, then the run stops with RUN_ERROR, and neither the model nor the user gets the thrown text", async () => {
+  as("ana@example.com");
+  await connect("ana-key");
+  const stopped = async (item: string, id: string) => {
+    const events = await callRun("till-jam", item, id);
+    const thrown = `secret ${item} at /x/y.ts:1:2`;
+    const last = events.at(-1);
+    return {
+      last: last?.type,
+      finished: events.some((e) => e.type === "RUN_FINISHED"),
+      // The thrown text, or its path, in the error the user reads.
+      leaked: [thrown, "/x/y.ts"].some((text) =>
+        String(last?.message).includes(text),
+      ),
+      // A result of the call that holds the thrown text: what the model would read.
+      results: events.filter(
+        (e) =>
+          e.type === "TOOL_CALL_RESULT" && String(e.content).includes("secret"),
+      ).length,
+      answered: events.some((e) => e.type === "TEXT_MESSAGE_START"),
+    };
+  };
+  const expected = {
+    last: "RUN_ERROR",
+    finished: false,
+    leaked: false,
+    results: 0,
+    answered: false,
+  };
+  assert.deepEqual(
+    {
+      pens: await stopped("pens", "jam-1"),
+      ink: await stopped("ink", "jam-2"),
+    },
+    { pens: expected, ink: expected },
   );
 });

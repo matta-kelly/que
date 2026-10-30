@@ -81,6 +81,14 @@ const shop = definePlugin({
       }),
       run: async (_, { ids }) => ({ tagged: ids }),
     },
+    {
+      name: "shop-forget-order",
+      type: "op",
+      title: "Forget order",
+      description: "Forgets one order, and gives back nothing.",
+      input: z.object({ id: z.number().describe("Order id") }),
+      run: async () => undefined,
+    },
   ],
 });
 const skill = (name: string, title: string, body: string) => ({
@@ -667,4 +675,24 @@ test("given any arguments, when the model calls an op whose input has a refine a
     }),
     { numRuns: 40 },
   );
+});
+
+test("given an op whose run gives back nothing, when the model calls it, then the model gets the JSON text null, and the run goes on", async () => {
+  const { results, answer } = await turn([
+    { name: "shop-forget-order", args: { id: 4 }, id: "c1" },
+    { name: "shop-get-order", args: { id: 5 }, id: "c2" },
+    { name: "shop-forget-order", args: { id: 6 }, id: "c3" },
+  ]);
+  assert.deepEqual(
+    ["c1", "c2", "c3"].map((id) => {
+      const r = resultOf(results, id);
+      return [r?.isError, r?.text];
+    }),
+    [
+      [false, "null"],
+      [false, JSON.stringify({ id: 5 })],
+      [false, "null"],
+    ],
+  );
+  assert.equal(answer, "Done.");
 });
