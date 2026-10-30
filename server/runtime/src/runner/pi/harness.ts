@@ -13,11 +13,15 @@
  * run: each conversation has an extension of its own, `que.<id>`, installed
  * again with its user's catalog before each of its runs and removed after it,
  * and it selects that one alone, so two runs at once never share tools.
+ * Each conversation has a cwd of its own, the folder its run's files are in,
+ * and a fork keeps its parent's.
  *
  * `models` is the pi-ai models collection the Harness reads at each use, with
  * Fireworks and the deployment's models on it from when this module loads.
  */
 
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import pg from "pg";
 import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
@@ -35,16 +39,23 @@ import {
   type Extension,
   type SubmissionId,
 } from "@earendil-works/pi-durable";
+import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import type { AGUIEvent } from "@ag-ui/core";
 import { fireworks, levelOf } from "@que/chat-model";
 import { storageOn } from "@que/pi-storage";
 import { createStore } from "@que/threads";
-import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
+import {
+  providerModelOf,
+  providerOf,
+  type Model,
+  type ResolvedLoop,
+} from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
 import { door } from "../../assemble/door.js";
 import { systemPrompt } from "../../assemble/prompt.js";
 import type { Way } from "../../assemble/way.js";
+import { deploymentFolder } from "../../mount/deployment-folder.js";
 import * as mounted from "../../mount/mounted.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
@@ -87,9 +98,26 @@ if (!locks[0].owned) {
     "que: another process owns this deployment: its advisory lock on the database is held, so this one stops",
   );
 }
+// The conversations' cwds: in the deployment's folder, as the database that keeps the conversations is the
+// deployment's, so a moved result outlives the container as its conversation does, and is not in que's checkout. Under
+// `.que/`, a dot folder, which basis does not read, and whose own .gitignore keeps it out of the deployment's repo.
+const cwds = join(deploymentFolder(process.env), ".que", "conversations");
+mkdirSync(cwds, { recursive: true });
+writeFileSync(join(cwds, "..", ".gitignore"), "*\n");
+
+/** A conversation's own cwd, by its id. */
+const cwdOf = (id: ConversationId) => join(cwds, String(id));
+
 const harness = await Harness.open(
   storageOn(client),
-  { models, registry, telemetry: tracing.telemetry },
+  {
+    models,
+    registry,
+    telemetry: tracing.telemetry,
+    // A run's files are in its conversation's cwd. A conversation made before it had one gets its own.
+    env: ({ conversationId, cwd }) =>
+      new NodeExecutionEnv({ cwd: cwd ?? cwdOf(conversationId) }),
+  },
   context,
 );
 
@@ -135,6 +163,15 @@ async function onModel(conversation: Conversation, model: Model) {
     had.thinkingLevel !== on.thinkingLevel
   )
     await conversation.configure(on, context);
+  return conversation;
+}
+
+/**
+ * The new conversation, on a cwd of its own, which the env roots its files at. A fork keeps its parent's, so the
+ * pointers it keeps from the parent's chat still name their files.
+ */
+async function ownCwd(conversation: Conversation) {
+  await conversation.configure({ cwd: cwdOf(conversation.id) }, context);
   return conversation;
 }
 
@@ -207,12 +244,14 @@ function conversationFor(
               : from,
             model,
           )
-        : await harness.createConversation(
-            {
-              ownership,
-              agent: agentOn(model),
-            },
-            context,
+        : await ownCwd(
+            await harness.createConversation(
+              {
+                ownership,
+                agent: agentOn(model),
+              },
+              context,
+            ),
           );
     const own = await ownExtension(conversation, que);
     if (conversation.id !== branches[0]?.id)
@@ -237,7 +276,8 @@ function conversationFor(
  * Its tools are the ops of `catalog`, each called through the door as `user`.
  * Its system prompt is the agent's, as assemble's `systemPrompt` gives it from
  * `prompt`, `catalog` and `way`, the agent's way of loading, sent as it is; the
- * way also says when an op is offered (extension.ts).
+ * way also says when an op is offered (extension.ts). A result over the loop's
+ * `result` setting is moved to a file in the conversation's cwd (result.ts).
  * Its trace names `user`, the thread and `agent`, the agent config it runs,
  * and holds `tags`.
  */
@@ -251,6 +291,7 @@ export async function run(
     tags,
     prompt,
     way,
+    result,
   }: {
     catalog: Catalog;
     user: string;
@@ -258,6 +299,7 @@ export async function run(
     tags?: string[];
     prompt: Omit<Parameters<typeof systemPrompt>[0], "catalog" | "environment">;
     way: Way;
+    result?: ResolvedLoop["result"];
   },
   {
     runId,
@@ -272,7 +314,7 @@ export async function run(
 ): Promise<{ error?: string }> {
   const text = systemPrompt({ ...prompt, catalog, environment: way.prompt });
   const que = {
-    ...extension(catalog, call, user, way),
+    ...extension(catalog, call, user, way, result),
     // One section, untagged: the model reads the prompt as the LangGraph path sends it.
     sections: [section("prompt", () => text, { tag: false })],
     hooks: tracing.hooks,

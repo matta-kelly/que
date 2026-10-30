@@ -43,10 +43,11 @@ import { catalogFor } from "../access/catalog.js";
 import { taken } from "../access/instructions.js";
 import { narrow } from "../access/narrow.js";
 import { userInstructions } from "../access/users.js";
-import { agents, models } from "../mount/mounted.js";
+import { agents, loops, models } from "../mount/mounted.js";
 import { messages, run, running, stop } from "../runner/pi/harness.js";
 import { configFor } from "./config.js";
 import { loadingFor } from "./loading.js";
+import { loopFor } from "./loop.js";
 import { modelFor } from "./model.js";
 import type { SignedIn } from "./signed-in.js";
 import { tagsOf } from "./trace.js";
@@ -127,6 +128,7 @@ export function runs(store: ThreadStore) {
             instructions: config.instructions,
           },
           way: loadingFor(config),
+          result: loopFor(loops, config).result,
         },
         {
           runId,

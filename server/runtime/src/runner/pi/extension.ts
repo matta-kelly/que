@@ -16,6 +16,7 @@ import type {
 import type { TSchema } from "@earendil-works/pi-ai";
 import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
+import type { ResolvedLoop } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { strictInput, type Call } from "../../assemble/door.js";
 import {
@@ -35,6 +36,14 @@ import {
 } from "../../assemble/on-demand/open.js";
 import type { Way } from "../../assemble/way.js";
 import { answered, failed, isStop } from "./repeat.js";
+import {
+  moved,
+  READ_RESULT,
+  READ_RESULT_DESCRIPTION,
+  readResultSchema,
+  WINDOW,
+  windowAt,
+} from "./result.js";
 
 /** A schema's input side as JSON Schema, which pi-ai takes as it is (no TypeBox kind). */
 const schemaOf = (schema: z.core.$ZodType) =>
@@ -87,6 +96,8 @@ export function extension(
   call: Call,
   user: string,
   way: Way,
+  // A loop that leaves it out, as the tests of other behaviors do, moves no result.
+  limit: ResolvedLoop["result"] = false,
 ): Omit<Extension, "name"> {
   const ops = catalog.flatMap(({ plugin: { definition } }) =>
     definition.ops.map((op): ToolRegistration => ({
@@ -96,8 +107,10 @@ export function extension(
       // fields. pi checks the arguments against it and hands them on as they are, so the door is the one parse.
       parameters: schemaOf(strictInput(op.input)),
       ...(way.deferred ? { deferred: true as const } : {}),
-      execute: (args, api, context) =>
-        result(
+      // pi cuts a tool's output at 50KB or 2000 lines by default: an op's is cut by nothing, so result.max alone decides.
+      outputLimits: { maxBytes: Infinity, maxLines: Infinity },
+      execute: async (args, api, context) => {
+        const answer = await result(
           op.name,
           args,
           async () =>
@@ -107,7 +120,10 @@ export function extension(
             ) ?? "null",
           api,
           context,
-        ),
+        );
+        // Then, a result over result.max is moved to its file, and the model gets the pointer.
+        return limit ? moved(answer, limit.max, api, context) : answer;
+      },
     })),
   );
   const skills = new Map(
@@ -143,9 +159,28 @@ export function extension(
       ...(way.deferred ? onDemand(catalog) : []),
       ...ops,
       ...(skills.size ? [readSkill] : []),
+      ...(limit ? [readResult] : []),
     ],
   };
 }
+
+/** The model reads back a result that was moved to its file. Any other tool of files would be one no config chose. */
+const readResult: ToolRegistration = {
+  name: READ_RESULT,
+  description: READ_RESULT_DESCRIPTION,
+  parameters: schemaOf(readResultSchema),
+  // A window is at most WINDOW bytes, of any number of lines.
+  outputLimits: { maxBytes: WINDOW, maxLines: Infinity },
+  execute: (args, api, context) =>
+    result(
+      READ_RESULT,
+      args,
+      async () =>
+        windowAt(args as z.infer<typeof readResultSchema>, api, context),
+      api,
+      context,
+    ),
+};
 
 /**
  * The tools to open a plugin and to load an op, for the ones the catalog holds something for. A load that succeeds
