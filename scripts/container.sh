@@ -96,12 +96,10 @@ else
   c=$(podman ps -aq --filter "label=devcontainer.local_folder=$root" | head -1)
   created=true
 fi
-# A new volume starts root-owned. The file's install hands its four to node; the deployment's volume is
-# added by this call, so hand it over too before installing there.
-if [ "$created" = true ]; then
-  volumes=("$root/server/node_modules" "$root/ui/node_modules" "$root/ui/.next" /home/node/.cache)
-  [ -z "$outside" ] || volumes+=("$top/node_modules")
-  podman exec -u root "$c" chown node:node "${volumes[@]}" >&2
+# A new volume starts root-owned. The file's install hands its own four to node; the deployment's volume is
+# added by this call and not named by the file, so it is this script's to hand over before installing there.
+if [ "$created" = true ] && [ -n "$outside" ]; then
+  podman exec -u root "$c" chown node:node "$top/node_modules" >&2
 fi
 # The outside repo's install, made again when its lockfile changes.
 if [ -n "$outside" ] && [ -f "$top/package-lock.json" ]; then
