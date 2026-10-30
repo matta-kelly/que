@@ -15,14 +15,32 @@ import { providerModelOf, providerOf, type Model } from "@mku1tra/que-harness";
 
 const FIREWORKS = "https://api.fireworks.ai/inference/v1";
 
+const LEVELS: readonly string[] = [
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] satisfies ThinkingLevel[];
+
+// An effort that is a pi-ai level is its own level. Another word goes on "medium", a level every model that reasons
+// has, so pi-ai keeps it (clampThinkingLevel); the model's map sends the word as it is.
+const levelFor = (effort: string): ThinkingLevel =>
+  LEVELS.includes(effort) ? (effort as ThinkingLevel) : "medium";
+
 export const piModel = (model: Model): PiModel<"openai-completions"> => ({
   id: providerModelOf(model),
   name: model.name,
   api: "openai-completions",
   provider: "fireworks",
   baseUrl: FIREWORKS,
-  // que sends no thinking level, so pi-ai asks for no reasoning: the model reasons as its provider sets it.
-  reasoning: false,
+  // A config with an effort reasons: a call at its level sends the effort, as the map gives it, as reasoning_effort.
+  // One with none passes no level, and the model reasons as its provider sets it.
+  reasoning: model.effort !== undefined,
+  ...(model.effort !== undefined && {
+    thinkingLevelMap: { [levelFor(model.effort)]: model.effort },
+  }),
   input: ["text"],
   cost: {
     input: model.price?.input ?? 0,
@@ -38,9 +56,8 @@ export const piModel = (model: Model): PiModel<"openai-completions"> => ({
  * The thinking level a call on the config's model passes, so pi-ai sends the config's `effort` as
  * `reasoning_effort`. None for a config with no effort: no level is passed, and none is sent.
  */
-// A stub of F12's interface: its body is da-hammer's.
-export const levelOf: (model: Model) => ThinkingLevel | undefined = () =>
-  undefined;
+export const levelOf = (model: Model): ThinkingLevel | undefined =>
+  model.effort === undefined ? undefined : levelFor(model.effort);
 
 /** Fireworks, with the deployment's Fireworks models, each as its config gives it. */
 export const fireworks = (models: Model[]) =>
