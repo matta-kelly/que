@@ -182,10 +182,13 @@ export function cardOf(
   {
     definition,
     cases,
+    skills,
   }: { definition: Definition; cases: Case[]; skills?: Skill[] },
   version?: string,
 ): Card {
   const { plugin } = definition;
+  // A plugin that leaves out its kind is a connector: a reader that runs no code is told so.
+  const kind = plugin.kind ?? "connector";
   return {
     $schema: CARD_SCHEMA,
     name: plugin.name,
@@ -195,8 +198,7 @@ export function cardOf(
       [NAMESPACE]: {
         format: CARD_FORMAT,
         title: plugin.title,
-        // A plugin that leaves out its kind is a connector: a reader that runs no code is told so.
-        kind: plugin.kind ?? "connector",
+        kind,
         ...(plugin.credential === undefined
           ? {}
           : {
@@ -213,7 +215,13 @@ export function cardOf(
           ...(op.uses === undefined ? {} : { uses: op.uses }),
           input: schemaJson(op.input, `op ${op.name}'s input`),
         })),
-        skills: [],
+        skills:
+          kind === "connector"
+            ? (skills ?? []).map(({ name, uses }) => ({
+                name,
+                ...(uses === undefined ? {} : { uses }),
+              }))
+            : [],
         roles: definition.roles.map(written),
         usesOps: plugin.usesOps ?? [],
         usesSkills: plugin.usesSkills ?? [],
