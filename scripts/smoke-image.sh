@@ -57,9 +57,14 @@ require_image() {
 }
 
 # Given no QUE_DEPLOYMENT, when que-server starts, then it exits, and says which setting it needs.
+# The image makes its users store as it loads, before it reads the deployment: access/users.ts calls
+# createUsers() at line 6, and that store throws DATABASE_URL is not set (backend/users/index.ts),
+# while the deployment check is the next line, deploymentFolder(process.env). So the run gets the one
+# setting the load needs to reach that check. The store's pool is made, not dialled, before the missing
+# deployment stops the start.
 step_server() {
     local out code=0
-    out=$(timeout 60 "$engine" run --rm "$image" que-server 2>&1) || code=$?
+    out=$(timeout 60 "$engine" run --rm -e DATABASE_URL=postgres://que@127.0.0.1:1/que "$image" que-server 2>&1) || code=$?
     if [ "$code" -eq 0 ]; then
         echo "que-server exited 0 with no QUE_DEPLOYMENT: it served with nothing that names a deployment" >&2
         return 1
@@ -117,16 +122,21 @@ step_data() {
     fi
 }
 
-# Then the image holds no .git. A .git in it ships the repo's history, which the image reads
-# nothing of, and QUE_COMMIT is how it names its commit instead. No path is assumed.
+# Then the image holds no .git that a process can read. A .git in it ships the repo's history, which
+# the image reads nothing of, and QUE_COMMIT is how it names its commit instead. No path is assumed.
+# find visits only what node can read and search: /root is 0700, so it is pruned rather than reported.
+# Only stdout is a path, so a permission error cannot read as a .git; a .git that node can read is
+# still printed and fails the step, and a find that does not finish still fails it.
 step_git() {
-    local out
-    out=$(timeout 120 "$engine" run --rm "$image" find / -xdev -type d -name .git -print 2>&1) || {
-        echo "find failed in the image: $out" >&2
-        return 1
-    }
+    local out status=0
+    out=$(timeout 120 "$engine" run --rm "$image" \
+        find / -xdev \( ! -readable -o ! -executable \) -prune -o -type d -name .git -print) || status=$?
     if [ -n "$out" ]; then
         echo "the image holds a .git at: $out" >&2
+        return 1
+    fi
+    if [ "$status" -ne 0 ]; then
+        echo "find did not finish in the image (exit $status), so it cannot say the image holds no .git" >&2
         return 1
     fi
 }
