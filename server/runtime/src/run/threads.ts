@@ -15,6 +15,7 @@ import * as z from "zod";
 import { createStore } from "@que/threads";
 import { agents, models } from "../mount/mounted.js";
 import { messages, stop } from "../runner/pi/harness.js";
+import { fileRoutes, removeFiles } from "./files.js";
 import { goes, runs } from "./runs.js";
 import { signedIn, type SignedIn } from "./signed-in.js";
 
@@ -89,9 +90,12 @@ threads.delete("/:id", async (c) => {
   if (!thread) return c.json({ error: "not found" }, 404);
   // A run that goes is stopped first, so it ends on a thread that is still there.
   await stop(thread.id);
+  // The files go before the thread, so none is left on the disk or in the table.
+  await removeFiles(thread.id);
   return (await store.remove(user, thread.id))
     ? c.body(null, 204)
     : c.json({ error: "not found" }, 404);
 });
 
+threads.route("/", fileRoutes(store));
 threads.route("/", runs(store));

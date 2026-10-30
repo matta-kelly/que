@@ -25,6 +25,7 @@
     "@opentelemetry/sdk-node": "^0.223.0",
     "@que/chat-model": "*",
     "@que/credentials": "*",
+    "@que/files": "*",
     "@que/identity": "*",
     "@que/pi-storage": "*",
     "@que/threads": "*",
