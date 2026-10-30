@@ -149,6 +149,13 @@ const que = trace.getTracer("que");
 /** The OpenTelemetry context of each of pi's spans: the one it started in, with it active. */
 const contexts = new WeakMap<TelemetryContext, Context>();
 
+/**
+ * The model call each request phase has open, from its request to its answer,
+ * or to the phase's end when no answer comes: pi skips `afterResponse` on an
+ * abort, and the call then ends with its input only.
+ */
+const generations = new WeakMap<TelemetryContext, Span>();
+
 /** A carrier is OpenTelemetry's, W3C's trace context and baggage: the baggage holds the run. */
 const carriers: TelemetryPropagation = {
   inject(at) {
@@ -210,6 +217,8 @@ function telemetryAt(parent?: Context): TelemetryContext {
         if (!statusSet) span.setStatus({ code: SpanStatusCode.ERROR });
         throw error;
       } finally {
+        generations.get(handle)?.end();
+        generations.delete(handle);
         span.end();
       }
     },
@@ -219,9 +228,6 @@ function telemetryAt(parent?: Context): TelemetryContext {
 /** The span of pi's span `at`, in OpenTelemetry. */
 const spanOf = (at: TelemetryContext) =>
   trace.getSpan(contexts.get(at) ?? ROOT_CONTEXT);
-
-/** The model call each request phase has open, from its request to its answer. */
-const generations = new WeakMap<TelemetryContext, Span>();
 
 /** What a trace shows of pi's work: the content of each model call and each tool call, which pi's spans hold none of. */
 const hooks: HookRegistration[] = [
@@ -248,6 +254,7 @@ const hooks: HookRegistration[] = [
         JSON.stringify(message),
       );
       generation?.end();
+      generations.delete(telemetry);
     },
   }),
   // A tool call's span is the phase of pi's that runs it, named by the tool.
