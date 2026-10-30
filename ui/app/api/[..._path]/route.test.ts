@@ -18,12 +18,21 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-test("the proxy forwards to que's own agent server when no LANGGRAPH_API_URL is set", async () => {
+test("the proxy forwards to que's own server when no QUE_URL is set", async () => {
+  vi.stubEnv("QUE_URL", undefined);
   vi.stubEnv("LANGGRAPH_API_URL", undefined);
   assert.equal(await forwardedTo(), "http://localhost:2024/info");
 });
 
-test("the proxy forwards to the server LANGGRAPH_API_URL names", async () => {
+test("the proxy forwards to the server QUE_URL names", async () => {
+  vi.stubEnv("QUE_URL", "https://que.example.com");
+  assert.equal(await forwardedTo(), "https://que.example.com/info");
+  vi.stubEnv("QUE_URL", " https://other.example.com ");
+  assert.equal(await forwardedTo(), "https://other.example.com/info");
+});
+
+test("the proxy reads no LANGGRAPH_API_URL: with no QUE_URL, it is que's own server", async () => {
+  vi.stubEnv("QUE_URL", undefined);
   vi.stubEnv("LANGGRAPH_API_URL", "https://agents.example.com");
-  assert.equal(await forwardedTo(), "https://agents.example.com/info");
+  assert.equal(await forwardedTo(), "http://localhost:2024/info");
 });

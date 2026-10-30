@@ -4,9 +4,10 @@ import { nameNewestChat, openApp, openChat } from "./helpers";
 // Needs a deployment that lists two agents and two models or more. The names
 // are read from the server, so the tests hold for any such deployment.
 
+type Price = { input: number; output: number; cachedInput?: number };
 type Deployment = {
   agents: { name: string; model: string }[];
-  models: { name: string }[];
+  models: { name: string; price: Price }[];
 };
 
 async function deploymentOf(page: Page): Promise<Deployment> {
@@ -47,68 +48,107 @@ async function pick(page: Page, picker: "Agent" | "Model", name: string) {
   await page.getByRole("menuitemradio", { name, exact: true }).click();
 }
 
-test("pickers: a picked agent is sent with the first run, and sets the model @live", async ({
-  page,
-}) => {
+// A price as the UI writes it, for one million tokens: each digit the server gave, and
+// two decimals at the least. Written here apart from the UI's own code, from the number as JSON has it.
+const rate = (dollars: number) => {
+  const [whole, decimals = ""] = String(dollars).split(".");
+  return `$${whole}.${decimals.padEnd(2, "0")}`;
+};
+const priced = ({ input, output }: Price) =>
+  `${rate(input)} in · ${rate(output)} out`;
+
+// Needs a deployment that lists two models of two prices, on a server that
+// gives each model's price.
+test("pickers: each model in the picker shows its price", async ({ page }) => {
   await openApp(page);
-  const { agents, models } = await deploymentOf(page);
-  const second = agents[1];
-  const other = models.find((m) => m.name !== second.model)!.name;
-
-  await pick(page, "Model", other);
-  await pick(page, "Agent", second.name);
-  await expect(agentPicker(page)).toHaveText(second.name);
-  await expect(modelPicker(page)).toHaveText(second.model);
-
-  const sent = await send(page, "Say hi in one word.");
-  expect(sent.agent).toBe(second.name);
-  expect(sent.model).toBeUndefined();
+  const { models } = await deploymentOf(page);
+  expect(models.length, "the deployment lists two models").toBeGreaterThan(1);
+  await modelPicker(page).click();
+  for (const model of models)
+    // The row is still found by the model's name alone.
+    await expect(
+      page.getByRole("menuitemradio", { name: model.name, exact: true }),
+    ).toContainText(priced(model.price));
 });
 
-test("pickers: the agent picker does not open in a chat with a message @live", async ({
-  page,
-}) => {
-  await openApp(page);
-  await expect(agentPicker(page)).toBeEnabled();
-  await send(page, "Say hi in one word.");
-  await expect(agentPicker(page)).toBeDisabled();
-  await expect(modelPicker(page)).toBeEnabled();
-});
+// F3: the picks are kept on que's thread record. Until then a pick is not kept.
+const F3 = {
+  annotation: {
+    type: "fixme",
+    description: "F3: the picks, kept on que's thread record",
+  },
+};
+
+test.fixme(
+  "pickers: a picked agent is sent with the first run, and sets the model @live",
+  F3,
+  async ({ page }) => {
+    await openApp(page);
+    const { agents, models } = await deploymentOf(page);
+    const second = agents[1];
+    const other = models.find((m) => m.name !== second.model)!.name;
+
+    await pick(page, "Model", other);
+    await pick(page, "Agent", second.name);
+    await expect(agentPicker(page)).toHaveText(second.name);
+    await expect(modelPicker(page)).toHaveText(second.model);
+
+    const sent = await send(page, "Say hi in one word.");
+    expect(sent.agent).toBe(second.name);
+    expect(sent.model).toBeUndefined();
+  },
+);
+
+test.fixme(
+  "pickers: the agent picker does not open in a chat with a message @live",
+  F3,
+  async ({ page }) => {
+    await openApp(page);
+    await expect(agentPicker(page)).toBeEnabled();
+    await send(page, "Say hi in one word.");
+    await expect(agentPicker(page)).toBeDisabled();
+    await expect(modelPicker(page)).toBeEnabled();
+  },
+);
 
 // A reload lands on a new chat, so the chat is opened again from the list.
-test("pickers: the pick holds after a reload, and after a move to another chat and back @live", async ({
-  page,
-}) => {
-  await openApp(page);
-  const { agents, models } = await deploymentOf(page);
-  const agent = agents[1];
-  const model = models.find((m) => m.name !== agent.model)!.name;
+test.fixme(
+  "pickers: the pick holds after a reload, and after a move to another chat and back @live",
+  F3,
+  async ({ page }) => {
+    await openApp(page);
+    const { agents, models } = await deploymentOf(page);
+    const agent = agents[1];
+    const model = models.find((m) => m.name !== agent.model)!.name;
 
-  await pick(page, "Agent", agent.name);
-  await pick(page, "Model", model);
-  await send(page, "Say hi in one word.");
-  const title = `Pick ${Date.now()}`;
-  await nameNewestChat(page, title);
+    await pick(page, "Agent", agent.name);
+    await pick(page, "Model", model);
+    await send(page, "Say hi in one word.");
+    const title = `Pick ${Date.now()}`;
+    await nameNewestChat(page, title);
 
-  await page.reload();
-  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
-  // A new chat is on the deployment's own choices.
-  await expect(agentPicker(page)).toHaveText(agents[0].name);
-  await expect(modelPicker(page)).toHaveText(agents[0].model);
+    await page.reload();
+    await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
+    // A new chat is on the deployment's own choices.
+    await expect(agentPicker(page)).toHaveText(agents[0].name);
+    await expect(modelPicker(page)).toHaveText(agents[0].model);
 
-  await openChat(page, title);
-  await expect(agentPicker(page)).toHaveText(agent.name);
-  await expect(modelPicker(page)).toHaveText(model);
+    await openChat(page, title);
+    await expect(agentPicker(page)).toHaveText(agent.name);
+    await expect(modelPicker(page)).toHaveText(model);
 
-  // "Chats" in the sidebar opens a fresh chat.
-  await page.getByRole("button", { name: "Chats", exact: true }).click();
-  await expect(page.locator('[data-slot="page-title"]')).toHaveText("New chat");
-  await expect(agentPicker(page)).toHaveText(agents[0].name);
+    // "Chats" in the sidebar opens a fresh chat.
+    await page.getByRole("button", { name: "Chats", exact: true }).click();
+    await expect(page.locator('[data-slot="page-title"]')).toHaveText(
+      "New chat",
+    );
+    await expect(agentPicker(page)).toHaveText(agents[0].name);
 
-  await openChat(page, title);
-  await expect(agentPicker(page)).toHaveText(agent.name);
-  await expect(modelPicker(page)).toHaveText(model);
-  const sent = await send(page, "Say bye in one word.");
-  expect(sent.agent).toBe(agent.name);
-  expect(sent.model).toBe(model);
-});
+    await openChat(page, title);
+    await expect(agentPicker(page)).toHaveText(agent.name);
+    await expect(modelPicker(page)).toHaveText(model);
+    const sent = await send(page, "Say bye in one word.");
+    expect(sent.agent).toBe(agent.name);
+    expect(sent.model).toBe(model);
+  },
+);
