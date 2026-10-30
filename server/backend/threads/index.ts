@@ -12,11 +12,21 @@ export type Thread = {
   createdAt: Date;
   /** Whether its last run was stopped: set by a stop, cleared by its next run. */
   stopped: boolean;
+  /** The user's title for it, or none. */
+  title: string | null;
+  archived: boolean;
+  /** The agent config its runs take, by name, or none: the deployment's first. */
+  agent: string | null;
+  /** The model its runs take, by name, or none: its agent config's. */
+  model: string | null;
 };
 
 export type ThreadStore = {
-  /** A new thread, owned by `owner`. */
-  make(owner: string): Promise<Thread>;
+  /** A new thread, owned by `owner`, with the picks made before it was. */
+  make(
+    owner: string,
+    pick?: Pick<ThreadChange, "agent" | "model">,
+  ): Promise<Thread>;
   /** The thread, if `owner` owns it; for any other user, none. */
   get(owner: string, id: string): Promise<Thread | undefined>;
   /** The threads `owner` owns, and no other user's. */
@@ -27,6 +37,24 @@ export type ThreadStore = {
   setConversation(id: string, conversation: string): Promise<void>;
   /** Says whether the thread's last run was stopped. */
   setStopped(id: string, stopped: boolean): Promise<void>;
+  /** Changes the thread, if `owner` owns it, and gives it as changed; for any other user, none and no change. */
+  change(
+    owner: string,
+    id: string,
+    changes: ThreadChange,
+  ): Promise<Thread | undefined>;
+  /** Deletes the thread, if `owner` owns it: whether it did. */
+  remove(owner: string, id: string): Promise<boolean>;
+};
+
+/** What a user changes of their thread: its title, whether it is archived, and its picks. */
+export type ThreadChange = {
+  title?: string;
+  archived?: boolean;
+  /** The agent config its runs take, by name; null follows the deployment. */
+  agent?: string | null;
+  /** The model its runs take, by name; null follows the agent config. */
+  model?: string | null;
 };
 
 /** What the store runs its queries on: a pg pool, or anything with the same `query`. */
@@ -57,6 +85,11 @@ const toThread = (r: Row): Thread => ({
   owner: r.owner,
   createdAt: r.created_at,
   stopped: r.stopped,
+  // Not kept yet (F3).
+  title: null,
+  archived: false,
+  agent: null,
+  model: null,
 });
 
 export function createStore(
@@ -115,6 +148,13 @@ export function storeOn(db: Queryable): ThreadStore {
         id,
         conversation,
       ]);
+    },
+    // Not implemented yet (F3): no change, and no delete.
+    async change() {
+      return undefined;
+    },
+    async remove() {
+      return false;
     },
     async setStopped(id, stopped) {
       await ready;
