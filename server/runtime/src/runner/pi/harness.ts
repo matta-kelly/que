@@ -10,8 +10,9 @@
  * what the agent is built from takes effect from the next chat, and a fork
  * keeps its parent's. The model is the run's own: a conversation on another
  * model is moved to it, and to its effort. The user's catalog is read at each
- * run: each user has an extension of their own, installed again with their
- * catalog before each of their runs, and the thread's conversation selects it.
+ * run: each conversation has an extension of its own, `que.<id>`, installed
+ * again with its user's catalog before each of its runs, and it selects that
+ * one alone, so two runs at once never share tools.
  *
  * `models` is the pi-ai models collection the Harness reads at each use, with
  * Fireworks and the deployment's models on it from when this module loads.
@@ -132,15 +133,33 @@ async function onModel(conversation: Conversation, model: Model) {
 }
 
 /**
+ * Installs the conversation's own extension, `que.<id>`, from `que`, and has
+ * the conversation select it alone, so its tools and prompt are its own and
+ * no other conversation's run changes them. A new conversation, a fork (which
+ * starts with its parent's) and one on an older name are set to it once.
+ */
+async function ownExtension(
+  conversation: Conversation,
+  que: Omit<Extension, "name">,
+) {
+  const own = { ...que, name: `que.${conversation.id}` };
+  registry.install(own);
+  const { extensions } = await conversation.agent(context);
+  if (extensions.length !== 1 || extensions[0]?.name !== own.name)
+    await conversation.configure({ extensions: [own] }, context);
+}
+
+/**
  * The conversation a run goes on, chosen by the branch rule, and made the
- * thread's; with `resend`, the run is one that is made already. A thread's
- * runs choose one at a time, in the order they came. A conversation that
- * could not be made is not kept: the thread stays on the one it had.
+ * thread's, on its own extension from `que`; with `resend`, the run is one
+ * that is made already. A thread's runs choose one at a time, in the order
+ * they came. A conversation that could not be made is not kept: the thread
+ * stays on the one it had.
  */
 function conversationFor(
   thread: string,
   model: Model,
-  que: Extension,
+  que: Omit<Extension, "name">,
   input: { runId: string; before: readonly string[]; last: string },
 ) {
   const had = turns.get(thread) ?? Promise.resolve();
@@ -171,10 +190,11 @@ function conversationFor(
         : await harness.createConversation(
             {
               ownership,
-              agent: { ...agentOn(model), extensions: [que] },
+              agent: agentOn(model),
             },
             context,
           );
+    await ownExtension(conversation, que);
     if (conversation.id !== branches[0]?.id)
       await threads.setConversation(thread, String(conversation.id));
     return { conversation, resend: false };
@@ -219,7 +239,6 @@ export async function run(
   send: (event: AGUIEvent) => Promise<void>,
 ): Promise<{ error?: string }> {
   const que = { ...extension(catalog, call, user), hooks: tracing.hooks };
-  registry.install(que);
   const { conversation, resend } = await conversationFor(thread, model, que, {
     runId,
     before,

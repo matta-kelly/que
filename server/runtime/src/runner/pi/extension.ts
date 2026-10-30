@@ -1,6 +1,7 @@
 /**
- * que's catalog as a pi Extension, for one user: each op a tool whose run is one call to the door, as that user, and
- * each skill read by its tool. Every op is offered from the first request.
+ * que's catalog as a pi Extension, for one user, with no name: the Harness names one for each conversation. Each op is
+ * a tool whose run is one call to the door, as that user, and each skill is read by its tool. Every op is offered from
+ * the first request.
  */
 
 import type {
@@ -54,7 +55,7 @@ export function extension(
   catalog: Catalog,
   call: Call,
   user: string,
-): Extension {
+): Omit<Extension, "name"> {
   const ops = catalog.flatMap(({ plugin: { definition } }) =>
     definition.ops.map((op): ToolRegistration => ({
       name: op.name,
@@ -94,9 +95,5 @@ export function extension(
         return skill.body;
       }),
   };
-  // One user's extension: its name is theirs, so installing it again changes no other user's tools.
-  return {
-    name: `que.${user}`,
-    tools: skills.size ? [...ops, readSkill] : ops,
-  };
+  return { tools: skills.size ? [...ops, readSkill] : ops };
 }
