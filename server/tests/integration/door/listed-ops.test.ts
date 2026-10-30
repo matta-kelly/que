@@ -1,8 +1,8 @@
 /**
  * A domain op calls the connector op it lists, through the door, in one deployment: the connector's login is the
  * calling user's, and a user with none gets the connector's OpFailed. The catalog may be narrowed to the domain alone;
- * the door still finds the listed op among all mounted plugins. Each nested call is a span of its own, under the call
- * that made it.
+ * the door still finds the listed op among all mounted plugins, when the model calls the domain op's tool through pi.
+ * Each nested call is a span of its own, under the call that made it.
  */
 
 import { test } from "node:test";
@@ -11,6 +11,21 @@ import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { BACKGROUND_CONTEXT as context } from "@earendil-works/chord/context";
+import type { Message } from "@earendil-works/pi-ai";
+import { createModels } from "@earendil-works/pi-ai/models";
+import {
+  fauxAssistantMessage,
+  fauxProvider,
+  type FauxResponseFactory,
+  fauxText,
+  fauxToolCall,
+} from "@earendil-works/pi-ai/providers/faux";
+import {
+  createRegistry,
+  Harness,
+  MemoryStorage,
+} from "@earendil-works/pi-durable";
 import { trace } from "@opentelemetry/api";
 import {
   InMemorySpanExporter,
@@ -22,10 +37,10 @@ import { storeOn } from "@que/credentials";
 import type { Catalog } from "../../../runtime/src/access/catalog.js";
 import { accessOn } from "../../../runtime/src/access/access.js";
 import { narrow } from "../../../runtime/src/access/narrow.js";
-import { assemble } from "../../../runtime/src/assemble/assemble.js";
 import { door, type PlacedOp } from "../../../runtime/src/assemble/door.js";
 import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 import { loadingFor } from "../../../runtime/src/run/loading.js";
+import { extension } from "../../../runtime/src/runner/pi/extension.js";
 import { deploymentRoot } from "../../deployment-root.js";
 
 process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
@@ -116,6 +131,14 @@ test("given a domain op that lists one op, when it is called, then its context h
   assert.deepEqual(result.listed, ["interop-find"]);
 });
 
+// pi-ai's scripted provider makes the model's calls: no model is called.
+const faux = fauxProvider({
+  provider: "fireworks",
+  models: [{ id: "small-model", contextWindow: 64_000 }],
+});
+const models = createModels();
+models.setProvider(faux.provider);
+
 test("given an agent config that narrows the catalog to the domain alone, when the domain op's tool is called, then its listed connector op runs, found among all mounted plugins", async () => {
   const agent = mounted.agents[0];
   const reachable = await catalogFor("ana");
@@ -123,16 +146,71 @@ test("given an agent config that narrows the catalog to the domain alone, when t
     reachable.map(({ plugin }) => plugin.definition.plugin.name).sort(),
     ["interop-connector", "interop-domain"],
   );
-  const { tools } = assemble(loadingFor(agent), {
-    catalog: narrow(reachable, agent.plugins ?? []),
-    call: bound("ana"),
-  });
-  const tool = tools.find(({ name }) => name === "interop-sync")!;
+  const way = loadingFor(agent);
+  const que = {
+    ...extension(narrow(reachable, agent.plugins ?? []), call, "ana", way),
+    name: "que",
+  };
+  const registry = createRegistry();
+  registry.install(que);
+  const harness = await Harness.open(
+    new MemoryStorage(),
+    { models, registry },
+    context,
+  );
 
-  const result = await tool
-    .invoke({ code: "A-3" })
-    .catch((error: unknown) => error);
-  assert.deepEqual(typeof result === "string" ? JSON.parse(result) : result, {
+  // The model loads the domain op when the agent's way holds it back, calls its tool, then answers.
+  const steps = [
+    ...(way.deferred
+      ? [
+          fauxToolCall("load_operation", {
+            plugin: "interop-domain",
+            operation: "interop-sync",
+          }),
+        ]
+      : []),
+    fauxToolCall("interop-sync", { code: "A-3" }, { id: "s1" }),
+  ];
+  const last: Message[] = [];
+  const respond: FauxResponseFactory = (request) => {
+    const step = steps.shift();
+    if (step) return fauxAssistantMessage([step], { stopReason: "toolUse" });
+    last.push(...request.messages);
+    return fauxAssistantMessage(fauxText("Done."));
+  };
+  faux.setResponses([respond, respond, respond]);
+  try {
+    const conversation = await harness.createConversation(
+      {
+        ownership: { kind: "ownerless" },
+        agent: {
+          model: { provider: "fireworks", modelId: "small-model" },
+          extensions: [que],
+        },
+      },
+      context,
+    );
+    const submission = await conversation.submit(
+      { type: "input", content: "Sync A-3." },
+      context,
+    );
+    await submission.wait(context);
+  } finally {
+    await harness.close(context);
+  }
+
+  const result = last.find(
+    (m) => m.role === "toolResult" && m.toolCallId === "s1",
+  );
+  assert.ok(
+    result?.role === "toolResult",
+    "the model got the domain op's result",
+  );
+  assert.equal(result.isError, false);
+  const text = result.content
+    .map((block) => (block.type === "text" ? block.text : ""))
+    .join("");
+  assert.deepEqual(JSON.parse(text), {
     answer: { conn: "interop:ana-key", code: "A-3" },
     listed: ["interop-find"],
   });
