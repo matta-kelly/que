@@ -59,6 +59,20 @@ restore_file() {
   backup=
 }
 
+# Arm the restore before a test rewrites $FILE. It runs on exit and on the signals that end the shell
+# without one, so a suite killed mid-test leaves the file as it found it. A copy that fails leaves nothing
+# to restore from, so it removes the copy it made and returns non-zero: no stray file beside the worktree.
+arm_restore() {
+  backup=$(mktemp "$(dirname "$root")/c5-devcontainer.json.orig.XXXXXX") || return 1
+  if ! cp "$FILE" "$backup"; then
+    rm -f "$backup"
+    backup=
+    return 1
+  fi
+  trap restore_file EXIT
+  trap 'restore_file; exit 1' TERM HUP INT
+}
+
 # The deployment the tests hand the maker: a copy of the template in a git repo of its own, outside que,
 # with a lockfile so the maker installs from one. `git init` makes its repo root the folder itself, so the
 # repo the container must see is the deployment's folder, bound at its own path.
@@ -450,9 +464,7 @@ test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing() {
   clean
   make_deployment || return 1
   local out code id
-  backup=$(mktemp "$(dirname "$root")/c5-devcontainer.json.orig.XXXXXX") || return 1
-  cp "$FILE" "$backup" || return 1
-  trap restore_file EXIT
+  arm_restore || return 1
   sed -i -E 's/("postCreateCommand"[[:space:]]*:[[:space:]]*)"([^"]*)"/\1"false"/' "$FILE"
   out=$(just check-deployment "$dep" 2>&1)
   code=$?
@@ -524,9 +536,7 @@ test_the_file_is_the_only_source_of_the_containers_settings() {
   clean
   make_deployment || return 1
   local out code id
-  backup=$(mktemp "$(dirname "$root")/c5-devcontainer.json.orig.XXXXXX") || return 1
-  cp "$FILE" "$backup" || return 1
-  trap restore_file EXIT
+  arm_restore || return 1
   sed -i -E 's/("runArgs"[[:space:]]*:[[:space:]]*)\[[^]]*\]/\1["--userns=keep-id:uid=1000,gid=1000", "--network=host", "--cpus=2", "--cpu-shares=128"]/' "$FILE"
   if ! grep -q -- '--cpus=2' "$FILE"; then
     fail "the test could not write its CPU cap into the file's runArgs"
