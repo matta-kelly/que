@@ -2,8 +2,6 @@
 // connection: it is sent to go on when its stream ends, with its events kept,
 // so a cut stream is picked up again.
 
-import type { ResolvedPick } from "../../chat/run-pickers/pick.ts";
-
 // As the library's own stream call asks for.
 export const STREAM_MODE: ("messages" | "updates" | "custom")[] = [
   "messages",
@@ -21,13 +19,13 @@ type Asked<C> = {
 
 /**
  * The options of a run, without the two that are of one call: its signal, and
- * what takes the id of the run. `send` is what the chat picked (`resolve`): each
- * run names it, and what the runtime's own config names is kept over it.
+ * what takes the id of the run. `send` is what the chat picked: each run names
+ * it, and what the runtime's own config names is kept over it.
  */
 export function runOptions<M, C>(
   messages: M[],
   { command, checkpointId, runConfig }: Asked<C>,
-  send: ResolvedPick["send"],
+  send: { agent?: string; model?: string },
 ) {
   const given = (runConfig ?? {}) as {
     configurable?: Record<string, unknown>;
