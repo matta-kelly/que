@@ -375,6 +375,116 @@ const stock = definePlugin({
 });
 const reserve: PlacedOp = { plugin: stock.plugin, op: stock.ops[0] };
 
+const flow = definePlugin({
+  name: "flow",
+  type: "plugin",
+  kind: "domain",
+  title: "Flow",
+  description: "A domain whose ops call the shop's and stock's ops they list.",
+  ops: [
+    {
+      name: "flow-tag-orders",
+      type: "op",
+      title: "Tag orders through flow",
+      description: "Tags the orders the shop's op tags.",
+      uses: ["shop-tag-orders"],
+      // The fields the listed op names, and two it does not: the nested call refuses them.
+      input: z.object({
+        ids: z.string().describe("Order ids, comma-separated"),
+        meta: z.string().optional().describe("Order metadata, as JSON"),
+        color: z
+          .string()
+          .optional()
+          .describe("A field the listed op does not name"),
+        page: z
+          .number()
+          .optional()
+          .describe("A field the listed op does not name"),
+      }),
+      run: async ({ ops }, params) => ops["shop-tag-orders"](params),
+    },
+    {
+      name: "flow-reserve",
+      type: "op",
+      title: "Reserve through flow",
+      description: "Reserves the product the stock op reserves.",
+      uses: ["stock-reserve"],
+      input: z.object({ sku: z.string().describe("Product sku") }),
+      run: async ({ ops }, params) => ops["stock-reserve"](params),
+    },
+  ],
+});
+const flowTag: PlacedOp = { plugin: flow.plugin, op: flow.ops[0] };
+const flowReserve: PlacedOp = { plugin: flow.plugin, op: flow.ops[1] };
+const through = door(
+  async (plugin, role, user) => `${plugin.name}:${role ?? "none"}:${user}`,
+  [getOrder, listOrders, tagOrders, voidOrder, reserve, flowTag, flowReserve],
+);
+
+// Arguments a domain op passes to the listed op: all that its input takes.
+const nestedArguments = fc.oneof(
+  fc.record({ ids: commaIds }),
+  fc.record({ ids: commaIds, meta: fc.string() }),
+);
+
+test("given any arguments a domain op passes to a listed op, when the domain op is called, then it gives the listed op's result or throws an OpFailed, never another error", async () => {
+  await fc.assert(
+    fc.asyncProperty(nestedArguments, async (params) => {
+      const outcome = await through(flowTag, params, "ana").then(
+        (result) => ({ result }),
+        (error: unknown) => ({ error }),
+      );
+      if ("error" in outcome)
+        assert.ok(
+          outcome.error instanceof OpFailed,
+          `the door threw ${String(outcome.error)}, which is no OpFailed`,
+        );
+      else
+        assert.ok(
+          Array.isArray(outcome.result) &&
+            outcome.result.every((id) => typeof id === "string"),
+          `the door gave ${JSON.stringify(outcome.result)}, which is not the listed op's result`,
+        );
+    }),
+  );
+});
+
+test("given a nested call with an extra top-level field, when the domain op is called, then the door throws an OpFailed that names the field, and never another error", async () => {
+  await assert.rejects(
+    () => through(flowTag, { ids: "a,b", color: "red" }, "ana"),
+    (error) => error instanceof OpFailed && /\bcolor\b/.test(error.message),
+  );
+  await assert.rejects(
+    () => through(flowTag, { ids: "a,b", page: 2 }, "ana"),
+    (error) => error instanceof OpFailed && /\bpage\b/.test(error.message),
+  );
+});
+
+test("given an async refine on a listed op, when a domain op calls it, then a good value gives the result and a bad one a one-line OpFailed with the refine's message", async () => {
+  const answer = (params: unknown) =>
+    through(flowReserve, params, "ana").catch((error: Error) => error);
+
+  assert.deepEqual(await answer({ sku: "SKU-1" }), { reserved: "SKU-1" });
+  assert.deepEqual(await answer({ sku: "SKU-22" }), { reserved: "SKU-22" });
+  const refused = await answer({ sku: "chair" });
+  assert.ok(refused instanceof OpFailed, `the door gave ${String(refused)}`);
+  assert.match(refused.message, /the sku is no product/);
+  assert.doesNotMatch(refused.message, /\n/);
+});
+
+test("given a transform that throws on a listed op, when a domain op calls it, then the door throws an OpFailed with the throw's message", async () => {
+  await assert.rejects(
+    () => through(flowTag, { ids: "a", meta: "{" }, "ana"),
+    (error) =>
+      error instanceof OpFailed && error.message.includes(parseFailure("{")),
+  );
+  await assert.rejects(
+    () => through(flowTag, { ids: "b", meta: "[1," }, "ana"),
+    (error) =>
+      error instanceof OpFailed && error.message.includes(parseFailure("[1,")),
+  );
+});
+
 test("given an op whose input has an async refine, when it is called, then a good value gives the result and a bad one a one-line OpFailed with the refine's message", async () => {
   const answer = (params: unknown) =>
     named(reserve, params, "ana").catch((error: Error) => error);

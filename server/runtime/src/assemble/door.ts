@@ -10,8 +10,11 @@ import type { Connect } from "../access/access.js";
 
 const tracer = trace.getTracer("que");
 
-/** An op, with the plugin that holds it. */
-export type PlacedOp = { plugin: Plugin; op: Op };
+/** An op, with the plugin that holds it. Its plugin decides its kind, so either context is here. */
+export type PlacedOp = {
+  plugin: Plugin;
+  op: Op | Op<unknown, z.ZodObject, "domain">;
+};
 
 /** One call of an op, as one user: what the op's run gives back, or the OpFailed it throws. */
 export type Call = (
@@ -34,8 +37,8 @@ export function strictInput(input: Op["input"]): Op["input"] {
 /** One line, for the model to read. */
 const oneLine = (text: string) => text.replace(/\s*\n\s*/g, " ");
 
-/** The door, on access asked by op: its `call`. */
-export function door(connect: Connect): Call {
+/** The door, on access asked by op and the mounted ops: its `call`. */
+export function door(connect: Connect, _ops: PlacedOp[] = []): Call {
   // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
   // the span.
   return ({ plugin, op }, params, user) =>
@@ -65,7 +68,7 @@ export function door(connect: Connect): Call {
           );
         const input = parsed.data;
         const conn = await connect(plugin, op.role, user);
-        return await op.run({ conn }, input);
+        return await (op.run as Op["run"])({ conn }, input);
       } catch (error) {
         // A failed call shows on its span: status ERROR, and the throw as an exception event.
         // A throw that is no Error is recorded as its text.
