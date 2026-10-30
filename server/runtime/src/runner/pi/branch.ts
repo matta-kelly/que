@@ -13,9 +13,11 @@
  * only some of its records' ids. A record of the head's turn is the head.
  * A fork is made at the latest entry of the messages it keeps.
  * The last message the run keeps is the last one the thread knows before the
- * new user message. A user message the thread already holds is sent again:
- * by the run that sent it, a resend, which makes no run; by a new run, a
- * regenerate, which keeps the messages before it.
+ * new user message. The conversation it is read against is the one of the
+ * thread's, its own or one it has left, that holds it (`branchedFrom`). A
+ * user message the thread already holds is sent again: by the run that sent
+ * it, a resend, which makes no run; by a new run, a regenerate, which keeps
+ * the messages before it.
  */
 
 import type { EntryId } from "@earendil-works/pi-durable";
@@ -26,6 +28,22 @@ export type Branch =
   | { kind: "same" }
   | { kind: "fork"; at: EntryId }
   | { kind: "new" };
+
+/**
+ * Which of a thread's conversations a run is read against, by its place in `helds` (the messages each holds, the
+ * thread's own first): the one that holds the latest of the run's messages, as a branch the thread has left holds
+ * messages its own does not. The thread's own wins a tie, and with none held, the run is read against it.
+ */
+export function branchedFrom(
+  helds: readonly (readonly Held[])[],
+  { before, last }: { before: readonly string[]; last: string },
+): number {
+  const sent = [...before, last];
+  const latest = (held: readonly Held[]) =>
+    Math.max(-1, ...held.map((h) => sent.indexOf(h.message.id)));
+  const places = helds.map(latest);
+  return Math.max(0, places.indexOf(Math.max(...places)));
+}
 
 /** What a run does with the conversation that holds `held`: `before` are the ids of the messages before its user message `last`. */
 export function branchOf(

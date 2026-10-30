@@ -33,7 +33,9 @@ export type ThreadStore = {
   list(owner: string): Promise<Thread[]>;
   /** The thread's conversation, or none: a thread before its first run, or one made before B5. */
   conversationOf(id: string): Promise<string | null>;
-  /** Points the thread at its conversation. */
+  /** Every conversation the thread has been on: its own first, then the others, the one it was on last first. */
+  conversationsOf(id: string): Promise<string[]>;
+  /** Points the thread at its conversation, and keeps the one it was on among its others. */
   setConversation(id: string, conversation: string): Promise<void>;
   /** Says whether the thread's last run was stopped. */
   setStopped(id: string, stopped: boolean): Promise<void>;
@@ -74,14 +76,18 @@ export const SETUP = `
     created_at timestamptz NOT NULL DEFAULT now()
   )`;
 
-/** The columns added beside the table, so one an earlier version made gets them: the conversation, the stop, and the user's changes. */
+/**
+ * The columns added beside the table, so one an earlier version made gets them: the conversation, the stop, the
+ * user's changes, and every conversation the thread has been on, in the order it was last on each.
+ */
 const ALTER = `ALTER TABLE threads
   ADD COLUMN IF NOT EXISTS conversation text,
   ADD COLUMN IF NOT EXISTS stopped boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS title text,
   ADD COLUMN IF NOT EXISTS archived boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS agent text,
-  ADD COLUMN IF NOT EXISTS model text`;
+  ADD COLUMN IF NOT EXISTS model text,
+  ADD COLUMN IF NOT EXISTS conversations text[] NOT NULL DEFAULT '{}'`;
 
 type Row = Omit<Thread, "createdAt"> & { created_at: Date };
 const toThread = (r: Row): Thread => ({
@@ -148,12 +154,28 @@ export function storeOn(db: Queryable): ThreadStore {
       );
       return rows[0]?.conversation ?? null;
     },
+    async conversationsOf(id) {
+      await ready;
+      const { rows } = await db.query(
+        "SELECT conversation, conversations FROM threads WHERE id = $1",
+        [id],
+      );
+      const row = rows[0];
+      if (!row?.conversation) return [];
+      // A thread made before F3 has its conversation, and no others kept.
+      const others = (row.conversations as string[]).filter(
+        (c) => c !== row.conversation,
+      );
+      return [row.conversation, ...others.reverse()];
+    },
     async setConversation(id, conversation) {
       await ready;
-      await db.query("UPDATE threads SET conversation = $2 WHERE id = $1", [
-        id,
-        conversation,
-      ]);
+      await db.query(
+        `UPDATE threads SET conversation = $2,
+           conversations = array_append(array_remove(conversations, $2), $2)
+         WHERE id = $1`,
+        [id, conversation],
+      );
     },
     async change(owner, id, changes) {
       await ready;

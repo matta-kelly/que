@@ -4,8 +4,9 @@
  * connection, which a pool cannot promise), and the link from each thread to
  * its conversation is its row. The connection takes a session advisory lock
  * when this module loads, so one process owns a deployment. Each run goes on
- * the conversation the branch rule (branch.ts) chooses: the thread's, a fork of
- * it, or a new one, which the thread then points at. A new conversation gets
+ * the conversation the branch rule (branch.ts) chooses: the thread's, or one
+ * it has left (its row keeps each), a fork of it, or a new one, which the
+ * thread then points at. A new conversation gets
  * its agent then: a change to what the agent is built from takes effect from
  * the next chat, and a fork keeps its parent's. The model is the run's own:
  * a conversation on another model is moved to it. The user's catalog is read
@@ -41,7 +42,7 @@ import { door } from "../../assemble/door.js";
 import * as mounted from "../../mount/mounted.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
-import { branchOf } from "./branch.js";
+import { branchedFrom, branchOf } from "./branch.js";
 import { extension } from "./extension.js";
 
 export const models = createModels();
@@ -95,17 +96,18 @@ const turns = new Map<string, Promise<unknown>>();
 const ownership = { kind: "ownerless" } as const;
 
 /**
- * The thread's conversation, or none: before its first run, or when its row
- * holds a value that is not a conversation's id. The row's text is the only
- * guard on the id, so a value that is not a decimal reads as no conversation.
+ * The conversation of this id the row holds, or none: the row's text is the
+ * only guard on the id, so a value that is not a decimal reads as none.
  */
+async function conversationAt(kept: string | null) {
+  return kept !== null && /^\d+$/.test(kept)
+    ? await harness.conversation(Number(kept) as ConversationId, context)
+    : undefined;
+}
+
+/** The thread's conversation, or none: before its first run, or when its row holds a value that is not one. */
 async function conversationOf(thread: string) {
-  const kept = await threads.conversationOf(thread);
-  const id =
-    kept !== null && /^\d+$/.test(kept)
-      ? (Number(kept) as ConversationId)
-      : null;
-  return id === null ? undefined : await harness.conversation(id, context);
+  return conversationAt(await threads.conversationOf(thread));
 }
 
 /**
@@ -135,21 +137,26 @@ function conversationFor(
   const had = turns.get(thread) ?? Promise.resolve();
   const chosen = (async () => {
     await had.catch(() => {});
-    const current = await conversationOf(thread);
-    const held = current
-      ? heldOf((await current.context(context)).entries)
-      : [];
-    const branch = branchOf(held, input);
-    if (current && branch.kind === "resend")
-      return { conversation: current, resend: true };
-    if (current && branch.kind === "same") {
-      await onModel(current, model);
-      return { conversation: current, resend: false };
-    }
+    // The thread's own conversation first, then the branches it has left.
+    const branches = (
+      await Promise.all(
+        (await threads.conversationsOf(thread)).map(conversationAt),
+      )
+    ).filter((c) => c !== undefined);
+    const helds = await Promise.all(
+      branches.map(async (c) => heldOf((await c.context(context)).entries)),
+    );
+    const at = branchedFrom(helds, input);
+    const from = branches[at];
+    const branch = branchOf(helds[at] ?? [], input);
+    if (from && branch.kind === "resend")
+      return { conversation: from, resend: true };
     const conversation =
-      current && branch.kind === "fork"
+      from && branch.kind !== "new"
         ? await onModel(
-            await current.fork(branch.at, { ownership }, context),
+            branch.kind === "fork"
+              ? await from.fork(branch.at, { ownership }, context)
+              : from,
             model,
           )
         : await harness.createConversation(
@@ -165,7 +172,8 @@ function conversationFor(
             },
             context,
           );
-    await threads.setConversation(thread, String(conversation.id));
+    if (conversation.id !== branches[0]?.id)
+      await threads.setConversation(thread, String(conversation.id));
     return { conversation, resend: false };
   })();
   turns.set(
