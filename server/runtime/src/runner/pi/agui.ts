@@ -29,6 +29,7 @@ import {
   type AgentEvent,
   type EntryRecord,
 } from "@earendil-works/pi-durable";
+import { isBug } from "./extension.js";
 
 const UserMessageEntry = defineEntry<{ id: string }>("que.user");
 const MessageIdEntry = defineEntry<{ entry: number; id: string }>(
@@ -64,7 +65,8 @@ function textOf(message: Message | undefined) {
  * `kept` the id of the assistant message that ended last, if it is one of
  * the viewer's messages; and `error` the message of the run's last model
  * call, if it failed. pi writes each failed attempt as an entry of its own and
- * then retries, so only the last one says how the run ended.
+ * then retries, so only the last one says how the run ended. A tool that a
+ * bug failed ends the run with an error too, which names only the tool.
  */
 export function aguiRun() {
   let run = "";
@@ -75,6 +77,7 @@ export function aguiRun() {
   let text = false;
   let reasoning: string | undefined;
   let error: string | undefined;
+  let bug: string | undefined;
   let kept: string | undefined;
 
   const closeReasoning = (): AGUIEvent[] => {
@@ -207,6 +210,8 @@ export function aguiRun() {
         const result = ToolResultEntry.is(event.entry)
           ? event.entry.model?.[0]
           : undefined;
+        if (result?.role === "toolResult" && isBug(result.details))
+          bug ??= event.toolName;
         return result
           ? [
               {
@@ -224,7 +229,11 @@ export function aguiRun() {
     }
   };
 
-  return { of, kept: () => kept, error: () => error };
+  return {
+    of,
+    kept: () => kept,
+    error: () => error ?? (bug && `the tool ${bug} failed, so the run stopped`),
+  };
 }
 
 /** A conversation's user and assistant messages, as AG-UI messages with their ids. */
