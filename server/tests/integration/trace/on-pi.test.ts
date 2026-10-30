@@ -74,7 +74,7 @@ const counting = (item: string, id: string, answer: string) => [
   fauxAssistantMessage(fauxText(answer)),
 ];
 
-test("given two users, each running the agent clerk on a thread of their own, when each run ends, then each run is one trace of its own, whose root names its user, its thread and its agent config, and every span sent is in one of those two traces", async () => {
+test("given two users, each running the agent clerk on a thread of their own, when each run ends, then each run is one trace of its own, named after its agent config, whose root names its user, its thread and that config, and every span sent is in one of those two traces", async () => {
   const ana = await que.signIn("ana@example.com", "ana-key");
   const anaThread = await que.runOnPi(
     "How many pens?",
