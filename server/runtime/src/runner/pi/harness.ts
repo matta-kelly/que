@@ -57,6 +57,7 @@ import { door } from "../../assemble/door.js";
 import { systemPrompt } from "../../assemble/prompt.js";
 import type { Way } from "../../assemble/way.js";
 import * as mounted from "../../mount/mounted.js";
+import { loopFor } from "../../run/loop.js";
 import { settingsFor, tracingOnPi } from "../../run/trace.js";
 import { aguiRun, heldOf, idEntry, userEntry } from "./agui.js";
 import { branchedFrom, branchOf } from "./branch.js";
@@ -111,11 +112,9 @@ const data =
 /** A conversation's own cwd, by its id. */
 const cwdOf = (id: ConversationId) => join(data, "conversations", String(id));
 
-/**
- * Each model's compaction, by its `provider/modelId`: pi's settings are per
- * model, not per conversation, so a run sets its model's from its loop.
- */
-const compactions: Record<string, Partial<CompactionPolicy>> = {};
+/** A model's key in pi's settings: `provider/modelId`. */
+const keyOf = (model: Model) =>
+  `${providerOf(model)}/${providerModelOf(model)}`;
 
 /**
  * pi's compaction for a loop's `summarize` on a model's `window`: a request
@@ -135,12 +134,28 @@ const compactionOf = (
         backgroundTokens: 0,
       };
 
+/**
+ * Each model's compaction, by its key: pi's settings are per model, not per
+ * conversation. Each agent's own model has its loop's from startup, so a run
+ * pi resumes after a restart has it too (mount refuses two agents on one model
+ * that summarize differently), and a run sets its model's from its loop, for
+ * a model a thread picks.
+ */
+const compactions: Record<string, Partial<CompactionPolicy>> = {};
+for (const agent of mounted.agents) {
+  const model = mounted.models.find((m) => m.name === agent.model)!;
+  compactions[keyOf(model)] = compactionOf(
+    model.window,
+    loopFor(mounted.loops, agent).summarize,
+  );
+}
+
 const harness = await Harness.open(
   storageOn(client),
   {
     models,
     registry,
-    settings: { compaction: { modelOverrides: compactions } },
+    settings: () => ({ compaction: { modelOverrides: compactions } }),
     telemetry: tracing.telemetry,
     // A run's files are in its conversation's cwd. A conversation made before it had one gets its own.
     env: ({ conversationId, cwd }) =>
@@ -358,8 +373,7 @@ export async function run(
   if (chosen.resend) return {};
   const { conversation, own } = chosen;
   if (summarize !== undefined)
-    compactions[`${providerOf(model)}/${providerModelOf(model)}`] =
-      compactionOf(model.window, summarize);
+    compactions[keyOf(model)] = compactionOf(model.window, summarize);
   const events = await watchEvents(harness, conversation.id, context);
   try {
     const agui = aguiRun();
