@@ -230,6 +230,40 @@ test("readDefinition refuses skills and cases on the plugin node: its folder giv
   );
 });
 
+// What a plugin uses of others' ops is made from its ops' and skills' uses: a list in its code says it a second time.
+const movedToOpsAndSkills = /usesOps[^]*\bops'? and skills'?/;
+
+test("definePlugin refuses usesOps on the plugin, saying the list moved to its ops and skills", () => {
+  for (const usesOps of [["odoo-find"], ["odoo-find", "warehouse-get"]])
+    assert.throws(
+      () =>
+        definePlugin({
+          ...notes,
+          kind: "domain",
+          ...({ usesOps } as object),
+        }),
+      (error: Error) => {
+        assert.match(error.message, /^plugin notes is invalid:/);
+        assert.match(error.message, movedToOpsAndSkills);
+        return true;
+      },
+      usesOps.join(" "),
+    );
+});
+
+test("readDefinition gives a fault for usesOps on the plugin node, saying the list moved to its ops and skills", () => {
+  const definition = definePlugin({ ...notes, kind: "domain" });
+  for (const usesOps of [["odoo-find"], ["odoo-find", "warehouse-get"]]) {
+    const read = readDefinition({
+      ...definition,
+      plugin: { ...definition.plugin, usesOps },
+    });
+    assert.equal("definition" in read, false, usesOps.join(" "));
+    assert.equal(read.faults.length, 1, usesOps.join(" "));
+    assert.match(read.faults[0], movedToOpsAndSkills, usesOps.join(" "));
+  }
+});
+
 test("readDefinition gives a fault when the plugin node's list of what it holds is not the nodes it holds", () => {
   const definition = definePlugin({ ...notes, ops: [search] });
   assert.deepEqual(

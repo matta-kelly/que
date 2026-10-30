@@ -13,15 +13,15 @@ export default {
 };
 `;
 
-test("a plugin that is its own root lints from it: what it uses is there and not read, and README.md and its SKILL.md are no notes", async () => {
+test("a plugin that is its own root lints from it: what it uses, here an op only its skill lists, is there and not read, and README.md and its SKILL.md are no notes", async () => {
   const { folder, remove } = await folderWith({
     "basis.config.ts": config,
     "README.md": "# notes\n\nA plugin.\n",
     "io.github.matta-kelly.que/index.ts": `import { definePlugin } from ${url.plugin};
-export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down.", kind: "domain", usesOps: ["odoo-find"] });
+export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down.", kind: "domain" });
 `,
     "skills/notes-guide/SKILL.md":
-      "---\nname: notes-guide\ndescription: How to write a note.\n---\nWrite it down.\n",
+      "---\nname: notes-guide\ndescription: How to write a note.\nallowed-tools: odoo-find\n---\nWrite it down.\n",
     "notes-guide.md": "---\ntype: skill\n---\nWhy a note is written so.\n",
   });
   try {

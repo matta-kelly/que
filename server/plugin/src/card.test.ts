@@ -50,7 +50,8 @@ test("cardOf makes the standard's fields, and que's part as the plugin's nodes, 
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        format: 4,
+        // 5: an op on the card writes its uses.
+        format: 5,
         title: "Warehouse",
         kind: "connector",
         credential: {
@@ -118,6 +119,50 @@ test("cardOf leaves out the version, a credential and an op's role when there ar
     "role" in card.extensions["io.github.matta-kelly.que"].ops[0],
     false,
   );
+});
+
+test("cardOf writes each op's uses as the op lists them, beside the plugin's made usesOps, and leaves out the uses of an op that lists none", () => {
+  const op = (name: string, uses?: string[]) => ({
+    ...getFabric,
+    name,
+    role: undefined,
+    ...(uses === undefined ? {} : { uses }),
+  });
+  const pim = definePlugin({
+    name: "pim",
+    type: "plugin",
+    title: "PIM",
+    description: "The products.",
+    ops: [
+      op("pim-push", ["warehouse-get-fabric", "odoo-write"]),
+      op("pim-check", ["odoo-find"]),
+      op("pim-say"),
+    ],
+  });
+  // The plugin's usesOps, as readPlugin makes it from its ops and skills.
+  const made = [
+    "warehouse-get-fabric",
+    "odoo-write",
+    "odoo-find",
+    "odoo-guide-find",
+  ];
+  const que = cardOf({
+    definition: {
+      ...pim,
+      plugin: { ...pim.plugin, kind: "domain", usesOps: made },
+    },
+    cases: [],
+  }).extensions["io.github.matta-kelly.que"];
+  assert.deepEqual(
+    que.ops.map((written) => [written.name, written.uses]),
+    [
+      ["pim-push", ["warehouse-get-fabric", "odoo-write"]],
+      ["pim-check", ["odoo-find"]],
+      ["pim-say", undefined],
+    ],
+  );
+  assert.equal("uses" in que.ops[2], false);
+  assert.deepEqual(que.usesOps, made);
 });
 
 test("cardOf gives the kind a plugin says, and connector for one that leaves it out", () => {

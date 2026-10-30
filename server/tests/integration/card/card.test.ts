@@ -58,6 +58,27 @@ test("writeCard writes plugin.json from the plugin's nodes, with the version its
   );
 });
 
+test("writeCard writes a domain's card with the usesOps made from its op and skill, and its op's uses", async () => {
+  const dir = join(work, "domain");
+  cpSync(join(import.meta.dirname, "../mount/fixtures/plugins/domain"), dir, {
+    recursive: true,
+  });
+  let file = "";
+  // The domain mounts on its own: what its op and skill use is the deployment's to give.
+  await assert.doesNotReject(async () => {
+    file = await writeCard(dir);
+  });
+  const que = JSON.parse(readFileSync(file, "utf8")).extensions[
+    "io.github.matta-kelly.que"
+  ];
+  assert.deepEqual(que.usesOps, ["source-find"]);
+  assert.deepEqual(que.usesSkills, ["source-guide"]);
+  assert.deepEqual(
+    que.ops.map((op: { name: string; uses?: string[] }) => [op.name, op.uses]),
+    [["domain-sync", ["source-find"]]],
+  );
+});
+
 test("writeCard stops, writing no card, on a plugin that breaks the contract", async () => {
   const dir = join(work, "bad");
   cpSync(join(import.meta.dirname, "../mount/fixtures/plugins/bad"), dir, {

@@ -47,6 +47,8 @@ export type Card = {
         title: string;
         description: string;
         role?: string;
+        /** The ops it uses, when it lists any: a domain op's, each a connector's op. */
+        uses?: string[];
         input: Schema;
       }[];
       roles: Written<AccessRole>[];

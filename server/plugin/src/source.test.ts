@@ -316,26 +316,30 @@ export default definePlugin({
   }
 });
 
-test("gives each name a plugin uses that no plugin under the folder gives as unread, at its definition, so a link to it gives no more", async () => {
+test("gives each name a plugin's ops and skills use that no plugin under the folder gives as unread, at its definition, so a link to it gives no more", async () => {
   const root = await vault({
-    // A domain, so it holds no roles, and its op names none.
+    // A domain, so it holds no roles, and its op names none. Its op uses odoo-find, and only its skill odoo-search.
     [`${at}/index.ts`]: definition()
       .replace(
         'description: "The record of what the business has entered.",',
-        'description: "The record of what the business has entered.", kind: "domain", usesOps: ["odoo-find"], usesSkills: ["odoo-guide", "warehouse-fabric-guide"],',
+        'description: "The record of what the business has entered.", kind: "domain", usesSkills: ["odoo-guide", "warehouse-fabric-guide"],',
       )
       .replace(/ {2}roles: .*\n/, "")
-      .replace(/ {6}role: .*\n/, ""),
+      .replace(/ {6}role: .*\n/, "")
+      .replace(
+        "run: async () => ({}),",
+        'uses: ["odoo-find"], run: async () => ({}),',
+      ),
+    "plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md":
+      "---\nname: warehouse-fabric-guide\ndescription: How to read a fabric.\nallowed-tools: odoo-search\nmetadata:\n  title: Fabric guide\n---\nRead it.\n",
   });
   try {
     const { unread } = await given(root);
-    assert.deepEqual(
-      unread.map((u) => [u.path, u.name]),
-      [
-        [`${at}/index.ts`, "odoo-find"],
-        [`${at}/index.ts`, "odoo-guide"],
-      ],
-    );
+    assert.deepEqual(unread.map((u) => [u.path, u.name]).sort(), [
+      [`${at}/index.ts`, "odoo-find"],
+      [`${at}/index.ts`, "odoo-guide"],
+      [`${at}/index.ts`, "odoo-search"],
+    ]);
     assert.deepEqual(
       (await lintOf(root)).map((p) => [p.path, p.rule, p.field]),
       [[`${at}/index.ts`, "plugin/own-use", "/usesSkills"]],

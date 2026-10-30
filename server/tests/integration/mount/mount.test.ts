@@ -233,11 +233,11 @@ test("a domain mounts when each name it uses is a mounted connector's op or skil
   assert.deepEqual(names(await mount("uses-resolve")), ["source", "domain"]);
 });
 
-test("stops, naming the domain and the name, when a domain uses an op the deployment does not give, which its own check passes", async () => {
+test("stops, naming the domain's skill and the name, when a domain's skill uses an op the deployment does not give, which its own check passes", async () => {
   await assert.doesNotReject(loadPlugin(join(fixtures, "plugins/stray")));
   await assert.rejects(
     mount("uses-unresolved"),
-    /^Error: mount: deployment .*uses-unresolved breaks the harness schema:\n- .*plugins\/stray\/io\.github\.matta-kelly\.que\/index\.ts: \/usesOps: It points at source-lose, which is not a node\. \(basis\/link\)$/,
+    /^Error: mount: deployment .*uses-unresolved breaks the harness schema:\n- .*plugins\/stray\/skills\/stray-guide\/SKILL\.md: \/uses: It points at source-lose, which is not a node\. \(basis\/link\)$/,
   );
 });
 

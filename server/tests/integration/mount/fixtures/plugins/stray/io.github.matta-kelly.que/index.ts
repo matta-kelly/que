@@ -5,6 +5,5 @@ export default definePlugin({
   type: "plugin",
   kind: "domain",
   title: "Stray",
-  description: "A domain that uses an op source does not have.",
-  usesOps: ["source-lose"],
+  description: "A domain whose skill uses an op source does not have.",
 });

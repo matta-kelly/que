@@ -57,7 +57,6 @@ type Held = {
   skillUses?: string[];
   /** What its ops, each `<name>-find`, list in their uses. None when left out. */
   opUses?: string[];
-  usesOps?: string[];
   usesSkills?: string[];
   roles?: string[];
   /** Its ops, each `<name>-find`, by the role each names, if any. One with no role when none is given. */
@@ -78,7 +77,6 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     whoami,
     skillUses,
     opUses,
-    usesOps,
     usesSkills,
     roles,
     ops = [undefined],
@@ -94,7 +92,6 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     credential && "credential: z.object({ url: z.string() })",
     connect && "connect: async () => ({})",
     whoami && 'whoami: async () => ({ id: 1, name: "Que" })',
-    usesOps && `usesOps: ${text(usesOps)}`,
     usesSkills && `usesSkills: ${text(usesSkills)}`,
     roles &&
       `roles: ${text(roles.map((role) => ({ name: role, type: "access-role", description: "A login." })))}`,
@@ -163,34 +160,6 @@ export default {
 
 const definitionOf = (name: string) =>
   `${name}/io.github.matta-kelly.que/index.ts`;
-
-test("a root of plugins finds a name a plugin's ops use that is a skill", async () => {
-  assert.deepEqual(
-    (
-      await said(
-        plugin("odoo"),
-        plugin("pim", { kind: "domain", usesOps: ["odoo-guide"] }),
-      )
-    ).map(([path, rule, field]) => [path, rule, field]),
-    [[definitionOf("pim"), "basis/link", "/usesOps"]],
-  );
-});
-
-test("a root of plugins finds a plugin that uses an op of a plugin that uses others, naming both", async () => {
-  const problems = await said(
-    plugin("odoo"),
-    plugin("pim", { kind: "domain", usesOps: ["odoo-find"] }),
-    plugin("sales", { kind: "domain", usesOps: ["pim-find"] }),
-  );
-  assert.deepEqual(
-    problems.map(([path, rule, field]) => [path, rule, field]),
-    [[definitionOf("sales"), "plugin/connector-use", "/usesOps"]],
-  );
-  assert.match(
-    String(problems[0]?.[3]),
-    /^pim-find is pim's, and pim uses other plugins' ops and skills/,
-  );
-});
 
 test("a root of plugins finds a plugin that uses its own skill", async () => {
   assert.deepEqual(
@@ -285,12 +254,13 @@ test("a root of plugins finds a case about another plugin's capability, in one g
   );
 });
 
-test("a root of plugins takes a name a plugin uses that none of them gives: it is the deployment's to give", async () => {
+test("a root of plugins takes a name a plugin's op, skill or usesSkills uses that none of them gives: it is the deployment's to give", async () => {
   assert.deepEqual(
     await said(
       plugin("pim", {
         kind: "domain",
-        usesOps: ["odoo-find"],
+        opUses: ["odoo-find"],
+        skillUses: ["odoo-search"],
         usesSkills: ["odoo-guide"],
       }),
     ),
@@ -327,7 +297,7 @@ test("a root of plugins takes a domain that holds no connection: no credential, 
   assert.deepEqual(
     await said(
       plugin("odoo", { credential: true, connect: true }),
-      plugin("pim", { kind: "domain", usesOps: ["odoo-find"] }),
+      plugin("pim", { kind: "domain", opUses: ["odoo-find"] }),
     ),
     [],
   );
@@ -370,23 +340,19 @@ test("a root of plugins finds a domain with a credential, a connect or roles, na
   );
 });
 
-test("a root of plugins finds usesOps and usesSkills on a plugin that does not say kind domain, saying a domain says its kind", async () => {
+test("a root of plugins finds usesSkills on a plugin that does not say kind domain, saying a domain says its kind", async () => {
   for (const kind of [undefined, "connector"]) {
     const found = await said(
       plugin("odoo"),
       plugin("pim", {
         kind,
-        usesOps: ["odoo-find"],
         usesSkills: ["odoo-guide"],
       }),
     );
     const problems = at(found);
     assert.deepEqual(
       problems.map(([path, field]) => [path, field]),
-      [
-        [definitionOf("pim"), "/usesOps"],
-        [definitionOf("pim"), "/usesSkills"],
-      ],
+      [[definitionOf("pim"), "/usesSkills"]],
       `kind ${kind}`,
     );
     ruled(found);
@@ -397,7 +363,7 @@ test("a root of plugins finds usesOps and usesSkills on a plugin that does not s
 
 const skillOf = (name: string) => `${name}/skills/${name}-guide/SKILL.md`;
 
-test("a root of plugins takes a skill whose allowed-tools are ops, and finds each name that is no op, by basis/link on its uses", async () => {
+test("a root of plugins takes a skill whose allowed-tools are ops, finds a name that is a node and no op once, by basis/link on its uses, and takes one no plugin gives: it is the deployment's to give", async () => {
   assert.deepEqual(
     await said(
       plugin("odoo", { skillUses: ["odoo-find"] }),
@@ -405,21 +371,25 @@ test("a root of plugins takes a skill whose allowed-tools are ops, and finds eac
     ),
     [],
   );
-  const cases: [string, RegExp][] = [
-    ["odoo-gone", /^It points at odoo-gone, which is not a node\.$/],
-    // A skill is a node, and not an op.
-    ["odoo-guide", /odoo-guide/],
-  ];
-  for (const [name, message] of cases) {
+  assert.deepEqual(
+    await said(
+      plugin("odoo"),
+      plugin("pim", { kind: "domain", skillUses: ["odoo-find", "odoo-gone"] }),
+    ),
+    [],
+  );
+  // A skill is a node, and not an op.
+  for (const name of ["odoo-guide", "pim-guide"]) {
     const problems = await said(
-      plugin("odoo", { skillUses: ["odoo-find", name] }),
+      plugin("odoo"),
+      plugin("pim", { kind: "domain", skillUses: ["odoo-find", name] }),
     );
     assert.deepEqual(
       problems.map(([path, rule, field]) => [path, rule, field]),
-      [[skillOf("odoo"), "basis/link", "/uses"]],
+      [[skillOf("pim"), "basis/link", "/uses"]],
       name,
     );
-    assert.match(String(problems[0][3]), message, name);
+    assert.match(String(problems[0][3]), new RegExp(name), name);
   }
 });
 
@@ -451,7 +421,7 @@ test("a root of plugins finds a domain that gives whoami, as one with a credenti
 
 const opOf = (name: string) => `${definitionOf(name)}#ops/${name}-find`;
 
-test("a root of plugins takes an op whose uses are ops, and finds each name that is no op, by basis/link on its uses", async () => {
+test("a root of plugins takes an op whose uses are ops, finds a name that is a node and no op once, by basis/link on its uses, and takes one no plugin gives: it is the deployment's to give", async () => {
   assert.deepEqual(
     await said(
       plugin("odoo"),
@@ -463,8 +433,14 @@ test("a root of plugins takes an op whose uses are ops, and finds each name that
     ),
     [],
   );
+  assert.deepEqual(
+    await said(
+      plugin("odoo"),
+      plugin("pim", { kind: "domain", opUses: ["odoo-find", "odoo-gone"] }),
+    ),
+    [],
+  );
   const cases: [string, RegExp][] = [
-    ["odoo-gone", /^It points at odoo-gone, which is not a node\.$/],
     // A skill is a node, and not an op.
     ["odoo-guide", /odoo-guide/],
   ];
@@ -546,5 +522,91 @@ test("a root of plugins finds a name a domain's op lists that is no connector's 
     assert.ok(String(path).startsWith(definitionOf("sales")), name);
     assert.match(String(message), new RegExp(name), name);
     assert.match(String(message), /connector/, name);
+  }
+});
+
+test("a root of plugins finds a domain's skill that lists an op of a plugin that uses others, naming both, by connector-use", async () => {
+  for (const [label, pim] of [
+    ["its op uses", plugin("pim", { kind: "domain", opUses: ["odoo-find"] })],
+    [
+      "its skill uses",
+      plugin("pim", { kind: "domain", skillUses: ["odoo-find"] }),
+    ],
+  ] as const) {
+    const problems = await said(
+      plugin("odoo"),
+      pim,
+      plugin("sales", { kind: "domain", skillUses: ["pim-find"] }),
+    );
+    assert.deepEqual(
+      problems.map(([path, rule]) => [path, rule]),
+      [[definitionOf("sales"), "plugin/connector-use"]],
+      label,
+    );
+    assert.match(
+      String(problems[0]?.[3]),
+      /^pim-find is pim's, and pim uses other plugins' ops and skills/,
+      label,
+    );
+  }
+});
+
+test("a root of plugins finds a domain's skill that lists an op of its own, by own-use", async () => {
+  for (const name of ["notes", "pim"]) {
+    const problems = await said(
+      plugin("odoo"),
+      plugin(name, {
+        kind: "domain",
+        skillUses: ["odoo-find", `${name}-find`],
+      }),
+    );
+    assert.deepEqual(
+      problems.map(([path, rule, , message]) => [path, rule, message]),
+      [
+        [
+          definitionOf(name),
+          "plugin/own-use",
+          `${name}-find is its own: a plugin uses only other plugins' ops and skills.`,
+        ],
+      ],
+      name,
+    );
+  }
+});
+
+test("a root of plugins finds a connector's skill that lists another plugin's op, and takes one that lists its own", async () => {
+  assert.deepEqual(
+    await said(
+      plugin("warehouse"),
+      plugin("odoo", { skillUses: ["odoo-find"] }),
+    ),
+    [],
+  );
+  const cases: [string, Record<string, string>][] = [
+    // Another connector's op.
+    ["warehouse-find", plugin("warehouse")],
+    ["warehouse-find", plugin("warehouse", { kind: "connector" })],
+    // A domain's op.
+    ["pim-find", plugin("pim", { kind: "domain" })],
+  ];
+  for (const [name, other] of cases) {
+    const got = await said(
+      other,
+      plugin("odoo", { skillUses: ["odoo-find", name] }),
+    );
+    assert.ok(got.length > 0, name);
+    ruled(got);
+    for (const [path] of got)
+      assert.ok(
+        [definitionOf("odoo"), skillOf("odoo")].includes(String(path)),
+        name,
+      );
+    assert.ok(
+      got.some(
+        ([, , , message]) =>
+          String(message).includes(name) && /connector/.test(String(message)),
+      ),
+      `${name}: ${JSON.stringify(got)}`,
+    );
   }
 });
