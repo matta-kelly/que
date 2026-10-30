@@ -239,3 +239,49 @@ test("a second setup on one database makes nothing: the table and its grants are
   );
   assert.deepEqual(rows, [{ tables: 1 }]);
 });
+
+test("a use no card holds is skipped, and the domain still reaches the connectors and roles it has", async () => {
+  // `reporting` names an op and a skill that no mounted card holds, beside uses that cards do hold.
+  const reporting = card("reporting", {
+    kind: "domain",
+    usesOps: ["no-such-op", "warehouse-get-fabric"],
+    usesSkills: ["no-such-skill", "odoo-guide"],
+  });
+  // `orphan` names only a use no card holds: it reaches nothing, and is still worked out.
+  const orphan = card("orphan", { kind: "domain", usesOps: ["no-such-op"] });
+
+  let cp!: ReturnType<typeof controlOn>;
+  assert.doesNotThrow(() => {
+    cp = controlOn(new PGlite(), [...cards, reporting, orphan]);
+  });
+
+  // The missing names add nothing: each domain has only the connectors and roles its present uses reach.
+  assert.deepEqual(
+    (await cp.domains()).filter((domain) =>
+      ["orphan", "reporting"].includes(domain.name),
+    ),
+    [
+      { name: "orphan", connectors: [], roles: [] },
+      {
+        name: "reporting",
+        connectors: ["odoo", "warehouse"],
+        roles: ["warehouse-reader"],
+      },
+    ],
+  );
+
+  // The present connectors are still reached, with their logins.
+  await cp.grant("ana", "reporting", "admin-1");
+  assert.deepEqual(await cp.reachOf("ana"), {
+    domains: ["reporting"],
+    connectors: [
+      { name: "odoo", login: "own" },
+      { name: "warehouse", login: { roles: ["warehouse-reader"] } },
+    ],
+  });
+  assert.equal(await cp.loginOf("ana", "odoo"), "ana");
+  assert.equal(
+    await cp.loginOf("ana", "warehouse", "warehouse-reader"),
+    "role:warehouse-reader",
+  );
+});
