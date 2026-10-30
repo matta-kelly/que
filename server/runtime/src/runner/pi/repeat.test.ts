@@ -42,6 +42,9 @@ import { createStore } from "@que/threads";
 import type { Catalog } from "../../access/catalog.js";
 import { door } from "../../assemble/door.js";
 import { deploymentRoot } from "../../../../tests/deployment-root.js";
+import { eager } from "../../assemble/eager/index.js";
+import { onDemand } from "../../assemble/on-demand/index.js";
+import type { Way } from "../../assemble/way.js";
 import { extension } from "./extension.js";
 
 const db = await PGlite.create();
@@ -127,14 +130,15 @@ type Result = { id: string; isError: boolean; text: string };
 const textOf = (content: readonly { type: string; text?: string }[]) =>
   content.map((block) => block.text ?? "").join("");
 
-/** A chat on a new conversation with que's extension of the shop, for one user. */
-async function chat() {
+/** A chat on a new conversation with que's extension of the shop, for one user, on the agent's way of loading `way`. */
+async function chat(way: Way = eager) {
   // The extension takes its name where it is installed: here, one Harness per chat.
   const que = {
     ...extension(
       catalog,
       door(async () => undefined),
       "ana",
+      way,
     ),
     name: "que",
   };
@@ -160,7 +164,7 @@ async function chat() {
    * One turn: the user asks, the model calls get-order with each argument
    * of `calls`, one response for each, then answers `answer`; a list of
    * arguments is one response with a call for each, the call `c<i>.<j>`
-   * (else `c<i>`). get-order
+   * (else `c<i>`); with `tool`, the calls are to that tool. get-order
    * fails with `fails`, and answers when `fails` is given as undefined.
    * Each tool result of the turn, the text of its last
    * message (an answer or a tool result), and how many times the model was
@@ -168,9 +172,10 @@ async function chat() {
    */
   async function turn(
     calls: (Args | Args[])[],
-    given: { answer?: string; fails?: string | undefined } = {},
+    given: { answer?: string; fails?: string | undefined; tool?: string } = {},
   ) {
     const answer = given.answer ?? "Done.";
+    const tool = given.tool ?? "shop-get-order";
     failure = "fails" in given ? given.fails : "no such order";
     let modelCalls = 0;
     faux.setResponses([
@@ -179,9 +184,9 @@ async function chat() {
         return fauxAssistantMessage(
           Array.isArray(args)
             ? args.map((one, j) =>
-                fauxToolCall("shop-get-order", one, { id: `c${i}.${j}` }),
+                fauxToolCall(tool, one, { id: `c${i}.${j}` }),
               )
-            : fauxToolCall("shop-get-order", args, { id: `c${i}` }),
+            : fauxToolCall(tool, args, { id: `c${i}` }),
           { stopReason: "toolUse" },
         );
       }),
@@ -281,6 +286,32 @@ test(
       assert.equal(modelCalls, 3);
       assert.match(last, /shop-get-order\(\{"id":-1\}\)/);
       assert.match(last, /line 0: no such order/);
+    } finally {
+      await c.close();
+    }
+  },
+);
+
+test(
+  "given an on-demand config and a model that loads an op the shop does not hold five times the same way, when the third load fails, then the run ends with no other model call, on a message that names the load and its error",
+  { timeout },
+  async () => {
+    const c = await chat(onDemand);
+    try {
+      const nope = { plugin: "shop", operation: "shop-nope" };
+      const { results, last, modelCalls } = await c.turn(
+        [nope, nope, nope, nope, nope],
+        { tool: "load_operation" },
+      );
+      assert.equal(results.length, 3);
+      assert.equal(modelCalls, 3);
+      assert.match(
+        last,
+        /load_operation\(\{"plugin":"shop","operation":"shop-nope"\}\)/,
+      );
+      assert.match(last, /failed 3 times in a row/);
+      // The load's error names the ops the shop holds.
+      assert.match(last, /shop-get-order/);
     } finally {
       await c.close();
     }
@@ -448,7 +479,7 @@ async function hostThread() {
     const { error } = await host.run(
       id,
       small,
-      { catalog, user: "ana", agent: "test", prompt: {} },
+      { catalog, user: "ana", agent: "test", prompt: {}, way: eager },
       { runId, before, last },
       async (event) => {
         // A call's id is not one: faux's call ids are the same in each run.
