@@ -17,6 +17,8 @@ import { replay } from "../fixtures/replay.js";
 import { deploymentRoot } from "../../tests/deployment-root.js";
 
 const cli = join(import.meta.dirname, "cli.ts");
+// Sends Fireworks' requests to the provider's stand-in, when FIREWORKS_STAND_IN is set.
+const toStandIn = join(import.meta.dirname, "../fixtures/to-stand-in.ts");
 const shop = deploymentRoot(join(import.meta.dirname, "../fixtures"), "shop");
 
 const command = (url: string, ...args: string[]) =>
@@ -43,7 +45,7 @@ const commandWith = (
   new Promise<{ code: number; out: string; err: string }>((resolve) => {
     execFile(
       process.execPath,
-      ["--import", "tsx", cli, ...args],
+      ["--import", "tsx", "--import", toStandIn, cli, ...args],
       {
         env: { ...process.env, QUE_URL: url, ...langfuse },
         timeout: 20_000,
@@ -281,7 +283,7 @@ test("with a judge set, the command prints a verdict under each run, and sends e
         LANGFUSE_SECRET_KEY: SECRET_KEY,
         QUE_COMMIT: "abc1234",
         QUE_JUDGE: "small",
-        FIREWORKS_BASE_URL: model.url,
+        FIREWORKS_STAND_IN: model.url,
         FIREWORKS_API_KEY: KEY,
       },
       server.url,

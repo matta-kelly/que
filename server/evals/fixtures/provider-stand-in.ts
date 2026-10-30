@@ -1,11 +1,12 @@
 /**
- * A local server that stands in for the provider of the judge's model. It
- * answers the chat completions path, and keeps what it was asked.
+ * A local server that stands in for Fireworks, the provider of the judge's
+ * model. It answers the chat completions path, and keeps what it was asked.
  *
- * Its answer is not taken from the live provider. Its shape is the chat
- * completion of the OpenAI API, which `@langchain/fireworks` 0.2.13 reads
- * through `@langchain/openai`. The provider package takes the URL from
- * `FIREWORKS_BASE_URL`, and the key from `FIREWORKS_API_KEY`.
+ * Its answer is not taken from the live provider. Its shape is the streamed
+ * chat completion of the OpenAI API (server-sent events of
+ * `chat.completion.chunk`), which pi-ai's Chat Completions API reads. pi-ai
+ * takes the key from `FIREWORKS_API_KEY`. Its base URL is Fireworks' own: a
+ * command started with `--import` of ./to-stand-in.ts sends it here in its place.
  */
 
 import { createServer } from "node:http";
@@ -15,25 +16,27 @@ export const KEY = "fw-test";
 
 type Asked = { model?: string; messages?: { content?: unknown }[] };
 
-/** One chat completion of the OpenAI API, the `n`th, that answers `text`. */
+/** One streamed chat completion of the OpenAI API, the `n`th, that answers `text`: its events, in order. */
 export const completion = (
   n: number,
   model: string | undefined,
   text: string,
-) => ({
-  id: `chatcmpl-${n}`,
-  object: "chat.completion",
-  created: 1_791_878_400,
-  model,
-  choices: [
-    {
-      index: 0,
-      message: { role: "assistant", content: text },
-      finish_reason: "stop",
-    },
-  ],
-  usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-});
+) => {
+  const chunk = (delta: object, finish: string | null) => ({
+    id: `chatcmpl-${n}`,
+    object: "chat.completion.chunk",
+    created: 1_791_878_400,
+    model,
+    choices: [{ index: 0, delta, finish_reason: finish }],
+  });
+  return [
+    ...[
+      chunk({ role: "assistant", content: text }, null),
+      chunk({}, "stop"),
+    ].map((event) => `data: ${JSON.stringify(event)}\n\n`),
+    "data: [DONE]\n\n",
+  ].join("");
+};
 
 /** `reply` gives the text the model answers with, from the text it was sent. */
 export async function provider(reply: (question: string) => string) {
@@ -60,7 +63,8 @@ export async function provider(reply: (question: string) => string) {
         )
         .join("\n");
       asked.push(question);
-      return send(200, completion(asked.length, model, reply(question)));
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(completion(asked.length, model, reply(question)));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
