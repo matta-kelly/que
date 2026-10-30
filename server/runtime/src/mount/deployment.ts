@@ -6,7 +6,8 @@
  * problem: a file that cannot be read, a link that does not resolve (a plugin, model or loop an agent names that the
  * deployment does not give), a rule (an agent's model or loop the deployment does not name, a maxTokens above the
  * window), a field a node needs (a model's window, from the model catalog or its file). Then it runs on that graph's
- * nodes. A `MODEL` setting, which que no longer reads, fails too.
+ * nodes. A `MODEL` setting, which que no longer reads, fails too, and so do two agents on one model whose loops
+ * summarize differently.
  */
 
 import "./supply.js";
@@ -16,6 +17,7 @@ import {
   piecesOf,
   providerOf,
   readDeployment,
+  resolveLoop,
   type Agent,
   type Loop,
   type Model,
@@ -80,6 +82,9 @@ export async function mountDeployment(
     names: string[],
     type: T,
   ) => names.map((name) => graph.get(name, type)!);
+  const agents = named(deployment.agents, types.agent);
+  const loops = named(deployment.loops, types.loop);
+  oneSummaryPerModel(agents, loops);
   return {
     name: deployment.name,
     plugins: (deployment.plugins ?? []).map((name) => {
@@ -88,10 +93,28 @@ export async function mountDeployment(
       )!;
       return { definition: plugin.definition!, skills: plugin.skills };
     }),
-    agents: named(deployment.agents, types.agent),
-    loops: named(deployment.loops, types.loop),
+    agents,
+    loops,
     models: named(deployment.models, types.model),
   };
+}
+
+/**
+ * Stops on two agents on one model whose loops summarize differently: pi sets compaction per model, not per
+ * conversation (runner/pi/harness.ts), so they could not each have their own.
+ */
+function oneSummaryPerModel(agents: Agent[], loops: Loop[]) {
+  const first = new Map<string, { agent: string; summarize: string }>();
+  for (const agent of agents) {
+    const loop = loops.find((l) => l.name === agent.loop)!;
+    const summarize = JSON.stringify(resolveLoop(loop).summarize);
+    const had = first.get(agent.model);
+    if (!had) first.set(agent.model, { agent: agent.name, summarize });
+    else if (had.summarize !== summarize)
+      throw new Error(
+        `mount: the agents "${had.agent}" and "${agent.name}" are on the model "${agent.model}" with loops that summarize differently (${had.summarize} and ${summarize}): pi sets a chat's summary per model, so agents on one model must summarize alike`,
+      );
+  }
 }
 
 export async function mountFromEnv(env: {
