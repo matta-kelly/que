@@ -74,6 +74,23 @@ count() { jq --arg type "$1" '[.data[]? | select(.type == $type)] | length' <<<"
 [ "$(count GENERATION)" -ge 1 ] && ok "the trace holds $(count GENERATION) model calls" || bad "the trace holds no model call"
 [ "$(count TOOL)" -ge 1 ] && ok "the trace holds $(count TOOL) tool calls" || bad "the trace holds no tool call"
 
+# The first model call's input holds the agent's system prompt: a system message whose text (its content, or the
+# sections pi renders after it) names the environment, as every way's prompt does. A system message that only adds
+# the tools is not one. The input is pi's messages as
+# JSON, which Langfuse can give as text or parsed.
+system=$(jq -r '
+  [.data[]? | select(.type == "GENERATION")] | sort_by(.startTime) | .[0].input // empty
+  | (if type == "string" then (fromjson? // []) else . end)
+  | [.[]? | select(.role? == "system")
+     | ((.content | if type == "array" then map(.text? // "") | join("") else (. // "") end)
+        + ((.sections? // {}) | [.[]? | strings] | join("")))]
+  | join("\n")' <<<"$full")
+if grep -qF "## Your environment" <<<"$system"; then
+  ok "the first model call holds the agent's system prompt"
+else
+  bad "the first model call holds no system prompt: its system messages' text is \"$(head -c 200 <<<"$system")\""
+fi
+
 # No secret of the deployment is in the trace: each value of its .env that is a key, a password or a secret.
 leaked=0
 while IFS= read -r name; do
