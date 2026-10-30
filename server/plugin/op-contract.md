@@ -41,10 +41,12 @@ The kind of an op is the kind of its plugin. The plugin says its kind (`kind`), 
 
 What `run(ctx, params)` gets as `ctx`.
 
-- connector op: `{ conn }`, the connection to its service, logged in for the user. Built
-- domain op: `{ ops }`, one function for each op it lists, by the op's name. Each one runs that op through que, with its connector's login for the calling user. The domain op never sees a login
+- connector op: `{ conn, files }`, the connection to its service, logged in for the user, and the run thread's files. Built
+- domain op: `{ ops, files }`, one function for each op it lists, by the op's name, and the run thread's files. Each one runs that op through que, with its connector's login for the calling user. The domain op never sees a login
 	- built in the contract: `Op`'s context follows its third argument, its plugin's kind (`Op<Conn, S, "domain">`), and `definePlugin` gives each op it holds the context of its `kind`, a connector when left out. A domain op's run that reads `ctx.conn` does not compile, nor a connector op's that reads `ctx.ops`
-	- built in the runtime: the door gives a domain op `{ ops }`, each found among every mounted op, and a connector op `{ conn }`
+	- built in the runtime: the door gives a domain op `{ ops, files }`, each found among every mounted op, and a connector op `{ conn, files }`
+- files: the run thread's attachments, for both kinds of op. `files.get(id)` gives `{ id, name, mimeType, size, bytes }`, and `files.list()` gives each file's metadata, without its bytes. A plugin gets bytes, never the store's path
+	- the scope is the run's thread: a file id of another thread is an `OpFailed` that names the id and the thread. Built: the door resolves the id through the store's thread, and gives a domain op's listed calls the same scope
 - `params` is the input, parsed with the op's `input`
 
 ## Uses
