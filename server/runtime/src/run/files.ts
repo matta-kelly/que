@@ -99,7 +99,9 @@ export function fileRoutes(threads: ThreadStore) {
     if (!thread) return c.json({ error: "not found" }, 404);
     const file = await store.get(thread.id, c.req.param("file"));
     if (!file) return c.json({ error: "not found" }, 404);
-    return c.body(new Uint8Array(file.bytes), 200, {
+    // The store reads the bytes with readFile, so they are a Node buffer whose backing is an ArrayBuffer: c.body
+    // takes them as they are, and no copy of up to 25 MB is made per download.
+    return c.body(file.bytes as Uint8Array<ArrayBuffer>, 200, {
       "content-type": file.mimeType,
     });
   });
