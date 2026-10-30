@@ -8,8 +8,12 @@ here := justfile_directory()
 start:
     just --justfile {{que}}/justfile up {{here}}
 
-# stop que, from the deployment that started it
+# stop que, from the deployment that started it: its container and install stay, so the next start is quick
 stop:
+    just --justfile {{que}}/justfile stop
+
+# stop que and remove its container and install: the next start installs again
+down:
     just --justfile {{que}}/justfile down
 
 # follow the logs of the agent server and the UI

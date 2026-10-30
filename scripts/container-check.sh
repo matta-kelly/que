@@ -552,7 +552,7 @@ assert_no_cli_left() {
   [ -z "$(cid)" ] || want=1
   runs=$(pgrep -fc "podman run .*source=$root,target=$root," || true)
   assert_eq "$want" "$runs" "a cut call leaves no second podman run" || return 1
-  left=$(ps -eo ppid=,args= | grep -E '^ *1 +podman events --format json --filter event=start' || true)
+  left=$(ps -eo pid=,ppid=,args= | awk '$2 == 1 && $3 == "podman" && $4 == "events"')
   assert_eq "" "$left" "a cut call leaves no podman events behind" || return 1
 }
 
@@ -819,9 +819,10 @@ test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes() 
   fi
 }
 
-# Given a container with its packages installed, when it is stopped and started and the maker runs again,
-# then it is the same container and no install runs: the packages are still in its volumes.
-test_a_stop_and_start_reinstalls_nothing() {
+# Given a container with its packages installed, when `just stop` runs and the maker runs again, then the
+# stop leaves the container stopped, and the maker starts the same one with no install: the packages are
+# still in its volumes.
+test_just_stop_and_a_start_reinstall_nothing() {
   cd "$root" || return 1
   clean
   make_deployment || return 1
@@ -832,17 +833,46 @@ test_a_stop_and_start_reinstalls_nothing() {
   id=$(cid)
   assert_made_by_the_cli "$id" || return 1
   podman exec -u node "$id" touch "$root/server/node_modules/.no-install-probe" || return 1
-  podman stop "$id" >/dev/null || return 1
-  podman start "$id" >/dev/null || return 1
+  # `just stop` stops the shared que-postgres when no other que is serving: it is started again after, as
+  # in the test of `just down`, to leave the machine as it found it.
+  local db_running=
+  if [ -n "$(podman ps --filter name=que-postgres --format '{{.Names}}')" ]; then
+    db_running=1
+  fi
+  out=$(just stop 2>&1)
+  code=$?
+  if [ -n "$db_running" ]; then
+    podman start que-postgres >/dev/null 2>&1 || true
+  fi
+  assert_eq 0 "$code" "just stop exits 0: $out" || return 1
+  assert_eq "$id" "$(cid)" "just stop keeps the container" || return 1
+  if running "$id"; then
+    fail "just stop left the container running"
+    return 1
+  fi
   out=$(just check-deployment "$dep" 2>&1)
   code=$?
-  assert_eq 0 "$code" "the maker on the started container passes: $out" || return 1
+  assert_eq 0 "$code" "the maker on the stopped container passes: $out" || return 1
   again=$(cid)
-  assert_eq "$id" "$again" "the maker uses the container that was stopped and started" || return 1
+  assert_eq "$id" "$again" "the maker uses the container that was stopped" || return 1
   if ! podman exec -u node "$again" test -f "$root/server/node_modules/.no-install-probe"; then
     fail "que's install ran again after a stop and start"
     return 1
   fi
+}
+
+# Given no container for this checkout, when `just start` runs, then it fails and says to run `just up`, and
+# makes none: only `just up` creates.
+test_just_start_with_no_container_says_to_run_up_and_makes_none() {
+  cd "$root" || return 1
+  clean
+  make_deployment || return 1
+  local out code
+  out=$(just start "$dep" 2>&1)
+  code=$?
+  assert_ne 0 "$code" "just start fails with no container: $out" || return 1
+  assert_contains "$out" "no container: run just up" "just start says to run just up" || return 1
+  assert_eq "" "$(cid)" "just start makes no container" || return 1
 }
 
 # Given que's own code, when `just check` runs with one set and with all, then the check passes in the
@@ -883,7 +913,8 @@ TESTS=(
   test_the_file_is_the_only_source_of_the_containers_settings
   test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume
   test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes
-  test_a_stop_and_start_reinstalls_nothing
+  test_just_stop_and_a_start_reinstall_nothing
+  test_just_start_with_no_container_says_to_run_up_and_makes_none
   test_the_check_passes_in_the_container_one_set_and_all
 )
 

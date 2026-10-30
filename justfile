@@ -16,42 +16,25 @@ up deployment:
     dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
     [ -f "$dep/.env" ] || { echo "No .env in $dep. A deployment keeps its settings and secrets there: see templates/deployment/.env.example"; exit 1; }
     cd "{{root}}"
-    # Every que's container is on the host network, and they share que-postgres: with another que
-    # serving, or a port held, this que's servers could not bind, and the other would answer for them.
-    # Asked before anything starts, so a refused up leaves nothing running.
-    others=$(./scripts/serving-ques.sh | paste -sd ' ' -)
-    [ -z "$others" ] || { echo "Another que is serving: $others. Run 'just down' in the deployment that started it first." >&2; exit 1; }
-    c=$(just _container)
-    running() { [ -n "$c" ] && podman exec "$c" pgrep -f "$1" >/dev/null 2>&1; }
-    # A server on localhost may hold either address: Node binds ::1.
-    listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null || (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null; }
-    for server in "src/listen.ts:2024" "next dev:3000"; do
-        if ! running "${server%:*}" && listening "${server##*:}"; then
-            echo "Port ${server##*:} is taken, and not by a que. Stop what holds it first." >&2
-            exit 1
-        fi
-    done
+    just _can-serve
     ./scripts/db.sh "$dep/.env"
     c=$(./scripts/container.sh "$dep")
-    if running "src/listen.ts"; then
-        echo "que's server is already running. Run 'just down' first to start it from another deployment."
-    else
-        # The commit que runs from, for the trace of a run. Code that is not committed does not carry the name of a commit.
-        commit=$(git -C "{{root}}" rev-parse HEAD 2>/dev/null || true)
-        if [ -n "$commit" ] && ! git -C "{{root}}" diff --quiet HEAD; then commit="$commit-dirty"; fi
-        # The server takes its settings from the deployment's .env, and none from que's own folder.
-        # npm sets NODE_OPTIONS from its node-options, so the options go there: server/.npmrc's source condition, and dotenv.
-        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "QUE_COMMIT=$commit" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "npm_config_node_options=--conditions=@mku1tra/que-source --require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
-    fi
-    running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
-    echo "Starting…"
-    for _ in $(seq 1 60); do
-        curl -s -m 2 localhost:2024/ok >/dev/null && curl -s -m 30 -o /dev/null localhost:3000 && break
-        sleep 2
-    done
-    curl -sf -m 2 -o /dev/null localhost:2024/ok || { echo "que's server didn't come up. See /tmp/server.log in the dev container"; exit 1; }
-    curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
-    echo "que is up at http://localhost:3000"
+    just _serve "$dep" "$c"
+
+# Start this checkout's dev container again, and que's server and UI in it, with no create and no install: what `just stop` stopped.
+start deployment:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
+    cd "{{root}}"
+    c=$(just _container)
+    [ -n "$c" ] || { echo "no container: run just up {{deployment}} first" >&2; exit 1; }
+    [ -f "$dep/.env" ] || { echo "No .env in $dep. A deployment keeps its settings and secrets there: see templates/deployment/.env.example"; exit 1; }
+    just _can-serve
+    ./scripts/db.sh "$dep/.env"
+    podman start "$c" >/dev/null
+    podman exec "$c" test -d "$dep" || { echo "The dev container cannot see $dep: run just up {{deployment}}, which makes it again with that folder." >&2; exit 1; }
+    just _serve "$dep" "$c"
 
 # Stop everything (the dev container, which stops que's server and the UI, and the database, unless another que runs).
 # The container's own volumes go with it: the file names them with ${devcontainerId}, which is readable only
@@ -74,14 +57,18 @@ down:
             podman volume rm -f "$v" >/dev/null 2>&1 || true
         done
     fi
-    # The database is every que's: it stops with the last one.
-    others=$("{{root}}/scripts/serving-ques.sh" | paste -sd ' ' -)
-    if [ -n "$others" ]; then
-        echo "que is down. The database keeps running for the other ques serving: $others"
-        exit 0
-    fi
-    podman stop que-postgres >/dev/null 2>&1 || true
+    just _stop-database
     echo "que is down"
+
+# Stop que's server and UI, and the database unless another que runs. The dev container and its volumes stay, so the
+# next `just up` starts them again, with no install.
+stop:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    c=$(just _container)
+    [ -z "$c" ] || podman stop "$c" >/dev/null
+    just _stop-database
+    echo "que is stopped"
 
 # Follow que's server and UI logs
 logs: _require-up
@@ -204,6 +191,64 @@ test-live: _require-up
 _container:
     @# shellcheck disable=SC2046 # The id is one word, and no container leaves nothing.
     @podman inspect --format '{{{{.Id}}' $(podman ps -aq --filter "label=devcontainer.local_folder={{root}}" | head -1) 2>/dev/null || true
+
+# Every que's container is on the host network, and they share que-postgres: with another que
+# serving, or a port held, this que's servers could not bind, and the other would answer for them.
+# Asked before anything starts, so a refused start leaves nothing running.
+_can-serve:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{root}}"
+    others=$(./scripts/serving-ques.sh | paste -sd ' ' -)
+    [ -z "$others" ] || { echo "Another que is serving: $others. Run 'just stop' in the deployment that started it first." >&2; exit 1; }
+    c=$(just _container)
+    running() { [ -n "$c" ] && podman exec "$c" pgrep -f "$1" >/dev/null 2>&1; }
+    # A server on localhost may hold either address: Node binds ::1.
+    listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null || (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null; }
+    for server in "src/listen.ts:2024" "next dev:3000"; do
+        if ! running "${server%:*}" && listening "${server##*:}"; then
+            echo "Port ${server##*:} is taken, and not by a que. Stop what holds it first." >&2
+            exit 1
+        fi
+    done
+
+# Start que's server and the UI in the container, unless they run, and wait for them to answer.
+_serve deployment container:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dep="{{deployment}}"
+    c="{{container}}"
+    running() { podman exec "$c" pgrep -f "$1" >/dev/null 2>&1; }
+    if running "src/listen.ts"; then
+        echo "que's server is already running. Run 'just stop' first to start it from another deployment."
+    else
+        # The commit que runs from, for the trace of a run. Code that is not committed does not carry the name of a commit.
+        commit=$(git -C "{{root}}" rev-parse HEAD 2>/dev/null || true)
+        if [ -n "$commit" ] && ! git -C "{{root}}" diff --quiet HEAD; then commit="$commit-dirty"; fi
+        # The server takes its settings from the deployment's .env, and none from que's own folder.
+        # npm sets NODE_OPTIONS from its node-options, so the options go there: server/.npmrc's source condition, and dotenv.
+        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "QUE_COMMIT=$commit" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "npm_config_node_options=--conditions=@mku1tra/que-source --require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+    fi
+    running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
+    echo "Starting…"
+    for _ in $(seq 1 60); do
+        curl -s -m 2 localhost:2024/ok >/dev/null && curl -s -m 30 -o /dev/null localhost:3000 && break
+        sleep 2
+    done
+    curl -sf -m 2 -o /dev/null localhost:2024/ok || { echo "que's server didn't come up. See /tmp/server.log in the dev container"; exit 1; }
+    curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
+    echo "que is up at http://localhost:3000"
+
+# The database is every que's: it stops with the last one.
+_stop-database:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    others=$("{{root}}/scripts/serving-ques.sh" | paste -sd ' ' -)
+    if [ -n "$others" ]; then
+        echo "The database keeps running for the other ques serving: $others"
+        exit 0
+    fi
+    podman stop que-postgres >/dev/null 2>&1 || true
 
 _require-container:
     #!/usr/bin/env bash
