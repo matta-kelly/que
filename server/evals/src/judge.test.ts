@@ -14,6 +14,7 @@ import {
   fauxText,
   fauxThinking,
 } from "@earendil-works/pi-ai/providers/faux";
+import { completion } from "../fixtures/provider-stand-in.js";
 import { judge, judged, question, verdictOf } from "./judge.js";
 
 const byCustomer = {
@@ -246,24 +247,9 @@ function answering(text: string) {
   const fetch: typeof globalThis.fetch = async (url, init) => {
     const body = JSON.parse(String(init?.body));
     sent.push({ url: String(url), body });
-    const chunk = (delta: object, finish: string | null) => ({
-      id: `chatcmpl-${sent.length}`,
-      object: "chat.completion.chunk",
-      created: 1_791_878_400,
-      model: body.model,
-      choices: [{ index: 0, delta, finish_reason: finish }],
+    return new Response(completion(sent.length, body.model, text), {
+      headers: { "content-type": "text/event-stream" },
     });
-    const events = [
-      chunk({ role: "assistant", content: text }, null),
-      chunk({}, "stop"),
-    ];
-    return new Response(
-      [
-        ...events.map((e) => `data: ${JSON.stringify(e)}\n\n`),
-        "data: [DONE]\n\n",
-      ].join(""),
-      { headers: { "content-type": "text/event-stream" } },
-    );
   };
   return { fetch, sent };
 }
