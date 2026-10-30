@@ -1075,13 +1075,22 @@ async function firstOffered(way: Way, of: Catalog) {
 const descriptionOf = (tools: Tool[], name: string) =>
   tools.find((t) => t.name === name)?.description;
 
-test("given either config, when the model is offered read_skill, then its description sends the agent to the prompt or open_plugin for a skill's id", async () => {
-  for (const way of [onDemand, eager])
-    assert.equal(
-      descriptionOf(await firstOffered(way, catalog), "read_skill"),
-      "Read Skill: returns the full text of a skill, by its id, as the prompt or open_plugin lists it.",
-      way.name,
-    );
+test("given either config, when the model is offered read_skill, then its description sends the agent where that way lists a skill's id: the prompt or open_plugin on demand, the prompt alone when eager, which has no open_plugin", async () => {
+  assert.deepEqual(
+    {
+      onDemand: descriptionOf(
+        await firstOffered(onDemand, catalog),
+        "read_skill",
+      ),
+      eager: descriptionOf(await firstOffered(eager, catalog), "read_skill"),
+    },
+    {
+      onDemand:
+        "Read Skill: returns the full text of a skill, by its id, as the prompt or open_plugin lists it.",
+      eager:
+        "Read Skill: returns the full text of a skill, by its id, as the prompt lists it.",
+    },
+  );
 });
 
 test("given an on-demand config, when the model opens a plugin, then it gets each op and skill in one line, with no arguments, and a plugin that is not there names the ones that are", async () => {

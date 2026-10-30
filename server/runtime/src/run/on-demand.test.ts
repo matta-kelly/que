@@ -179,7 +179,9 @@ const streamed = (events: Event[], id: string) => {
 const failedIn = (requests: Request[], id: string) =>
   requests
     .flatMap((r) => r.messages)
-    .find((m) => m.role === "toolResult" && m.toolCallId === id)?.isError;
+    .flatMap((m) =>
+      m.role === "toolResult" && m.toolCallId === id ? [m.isError] : [],
+    )[0];
 
 const TILL = [
   "till-count",
