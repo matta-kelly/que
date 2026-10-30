@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { newChat, openApp, openChatWith } from "./helpers";
 
 // A run of the chat outlives the page that started it. A chat opened while its
@@ -18,6 +18,14 @@ const sendButton = (page: Page) =>
   page.getByRole("button", { name: "Send message" });
 const replies = (page: Page) => page.locator('[data-role="assistant"]');
 const reply = (page: Page) => replies(page).last();
+
+/** How many times each of 57, 777, 1234 and 2999 is in a reply's text. */
+const onceEach = async (locator: Locator) => {
+  const text = (await locator.textContent()) ?? "";
+  return [57, 777, 1234, 2999].map(
+    (n) => (text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).length,
+  );
+};
 
 const isRun = (path: string) => /^\/api\/threads\/[^/]+\/runs$/.test(path);
 const isJoin = (path: string) => /^\/api\/threads\/[^/]+\/join$/.test(path);
@@ -84,9 +92,8 @@ async function wholeOnce(page: Page) {
   await expect(sendButton(page)).toBeVisible({ timeout: 150_000 });
   await expect(replies(page)).toHaveCount(1);
   await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
-  const text = (await reply(page).textContent())!;
-  for (const n of [57, 777, 1234, 2999])
-    expect(text.match(new RegExp(`\\b${n}\\b`, "g")) ?? []).toHaveLength(1);
+  // The text can come a moment after the run ends, so it is read until it holds each number once.
+  await expect.poll(() => onceEach(reply(page))).toEqual([1, 1, 1, 1]);
 }
 
 test("survive: a reload while a reply goes shows the chat and the reply so far, joins its run, and the rest comes live, the whole reply one time @live", async ({
