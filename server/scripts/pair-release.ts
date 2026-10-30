@@ -72,18 +72,21 @@ const refuses = (manifest: Manifest, npm: NpmVersions): Why | undefined => {
   return undefined;
 };
 
+/** The pair's sides, in the order a release publishes them: plugin first, since harness's peer range names it. */
+const sides = ["plugin", "harness"] as const;
+
 export const release: Release = (manifests, npm) => {
   const { plugin, harness } = manifests;
   const onPlugin = harness.peerDependencies?.[plugin.name];
   const refused: Refusal[] = [];
   if (onPlugin === undefined || !satisfies(plugin.version, onPlugin))
     refused.push({ name: harness.name, why: "peer" });
-  for (const side of ["plugin", "harness"] as const) {
+  for (const side of sides) {
     const why = refuses(manifests[side], npm[side]);
     if (why) refused.push({ name: manifests[side].name, why });
   }
   if (refused.length) return { publish: [], refused };
-  const publish = (["plugin", "harness"] as const)
+  const publish = sides
     .filter((side) => !npm[side][manifests[side].version])
     .map((side) => manifests[side].name);
   return { publish, refused };
