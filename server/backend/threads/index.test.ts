@@ -1,7 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
-import { storeOn } from "./index.js";
+import { storeOn, type Queryable } from "./index.js";
+
+/** A database that keeps every statement it is given, in order, and answers it. */
+function recorded(db: PGlite): Queryable & { statements: string[] } {
+  const statements: string[] = [];
+  return {
+    statements,
+    async query(text: string, values?: unknown[]) {
+      statements.push(text);
+      return await db.query(text, values);
+    },
+  };
+}
 
 test("a thread is made for its owner, and each one made is a new thread", async () => {
   const store = storeOn(new PGlite());
@@ -232,6 +244,84 @@ test("given a threads table made before F3, when the store opens on it, then its
     model: "big",
   });
   assert.equal(await store.conversationOf("b5-thread"), "7");
+});
+
+test("given an empty database, when a store sets up, then one statement takes the advisory lock que.threads before it creates the table, and the table has every column", async () => {
+  const db = new PGlite();
+  const statements = recorded(db);
+  await storeOn(statements).make("ana");
+
+  const locking = statements.statements.filter((text) =>
+    text.includes("pg_advisory_xact_lock"),
+  );
+  assert.equal(
+    locking.length,
+    1,
+    `the setup runs ${locking.length} statements that take an advisory lock, not one: ${JSON.stringify(statements.statements, null, 2)}`,
+  );
+  const [statement] = locking;
+  assert.match(statement, /que\.threads/);
+  const lockAt = statement.indexOf("pg_advisory_xact_lock");
+  const createAt = statement.search(
+    /create\s+table\s+(if\s+not\s+exists\s+)?threads/i,
+  );
+  assert.notEqual(
+    createAt,
+    -1,
+    "the statement that takes the lock does not create the threads table: a lock taken in a statement of its own is released before the table is touched",
+  );
+  assert.ok(
+    lockAt < createAt,
+    "the table is created before the lock is taken in the statement that does both",
+  );
+  // A statement before that one names the table only outside the lock.
+  assert.deepEqual(
+    statements.statements
+      .slice(0, statements.statements.indexOf(statement))
+      .filter((text) => /threads/i.test(text)),
+    [],
+    "a statement touches the threads table before the one that takes the lock",
+  );
+
+  const { rows } = await db.query<{ column_name: string }>(
+    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'threads' ORDER BY column_name",
+  );
+  assert.deepEqual(
+    rows.map((row) => row.column_name),
+    [
+      "agent",
+      "archived",
+      "conversation",
+      "conversations",
+      "created_at",
+      "id",
+      "model",
+      "owner",
+      "stopped",
+      "title",
+    ],
+  );
+});
+
+test("given a threads table from before the conversations column, when a store sets up, then each row is kept and its conversation is among the ones it has been on", async () => {
+  const db = new PGlite();
+  await db.query(S1_SETUP);
+  await db.query(
+    "ALTER TABLE threads ADD COLUMN conversation text, ADD COLUMN stopped boolean NOT NULL DEFAULT false",
+  );
+  await db.query(
+    "INSERT INTO threads (id, owner, conversation) VALUES ('old-7', 'ana', '7'), ('old-40', 'ben', '40')",
+  );
+  const store = storeOn(db);
+  assert.equal((await store.get("ana", "old-7"))?.id, "old-7");
+  assert.equal((await store.get("ben", "old-40"))?.id, "old-40");
+  assert.deepEqual(
+    [
+      await store.conversationsOf("old-7"),
+      await store.conversationsOf("old-40"),
+    ],
+    [["7"], ["40"]],
+  );
 });
 
 test("given a thread from before F3, on a conversation and with none other kept, when a run moves it to a fork, then it still has the conversation it was on, so a send from that branch is read against it", async () => {
