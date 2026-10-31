@@ -47,6 +47,15 @@ const idOf = async (email: string) => {
   return rows[0].id;
 };
 
+/** The role the table holds for this user. */
+const roleOf = async (id: string) => {
+  const { rows } = await db.query<{ role: string }>(
+    "SELECT role FROM users WHERE id = $1",
+    [id],
+  );
+  return rows[0].role;
+};
+
 test("an admin reads each mounted domain, with the connectors it names and the roles it gives", async () => {
   const res = await as("admin@example.com", "/que/admin/domains");
   assert.equal(res.status, 200);
@@ -166,4 +175,39 @@ test("a grant to a user id that is no uuid is a 404, never a 500", async () => {
     { method: "PUT" },
   );
   assert.equal(res.status, 404, await res.clone().text());
+});
+
+test("an admin sets a user's role, and the users table holds it", async () => {
+  await as("admin@example.com", "/que/me");
+  await as("promoted@example.com", "/que/me");
+  const promotedId = await idOf("promoted@example.com");
+  assert.equal(await roleOf(promotedId), "member");
+
+  const patch = (id: string, role: string) =>
+    as("admin@example.com", `/que/admin/users/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ role }),
+    });
+
+  const promoted = await patch(promotedId, "admin");
+  assert.equal(promoted.status, 200, await promoted.clone().text());
+  assert.equal(await roleOf(promotedId), "admin");
+
+  const demoted = await patch(promotedId, "member");
+  assert.equal(demoted.status, 200, await demoted.clone().text());
+  assert.equal(await roleOf(promotedId), "member");
+});
+
+test("an admin's own PATCH that would take their admin role is refused, and saves nothing", async () => {
+  await as("admin@example.com", "/que/me");
+  const adminId = await idOf("admin@example.com");
+
+  const res = await as("admin@example.com", `/que/admin/users/${adminId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ role: "member" }),
+  });
+  assert.equal(res.status, 409, await res.clone().text());
+  assert.equal(await roleOf(adminId), "admin");
 });

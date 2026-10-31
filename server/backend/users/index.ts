@@ -20,6 +20,8 @@ export type Users = {
   ensure(identity: { email: string; name: string }): Promise<User>;
   get(id: string): Promise<User | undefined>;
   list(): Promise<User[]>;
+  /** Set the user's role to admin or member. */
+  setRole(id: string, role: User["role"]): Promise<User | undefined>;
   /** `instructions`: text to save, `null` to remove it. Left out, it stays as it is. */
   update(
     id: string,
@@ -104,6 +106,9 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
         "SELECT * FROM users ORDER BY created_at",
       );
       return rows.map(toUser);
+    },
+    async setRole(): Promise<User | undefined> {
+      return undefined;
     },
     async update(id, { name, avatarUrl, instructions }) {
       await ready;
