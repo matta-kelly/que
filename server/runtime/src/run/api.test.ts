@@ -128,3 +128,17 @@ test("given a credential saved before the domain that reaches it is revoked, whe
   assert.equal(removed.status, 200, await removed.clone().text());
   assert.deepEqual(await savedFor(CAL), []);
 });
+
+test("a malformed body on a connection's PUT is a 400, and saves nothing", async () => {
+  const DEE = "dee-malformed@example.com";
+  await grant(DEE, "dee", "till-domain");
+
+  const res = await as(DEE, "/que/connections/till", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: "{not json",
+  });
+
+  assert.equal(res.status, 400, await res.clone().text());
+  assert.deepEqual(await savedFor(DEE), []);
+});

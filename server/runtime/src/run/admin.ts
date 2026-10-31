@@ -52,7 +52,9 @@ admin.put("/que/admin/users/:id/grants/:domain", async (c) => {
 // A role that is neither admin nor member is a 400; a user that is not there, or an id that is no uuid, a 404.
 admin.patch("/que/admin/users/:id", async (c) => {
   const id = c.req.param("id");
-  const { role } = (await c.req.json()) as { role: User["role"] };
+  const body = (await c.req.json().catch(() => undefined)) as
+    { role?: User["role"] } | undefined;
+  const role = body?.role;
   if (role !== "admin" && role !== "member")
     return c.json({ error: "role must be admin or member" }, 400);
   if (id === c.get("userId") && role !== "admin")
@@ -90,7 +92,7 @@ admin.put("/que/admin/logins/:connector/:role", async (c) => {
     await access.setCredential(
       found,
       `role:${role}`,
-      (await c.req.json()).values,
+      (await c.req.json().catch(() => undefined))?.values,
     );
   } catch (error) {
     if (error instanceof OpFailed) return c.json({ error: error.message }, 400);

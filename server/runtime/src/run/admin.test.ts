@@ -547,3 +547,27 @@ test("GET never gives a login's value, not even right after a PUT", async () => 
   );
   assert.ok(!/secret/i.test(text), `GET gave a secret: ${text}`);
 });
+
+test("a malformed body is a 400 on a login's PUT and a role's PATCH, and saves nothing", async () => {
+  await clearLogins();
+  const malformed = {
+    headers: { "content-type": "application/json" },
+    body: "{not json",
+  };
+
+  const login = await as(
+    "admin@example.com",
+    loginPath("warehouse", "warehouse-reader"),
+    { method: "PUT", ...malformed },
+  );
+  assert.equal(login.status, 400, await login.clone().text());
+  assert.deepEqual(await loginRows("warehouse"), []);
+
+  await as("member@example.com", "/que/me");
+  const id = await idOf("member@example.com");
+  const role = await as("admin@example.com", `/que/admin/users/${id}`, {
+    method: "PATCH",
+    ...malformed,
+  });
+  assert.equal(role.status, 400, await role.clone().text());
+});

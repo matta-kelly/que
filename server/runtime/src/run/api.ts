@@ -72,7 +72,7 @@ app.put("/que/connections/:plugin", async (c) => {
     await access.setCredential(
       plugin,
       c.get("userId"),
-      (await c.req.json()).values,
+      (await c.req.json().catch(() => undefined))?.values,
     );
   } catch (error) {
     if (error instanceof OpFailed) return c.json({ error: error.message }, 400);
