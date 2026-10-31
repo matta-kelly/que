@@ -34,6 +34,8 @@ trace.setGlobalTracerProvider(
 
 const noSuchOrder = new OpFailed("no such order");
 const closed = new OpFailed("the shop is closed");
+const shoppingOffline = new OpFailed("shopping is offline");
+const shopClosed = new OpFailed("Shop is closed");
 const alreadyVoid = new OpFailed("shop: the order was already void");
 const warehouseShut = new OpFailed("the warehouse is shut");
 const shelfBare = new OpFailed("stock: the shelf is bare");
@@ -122,6 +124,28 @@ const shop = definePlugin({
         throw alreadyVoid;
       },
     },
+    {
+      name: "shop-check-stock",
+      type: "op",
+      title: "Check stock",
+      description: "Checks the shop's stock.",
+      input: z.object({}),
+      run: async () => {
+        // A word that begins with the connector's name is not the name.
+        throw shoppingOffline;
+      },
+    },
+    {
+      name: "shop-close-till",
+      type: "op",
+      title: "Close the till",
+      description: "Closes the till.",
+      input: z.object({}),
+      run: async () => {
+        // The connector's name in another case is still the name.
+        throw shopClosed;
+      },
+    },
   ],
 });
 const getOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[0] };
@@ -129,6 +153,8 @@ const listOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[1] };
 const tagOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[2] };
 const voidOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[3] };
 const reopenOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[4] };
+const checkStock: PlacedOp = { plugin: shop.plugin, op: shop.ops[5] };
+const closeTill: PlacedOp = { plugin: shop.plugin, op: shop.ops[6] };
 
 /** Access that gives a connection named by what it was asked for. */
 const named = door(async (plugin, role, user) => ({
@@ -200,7 +226,7 @@ test("given a connector op whose run throws an OpFailed, when the door calls it,
   assert.equal(alsoShop.cause, closed);
 });
 
-test("given a connector op whose OpFailed text already starts with the connector's name, when the door calls it, then the caller's OpFailed is not named twice, and the original is its cause", async () => {
+test("given a connector op whose OpFailed text names the connector, or only starts like its name, when the door calls it, then the caller's OpFailed names the connector once, and the original is its cause", async () => {
   const shopError = await named(reopenOrder, { id: 4 }, "ana").catch(
     (error: unknown) => error,
   );
@@ -220,6 +246,28 @@ test("given a connector op whose OpFailed text already starts with the connector
   );
   assert.equal(stockError.message, "stock: the shelf is bare");
   assert.equal(stockError.cause, shelfBare);
+
+  // A longer word that shares the connector's name as a raw prefix does not start with the name, so the text gets it.
+  const shoppingError = await named(checkStock, {}, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    shoppingError instanceof OpFailed,
+    `the door gave ${String(shoppingError)}, which is no OpFailed`,
+  );
+  assert.equal(shoppingError.message, "shop: shopping is offline");
+  assert.equal(shoppingError.cause, shoppingOffline);
+
+  // The connector's name in another case is the name, so the text is not named again.
+  const closedAgain = await named(closeTill, {}, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    closedAgain instanceof OpFailed,
+    `the door gave ${String(closedAgain)}, which is no OpFailed`,
+  );
+  assert.equal(closedAgain.message, "Shop is closed");
+  assert.equal(closedAgain.cause, shopClosed);
 });
 
 test("given a user with no login, when the door calls a connector op, then C3's refusal passes as thrown with no second name, and the door names only what op.run throws", async () => {
