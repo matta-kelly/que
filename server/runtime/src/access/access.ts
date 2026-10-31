@@ -34,10 +34,9 @@ type Session = {
   identity?: Promise<ServiceIdentity>;
 };
 
-/** Access on its credential store. The runtime makes the store once, with `createStore()`. */
-export function accessOn(store: CredentialStore, _control: ControlPlane) {
-  void _control;
-  const sessions = new Map<string, Session>(); // by `${plugin}:${userId}`
+/** Access on its credential store and the control plane. The runtime makes the store once, with `createStore()`. */
+export function accessOn(store: CredentialStore, control: ControlPlane) {
+  const sessions = new Map<string, Session>(); // by `${plugin}:${rep}`
 
   async function resolveCredential(
     plugin: Plugin,
@@ -52,11 +51,11 @@ export function accessOn(store: CredentialStore, _control: ControlPlane) {
       : undefined;
   }
 
-  async function session(plugin: Plugin, userId: string): Promise<Session> {
-    const credential = await resolveCredential(plugin, userId);
+  async function session(plugin: Plugin, rep: string): Promise<Session> {
+    const credential = await resolveCredential(plugin, rep);
     if (plugin.credential && !credential)
-      throw new OpFailed(`no ${plugin.name} credential for ${userId}`);
-    const slot = `${plugin.name}:${userId}`;
+      throw new OpFailed(`no ${plugin.name} credential for ${rep}`);
+    const slot = `${plugin.name}:${rep}`;
     const key = `${slot}:${credential?.version ?? 0}`;
     const current = sessions.get(slot);
     if (current?.key === key) return current;
@@ -74,12 +73,19 @@ export function accessOn(store: CredentialStore, _control: ControlPlane) {
   }
 
   /**
-   * The connection for an op, as this user. A user with no credential the plugin needs gets an OpFailed that names
-   * the plugin. One credential serves every role of a plugin, so the role does not change the connection.
+   * The connection for an op, on the login the control plane names for this user, plugin and role. A user with no
+   * login gets an OpFailed that names the plugin, and the role when the op has one.
    */
-  const getConnection: Connect = async (plugin, _role, userId) => {
+  const getConnection: Connect = async (plugin, role, userId) => {
     if (!plugin.connect) return undefined;
-    return (await session(plugin, userId)).conn;
+    const rep = await control.loginOf(userId, plugin.name, role);
+    if (rep === undefined)
+      throw new OpFailed(
+        role === undefined
+          ? `no ${plugin.name} login for ${userId}`
+          : `no ${plugin.name} login for ${userId} with ${role}`,
+      );
+    return (await session(plugin, rep)).conn;
   };
 
   return {
