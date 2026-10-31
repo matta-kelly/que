@@ -170,21 +170,21 @@ const hr = definePlugin({
 });
 
 // A domain with no ops of its own: the control plane reads its `usesOps` to find what it reaches.
-const domain = (name: string, usesOps: string[]) =>
-  cardOf({
+const domain = (name: string, usesOps: string[]) => {
+  const held = definePlugin({
+    name,
+    type: "plugin",
+    title: name,
+    description: `The ${name} domain.`,
+  });
+  return cardOf({
     definition: {
-      ...odoo,
-      plugin: {
-        ...odoo.plugin,
-        name,
-        title: name,
-        description: `The ${name} domain.`,
-        kind: "domain",
-        usesOps,
-      },
+      ...held,
+      plugin: { ...held.plugin, kind: "domain", usesOps },
     },
     cases: [],
   });
+};
 
 // Two domains name odoo, one names crm, two name warehouse with a different role each, one names ledger.
 // No domain names erp or hr.
