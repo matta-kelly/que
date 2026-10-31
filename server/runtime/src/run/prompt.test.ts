@@ -177,7 +177,13 @@ const keeperPrompt = (user: { name: string; email: string }) =>
 test("given an eager agent, when a user's run on it sends its first request, then the request's system prompt is the agent's prompt word for word as assemble's prompt functions give it, and so does the first request of the next run", async () => {
   // Ana, on clerk: the default role, her name, her own instructions, and the eager way's text with the skill alpha lists.
   as("ana@example.com", "Ana Lima");
-  await grant("ana@example.com", "Ana Lima", "source-domain", "till-domain");
+  await grant(
+    "ana@example.com",
+    "Ana Lima",
+    "source-domain",
+    "till-domain",
+    "alpha-domain",
+  );
   await connect("ana-key");
   await instruct("Answer in French.");
   const anas = await thread("clerk");
@@ -265,7 +271,13 @@ const TILL = [
 
 test("given one user's runs on two agents at the same time, when the first waits on its answer while the second runs, then every request of each run sends its own agent's prompt and offers its own agent's tools alone, also the request after the first run's tool call", async () => {
   as("cy@example.com", "Cy Moss");
-  await grant("cy@example.com", "Cy Moss", "source-domain", "till-domain");
+  await grant(
+    "cy@example.com",
+    "Cy Moss",
+    "source-domain",
+    "till-domain",
+    "alpha-domain",
+  );
   await connect("cy-key");
   await instruct("Answer in Welsh.");
   const clerk = await thread("clerk");
@@ -366,7 +378,13 @@ test("given one user's runs on two agents at the same time, when the first waits
 
 test("given two agents on the same plugins for one user, one eager and one on demand, when a run on each sends its first request, then each sends the prompt of its own way word for word as assemble's prompt functions give it", async () => {
   as("dee@example.com", "Dee Park");
-  await grant("dee@example.com", "Dee Park", "source-domain", "till-domain");
+  await grant(
+    "dee@example.com",
+    "Dee Park",
+    "source-domain",
+    "till-domain",
+    "alpha-domain",
+  );
   await connect("dee-key");
   await instruct("Answer in Dutch.");
   const prompt = (environment: typeof eager.prompt) =>

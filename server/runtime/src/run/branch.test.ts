@@ -834,6 +834,14 @@ test("given a run that goes, when the client sends its next message and sends th
     const u1 = user(`Count the ${item} slowly.`);
     const call = `wait-${item}`;
     const u3 = user(`And the ${item} in the back?`);
+    // The run's second answer is held: its tool result is committed, it is still live, and it writes nothing while
+    // the client's resends arrive, so no read of theirs lands in the middle of a commit.
+    let answering!: () => void;
+    const inAnswer = new Promise<void>((held) => (answering = held));
+    let releaseAnswer!: () => void;
+    const answerHeld = new Promise<void>(
+      (release) => (releaseAnswer = release),
+    );
     faux.setResponses([
       answer(
         [
@@ -842,52 +850,55 @@ test("given a run that goes, when the client sends its next message and sends th
         ],
         true,
       ),
-      answer(`There are 3 ${item}.`),
+      async (request) => {
+        answering();
+        await answerHeld;
+        requests.push(linesOf(request.messages));
+        return fauxAssistantMessage(`There are 3 ${item}.`);
+      },
       answer(`In the back, 2 ${item}.`),
       answer(`In the back, 2 ${item}, again.`),
     ]);
     requests.length = 0;
-    // R1 goes; while till-wait runs, the client sends u3 as R2, and sends R2 again: a retry, before u3 is placed.
-    let sent!: (both: Promise<Event[][]>) => void;
-    const retried = new Promise<Promise<Event[][]>>((r) => (sent = r));
-    // The assistant message of the call, under the id the stream gave it.
+    // R1 goes; once its tool call has run and it waits on the model, the client sends u3 as R2, and sends R2 again:
+    // a retry, while the run goes and before u3 is placed.
     let a1 = "";
+    let seenA1!: () => void;
+    const assistantId = new Promise<void>((seen) => (seenA1 = seen));
     const r1 = eventsOf(await post(id, input(id, [u1])), {
       until: (e) => {
-        if (e.type === "TOOL_CALL_START") a1 = String(e.parentMessageId);
-        return e.type === "TOOL_CALL_END";
-      },
-      then: () => {
-        const r2 = input(id, [
-          u1,
-          {
-            id: a1,
-            role: "assistant",
-            content: "Counting. ",
-            toolCalls: [
-              {
-                id: call,
-                type: "function",
-                function: {
-                  name: "till-wait",
-                  arguments: JSON.stringify({ item }),
-                },
-              },
-            ],
-          },
-          u3,
-        ]);
-        sent(
-          (async () => {
-            const first = await post(id, r2);
-            const again = await post(id, r2);
-            return Promise.all([eventsOf(first), eventsOf(again)]);
-          })(),
-        );
+        if (e.type !== "TOOL_CALL_START") return false;
+        a1 = String(e.parentMessageId);
+        seenA1();
+        return false;
       },
     });
+    await Promise.all([assistantId, inAnswer]);
+    const r2 = input(id, [
+      u1,
+      {
+        id: a1,
+        role: "assistant",
+        content: "Counting. ",
+        toolCalls: [
+          {
+            id: call,
+            type: "function",
+            function: {
+              name: "till-wait",
+              arguments: JSON.stringify({ item }),
+            },
+          },
+        ],
+      },
+      u3,
+    ]);
+    const first = await post(id, r2);
+    const again = await post(id, r2);
+    const retried = Promise.all([eventsOf(first), eventsOf(again)]);
+    releaseAnswer();
     await r1;
-    await await retried;
+    await retried;
     const chatNow = await chat(id);
     assert.deepEqual(
       {
