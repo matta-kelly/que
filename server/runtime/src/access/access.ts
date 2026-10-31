@@ -15,12 +15,20 @@ import {
 import type { ControlPlane } from "@que/control-plane";
 import type { CredentialStore } from "@que/credentials";
 
+/** The connection for an op's plugin and role, and the login it runs on. */
+export type Connection = {
+  /** What the plugin's `connect` gives. */
+  conn: unknown;
+  /** `own` for the user's own login, else the role's name. */
+  login: string;
+};
+
 /** The connection for an op's plugin and role, as this user. */
 export type Connect = (
   plugin: Plugin,
   role: Op["role"],
   user: string,
-) => Promise<unknown>;
+) => Promise<Connection | undefined>;
 
 export type Access = ReturnType<typeof accessOn>;
 
@@ -85,7 +93,8 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
           ? `no ${plugin.name} login for ${userId}`
           : `no ${plugin.name} login for ${userId} with ${role}`,
       );
-    return (await session(plugin, rep)).conn;
+    const { conn } = await session(plugin, rep);
+    return { conn: await conn, login: role ?? "own" };
   };
 
   return {

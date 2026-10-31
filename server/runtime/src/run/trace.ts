@@ -53,6 +53,7 @@ export type Settings = {
 /** What a trace says of its run. */
 export type Run = {
   user?: string;
+  email?: string;
   thread?: string;
   agent: string;
   tags?: string[];
@@ -101,6 +102,23 @@ export function settingsFor(env: Env): Settings | undefined {
 /** The attribute every span of a run on pi holds, from the run's context: its agent. */
 const AGENT = `${Langfuse.TRACE_METADATA}.agent`;
 
+/** The run's user's email, in the baggage: Langfuse propagates the id, not the email. */
+const EMAIL = "que.user_email";
+
+/**
+ * Adds the run's user's email to every span, from the baggage. Langfuse names the user by id; the email beside it is
+ * que's own.
+ */
+const emailOnSpans = {
+  onStart(span: Span, parentContext: Context) {
+    const email = propagation.getBaggage(parentContext)?.getEntry(EMAIL)?.value;
+    if (email) span.setAttribute("user.email", email);
+  },
+  onEnd() {},
+  shutdown: () => Promise.resolve(),
+  forceFlush: () => Promise.resolve(),
+};
+
 /**
  * Starts the sending, one time. Langfuse's own spans and a model library's
  * are sent, and every span of a run on pi: pi's, que's, and a plugin's own
@@ -109,6 +127,7 @@ const AGENT = `${Langfuse.TRACE_METADATA}.agent`;
 function send(settings: Settings) {
   new NodeSDK({
     spanProcessors: [
+      emailOnSpans,
       new LangfuseSpanProcessor({
         ...settings,
         shouldExportSpan: ({ otelSpan }) =>
@@ -265,19 +284,30 @@ export function tracingOnPi(settings: Settings | undefined) {
   return {
     telemetry: telemetryAt(),
     hooks,
-    ofRun: <T>(run: Run, submit: () => T) =>
-      propagateAttributes(
-        {
-          userId: run.user,
-          sessionId: run.thread,
-          metadata: { agent: run.agent },
-          traceName: run.agent,
-          // A run with no tag has none on its trace.
-          tags: run.tags?.length ? run.tags : undefined,
-          // In the baggage, so a carrier of pi's holds the run, and each span of the run has it.
-          asBaggage: true,
-        },
-        submit,
-      ),
+    ofRun: <T>(run: Run, submit: () => T) => {
+      const at = run.email
+        ? propagation.setBaggage(
+            otel.active(),
+            propagation.createBaggage({
+              [EMAIL]: { value: run.email },
+            }),
+          )
+        : otel.active();
+      return otel.with(at, () =>
+        propagateAttributes(
+          {
+            userId: run.user,
+            sessionId: run.thread,
+            metadata: { agent: run.agent },
+            traceName: run.agent,
+            // A run with no tag has none on its trace.
+            tags: run.tags?.length ? run.tags : undefined,
+            // In the baggage, so a carrier of pi's holds the run, and each span of the run has it.
+            asBaggage: true,
+          },
+          submit,
+        ),
+      );
+    },
   };
 }

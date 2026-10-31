@@ -21,6 +21,9 @@ import type { Connect } from "../access/access.js";
 
 const tracer = trace.getTracer("que");
 
+/** The login an op runs on, on its span: `own`, a role's name, or none for a domain op. */
+const LOGIN = "que.login";
+
 /** An op, with the plugin that holds it. Its plugin decides its kind, so either context is here. */
 export type PlacedOp = {
   plugin: Plugin;
@@ -111,18 +114,22 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
             );
           const input = parsed.data;
           const scope = files ? { files: filesOf(files) } : {};
-          const ctx =
-            plugin.kind === "domain"
-              ? {
-                  ...scope,
-                  ops: listedBy(
-                    op,
-                    user,
-                    files,
-                    trace.setSpan(context.active(), span),
-                  ),
-                }
-              : { ...scope, conn: await connect(plugin, op.role, user) };
+          let ctx;
+          if (plugin.kind === "domain") {
+            ctx = {
+              ...scope,
+              ops: listedBy(
+                op,
+                user,
+                files,
+                trace.setSpan(context.active(), span),
+              ),
+            };
+          } else {
+            const connection = await connect(plugin, op.role, user);
+            if (connection) span.setAttribute(LOGIN, connection.login);
+            ctx = { ...scope, conn: connection?.conn };
+          }
           return await (
             op.run as (ctx: unknown, params: unknown) => Promise<unknown>
           )(ctx, input);
