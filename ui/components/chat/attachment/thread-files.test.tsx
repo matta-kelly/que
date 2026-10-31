@@ -20,7 +20,9 @@ test("a reloaded thread's file list shows the files que's server lists, and no i
 
   render(<ThreadFiles threadId="T1" />);
 
-  const list = await screen.findByRole("list", { name: "Files in this thread" });
+  const list = await screen.findByRole("list", {
+    name: "Files in this thread",
+  });
   assert.equal(String(fetch.mock.calls[0]?.[0]), "/api/threads/T1/files");
   assert.ok(within(list).getByText("order.csv"));
   assert.ok(within(list).getByText("prices.pdf"));

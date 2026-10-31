@@ -5,10 +5,7 @@ import type {
   CompleteAttachment,
   PendingAttachment,
 } from "@assistant-ui/react";
-import {
-  toAgUiMessages,
-  type AgUiMessage,
-} from "@assistant-ui/react-ag-ui";
+import { toAgUiMessages, type AgUiMessage } from "@assistant-ui/react-ag-ui";
 import {
   queAttachments,
   type ChatThread,
@@ -25,7 +22,9 @@ const textOf = (attachment: CompleteAttachment): string =>
 const contentText = (content: string | readonly { type: string }[]): string =>
   typeof content === "string"
     ? content
-    : content.flatMap((part) => ("text" in part ? [String(part.text)] : [])).join("\n");
+    : content
+        .flatMap((part) => ("text" in part ? [String(part.text)] : []))
+        .join("\n");
 
 // The attachment the adapter added, from an adapter that adds it in one step.
 async function add(
