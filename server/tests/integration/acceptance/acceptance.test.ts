@@ -294,10 +294,7 @@ test(
 
     // then: every file route for Ana's thread is a 404, and no bytes are in the answer
     const form = new FormData();
-    form.set(
-      "file",
-      new File([CSV() as BlobPart], "orders.csv", { type: "text/csv" }),
-    );
+    form.set("file", new File([CSV()], "orders.csv", { type: "text/csv" }));
     const routes = [
       await fetch(`${second.base}/threads/${thread}/files`, {
         method: "POST",

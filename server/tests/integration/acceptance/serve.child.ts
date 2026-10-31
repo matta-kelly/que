@@ -15,7 +15,7 @@
  */
 
 import { serve } from "@hono/node-server";
-import type { Message } from "@earendil-works/pi-ai";
+import type { JsonObject, Message } from "@earendil-works/pi-ai";
 import {
   fauxAssistantMessage,
   fauxProvider,
@@ -25,7 +25,7 @@ import {
 } from "@earendil-works/pi-ai/providers/faux";
 
 type Step =
-  | { tool: { name: string; arguments: Record<string, unknown>; id: string } }
+  | { tool: { name: string; arguments: JsonObject; id: string } }
   | { text: string };
 
 const { app } = await import("../../../runtime/src/serve.js");

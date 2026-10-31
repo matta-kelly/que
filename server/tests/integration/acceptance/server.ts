@@ -9,13 +9,13 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createServer, type AddressInfo } from "node:net";
 import { join } from "node:path";
-import type { Message } from "@earendil-works/pi-ai";
+import type { JsonObject, Message } from "@earendil-works/pi-ai";
 
 const server = join(import.meta.dirname, "..", "..", "..");
 
 /** One scripted model response: a tool call, or the run's answer. */
 export type Step =
-  | { tool: { name: string; arguments: Record<string, unknown>; id: string } }
+  | { tool: { name: string; arguments: JsonObject; id: string } }
   | { text: string };
 
 export const sleep = (ms: number) =>
@@ -143,7 +143,7 @@ export async function upload(
   bytes: Uint8Array,
 ): Promise<{ id: string; name: string; mimeType: string; size: number }> {
   const form = new FormData();
-  form.set("file", new File([bytes as BlobPart], name, { type: mimeType }));
+  form.set("file", new File([bytes], name, { type: mimeType }));
   const made = await fetch(`${base}/threads/${thread}/files`, {
     method: "POST",
     body: form,
