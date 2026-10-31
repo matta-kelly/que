@@ -13,6 +13,7 @@ import { Hono } from "hono";
 import { OpFailed } from "@mku1tra/que-plugin";
 import { agents, loops, models, plugins } from "../mount/mounted.js";
 import { access } from "../access/connections.js";
+import { control } from "../access/control.js";
 import { accepted } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
 import { deploymentInfo } from "./deployment-info.js";
@@ -28,25 +29,45 @@ const isSecret = (field: string) => /key|password|secret|token/i.test(field);
 
 app.get("/que/connections", async (c) => {
   const connected = await access.connectedPlugins(c.get("userId"));
+  const reach = await control.reachOf(c.get("userId"));
   return c.json(
     plugins
       .filter((p) => p.definition.plugin.credential)
-      .map(({ definition: { plugin } }) => ({
-        name: plugin.name,
-        title: plugin.title,
-        description: plugin.description,
-        fields: Object.keys(plugin.credential!.shape).map((name) => ({
-          name,
-          secret: isSecret(name),
-        })),
-        connectedAt: connected.get(plugin.name) ?? null,
-      })),
+      .flatMap(({ definition: { plugin } }) => {
+        const reached = reach.connectors.find((x) => x.name === plugin.name);
+        if (reached === undefined) return [];
+        const entry = {
+          name: plugin.name,
+          title: plugin.title,
+          description: plugin.description,
+          connectedAt: connected.get(plugin.name) ?? null,
+        };
+        // An internal connector is reached with a role, not the user's own credential.
+        if (reached.login !== "own")
+          return [{ ...entry, roles: reached.login.roles, fields: [] }];
+        return [
+          {
+            ...entry,
+            fields: Object.keys(plugin.credential!.shape).map((name) => ({
+              name,
+              secret: isSecret(name),
+            })),
+          },
+        ];
+      }),
   );
 });
 
 app.put("/que/connections/:plugin", async (c) => {
   const plugin = find(c.req.param("plugin"));
   if (!plugin) return c.json({ error: "unknown plugin" }, 404);
+  const reached = (await control.reachOf(c.get("userId"))).connectors.find(
+    (x) => x.name === plugin.name,
+  );
+  if (reached === undefined)
+    return c.json({ error: `${plugin.name} is not reached` }, 403);
+  if (reached.login !== "own")
+    return c.json({ error: `${plugin.name} is internal` }, 403);
   try {
     await access.setCredential(
       plugin,

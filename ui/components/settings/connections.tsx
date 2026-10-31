@@ -4,7 +4,17 @@ import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { fetcher, QUE_API, type Connection } from "@/lib/que-api";
+import { fetcher, QUE_API } from "@/lib/que-api";
+
+/** What GET /que/connections gives one connector: an internal one is reached with a role, not a credential. */
+type Connection = {
+  name: string;
+  title: string;
+  description: string;
+  roles?: string[];
+  fields: { name: string; secret: boolean }[];
+  connectedAt: string | null;
+};
 
 const LABELS: Record<string, string> = {
   url: "URL",
@@ -43,6 +53,7 @@ export const CONNECTIONS_BLURB =
   "Connect your accounts. que only uses the tools for services you've connected.";
 
 function ConnectionRow({ connection }: { connection: Connection }) {
+  const internal = connection.roles !== undefined;
   const connected = connection.connectedAt !== null;
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -73,18 +84,24 @@ function ConnectionRow({ connection }: { connection: Connection }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
             <span className="font-medium">{connection.title}</span>
-            <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
-              <span
-                className={`size-1.5 rounded-full ${connected ? "bg-green-500" : "bg-muted-foreground/40"}`}
-              />
-              {connected ? "Connected" : "Not connected"}
-            </span>
+            {internal ? (
+              <span className="text-muted-foreground text-xs">
+                {connection.roles!.join(", ")}
+              </span>
+            ) : (
+              <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                <span
+                  className={`size-1.5 rounded-full ${connected ? "bg-green-500" : "bg-muted-foreground/40"}`}
+                />
+                {connected ? "Connected" : "Not connected"}
+              </span>
+            )}
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
             {connection.description}
           </p>
         </div>
-        {!editing && (
+        {!internal && !editing && (
           <div className="flex shrink-0 gap-2">
             {connected ? (
               <>
@@ -112,7 +129,7 @@ function ConnectionRow({ connection }: { connection: Connection }) {
           </div>
         )}
       </div>
-      {editing && (
+      {!internal && editing && (
         <div className="flex max-w-md flex-col gap-3">
           {connection.fields.map((f) => (
             <label key={f.name} className="flex flex-col gap-1 text-sm">
