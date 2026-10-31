@@ -68,6 +68,14 @@ async function waitsFor(
   return found;
 }
 
+/** The label a domain's toggle sits in: its name and what it gives, and nothing of another domain. */
+function labelOf(row: HTMLElement, testId: string): string {
+  const toggle = within(row).getByTestId(testId);
+  const label = toggle.closest("label");
+  assert.ok(label instanceof HTMLElement, `the toggle for ${testId} sits in a label`);
+  return (label.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
 /** Ada holds sales; Bob holds nothing. */
 const adminUsers = (grants: Record<string, string[]>) => [
   { ...ADA, grants: grants[ADA.id] ?? [] },
@@ -117,13 +125,16 @@ test("given an admin, when the Users screen loads, then each user's row lists ev
   );
 
   // Every domain, on every row: Ada holds sales, Bob holds none.
-  for (const row of [ada, bob]) {
-    assert.equal(
-      within(row).getAllByRole("checkbox").length,
-      2,
-      "the row lists every domain, each with a toggle",
-    );
-  }
+  assert.equal(
+    within(ada).getAllByRole("checkbox").length,
+    2,
+    "Ada's row lists every domain, each with a toggle",
+  );
+  assert.equal(
+    within(bob).getAllByRole("checkbox").length,
+    2,
+    "Bob's row lists every domain, each with a toggle",
+  );
   assert.equal(
     (within(ada).getByTestId(`grant-${ADA.email}-sales`) as HTMLInputElement).checked,
     true,
@@ -140,12 +151,27 @@ test("given an admin, when the Users screen loads, then each user's row lists ev
     "Bob's sales toggle is off: he holds no domain",
   );
 
-  // Each domain names what it gives, on each row.
-  for (const row of [ada, bob]) {
-    const text = row.textContent ?? "";
-    for (const name of ["sales", "crm", "sales-rep", "support", "helpdesk", "support-agent"])
-      assert.ok(text.includes(name), `the row names ${name}, which the domain gives`);
-  }
+  // Each domain's own label names what that domain gives, and nothing of the other.
+  assert.equal(
+    labelOf(ada, `grant-${ADA.email}-sales`),
+    "sales crm, sales-rep",
+    "Ada's sales label names sales with its connectors and roles, and nothing of support",
+  );
+  assert.equal(
+    labelOf(ada, `grant-${ADA.email}-support`),
+    "support helpdesk, support-agent",
+    "Ada's support label names support with its connectors and roles, and nothing of sales",
+  );
+  assert.equal(
+    labelOf(bob, `grant-${BOB.email}-sales`),
+    "sales crm, sales-rep",
+    "Bob's sales label names sales with its connectors and roles, and nothing of support",
+  );
+  assert.equal(
+    labelOf(bob, `grant-${BOB.email}-support`),
+    "support helpdesk, support-agent",
+    "Bob's support label names support with its connectors and roles, and nothing of sales",
+  );
 });
 
 test("given an admin, when they turn a domain on, then the screen sends PUT /que/admin/users/:id/grants/:domain, and when they turn it off, DELETE of it, and the row follows the server's answer", async () => {
