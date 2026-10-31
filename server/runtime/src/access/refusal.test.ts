@@ -367,6 +367,106 @@ test("given a role with no login stored, when its op is called, then the OpFaile
   );
 });
 
+// Two internal connectors no domain gives the op's role on, and the one domain that names `depot` without that role.
+const depot = definePlugin({
+  name: "depot",
+  type: "plugin",
+  title: "Depot",
+  description: "The depot's stock.",
+  credential: z.object({ key: z.string() }),
+  connect: async ({ key }) => `conn:${key}`,
+  roles: [
+    {
+      name: "depot-reader",
+      type: "access-role",
+      description: "Reads the depot.",
+    },
+    {
+      name: "depot-writer",
+      type: "access-role",
+      description: "Changes the depot.",
+    },
+  ],
+  ops: [
+    {
+      name: "depot-get",
+      type: "op",
+      title: "Get a depot line",
+      description: "One depot line by its code.",
+      role: "depot-reader",
+      input: z.object({ code: z.string().describe("The depot code") }),
+      run: async () => ({}),
+    },
+    {
+      name: "depot-set",
+      type: "op",
+      title: "Set a depot line",
+      description: "Sets one depot line.",
+      role: "depot-writer",
+      input: z.object({ code: z.string().describe("The depot code") }),
+      run: async () => ({}),
+    },
+  ],
+});
+
+const payroll = definePlugin({
+  name: "payroll",
+  type: "plugin",
+  title: "Payroll",
+  description: "The payroll system.",
+  credential: z.object({ key: z.string() }),
+  connect: async ({ key }) => `conn:${key}`,
+  roles: [
+    {
+      name: "payroll-runner",
+      type: "access-role",
+      description: "Runs the payroll.",
+    },
+  ],
+  ops: [
+    {
+      name: "payroll-run",
+      type: "op",
+      title: "Run the payroll",
+      description: "Runs one period's payroll.",
+      role: "payroll-runner",
+      input: z.object({ period: z.string().describe("The period") }),
+      run: async () => ({}),
+    },
+  ],
+});
+
+const stores = domain("stores", ["depot-get"]);
+
+test("given a user whose domains give the connector but no op's role, when the op is called, then the OpFailed names the connector and the role, says no domain gives that role, and asks an admin for a domain that does, and holds no user id", async () => {
+  const db = new PGlite();
+  const control = controlOn(db, [
+    ...cards,
+    cardOf({ definition: depot, cases: [] }),
+    cardOf({ definition: payroll, cases: [] }),
+    stores,
+  ]);
+  const access = accessOn(storeOn(db), control);
+  // The user holds the only domain that names depot, and it gives depot-reader alone.
+  await control.grant(user, "stores", "admin");
+
+  // A domain names the connector, so "no domain reaches it" would be false about the connector.
+  await refusalOf(
+    access,
+    depot.plugin,
+    "depot-writer",
+    "you have no depot login for depot-writer: no domain gives that role: ask an admin for a domain that gives it",
+  );
+
+  // No domain names payroll at all, so no constant connector passes both.
+  await refusalOf(
+    access,
+    payroll.plugin,
+    "payroll-runner",
+    "you have no payroll login for payroll-runner: no domain gives that role: ask an admin for a domain that gives it",
+  );
+});
+
 test("given a connector with no domain that names it, when its op is called, then the OpFailed names the connector and says no domain reaches it", async () => {
   const { access } = await setup();
 
