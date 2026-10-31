@@ -17,14 +17,14 @@ import {
 } from "@/lib/que-api";
 
 export function UsersList() {
-  const { data: me } = useSWR<Me>(QUE_API.me, fetcher);
+  const { data: me, error: meError } = useSWR<Me>(QUE_API.me, fetcher);
   const admin = me?.role === "admin";
   const {
     data: adminUsers,
     error: adminError,
     mutate: refreshAdminUsers,
   } = useSWR<AdminUser[]>(admin ? QUE_API.adminUsers : null, fetcher);
-  const { data: domains } = useSWR<Domain[]>(
+  const { data: domains, error: domainsError } = useSWR<Domain[]>(
     admin ? QUE_API.adminDomains : null,
     fetcher,
   );
@@ -33,7 +33,7 @@ export function UsersList() {
     fetcher,
   );
 
-  const error = admin ? adminError : usersError;
+  const error = meError ?? adminError ?? domainsError ?? usersError;
 
   const loading = <p className="text-muted-foreground p-4 text-sm">Loading…</p>;
   const failed = (
