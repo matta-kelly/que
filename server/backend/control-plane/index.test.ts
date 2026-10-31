@@ -285,3 +285,126 @@ test("a use no card holds is skipped, and the domain still reaches the connector
     "role:warehouse-reader",
   );
 });
+
+test("a domain that names a skill reaches the connector that holds it, though the skill uses no op and the connector holds none", async () => {
+  // Third-party: holds only a skill, and that skill uses no op.
+  const mailer = card("mailer", {
+    kind: "connector",
+    skills: [skill("mailer-greet")],
+  });
+  // Internal: holds only a skill, and that skill uses no op, so it gives no role.
+  const billing = card("billing", {
+    kind: "connector",
+    roles: [role("billing-reader")],
+    skills: [skill("billing-invoice")],
+  });
+  const outreach = card("outreach", {
+    kind: "domain",
+    usesSkills: ["mailer-greet"],
+  });
+  const accounts = card("accounts", {
+    kind: "domain",
+    usesSkills: ["billing-invoice"],
+  });
+  const cp = controlOn(new PGlite(), [
+    ...cards,
+    mailer,
+    billing,
+    outreach,
+    accounts,
+  ]);
+
+  // Third-party holder: reached on the user's own login.
+  await cp.grant("ana", "outreach", "admin-1");
+  assert.deepEqual(await cp.reachOf("ana"), {
+    domains: ["outreach"],
+    connectors: [{ name: "mailer", login: "own" }],
+  });
+  assert.equal(await cp.loginOf("ana", "mailer"), "ana");
+
+  // Internal holder: reached with the roles its skill's ops give, which are none here.
+  await cp.grant("ben", "accounts", "admin-1");
+  assert.deepEqual(await cp.reachOf("ben"), {
+    domains: ["accounts"],
+    connectors: [{ name: "billing", login: { roles: [] } }],
+  });
+
+  // The cards name the skill's holder as a connector of the domain, with no role.
+  assert.deepEqual(
+    (await cp.domains()).filter((domain) =>
+      ["accounts", "outreach"].includes(domain.name),
+    ),
+    [
+      { name: "accounts", connectors: ["billing"], roles: [] },
+      { name: "outreach", connectors: ["mailer"], roles: [] },
+    ],
+  );
+});
+
+test("a skill with no uses that an internal connector holds gives no login for any role", async () => {
+  // Internal: holds only a skill with no `uses`, so it is reached with no roles.
+  const billing = card("billing", {
+    kind: "connector",
+    roles: [role("billing-reader"), role("billing-writer")],
+    skills: [skill("billing-invoice")],
+  });
+  const accounts = card("accounts", {
+    kind: "domain",
+    usesSkills: ["billing-invoice"],
+  });
+  const cp = controlOn(new PGlite(), [...cards, billing, accounts]);
+  await cp.grant("ana", "accounts", "admin-1");
+
+  // The skill's holder is a connector the domain reaches, with no role.
+  assert.deepEqual(await cp.reachOf("ana"), {
+    domains: ["accounts"],
+    connectors: [{ name: "billing", login: { roles: [] } }],
+  });
+
+  // The existing internal-connector rule holds: no role a granted domain uses, so no login.
+  assert.equal(await cp.loginOf("ana", "billing", "billing-reader"), undefined);
+  assert.equal(await cp.loginOf("ana", "billing", "billing-writer"), undefined);
+  assert.equal(await cp.loginOf("ana", "billing"), undefined);
+});
+
+test("a third-party connector reached only by a skill that uses another connector's ops is on the user's own login", async () => {
+  // Third-party: holds only a skill, whose `uses` name an op of the internal `warehouse`.
+  const crm = card("crm", {
+    kind: "connector",
+    skills: [skill("crm-guide", ["warehouse-load"])],
+  });
+  const campaigns = card("campaigns", {
+    kind: "domain",
+    usesSkills: ["crm-guide"],
+  });
+  const cp = controlOn(new PGlite(), [...cards, crm, campaigns]);
+  await cp.grant("ana", "campaigns", "admin-1");
+
+  // Both connectors are reached: the skill's holder on the user's own login, and the op's holder with its role.
+  assert.deepEqual(await cp.reachOf("ana"), {
+    domains: ["campaigns"],
+    connectors: [
+      { name: "crm", login: "own" },
+      { name: "warehouse", login: { roles: ["warehouse-writer"] } },
+    ],
+  });
+  assert.equal(await cp.loginOf("ana", "crm"), "ana");
+  assert.equal(
+    await cp.loginOf("ana", "warehouse", "warehouse-writer"),
+    "role:warehouse-writer",
+  );
+  assert.equal(
+    await cp.loginOf("ana", "warehouse", "warehouse-reader"),
+    undefined,
+  );
+  assert.deepEqual(
+    (await cp.domains()).filter((domain) => domain.name === "campaigns"),
+    [
+      {
+        name: "campaigns",
+        connectors: ["crm", "warehouse"],
+        roles: ["warehouse-writer"],
+      },
+    ],
+  );
+});
