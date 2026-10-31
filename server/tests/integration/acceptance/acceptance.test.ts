@@ -268,7 +268,7 @@ test(
     // and: the PDF's text is read whole, exactly
     assert.equal(outputOf(requests, "pdf"), PDF_TEXT);
 
-    // and: the image is one block with the PNG's bytes and mime type
+    // and: the image is one block with the PNG's bytes and mime type (checked here: AG-UI's tool message is text)
     const image = resultOf(requests, "image");
     assert.ok(image, "the model got no result of the image's read");
     assert.equal(image.isError, false, image.texts.join("\n"));
@@ -366,6 +366,37 @@ test(
     assert.deepEqual(
       ((await list.json()) as { id: string }[]).map((file) => file.id).sort(),
       [files.csv.id, files.xlsx.id, files.pdf.id, files.png.id].sort(),
+    );
+
+    // and: the thread's durable transcript holds each exact row and the PDF's text
+    const transcript = await fetch(`${third.base}/threads/${thread}`);
+    assert.equal(transcript.status, 200, await transcript.clone().text());
+    const held = ((await transcript.json()) as { messages?: Message[] })
+      .messages;
+    assert.ok(held, "GET /threads/:id gives the thread's messages");
+    const transcriptText = held
+      .map((message) =>
+        typeof message.content === "string"
+          ? message.content
+          : message.content
+              .flatMap((block) => (block.type === "text" ? [block.text] : []))
+              .join(""),
+      )
+      .join("\n");
+    assert.equal(
+      transcriptText.includes(csvDeepRow),
+      true,
+      "the transcript holds the CSV's deep row",
+    );
+    assert.equal(
+      transcriptText.includes(ordersDeepRow),
+      true,
+      "the transcript holds the Orders sheet's deep row",
+    );
+    assert.equal(
+      transcriptText.includes(PDF_TEXT),
+      true,
+      "the transcript holds the PDF's text",
     );
 
     // and: a new run reads the CSV's deep row and the spreadsheet's named sheet again
