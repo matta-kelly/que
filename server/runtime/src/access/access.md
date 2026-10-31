@@ -37,7 +37,7 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 		- on the user's own login, with no credential stored: `you have no <connector> login: connect it under Settings, Connections`
 		- on a `role:<role>` login, with no credential stored: `you have no <connector> login for <role>: ask an admin to set the role's login`
 		- on no login at all, and no domain reaches the connector: `you have no <connector> login: no domain reaches it`
-		- on no login at all, and domains reach the connector: `you have no <connector> login: ask an admin for a domain that reaches it: <domains>`, the domains that reach it
+		- on no login at all, and domains reach the connector and, when the op has one, give its role: `you have no <connector> login[ for <role>]: ask an admin for a domain that reaches it: <domains>`, the domains that reach it, and give the role when the op has one
 		- on no login for the op's role, and no domain gives that role: `you have no <connector> login for <role>: no domain gives that role: ask an admin for a domain that gives it`
 	- a domain op gets no connection: each connector op it calls asks for its own, on the login of the connector's op
 - a credential is saved only once it matches the connector's schema, and `connect` succeeds with it when the connector has `connect`
