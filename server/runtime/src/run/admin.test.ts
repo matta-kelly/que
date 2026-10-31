@@ -56,6 +56,14 @@ const roleOf = async (id: string) => {
   return rows[0].role;
 };
 
+/** A PATCH of a user's role, as the admin. */
+const patchRole = (id: string, role: string) =>
+  as("admin@example.com", `/que/admin/users/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+
 test("an admin reads each mounted domain, with the connectors it names and the roles it gives", async () => {
   const res = await as("admin@example.com", "/que/admin/domains");
   assert.equal(res.status, 200);
@@ -210,4 +218,39 @@ test("an admin's own PATCH that would take their admin role is refused, and save
   });
   assert.equal(res.status, 409, await res.clone().text());
   assert.equal(await roleOf(adminId), "admin");
+});
+
+test("a PATCH for a user that is not there is a 404, and writes no role", async () => {
+  await as("admin@example.com", "/que/me");
+  const missing = "00000000-0000-4000-8000-000000000000";
+
+  const res = await patchRole(missing, "admin");
+  assert.equal(res.status, 404, await res.clone().text());
+
+  const { rows } = await db.query("SELECT id FROM users WHERE id = $1", [
+    missing,
+  ]);
+  assert.deepEqual(rows, [], "the route made no user for that id");
+});
+
+test("a PATCH for a user id that is no uuid is a 404, never a 500", async () => {
+  await as("admin@example.com", "/que/me");
+
+  const res = await patchRole("not-a-uuid", "admin");
+  assert.equal(res.status, 404, await res.clone().text());
+});
+
+test("a PATCH with a role that is neither admin nor member is a 400, and the role stays", async () => {
+  await as("admin@example.com", "/que/me");
+  await as("unchanged@example.com", "/que/me");
+  const unchangedId = await idOf("unchanged@example.com");
+  assert.equal(await roleOf(unchangedId), "member");
+
+  const owner = await patchRole(unchangedId, "owner");
+  assert.equal(owner.status, 400, await owner.clone().text());
+  assert.equal(await roleOf(unchangedId), "member");
+
+  const superuser = await patchRole(unchangedId, "superuser");
+  assert.equal(superuser.status, 400, await superuser.clone().text());
+  assert.equal(await roleOf(unchangedId), "member");
 });
