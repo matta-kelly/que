@@ -70,13 +70,13 @@ What the standard leaves to the client, que defines. Its files sit in que's name
 	- connector: one service. It holds what the service needs: the credential, the roles, the logins, and the failure that says what is missing. Each of its ops stands alone: an op of a connector that lists anything in its `uses` fails (`plugin/op-uses`, [[op-contract#Uses]])
 	- domain: across services. What it uses, it uses through the connectors
 		- the check: a domain gives no `credential`, no `connect`, no `whoami` and no `roles`, each field said (`plugin/domain-connection`); a plugin that lists the skills it uses (`usesSkills`) and does not say `kind: "domain"` fails, as a domain says its kind (`plugin/domain-uses`)
-		- a user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, with an `OpFailed` that names it. Every user has every domain: grants are not built (the que-control-plane issue, in kinetic)
+		- a user who has a domain has all of it, and a call it makes to a connector the user cannot use fails at that connector, with an `OpFailed` that names it. Grants are built: a user has the domains they are granted (the que-control-plane issue, in kinetic)
 - a plugin carries only the parts it uses: skills only, operations only, or both
 - what the definition does not list, the harness does not read, but for skills: each folder under `skills/` is one
 
 ### Credentials / Access
 
-Built: the kind, roles, a domain's list of skills, each skill's list and each op's list, declared and checked, the plugin's `usesOps` made from the last two, and an op's context typed by its kind. Built too: a domain op calls what it uses, through the door, and each user gets, each chat, every domain and each connector they can use. Not built: grants of domains, and a login per role (the que-control-plane issue, in kinetic).
+Built: the kind, roles, a domain's list of skills, each skill's list and each op's list, declared and checked, the plugin's `usesOps` made from the last two, and an op's context typed by its kind. Built too: a domain op calls what it uses, through the door, and each user gets, each chat, their granted domains and each connector they reach.
 
 - connector, third party (odoo): the user's own login. No roles in que: the service enforces its own
 - connector, internal (warehouse, dagster): can list its `roles`, each a name and a description, and then each op names its `role`. Neither lists roles now. A login per role is not built: one credential per user serves every role of a connector
@@ -91,7 +91,7 @@ Built: the kind, roles, a domain's list of skills, each skill's list and each op
 - the check is a root's lint: each node the code and skills give, as pieces, linted by basis with the plugin schema from a root, as lot's lint lints them, and each problem said as the lint says it (`sayProblem`). A lint starts only at a root, the first folder up from the plugin with a `basis.config.ts` (basis's `rootOf`)
 	- mount of one plugin (`just check-plugin`, and the card's writer): the lint of its root, with its skills and cases. A plugin that is its own root gives its config `pluginSchema`, whose source is the plugins in its folder (`plugins`): what a plugin uses that none of them gives is there, and not read. Each case's capability resolves against the plugin's own, so a case about a capability its plugin does not hold fails (`basis/link`). A plugin in no root, or in one that does not give it, fails
 	- mount of a deployment: the lint of the deployment's root, with all its plugins, and nothing unread. A name a plugin uses that the deployment does not give is a problem
-- who holds which domains, roles and logins, and what a user gets each chat: que's control plane, not the plugin. Built today: a login per user and connector, and access's catalog. Not built: grants of domains, and a login per role (the que-control-plane issue, in kinetic)
+- who holds which domains, roles and logins, and what a user gets each chat: que's control plane, not the plugin. Built today: a login per user and connector, and access's catalog
 
 ## What it promises
 

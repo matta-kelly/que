@@ -1,6 +1,6 @@
 ---
 type: component
-description: "Access, the harness step that decides what one user can reach: the plugins that need no credential (every domain, and a connector with none) or whose credential the user has saved, narrowed to the plugins the run's agent names, with one connection per user and connector, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
+description: "Access, the harness step that decides what one user can reach: the user's granted domains and the connectors they reach whose login resolves, narrowed to the plugins the run's agent names, with one connection per user and connector, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
 status: running
 ---
 Access decides what one user can reach. It works per plugin: a user gets a whole plugin, or none of it.
@@ -19,7 +19,7 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 `catalog.ts`
 
 - the mounted plugins one user can use right now: a plugin that needs no credential, or a connector whose credential the user has saved and that still matches the connector's schema
-	- every domain, as a domain holds no credential. There are no grants: every user gets every domain. Grants are not built (the que-control-plane issue, in kinetic)
+	- the user's granted domains, and each connector those domains reach whose login resolves. A domain holds no credential, so a grant is all it needs; a reached connector with no credential saved is left out (the que-control-plane issue, in kinetic)
 	- a domain is in it also when the user has not connected a connector it uses. A call to that connector fails there
 - each with who the user is in that service, when the plugin has `whoami`
 	- asking opens that plugin's connection
