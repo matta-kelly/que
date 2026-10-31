@@ -42,7 +42,10 @@ const stubFetch = (answers: Record<string, unknown>) => {
   const fetch = vi.fn<typeof globalThis.fetch>(async (input) =>
     String(input) in answers
       ? Response.json(answers[String(input)])
-      : Response.json({ error: `unexpected GET ${String(input)}` }, { status: 404 }),
+      : Response.json(
+          { error: `unexpected GET ${String(input)}` },
+          { status: 404 },
+        ),
   );
   vi.stubGlobal("fetch", fetch);
   return fetch;
@@ -73,10 +76,15 @@ test("given two domains that name one connector, when the Connections settings l
 
   const shop = await screen.findByTestId("domain-shop-domain");
   const till = await screen.findByTestId("domain-till-domain");
-  assert.ok(fetch.mock.calls.some(([url]) => String(url) === "/api/que/domains"));
+  assert.ok(
+    fetch.mock.calls.some(([url]) => String(url) === "/api/que/domains"),
+  );
 
   // The connector both domains name is listed by name under each domain.
-  assert.ok(within(shop).getByText("till"), "shop-domain lists the shared till");
+  assert.ok(
+    within(shop).getByText("till"),
+    "shop-domain lists the shared till",
+  );
   assert.ok(
     within(till).getByText("till"),
     "till-domain lists the shared till",
