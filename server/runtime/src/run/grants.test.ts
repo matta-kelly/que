@@ -154,10 +154,13 @@ test("given a user with no grant, when a run is made, then it has no op of the d
 });
 
 test("given two users each signed in with a different grant, when each runs the same agent, then each run holds only the connectors its own domains name", async () => {
-  // Ana is granted alpha's domain, and her till key stays saved from before that grant.
+  // Ana's till key is saved while a grant reaches the till, then that grant is revoked: the key stays saved, and no
+  // domain of hers names the till.
   as("ana@example.com", "Ana Lima");
-  await grant("ana@example.com", "Ana Lima", "alpha-domain");
+  const ana = await grant("ana@example.com", "Ana Lima", "till-domain");
   await connect("ana-key");
+  await control.revoke(ana, "till-domain");
+  await grant("ana@example.com", "Ana Lima", "alpha-domain");
   const anas = await thread("clerk");
 
   // Bo is granted the till's domain, and no domain names alpha.
