@@ -157,3 +157,13 @@ test("a grant of a connector is a 400 that names it, and of a user that is not t
   );
   assert.equal(noUser.status, 404, await noUser.clone().text());
 });
+
+test("a grant to a user id that is no uuid is a 404, never a 500", async () => {
+  await as("admin@example.com", "/que/admin/domains");
+  const res = await as(
+    "admin@example.com",
+    "/que/admin/users/not-a-uuid/grants/roles-domain",
+    { method: "PUT" },
+  );
+  assert.equal(res.status, 404, await res.clone().text());
+});
