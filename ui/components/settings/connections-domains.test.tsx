@@ -17,12 +17,25 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import { SWRConfig } from "swr";
 import { ConnectionsList } from "@/components/settings/connections";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+
+/**
+ * Mount the screen under its own empty SWR cache, so a test's data cannot answer the next test's read. This is the
+ * supported way to reset the cache between test cases (swr.vercel.app/docs/advanced/cache, "Reset Cache Between Test
+ * Cases"): a provider that returns a new Map per mount.
+ */
+const renderList = () =>
+  render(
+    <SWRConfig value={{ provider: () => new Map() }}>
+      <ConnectionsList />
+    </SWRConfig>,
+  );
 
 /** Stub fetch with each URL's answer, and fail loudly on a URL the screen should not ask for. */
 const stubFetch = (answers: Record<string, unknown>) => {
@@ -56,7 +69,7 @@ test("given two domains that name one connector, when the Connections settings l
     ],
   });
 
-  render(<ConnectionsList />);
+  renderList();
 
   const shop = await screen.findByTestId("domain-shop-domain");
   const till = await screen.findByTestId("domain-till-domain");
@@ -105,7 +118,7 @@ test("given two domains that name one connector, when the Connections settings l
 test("given a user with no domain, when the Connections settings load, then it says so and names no connector", async () => {
   stubFetch({ "/api/que/domains": [], "/api/que/connections": [] });
 
-  render(<ConnectionsList />);
+  renderList();
 
   assert.ok(
     await screen.findByText(/no domains/i),
