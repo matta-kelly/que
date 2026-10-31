@@ -19,7 +19,8 @@ test("given a role the user holds on an internal connector, when the Connections
       {
         name: "warehouse",
         title: "Warehouse",
-        description: "An internal connector whose ops run with one of its roles.",
+        description:
+          "An internal connector whose ops run with one of its roles.",
         roles: ["warehouse-reader"],
         fields: [],
         connectedAt: null,
