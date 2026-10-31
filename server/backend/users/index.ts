@@ -107,8 +107,13 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
       );
       return rows.map(toUser);
     },
-    async setRole(): Promise<User | undefined> {
-      return undefined;
+    async setRole(id, role) {
+      await ready;
+      const { rows } = await pool.query<Row>(
+        "UPDATE users SET role = $2 WHERE id = $1 RETURNING *",
+        [id, role],
+      );
+      return rows[0] && toUser(rows[0]);
     },
     async update(id, { name, avatarUrl, instructions }) {
       await ready;
