@@ -46,12 +46,17 @@ admin.put("/que/admin/users/:id/grants/:domain", async (c) => {
 });
 
 // An admin's own role is not theirs to take: a deployment always keeps one.
+// A role that is neither admin nor member is a 400; a user that is not there, or an id that is no uuid, a 404.
 admin.patch("/que/admin/users/:id", async (c) => {
   const id = c.req.param("id");
   const { role } = (await c.req.json()) as { role: User["role"] };
+  if (role !== "admin" && role !== "member")
+    return c.json({ error: "role must be admin or member" }, 400);
   if (id === c.get("userId") && role !== "admin")
     return c.json({ error: "You cannot take your own admin role" }, 409);
-  await users.setRole(id, role);
+  // An id that is no uuid makes the store's query throw: to this route it is a user that is not there.
+  const user = await users.setRole(id, role).catch(() => undefined);
+  if (!user) return c.json({ error: "not found" }, 404);
   return c.json({ ok: true });
 });
 
