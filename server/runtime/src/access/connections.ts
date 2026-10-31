@@ -5,5 +5,6 @@
 
 import { createStore } from "@que/credentials";
 import { accessOn } from "./access.js";
+import { control } from "./control.js";
 
-export const access = accessOn(createStore());
+export const access = accessOn(createStore(), control);

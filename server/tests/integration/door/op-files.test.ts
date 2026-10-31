@@ -28,6 +28,7 @@ import {
   Harness,
   MemoryStorage,
 } from "@earendil-works/pi-durable";
+import { controlOn } from "@que/control-plane";
 import { storeOn as credentialStoreOn } from "@que/credentials";
 import { storeOn as fileStoreOn } from "@que/files";
 import type { Catalog } from "../../../runtime/src/access/catalog.js";
@@ -42,7 +43,14 @@ process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
 
 const root = deploymentRoot(join(import.meta.dirname, "fixtures"), "rows");
 const mounted = await mountDeployment(root);
-const access = accessOn(credentialStoreOn(new PGlite()));
+const accessDb = new PGlite();
+const access = accessOn(
+  credentialStoreOn(accessDb),
+  controlOn(
+    accessDb,
+    mounted.plugins.map(({ card }) => card),
+  ),
+);
 
 // Every op of every mounted plugin: what the door is built from, not the catalog.
 const all: PlacedOp[] = mounted.plugins.flatMap(({ definition }) =>

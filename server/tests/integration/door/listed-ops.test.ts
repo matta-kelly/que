@@ -33,6 +33,7 @@ import {
   TracerProvider,
 } from "@opentelemetry/sdk-trace";
 import { OpFailed } from "@mku1tra/que-plugin";
+import { controlOn } from "@que/control-plane";
 import { storeOn } from "@que/credentials";
 import type { Catalog } from "../../../runtime/src/access/catalog.js";
 import { accessOn } from "../../../runtime/src/access/access.js";
@@ -61,12 +62,20 @@ const { listedCallFailures } = (await import(
     join(root, "plugins/interop-domain/io.github.matta-kelly.que/index.ts"),
   ).href
 )) as { listedCallFailures: unknown[] };
-const store = storeOn(new PGlite());
-const access = accessOn(store);
+const db = new PGlite();
+const store = storeOn(db);
+const control = controlOn(
+  db,
+  mounted.plugins.map(({ card }) => card),
+);
+await control.grant("ana", "interop-domain", "admin");
+const access = accessOn(store, control);
 const connector = mounted.plugins.find(
   ({ definition }) => definition.plugin.name === "interop-connector",
 )!.definition.plugin;
 await access.setCredential(connector, "ana", { key: "ana-key" });
+// Bo has a credential of his own, but no granted domain reaches the connector: his login for it is none.
+await access.setCredential(connector, "bo", { key: "bo-key" });
 
 // Every op of every mounted plugin: what the door is built from, not the catalog.
 const all: PlacedOp[] = mounted.plugins.flatMap(({ definition }) =>

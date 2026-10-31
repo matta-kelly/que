@@ -15,7 +15,8 @@ import {
 import fc from "fast-check";
 import * as z from "zod";
 import * as zm from "zod/mini";
-import { definePlugin, OpFailed } from "@mku1tra/que-plugin";
+import { cardOf, definePlugin, OpFailed, type Card } from "@mku1tra/que-plugin";
+import { controlOn } from "@que/control-plane";
 import { storeOn } from "@que/credentials";
 import { storeOn as fileStoreOn } from "@que/files";
 import { accessOn } from "../access/access.js";
@@ -118,6 +119,27 @@ const named = door(
   async (plugin, role, user) => `${plugin.name}:${role ?? "none"}:${user}`,
 );
 
+// The domain whose op reaches the shop, for the control plane: a grant of it gives ana the role the op runs with.
+const orders: Card = {
+  $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  name: "orders",
+  description: "The orders domain.",
+  extensions: {
+    "io.github.matta-kelly.que": {
+      format: 6,
+      title: "Orders",
+      kind: "domain",
+      ops: [],
+      skills: [],
+      roles: [],
+      usesOps: ["shop-get-order"],
+      usesSkills: [],
+      capabilities: [],
+      cases: [],
+    },
+  },
+};
+
 test("given an op whose input has a default, when it is called without that field, then run gets the parsed params with the default in", async () => {
   assert.deepEqual(await named(listOrders, { customer: "Ana" }, "ana"), {
     customer: "Ana",
@@ -159,10 +181,18 @@ test("given an op and a user, when it is called, then access is asked by the op'
   ]);
 });
 
-test("given a user with no credential for the op's plugin, when the op is called, then it fails with an OpFailed that names the plugin", async () => {
-  const store = storeOn(new PGlite());
-  await store.set("ana", "shop", { key: "a1" });
-  const call = door(accessOn(store).getConnection);
+test("given a user whose role login holds the connector credential and a user with no login, when the op is called, then the first runs on the role's login, and the second fails with an OpFailed that names the plugin", async () => {
+  const db = new PGlite();
+  const store = storeOn(db);
+  const control = controlOn(db, [
+    cardOf({ definition: shop, cases: [] }),
+    orders,
+  ]);
+  await control.grant("ana", "orders", "admin");
+  // Ana's own credential is not the one her role's op runs on.
+  await store.set("ana", "shop", { key: "ana-own" });
+  await store.set("role:shop-read", "shop", { key: "a1" });
+  const call = door(accessOn(store, control).getConnection);
 
   assert.deepEqual(await call(getOrder, { id: 4 }, "ana"), {
     id: 4,

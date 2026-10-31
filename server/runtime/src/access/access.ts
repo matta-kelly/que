@@ -12,6 +12,7 @@ import {
   type Plugin,
   type ServiceIdentity,
 } from "@mku1tra/que-plugin";
+import type { ControlPlane } from "@que/control-plane";
 import type { CredentialStore } from "@que/credentials";
 
 /** The connection for an op's plugin and role, as this user. */
@@ -34,7 +35,8 @@ type Session = {
 };
 
 /** Access on its credential store. The runtime makes the store once, with `createStore()`. */
-export function accessOn(store: CredentialStore) {
+export function accessOn(store: CredentialStore, _control: ControlPlane) {
+  void _control;
   const sessions = new Map<string, Session>(); // by `${plugin}:${userId}`
 
   async function resolveCredential(
