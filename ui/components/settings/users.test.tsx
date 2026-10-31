@@ -7,7 +7,14 @@
  */
 import { afterEach, test, vi } from "vitest";
 import assert from "node:assert/strict";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { SWRConfig } from "swr";
 import { UsersList } from "@/components/settings/users";
 
@@ -73,7 +80,10 @@ async function waitsFor(
 function labelOf(row: HTMLElement, testId: string): string {
   const toggle = within(row).getByTestId(testId);
   const label = toggle.closest("label");
-  assert.ok(label instanceof HTMLElement, `the toggle for ${testId} sits in a label`);
+  assert.ok(
+    label instanceof HTMLElement,
+    `the toggle for ${testId} sits in a label`,
+  );
   return (label.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
@@ -98,7 +108,8 @@ afterEach(() => {
 
 test("given an admin, when the Users screen loads, then each user's row lists every domain with a toggle that is on for the domains the user holds, and names the roles and connectors the domain gives", async () => {
   const fetch = stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
     [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
@@ -137,17 +148,20 @@ test("given an admin, when the Users screen loads, then each user's row lists ev
     "Bob's row lists every domain, each with a toggle",
   );
   assert.equal(
-    (within(ada).getByTestId(`grant-${ADA.email}-sales`) as HTMLInputElement).checked,
+    (within(ada).getByTestId(`grant-${ADA.email}-sales`) as HTMLInputElement)
+      .checked,
     true,
     "Ada's sales toggle is on: she holds sales",
   );
   assert.equal(
-    (within(ada).getByTestId(`grant-${ADA.email}-support`) as HTMLInputElement).checked,
+    (within(ada).getByTestId(`grant-${ADA.email}-support`) as HTMLInputElement)
+      .checked,
     false,
     "Ada's support toggle is off: she holds only sales",
   );
   assert.equal(
-    (within(bob).getByTestId(`grant-${BOB.email}-sales`) as HTMLInputElement).checked,
+    (within(bob).getByTestId(`grant-${BOB.email}-sales`) as HTMLInputElement)
+      .checked,
     false,
     "Bob's sales toggle is off: he holds no domain",
   );
@@ -219,7 +233,8 @@ test("given an admin, when the /que/me read fails, then the screen shows its err
 test("given an admin, when the /que/admin/domains read fails, then the screen shows its error line in place of the rows", async () => {
   // The users read has answered; the domains read, which decides what every toggle names, has not.
   const answered = {
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
   };
@@ -227,7 +242,8 @@ test("given an admin, when the /que/admin/domains read fails, then the screen sh
   // The server's own 500: text/plain, as the proxy forwards it.
   stub({
     ...answered,
-    [`GET ${ADMIN_DOMAINS}`]: () => new Response("Internal Server Error", { status: 500 }),
+    [`GET ${ADMIN_DOMAINS}`]: () =>
+      new Response("Internal Server Error", { status: 500 }),
   });
 
   const refused = renderScreen();
@@ -250,7 +266,8 @@ test("given an admin, when the /que/admin/domains read fails, then the screen sh
   // A refusal with a JSON body: the same failure, a different shape.
   stub({
     ...answered,
-    [`GET ${ADMIN_DOMAINS}`]: () => json({ error: "domains are unavailable" }, 503),
+    [`GET ${ADMIN_DOMAINS}`]: () =>
+      json({ error: "domains are unavailable" }, 503),
   });
 
   const unavailable = renderScreen();
@@ -265,9 +282,13 @@ test("given an admin, when the /que/admin/domains read fails, then the screen sh
 });
 
 test("given an admin, when they turn a domain on, then the screen sends PUT /que/admin/users/:id/grants/:domain, and when they turn it off, DELETE of it, and the row follows the server's answer", async () => {
-  const grants: Record<string, string[]> = { [ADA.id]: ["sales"], [BOB.id]: [] };
+  const grants: Record<string, string[]> = {
+    [ADA.id]: ["sales"],
+    [BOB.id]: [],
+  };
   const fetch = stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers(grants)),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -285,8 +306,16 @@ test("given an admin, when they turn a domain on, then the screen sends PUT /que
 
   const bob = await screen.findByTestId(`user-${BOB.email}`);
   const ada = await screen.findByTestId(`user-${ADA.email}`);
-  const bobSales = (await waitsFor(bob, `grant-${BOB.email}-sales`, "Bob's row has a toggle for sales")) as HTMLInputElement;
-  const adaSales = (await waitsFor(ada, `grant-${ADA.email}-sales`, "Ada's row has a toggle for sales")) as HTMLInputElement;
+  const bobSales = (await waitsFor(
+    bob,
+    `grant-${BOB.email}-sales`,
+    "Bob's row has a toggle for sales",
+  )) as HTMLInputElement;
+  const adaSales = (await waitsFor(
+    ada,
+    `grant-${ADA.email}-sales`,
+    "Ada's row has a toggle for sales",
+  )) as HTMLInputElement;
   assert.equal(bobSales.checked, false);
   assert.equal(adaSales.checked, true);
 
@@ -304,7 +333,8 @@ test("given an admin, when they turn a domain on, then the screen sends PUT /que
   );
   await waitFor(() =>
     assert.equal(
-      (within(bob).getByTestId(`grant-${BOB.email}-sales`) as HTMLInputElement).checked,
+      (within(bob).getByTestId(`grant-${BOB.email}-sales`) as HTMLInputElement)
+        .checked,
       true,
       "Bob's row follows the server's answer, which now holds sales",
     ),
@@ -324,7 +354,8 @@ test("given an admin, when they turn a domain on, then the screen sends PUT /que
   );
   await waitFor(() =>
     assert.equal(
-      (within(ada).getByTestId(`grant-${ADA.email}-sales`) as HTMLInputElement).checked,
+      (within(ada).getByTestId(`grant-${ADA.email}-sales`) as HTMLInputElement)
+        .checked,
       false,
       "Ada's row follows the server's answer, which no longer holds sales",
     ),
@@ -332,18 +363,26 @@ test("given an admin, when they turn a domain on, then the screen sends PUT /que
 });
 
 test("given an admin, when they set a member to admin, then the screen sends PATCH /que/admin/users/:id with the role, and the row shows the new role; that user, on their next load, gets the same admin screen", async () => {
-  const roles: Record<string, "admin" | "member"> = { [ADA.id]: "admin", [BOB.id]: "member" };
+  const roles: Record<string, "admin" | "member"> = {
+    [ADA.id]: "admin",
+    [BOB.id]: "member",
+  };
   const userRows = () => [
     { ...ADA, role: roles[ADA.id], grants: ["sales"] },
     { ...BOB, role: roles[BOB.id], grants: [] },
   ];
   const fetch = stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(userRows()),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
     [`PATCH ${ADMIN_USERS}/${BOB.id}`]: (init) => {
-      assert.deepEqual(JSON.parse(String(init?.body)), { role: "admin" }, "the PATCH carries the role alone");
+      assert.deepEqual(
+        JSON.parse(String(init?.body)),
+        { role: "admin" },
+        "the PATCH carries the role alone",
+      );
       roles[BOB.id] = "admin";
       return json({ ok: true });
     },
@@ -352,7 +391,11 @@ test("given an admin, when they set a member to admin, then the screen sends PAT
   renderScreen();
 
   const bob = await screen.findByTestId(`user-${BOB.email}`);
-  const select = (await waitsFor(bob, `role-${BOB.email}`, "Bob's row has a role control")) as HTMLSelectElement;
+  const select = (await waitsFor(
+    bob,
+    `role-${BOB.email}`,
+    "Bob's row has a role control",
+  )) as HTMLSelectElement;
   assert.equal(select.value, "member");
 
   fireEvent.change(select, { target: { value: "admin" } });
@@ -378,7 +421,13 @@ test("given an admin, when they set a member to admin, then the screen sends PAT
   // Bob's next load: the same screen, now as an admin.
   cleanup();
   const next = stub({
-    [`GET ${ME}`]: () => json({ ...BOB, role: "admin", instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({
+        ...BOB,
+        role: "admin",
+        instructions: null,
+        instructionsFrom: "account",
+      }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(userRows()),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -401,7 +450,8 @@ test("given an admin, when they set a member to admin, then the screen sends PAT
 
 test("given an admin sets themselves to member, then the server's 409 shows on the row, and the role stays", async () => {
   stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -412,7 +462,11 @@ test("given an admin sets themselves to member, then the server's 409 shows on t
   renderScreen();
 
   const ada = await screen.findByTestId(`user-${ADA.email}`);
-  const select = (await waitsFor(ada, `role-${ADA.email}`, "Ada's row has a role control")) as HTMLSelectElement;
+  const select = (await waitsFor(
+    ada,
+    `role-${ADA.email}`,
+    "Ada's row has a role control",
+  )) as HTMLSelectElement;
   fireEvent.change(select, { target: { value: "member" } });
 
   await waitFor(() =>
@@ -431,36 +485,55 @@ test("given an admin sets themselves to member, then the server's 409 shows on t
 test("given the server refuses a change (400, 404), then the row shows its error and the toggle goes back", async () => {
   const grants: Record<string, string[]> = { [ADA.id]: [], [BOB.id]: [] };
   stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers(grants)),
     [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
-    [`PUT ${ADMIN_USERS}/${BOB.id}/grants/sales`]: () => json({ error: "sales is no domain" }, 400),
-    [`PUT ${ADMIN_USERS}/${BOB.id}/grants/support`]: () => json({ error: "not found" }, 404),
+    [`PUT ${ADMIN_USERS}/${BOB.id}/grants/sales`]: () =>
+      json({ error: "sales is no domain" }, 400),
+    [`PUT ${ADMIN_USERS}/${BOB.id}/grants/support`]: () =>
+      json({ error: "not found" }, 404),
   });
 
   renderScreen();
 
   const bob = await screen.findByTestId(`user-${BOB.email}`);
-  const sales = (await waitsFor(bob, `grant-${BOB.email}-sales`, "Bob's row has a toggle for sales")) as HTMLInputElement;
-  const support = (await waitsFor(bob, `grant-${BOB.email}-support`, "Bob's row has a toggle for support")) as HTMLInputElement;
+  const sales = (await waitsFor(
+    bob,
+    `grant-${BOB.email}-sales`,
+    "Bob's row has a toggle for sales",
+  )) as HTMLInputElement;
+  const support = (await waitsFor(
+    bob,
+    `grant-${BOB.email}-support`,
+    "Bob's row has a toggle for support",
+  )) as HTMLInputElement;
 
   fireEvent.click(sales);
   await waitFor(() =>
-    assert.ok((bob.textContent ?? "").includes("sales is no domain"), "the 400 shows on Bob's row"),
+    assert.ok(
+      (bob.textContent ?? "").includes("sales is no domain"),
+      "the 400 shows on Bob's row",
+    ),
   );
   assert.equal(
-    (within(bob).getByTestId(`grant-${BOB.email}-sales`) as HTMLInputElement).checked,
+    (within(bob).getByTestId(`grant-${BOB.email}-sales`) as HTMLInputElement)
+      .checked,
     false,
     "the sales toggle goes back after the 400",
   );
 
   fireEvent.click(support);
   await waitFor(() =>
-    assert.ok((bob.textContent ?? "").includes("not found"), "the 404 shows on Bob's row"),
+    assert.ok(
+      (bob.textContent ?? "").includes("not found"),
+      "the 404 shows on Bob's row",
+    ),
   );
   assert.equal(
-    (within(bob).getByTestId(`grant-${BOB.email}-support`) as HTMLInputElement).checked,
+    (within(bob).getByTestId(`grant-${BOB.email}-support`) as HTMLInputElement)
+      .checked,
     false,
     "the support toggle goes back after the 404",
   );
@@ -469,7 +542,8 @@ test("given the server refuses a change (400, 404), then the row shows its error
 test("given an admin, when a write is refused with a body that is not JSON, then the row shows the generic error", async () => {
   // A grant answered 500 text/plain: the parse has no reason to show, so the row shows the generic one.
   stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
     [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
@@ -480,7 +554,11 @@ test("given an admin, when a write is refused with a body that is not JSON, then
   renderScreen();
 
   const bob = await screen.findByTestId(`user-${BOB.email}`);
-  const sales = (await waitsFor(bob, `grant-${BOB.email}-sales`, "Bob's row has a toggle for sales")) as HTMLInputElement;
+  const sales = (await waitsFor(
+    bob,
+    `grant-${BOB.email}-sales`,
+    "Bob's row has a toggle for sales",
+  )) as HTMLInputElement;
 
   fireEvent.click(sales);
 
@@ -491,13 +569,18 @@ test("given an admin, when a write is refused with a body that is not JSON, then
       "a grant answered 500 text/plain shows the generic error on Bob's row",
     ),
   );
-  assert.equal(sales.checked, false, "the sales toggle goes back after the refusal");
+  assert.equal(
+    sales.checked,
+    false,
+    "the sales toggle goes back after the refusal",
+  );
 
   cleanup();
 
   // A role change answered 502 text/html: another write, another body the parse cannot read.
   stub({
-    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({})),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -511,7 +594,11 @@ test("given an admin, when a write is refused with a body that is not JSON, then
   renderScreen();
 
   const bobAgain = await screen.findByTestId(`user-${BOB.email}`);
-  const role = (await waitsFor(bobAgain, `role-${BOB.email}`, "Bob's row has a role control")) as HTMLSelectElement;
+  const role = (await waitsFor(
+    bobAgain,
+    `role-${BOB.email}`,
+    "Bob's row has a role control",
+  )) as HTMLSelectElement;
 
   fireEvent.change(role, { target: { value: "admin" } });
 
@@ -526,7 +613,8 @@ test("given an admin, when a write is refused with a body that is not JSON, then
 
 test("given a member, when the Users screen loads, then it makes no /que/admin call and shows the list as now, with no toggle", async () => {
   const fetch = stub({
-    [`GET ${ME}`]: () => json({ ...BOB, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () =>
+      json({ ...BOB, instructions: null, instructionsFrom: "account" }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
   });
 
@@ -548,14 +636,29 @@ test("given a member, when the Users screen loads, then it makes no /que/admin c
     ),
   );
   assert.deepEqual(
-    fetch.mock.calls.filter(([url]) => String(url).startsWith("/api/que/admin")),
+    fetch.mock.calls.filter(([url]) =>
+      String(url).startsWith("/api/que/admin"),
+    ),
     [],
     "the member's screen makes no /que/admin call",
   );
 
   for (const row of [ada, bob])
-    assert.equal(within(row).queryAllByRole("checkbox").length, 0, "a member's row has no toggle");
-  assert.ok(within(ada).getByText("admin"), "the row still shows each user's role");
-  assert.ok(within(bob).getByText("member"), "the row still shows each user's role");
-  assert.ok(within(ada).getByText(ADA.email), "the row still shows the user's email");
+    assert.equal(
+      within(row).queryAllByRole("checkbox").length,
+      0,
+      "a member's row has no toggle",
+    );
+  assert.ok(
+    within(ada).getByText("admin"),
+    "the row still shows each user's role",
+  );
+  assert.ok(
+    within(bob).getByText("member"),
+    "the row still shows each user's role",
+  );
+  assert.ok(
+    within(ada).getByText(ADA.email),
+    "the row still shows the user's email",
+  );
 });
