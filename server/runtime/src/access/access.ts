@@ -111,7 +111,9 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
           : `you have no ${plugin.name} login for ${role}`;
       throw new OpFailed(
         reaching.length === 0
-          ? `${said}: no domain reaches it`
+          ? role === undefined
+            ? `${said}: no domain reaches it`
+            : `${said}: no domain gives that role: ask an admin for a domain that gives it`
           : `${said}: ask an admin for a domain that reaches it: ${reaching.join(", ")}`,
       );
     }
