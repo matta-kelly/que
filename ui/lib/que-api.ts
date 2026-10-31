@@ -8,6 +8,8 @@ export const QUE_API = {
   connections: "/api/que/connections",
   domains: "/api/que/domains",
   deployment: "/api/que/deployment",
+  adminUsers: "/api/que/admin/users",
+  adminDomains: "/api/que/admin/domains",
 } as const;
 
 /** A user, as the list of users gives one. */
@@ -26,6 +28,18 @@ export type Me = User & {
   instructions: string | null;
   /** `file`: a file of the deployment sets the text, and it cannot be changed here. */
   instructionsFrom: "file" | "account";
+};
+
+/** A user as the admin list gives one: their row, and the domains granted to them. */
+export type AdminUser = User & {
+  grants: string[];
+};
+
+/** A domain: the connectors and roles it gives. */
+export type Domain = {
+  name: string;
+  connectors: string[];
+  roles: string[];
 };
 
 /** A plugin that needs a credential, and whether this user has connected it. */
