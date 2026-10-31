@@ -32,7 +32,9 @@ admin.get("/que/admin/users", async (c) =>
 // A grant of a plugin that is no domain is a 400; of a user that is not there, a 404.
 admin.put("/que/admin/users/:id/grants/:domain", async (c) => {
   const id = c.req.param("id");
-  if (!(await users.get(id))) return c.json({ error: "not found" }, 404);
+  // An id that is no uuid makes the store's query throw: to this route it is a user that is not there.
+  const user = await users.get(id).catch(() => undefined);
+  if (!user) return c.json({ error: "not found" }, 404);
   try {
     await control.grant(id, c.req.param("domain"), c.get("userId"));
   } catch (error) {
