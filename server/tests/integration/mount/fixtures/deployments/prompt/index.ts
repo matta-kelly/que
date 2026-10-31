@@ -5,7 +5,7 @@ export default defineDeployment({
   type: "deployment",
   description:
     "A deployment of a fixture with two eager agents and one on demand: the first uses the till and a plugin with a skill, and takes the user's own instructions; the second uses source (an op and a skill), on instructions of its own. No op is in both clerk's and keeper's plugins. The third, scout, is on clerk's plugins and loads each op on demand.",
-  plugins: ["till", "alpha", "source"],
+  plugins: ["till", "alpha", "source", "till-domain", "source-domain"],
   agents: ["clerk", "keeper", "scout"],
   loops: ["long-chat"],
   models: ["small"],

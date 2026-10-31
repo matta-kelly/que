@@ -4,7 +4,7 @@ export default defineDeployment({
   name: "tools",
   type: "deployment",
   description: "A deployment of a fixture whose agent has a plugin with an op.",
-  plugins: ["till"],
+  plugins: ["till", "till-domain"],
   agents: ["clerk"],
   loops: ["long-chat"],
   models: ["small"],

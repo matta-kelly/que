@@ -5,7 +5,7 @@ export default defineDeployment({
   type: "deployment",
   description:
     "A deployment of a fixture whose agent's loop moves any result over 10 tokens to a file.",
-  plugins: ["till"],
+  plugins: ["till", "till-domain"],
   agents: ["clerk"],
   loops: ["small-result"],
   models: ["small"],
