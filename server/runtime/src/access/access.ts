@@ -92,7 +92,8 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
   /**
    * The connection for an op, on the login the control plane names for this user, plugin and role. A user with no
    * login gets an OpFailed that names the plugin, the role when the op has one, and what to ask for: each domain
-   * that reaches the connector, or, when none gives the role, that no domain does.
+   * that reaches the connector and, when the op has one, gives its role, or else, for a role-less op, that no domain
+   * reaches it, and for a role op, that no domain gives that role.
    */
   const getConnection: Connect = async (plugin, role, userId) => {
     if (!plugin.connect) return undefined;
