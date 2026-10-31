@@ -16,7 +16,10 @@ export default definePlugin({
       description: "Search the warehouse through its reader role.",
       uses: ["warehouse-search"],
       input: z.object({ code: z.string().describe("The thing's code") }),
-      run: async () => ({}),
+      // The domain op calls the connector op it lists: the run's trace shows both spans.
+      run: async ({ ops }, { code }) => ({
+        warehouse: await ops["warehouse-search"]({ code }),
+      }),
     },
   ],
 });

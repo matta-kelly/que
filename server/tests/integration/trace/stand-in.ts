@@ -161,8 +161,9 @@ export async function standIn(how: { status?: number; cut?: boolean } = {}) {
 /**
  * que's server on pi, listening on a port of its own, as tool-calls.test.ts
  * starts it: on a database of its own (PGlite, served on a local port) and the
- * fixture deployment "tools", whose one agent, "clerk", uses the plugin
- * "till". In the place of Fireworks, pi-ai's scripted provider (`faux`)
+ * fixture deployment "trace", whose one agent, "clerk", uses the plugin
+ * "till" and "roles-domain", a domain whose op runs on the warehouse's role
+ * login. In the place of Fireworks, pi-ai's scripted provider (`faux`)
  * answers under Fireworks' provider id. The server reads the environment when
  * it is imported, so a test sets its trace settings before it calls this.
  */
@@ -174,7 +175,7 @@ export async function serveOnPi() {
   process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
   process.env.QUE_DEPLOYMENT = deploymentRoot(
     join(import.meta.dirname, "../mount/fixtures"),
-    "tools",
+    "trace",
   );
   delete process.env.DEV_USER_EMAIL;
   delete process.env.DEV_USER_NAME;
@@ -193,8 +194,9 @@ export async function serveOnPi() {
   /** Signs in as `email`, as @que/identity reads it, and saves their till key: their user id. */
   const signIn = async (email: string, key: string) => {
     process.env.DEV_USER_EMAIL = email;
-    // The user reaches the deployment's connectors: the till, through its test domain, before their connection.
-    await grant(email, email.split("@")[0], "till-domain");
+    // The user reaches the deployment's connectors: the till through its test domain, and the warehouse through
+    // the domain whose op uses its reader role.
+    await grant(email, email.split("@")[0], "till-domain", "roles-domain");
     const saved = await fetch(`${base}/que/connections/till`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
@@ -204,6 +206,26 @@ export async function serveOnPi() {
       throw new Error(`the till key was not saved: ${await saved.text()}`);
     const me = await fetch(`${base}/que/me`);
     return ((await me.json()) as { id: string }).id;
+  };
+
+  /**
+   * Sets an internal connector's role login, as an admin would: `email` is the admin the runtime makes first,
+   * before any other user signs in. A route that refuses it is an error, not a test's assertion.
+   */
+  const setLogin = async (
+    email: string,
+    connector: string,
+    role: string,
+    values: unknown,
+  ) => {
+    process.env.DEV_USER_EMAIL = email;
+    const saved = await fetch(`${base}/que/admin/logins/${connector}/${role}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ values }),
+    });
+    if (saved.status !== 200)
+      throw new Error(`the ${role} login was not saved: ${await saved.text()}`);
   };
 
   /**
@@ -262,6 +284,7 @@ export async function serveOnPi() {
 
   return {
     signIn,
+    setLogin,
     startOnPi,
     runOnPi,
     stopOnPi,

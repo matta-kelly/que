@@ -2,7 +2,8 @@
  * A run on pi, sent to Langfuse: que's server on pi, with the deployment's
  * Langfuse settings pointing at a local server in the place of Langfuse. The
  * Langfuse SDK is the real one, and so is what it puts on the wire. The model
- * is pi-ai's scripted one, and the op is the fixture plugin till's.
+ * is pi-ai's scripted one, and the ops are the fixture plugins' till's and
+ * warehouse's, the second through the domain whose op uses its reader role.
  */
 
 import { after, test } from "node:test";
@@ -73,6 +74,20 @@ const counting = (item: string, id: string, answer: string) => [
   }),
   fauxAssistantMessage(fauxText(answer)),
 ];
+
+/**
+ * The door's span of one op call: the span que's tracer opened, not pi's tool call of the same name. The login
+ * the call ran on is on it as `que.login`: `own` for the user's own, a role's name for the role's, and none for
+ * a domain op, which has no login of its own.
+ */
+const opSpan = (spans: Span[], name: string) =>
+  spans.find((span) => span.scope === "que" && span.name === name);
+
+/** The person a span names: the user's id, and their email. */
+const personOf = (span: Span | undefined) => ({
+  user: span?.attributes["user.id"],
+  email: span?.attributes["user.email"],
+});
 
 test("given two users, each running the agent clerk on a thread of their own, when each run ends, then each run is one trace of its own, named after its agent config, whose root names its user, its thread and that config, and every span sent is in one of those two traces", async () => {
   const ana = await que.signIn("ana@example.com", "ana-key");
@@ -280,6 +295,128 @@ test("given a run stopped while the model has not answered its request, when its
       ink: await stopped("bo@example.com", "bo-key", "ink"),
     },
     { pens: expected, ink: expected },
+  );
+});
+
+test("given two users, each running an op of their own, when each run ends, then each trace's root and its op's span name the user by id and email", async () => {
+  const traced = async (
+    email: string,
+    key: string,
+    item: string,
+    answer: string,
+  ) => {
+    const user = await que.signIn(email, key);
+    const thread = await que.runOnPi(
+      `How many ${item}?`,
+      counting(item, `call-${item}`, answer),
+    );
+    const spans = await traceOf(thread);
+    return {
+      user,
+      root: personOf(rootsOf(spans)[0]),
+      op: personOf(opSpan(spans, "till-count")),
+    };
+  };
+  const ana = await traced("ana@example.com", "ana-key", "pens", "Ten pens.");
+  const bo = await traced(
+    "bo@example.com",
+    "bo-key",
+    "ink",
+    "Two pots of ink.",
+  );
+  assert.deepEqual(
+    { ana: { root: ana.root, op: ana.op }, bo: { root: bo.root, op: bo.op } },
+    {
+      ana: {
+        root: { user: ana.user, email: "ana@example.com" },
+        op: { user: ana.user, email: "ana@example.com" },
+      },
+      bo: {
+        root: { user: bo.user, email: "bo@example.com" },
+        op: { user: bo.user, email: "bo@example.com" },
+      },
+    },
+  );
+});
+
+test("given a run whose model calls the till's op and a domain op that uses the warehouse's reader role, when it ends, then each op's span says its login: own for the till, warehouse-reader for the warehouse, and none for the domain", async () => {
+  await que.signIn("ana@example.com", "ana-key");
+  // The role's login is one an admin sets, and every user who holds the role calls the op on it.
+  await que.setLogin("ana@example.com", "warehouse", "warehouse-reader", {
+    url: "https://warehouse.example.com",
+  });
+  const thread = await que.runOnPi("Count the pens and search the warehouse.", [
+    fauxAssistantMessage(
+      [
+        fauxToolCall("till-count", { item: "pens" }, { id: "count-pens" }),
+        fauxToolCall("roles-search", { code: "pen" }, { id: "search-pen" }),
+      ],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage(fauxText("Done.")),
+  ]);
+  const spans = await traceOf(thread);
+  const login = (name: string) => opSpan(spans, name)?.attributes["que.login"];
+  assert.deepEqual(
+    {
+      till: login("till-count"),
+      domain: login("roles-search"),
+      role: login("warehouse-search"),
+    },
+    { till: "own", domain: undefined, role: "warehouse-reader" },
+  );
+});
+
+test("given two users a granted domain gives the same role, when each calls the domain's op, then their calls are in two traces, each naming its own person and the role's login", async () => {
+  const ana = await que.signIn("ana@example.com", "ana-key");
+  await que.setLogin("ana@example.com", "warehouse", "warehouse-reader", {
+    url: "https://warehouse.example.com",
+  });
+  const anaThread = await que.runOnPi("Search the warehouse for pens.", [
+    fauxAssistantMessage(
+      [fauxToolCall("roles-search", { code: "pens" }, { id: "ana-search" })],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage(fauxText("Found them.")),
+  ]);
+  const bo = await que.signIn("bo@example.com", "bo-key");
+  const boThread = await que.runOnPi("Search the warehouse for ink.", [
+    fauxAssistantMessage(
+      [fauxToolCall("roles-search", { code: "ink" }, { id: "bo-search" })],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage(fauxText("Found it.")),
+  ]);
+  const anaTrace = await traceOf(anaThread);
+  const boTrace = await traceOf(boThread);
+  const who = (spans: Span[]) => {
+    const op = opSpan(spans, "warehouse-search");
+    return {
+      root: personOf(rootsOf(spans)[0]),
+      op: { ...personOf(op), login: op?.attributes["que.login"] },
+    };
+  };
+  assert.notEqual(anaTrace[0]?.trace, boTrace[0]?.trace);
+  assert.deepEqual(
+    { ana: who(anaTrace), bo: who(boTrace) },
+    {
+      ana: {
+        root: { user: ana, email: "ana@example.com" },
+        op: {
+          user: ana,
+          email: "ana@example.com",
+          login: "warehouse-reader",
+        },
+      },
+      bo: {
+        root: { user: bo, email: "bo@example.com" },
+        op: {
+          user: bo,
+          email: "bo@example.com",
+          login: "warehouse-reader",
+        },
+      },
+    },
   );
 });
 
