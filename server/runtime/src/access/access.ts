@@ -91,7 +91,8 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
 
   /**
    * The connection for an op, on the login the control plane names for this user, plugin and role. A user with no
-   * login gets an OpFailed that names the plugin, the role when the op has one, and each domain that reaches it.
+   * login gets an OpFailed that names the plugin, the role when the op has one, and what to ask for: each domain
+   * that reaches the connector, or, when none gives the role, that no domain does.
    */
   const getConnection: Connect = async (plugin, role, userId) => {
     if (!plugin.connect) return undefined;
@@ -109,13 +110,13 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
         role === undefined
           ? `you have no ${plugin.name} login`
           : `you have no ${plugin.name} login for ${role}`;
-      throw new OpFailed(
-        reaching.length === 0
-          ? role === undefined
-            ? `${said}: no domain reaches it`
-            : `${said}: no domain gives that role: ask an admin for a domain that gives it`
-          : `${said}: ask an admin for a domain that reaches it: ${reaching.join(", ")}`,
-      );
+      const ask =
+        reaching.length > 0
+          ? `ask an admin for a domain that reaches it: ${reaching.join(", ")}`
+          : role === undefined
+            ? "no domain reaches it"
+            : "no domain gives that role: ask an admin for a domain that gives it";
+      throw new OpFailed(`${said}: ${ask}`);
     }
     const { conn } = await session(plugin, rep);
     return { conn: await conn, login: role ?? "own" };
