@@ -55,6 +55,18 @@ export function strictInput(input: Op["input"]): Op["input"] {
 /** One line, for the model to read. */
 const oneLine = (text: string) => text.replace(/\s*\n\s*/g, " ");
 
+/**
+ * A connector op's own refusal, as the caller gets it: the connector's name first, once, and the plugin's text after it.
+ * A domain op's, or a throw that is no OpFailed, passes as it is.
+ */
+function namedBy(plugin: Plugin, error: unknown): unknown {
+  if (plugin.kind === "domain" || !(error instanceof OpFailed)) return error;
+  const message = error.message.startsWith(plugin.name)
+    ? error.message
+    : `${plugin.name}: ${error.message}`;
+  return new OpFailed(message, { cause: error });
+}
+
 /** The run thread's files, by the thread's own: an id of another thread is an OpFailed that names it, never a path. */
 function filesOf({ files, thread }: FilesScope): OpFiles {
   return {
@@ -130,9 +142,13 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
             if (connection) span.setAttribute(LOGIN, connection.login);
             ctx = { ...scope, conn: connection?.conn };
           }
-          return await (
-            op.run as (ctx: unknown, params: unknown) => Promise<unknown>
-          )(ctx, input);
+          try {
+            return await (
+              op.run as (ctx: unknown, params: unknown) => Promise<unknown>
+            )(ctx, input);
+          } catch (error) {
+            throw namedBy(plugin, error);
+          }
         } catch (error) {
           // A failed call shows on its span: status ERROR, and the throw as an exception event.
           // A throw that is no Error is recorded as its text.
