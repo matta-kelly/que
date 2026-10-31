@@ -34,6 +34,10 @@ trace.setGlobalTracerProvider(
 
 const noSuchOrder = new OpFailed("no such order");
 const closed = new OpFailed("the shop is closed");
+const alreadyVoid = new OpFailed("shop: the order was already void");
+const warehouseShut = new OpFailed("the warehouse is shut");
+const shelfBare = new OpFailed("stock: the shelf is bare");
+const boardRefusal = new OpFailed("flow: no such board");
 const bug = new Error("bug");
 
 const shop = definePlugin({
@@ -107,12 +111,24 @@ const shop = definePlugin({
         throw "the till is jammed";
       },
     },
+    {
+      name: "shop-reopen-order",
+      type: "op",
+      title: "Reopen order",
+      description: "Reopens one order.",
+      input: z.object({ id: z.number().describe("Order id") }),
+      run: async () => {
+        // The plugin's own text already names the connector.
+        throw alreadyVoid;
+      },
+    },
   ],
 });
 const getOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[0] };
 const listOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[1] };
 const tagOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[2] };
 const voidOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[3] };
+const reopenOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[4] };
 
 /** Access that gives a connection named by what it was asked for. */
 const named = door(async (plugin, role, user) => ({
@@ -152,15 +168,120 @@ test("given an op whose input has a default, when it is called without that fiel
   );
 });
 
-test("given a run that throws an OpFailed, when the op is called, then the door throws that same OpFailed", async () => {
-  await assert.rejects(
-    () => named(getOrder, { id: -1 }, "ana"),
-    (error) => error === noSuchOrder,
+test("given a connector op whose run throws an OpFailed, when the door calls it, then the caller gets an OpFailed that names the connector first, holds the plugin's text after it, and has the original as its cause", async () => {
+  const shopError = await named(getOrder, { id: -1 }, "ana").catch(
+    (error: unknown) => error,
   );
-  await assert.rejects(
-    () => named(getOrder, { id: -2 }, "ana"),
-    (error) => error === closed,
+  assert.ok(
+    shopError instanceof OpFailed,
+    `the door gave ${String(shopError)}, which is no OpFailed`,
   );
+  assert.equal(shopError.message, "shop: no such order");
+  assert.equal(shopError.cause, noSuchOrder);
+
+  const stockError = await named(replenish, { sku: "SKU-9" }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    stockError instanceof OpFailed,
+    `the door gave ${String(stockError)}, which is no OpFailed`,
+  );
+  assert.equal(stockError.message, "stock: the warehouse is shut");
+  assert.equal(stockError.cause, warehouseShut);
+
+  const alsoShop = await named(getOrder, { id: -2 }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    alsoShop instanceof OpFailed,
+    `the door gave ${String(alsoShop)}, which is no OpFailed`,
+  );
+  assert.equal(alsoShop.message, "shop: the shop is closed");
+  assert.equal(alsoShop.cause, closed);
+});
+
+test("given a connector op whose OpFailed text already starts with the connector's name, when the door calls it, then the caller's OpFailed is not named twice, and the original is its cause", async () => {
+  const shopError = await named(reopenOrder, { id: 4 }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    shopError instanceof OpFailed,
+    `the door gave ${String(shopError)}, which is no OpFailed`,
+  );
+  assert.equal(shopError.message, "shop: the order was already void");
+  assert.equal(shopError.cause, alreadyVoid);
+
+  const stockError = await named(audit, { sku: "SKU-9" }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    stockError instanceof OpFailed,
+    `the door gave ${String(stockError)}, which is no OpFailed`,
+  );
+  assert.equal(stockError.message, "stock: the shelf is bare");
+  assert.equal(stockError.cause, shelfBare);
+});
+
+test("given a user with no login, when the door calls a connector op, then C3's refusal passes as thrown with no second name, and the door names only what op.run throws", async () => {
+  // C3's shape, as its own branch makes it: the connector, no login, and the domain to ask an admin for.
+  const refusal = new OpFailed(
+    "no shop login for bo: ask an admin for the orders domain",
+  );
+  const noLogin = door(async () => {
+    throw refusal;
+  });
+
+  const passed = await noLogin(getOrder, { id: 4 }, "bo").catch(
+    (error: unknown) => error,
+  );
+  assert.equal(passed, refusal, "C3's refusal is thrown on as it is");
+  assert.equal(
+    (passed as OpFailed).message,
+    "no shop login for bo: ask an admin for the orders domain",
+    "C3's refusal keeps its text, with no connector name added",
+  );
+
+  // The same wrap, for what run throws: the connector is named, so C3's text is never named twice.
+  const wrapped = await named(getOrder, { id: -1 }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    wrapped instanceof OpFailed,
+    `the door gave ${String(wrapped)}, which is no OpFailed`,
+  );
+  assert.equal(wrapped.message, "shop: no such order");
+  assert.equal(wrapped.cause, noSuchOrder);
+});
+
+test("given a domain op whose run throws an OpFailed, or a run that throws what is no OpFailed, when the door calls it, then the throw passes as it is, and only a connector op's OpFailed is named", async () => {
+  const domainError = await named(flowBoard, {}, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.equal(
+    domainError,
+    boardRefusal,
+    "a domain op's OpFailed is thrown on as it is",
+  );
+
+  const bugError = await named(getOrder, { id: 0 }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.equal(
+    bugError,
+    bug,
+    "an error that is no OpFailed is thrown on as it is",
+  );
+
+  // The control: the same kind of throw from a connector op is the one the door names.
+  const connectorError = await named(getOrder, { id: -1 }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    connectorError instanceof OpFailed,
+    `the door gave ${String(connectorError)}, which is no OpFailed`,
+  );
+  assert.equal(connectorError.message, "shop: no such order");
+  assert.equal(connectorError.cause, noSuchOrder);
 });
 
 test("given an op and a user, when it is called, then access is asked by the op's plugin and role and the user, and run gets that connection", async () => {
@@ -238,7 +359,7 @@ test("given a run that throws, when the call ends, then its span has status ERRO
       event.attributes?.["exception.type"],
       event.attributes?.["exception.message"],
     ]),
-    [["exception", "OpFailed", "no such order"]],
+    [["exception", "OpFailed", "shop: no such order"]],
   );
   assert.equal(broken.status.code, SpanStatusCode.ERROR);
   assert.deepEqual(
@@ -407,9 +528,32 @@ const stock = definePlugin({
       }),
       run: async (_ctx, { sku }) => ({ reserved: sku }),
     },
+    {
+      name: "stock-replenish",
+      type: "op",
+      title: "Replenish stock",
+      description: "Replenishes one product.",
+      input: z.object({ sku: z.string().describe("Product sku") }),
+      run: async () => {
+        throw warehouseShut;
+      },
+    },
+    {
+      name: "stock-audit",
+      type: "op",
+      title: "Audit stock",
+      description: "Audits the stock.",
+      input: z.object({ sku: z.string().describe("Product sku") }),
+      run: async () => {
+        // The plugin's own text already names the connector.
+        throw shelfBare;
+      },
+    },
   ],
 });
 const reserve: PlacedOp = { plugin: stock.plugin, op: stock.ops[0] };
+const replenish: PlacedOp = { plugin: stock.plugin, op: stock.ops[1] };
+const audit: PlacedOp = { plugin: stock.plugin, op: stock.ops[2] };
 
 const flow = definePlugin({
   name: "flow",
@@ -448,10 +592,21 @@ const flow = definePlugin({
       input: z.object({ sku: z.string().describe("Product sku") }),
       run: async ({ ops }, params) => ops["stock-reserve"](params),
     },
+    {
+      name: "flow-board",
+      type: "op",
+      title: "Open a board",
+      description: "Opens one board.",
+      input: z.object({}),
+      run: async () => {
+        throw boardRefusal;
+      },
+    },
   ],
 });
 const flowTag: PlacedOp = { plugin: flow.plugin, op: flow.ops[0] };
 const flowReserve: PlacedOp = { plugin: flow.plugin, op: flow.ops[1] };
+const flowBoard: PlacedOp = { plugin: flow.plugin, op: flow.ops[2] };
 const through = door(
   async (plugin, role, user) => ({
     conn: `${plugin.name}:${role ?? "none"}:${user}`,
