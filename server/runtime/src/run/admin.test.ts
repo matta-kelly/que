@@ -6,6 +6,7 @@
 
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
@@ -15,6 +16,7 @@ const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 50 });
 await database.start();
 process.env.DATABASE_URL = `postgresql://postgres@${database.getServerConn()}/postgres`;
+process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
 process.env.QUE_DEPLOYMENT = deploymentRoot(
   join(import.meta.dirname, "../../../tests/integration/mount/fixtures"),
   "roles",
