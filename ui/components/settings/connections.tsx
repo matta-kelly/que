@@ -32,12 +32,10 @@ export function ConnectionsList() {
   const { data: connections, error } = useSWR<Connection[]>(
     QUE_API.connections,
     fetcher,
-    { dedupingInterval: 0 },
   );
   const { data: domains, error: domainsError } = useSWR<Domain[]>(
     QUE_API.domains,
     fetcher,
-    { dedupingInterval: 0 },
   );
 
   return (
