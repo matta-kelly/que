@@ -1,6 +1,6 @@
 ---
 type: component
-description: "Access, the harness step that decides what one user can reach: the user's granted domains and the connectors they reach whose login resolves, narrowed to the plugins the run's agent names, with one connection per user and connector, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
+description: "Access, the harness step that decides what one user can reach: the user's granted domains and the connectors they reach whose login resolves, narrowed to the plugins the run's agent names, with one connection per plugin and rep, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
 status: running
 ---
 Access decides what one user can reach. It works per plugin: a user gets a whole plugin, or none of it.
@@ -27,16 +27,17 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 
 ## Credentials and connections
 
-`access.ts`, on the credential store it is given (`accessOn(store)`). `connections.ts` makes the runtime's one, on the store it makes once with `createStore()`
+`access.ts`, on the credential store and the control plane it is given (`accessOn(store, control)`). `connections.ts` makes the runtime's one, on the store it makes once with `createStore()`
 
-- credentials are stored encrypted (`@que/credentials`), one per user and connector, as only a connector gives a credential
+- credentials are stored encrypted (`@que/credentials`), one per rep and connector, as only a connector gives a credential. A rep is a user's own id, or `role:<role>`
 - the door asks for a connection by the op's plugin and role and the user (`getConnection`)
-	- one credential serves every role of a connector, so the role does not change the connection. A login per role is not built (the que-control-plane issue, in kinetic)
-	- a user with no credential the connector needs gets an `OpFailed` that names the connector
-	- a domain op gets no connection: each connector op it calls asks for its own, as the same user
+	- the op runs on the login the control plane names: the user's own id for a third-party connector, `role:<role>` for an internal one whose role a granted domain gives (the que-control-plane issue, in kinetic)
+	- a role login is built: one credential serves every user who holds the role, so those users share its one connection
+	- a user with no login gets an `OpFailed` that names the connector, and the role when the op has one
+	- a domain op gets no connection: each connector op it calls asks for its own, on the login of the connector's op
 - a credential is saved only once it matches the connector's schema, and `connect` succeeds with it when the connector has `connect`
 - the list of saved credentials (the Connections page) holds every saved one, also one that no longer matches the schema, which the catalog leaves out
-- one connection per user and connector, opened when it is first used: by an operation, or by `whoami` in the catalog
+- one connection per plugin and rep, opened when it is first used: by an operation, or by `whoami` in the catalog
 	- a changed or re-entered credential opens a new connection, and the old one is dropped
 	- a failed login is tried again on the next call
 
