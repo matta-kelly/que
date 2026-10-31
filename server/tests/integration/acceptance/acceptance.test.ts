@@ -22,6 +22,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import type { Message } from "@earendil-works/pi-ai";
 import { deploymentRoot } from "../../deployment-root.js";
+import { grant } from "../grants.js";
 import {
   CSV,
   csvOffsetAt,
@@ -72,6 +73,10 @@ const env: NodeJS.ProcessEnv = {
   QUE_DATA_DIR: data,
   NODE_OPTIONS: nodeOptions,
 };
+
+// The run's catalog is the user's granted domains: Ana needs the acceptance domain before her run.
+process.env.DATABASE_URL = env.DATABASE_URL;
+process.env.QUE_DEPLOYMENT = env.QUE_DEPLOYMENT;
 
 const children = new Set<ChildProcess>();
 
@@ -227,6 +232,7 @@ test(
     const first = await startAgain(env, ANA, children);
     const thread = await makeThread(first);
     const files = await attach(first, thread);
+    await grant(ANA, "Ana", "rows-domain");
 
     // when: Ana's run lists and reads each file, and counts the CSV's rows
     await scripted(first, readEveryFile(files));
