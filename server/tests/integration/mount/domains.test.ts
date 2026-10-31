@@ -1,10 +1,11 @@
 /**
- * The fixture deployments' test domains: one domain for each connector an agent of theirs names (the till, source
- * and ledger), which names the connector's own skill, whose `allowed-tools` list every op of that connector, so that
- * the deployment's plugins reach the connector through the control plane (K3's `controlOn`).
+ * The fixture deployments' test domains: one domain for each connector an agent of theirs names (the till, alpha,
+ * source and ledger), which names the connector's own skill, whose `allowed-tools` list every op of that connector, so
+ * that the deployment's plugins reach the connector through the control plane (K3's `controlOn`).
  *
- * Alpha's domain is held: K3's reach finds a connector only through the ops a skill it names uses, and alpha-greet
- * uses none, so no test domain reaches alpha until the plan's raise is answered. This file names no alpha domain.
+ * Alpha holds no op: alpha-greet lists none in its `allowed-tools`, and alpha has none, so the skill lists no op. K3
+ * (6b6c3b1) reaches the connector that holds a skill a domain names, so alpha-domain reaches alpha on the user's own
+ * login, as till-domain reaches the till.
  *
  * Each deployment is mounted from a root of its own (deploymentRoot), as the server mounts it.
  */
@@ -33,6 +34,7 @@ async function mounted(name: string) {
 /** One test domain, the deployment that lists it, and the connector it is for. */
 const domains = [
   { domain: "till-domain", deployment: "tools", connector: "till" },
+  { domain: "alpha-domain", deployment: "prompt", connector: "alpha" },
   { domain: "source-domain", deployment: "prompt", connector: "source" },
   { domain: "ledger-domain", deployment: "summary", connector: "ledger" },
 ] as const;
@@ -43,7 +45,10 @@ const que = (card: Card) => card.extensions["io.github.matta-kelly.que"];
 test("given the five fixture deployments a run test drives, when each is mounted, then its plugins list a domain for each connector its agents name, and no other", async () => {
   const expected = [
     { deployment: "tools", domains: ["till-domain"] },
-    { deployment: "prompt", domains: ["source-domain", "till-domain"] },
+    {
+      deployment: "prompt",
+      domains: ["alpha-domain", "source-domain", "till-domain"],
+    },
     { deployment: "big-results", domains: ["till-domain"] },
     { deployment: "picks", domains: ["till-domain"] },
     { deployment: "summary", domains: ["ledger-domain"] },
@@ -61,7 +66,7 @@ test("given the five fixture deployments a run test drives, when each is mounted
   }
 });
 
-test("given each test domain, when its skill is read, then the skill lists each op of the connector the domain is for", async () => {
+test("given each test domain, when its skill is read, then the skill lists each op of the connector the domain is for, which for alpha are none", async () => {
   for (const { domain, deployment, connector } of domains) {
     const { card } = await mounted(deployment);
     const named = card(domain);
@@ -69,7 +74,7 @@ test("given each test domain, when its skill is read, then the skill lists each 
     const held = card(connector);
     assert.ok(held, `${deployment} lists no ${connector}`);
     // A domain uses no skill of its own (plugin/own-use): the skill it names is its connector's, and lists the
-    // connector's ops.
+    // connector's ops. Alpha holds no op, so alpha-greet lists none and this holds with two empty lists.
     const skills = que(named).usesSkills;
     assert.deepEqual(
       skills.length,
