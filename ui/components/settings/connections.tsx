@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { fetcher, QUE_API } from "@/lib/que-api";
+import { fetcher, QUE_API, type Domain } from "@/lib/que-api";
 
 /** What GET /que/connections gives one connector: an internal one is reached with a role, not a credential. */
 type Connection = {
@@ -27,24 +27,60 @@ const label = (field: string) =>
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/^./, (c) => c.toUpperCase());
 
-/** The list of connections: one row per plugin that needs a credential. */
+/** The list of connections: one row per plugin that needs a credential, under the user's domains. */
 export function ConnectionsList() {
   const { data: connections, error } = useSWR<Connection[]>(
     QUE_API.connections,
     fetcher,
+    { dedupingInterval: 0 },
+  );
+  const { data: domains, error: domainsError } = useSWR<Domain[]>(
+    QUE_API.domains,
+    fetcher,
+    { dedupingInterval: 0 },
   );
 
   return (
-    <div className="divide-y rounded-xl border">
-      {error ? (
-        <p className="text-destructive p-4 text-sm">
-          Couldn&apos;t load connections.
-        </p>
-      ) : !connections ? (
-        <p className="text-muted-foreground p-4 text-sm">Loading…</p>
-      ) : (
-        connections.map((c) => <ConnectionRow key={c.name} connection={c} />)
-      )}
+    <div className="flex flex-col gap-6">
+      <div className="divide-y rounded-xl border">
+        {domainsError ? (
+          <p className="text-destructive p-4 text-sm">
+            Couldn&apos;t load domains.
+          </p>
+        ) : !domains ? (
+          <p className="text-muted-foreground p-4 text-sm">Loading…</p>
+        ) : domains.length === 0 ? (
+          <p className="text-muted-foreground p-4 text-sm">
+            You have no domains.
+          </p>
+        ) : (
+          domains.map((domain) => (
+            <div
+              key={domain.name}
+              data-testid={`domain-${domain.name}`}
+              className="p-5"
+            >
+              <span className="font-medium">{domain.name}</span>
+              <ul className="text-muted-foreground mt-1 flex flex-wrap gap-2 text-sm">
+                {(domain.connectors ?? []).map((name) => (
+                  <li key={name}>{name}</li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="divide-y rounded-xl border">
+        {error ? (
+          <p className="text-destructive p-4 text-sm">
+            Couldn&apos;t load connections.
+          </p>
+        ) : !connections ? (
+          <p className="text-muted-foreground p-4 text-sm">Loading…</p>
+        ) : (
+          connections.map((c) => <ConnectionRow key={c.name} connection={c} />)
+        )}
+      </div>
     </div>
   );
 }

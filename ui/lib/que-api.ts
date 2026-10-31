@@ -6,6 +6,7 @@ export const QUE_API = {
   me: "/api/que/me",
   users: "/api/que/users",
   connections: "/api/que/connections",
+  domains: "/api/que/domains",
   deployment: "/api/que/deployment",
 } as const;
 
@@ -34,6 +35,13 @@ export type Connection = {
   description: string;
   fields: { name: string; secret: boolean }[];
   connectedAt: string | null;
+};
+
+/** A domain the signed-in user holds: its name, the connectors it needs, and the roles it gives. */
+export type Domain = {
+  name: string;
+  connectors: string[];
+  roles: string[];
 };
 
 /** What a model costs: dollars for one million tokens. With no `cachedInput`, cached tokens are at `input`. */

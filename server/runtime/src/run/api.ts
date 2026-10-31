@@ -58,6 +58,13 @@ app.get("/que/connections", async (c) => {
   );
 });
 
+// The domains the user holds, with the connectors and roles each names.
+app.get("/que/domains", async (c) => {
+  const reach = await control.reachOf(c.get("userId"));
+  const held = new Set(reach.domains);
+  return c.json((await control.domains()).filter((d) => held.has(d.name)));
+});
+
 app.put("/que/connections/:plugin", async (c) => {
   const plugin = find(c.req.param("plugin"));
   if (!plugin) return c.json({ error: "unknown plugin" }, 404);
