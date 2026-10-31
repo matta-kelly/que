@@ -35,13 +35,6 @@ export type AdminUser = User & {
   grants: string[];
 };
 
-/** A domain: the connectors and roles it gives. */
-export type Domain = {
-  name: string;
-  connectors: string[];
-  roles: string[];
-};
-
 /** A plugin that needs a credential, and whether this user has connected it. */
 export type Connection = {
   name: string;
@@ -51,7 +44,7 @@ export type Connection = {
   connectedAt: string | null;
 };
 
-/** A domain the signed-in user holds: its name, the connectors it needs, and the roles it gives. */
+/** A domain: its name, the connectors it needs, and the roles it gives. */
 export type Domain = {
   name: string;
   connectors: string[];
