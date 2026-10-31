@@ -57,11 +57,16 @@ const oneLine = (text: string) => text.replace(/\s*\n\s*/g, " ");
 
 /**
  * A connector op's own refusal, as the caller gets it: the connector's name first, once, and the plugin's text after it.
- * A domain op's, or a throw that is no OpFailed, passes as it is.
+ * Text that already names the connector, its name as a word in any case, keeps its text. A domain op's, or a throw that
+ * is no OpFailed, passes as it is.
  */
 function namedBy(plugin: Plugin, error: unknown): unknown {
   if (plugin.kind === "domain" || !(error instanceof OpFailed)) return error;
-  const message = error.message.startsWith(plugin.name)
+  const names = new RegExp(
+    `^${plugin.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+    "i",
+  );
+  const message = names.test(error.message)
     ? error.message
     : `${plugin.name}: ${error.message}`;
   return new OpFailed(message, { cause: error });
