@@ -629,7 +629,7 @@ const sentIn = (requests: readonly Message[][], id: string) =>
 test("given result.max of 100, when an op fails with a message over it, then the model gets a pointer to the message's file, the call still failed, and read_result gives the message back", async () => {
   for (const count of [200, 400])
     await inCwd(async (cwd) => {
-      const error = refusal(count);
+      const error = `shop: ${refusal(count)}`;
       const { of } = await chat(cwd, { max: 100 }, (requests) => {
         if (requests.length === 1)
           return [{ name: "shop-refuse", args: { rows: count }, id: "no" }];
