@@ -110,7 +110,9 @@ function AdminRow({
     setError(null);
     const res = await fetch(url, init);
     if (!res.ok) {
-      setError((await res.json()).error ?? "Something went wrong");
+      // A refusal is JSON with its reason; a server's own failure is text, and has none.
+      const body = await res.json().catch(() => null);
+      setError(body?.error ?? "Something went wrong");
       return;
     }
     await refresh();
