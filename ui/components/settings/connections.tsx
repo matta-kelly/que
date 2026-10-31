@@ -42,34 +42,7 @@ export function ConnectionsList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="divide-y rounded-xl border">
-        {domainsError ? (
-          <p className="text-destructive p-4 text-sm">
-            Couldn&apos;t load domains.
-          </p>
-        ) : !domains ? (
-          <p className="text-muted-foreground p-4 text-sm">Loading…</p>
-        ) : domains.length === 0 ? (
-          <p className="text-muted-foreground p-4 text-sm">
-            You have no domains.
-          </p>
-        ) : (
-          domains.map((domain) => (
-            <div
-              key={domain.name}
-              data-testid={`domain-${domain.name}`}
-              className="p-5"
-            >
-              <span className="font-medium">{domain.name}</span>
-              <ul className="text-muted-foreground mt-1 flex flex-wrap gap-2 text-sm">
-                {(domain.connectors ?? []).map((name) => (
-                  <li key={name}>{name}</li>
-                ))}
-              </ul>
-            </div>
-          ))
-        )}
-      </div>
+      <DomainList domains={domains} error={domainsError} />
       <div className="divide-y rounded-xl border">
         {error ? (
           <p className="text-destructive p-4 text-sm">
@@ -81,6 +54,56 @@ export function ConnectionsList() {
           connections.map((c) => <ConnectionRow key={c.name} connection={c} />)
         )}
       </div>
+    </div>
+  );
+}
+
+/** The user's domains, and the connectors each one needs. */
+function DomainList({
+  domains,
+  error,
+}: {
+  domains: Domain[] | undefined;
+  error: unknown;
+}) {
+  if (error)
+    return (
+      <div className="divide-y rounded-xl border">
+        <p className="text-destructive p-4 text-sm">
+          Couldn&apos;t load domains.
+        </p>
+      </div>
+    );
+  if (!domains)
+    return (
+      <div className="divide-y rounded-xl border">
+        <p className="text-muted-foreground p-4 text-sm">Loading…</p>
+      </div>
+    );
+  if (domains.length === 0)
+    return (
+      <div className="divide-y rounded-xl border">
+        <p className="text-muted-foreground p-4 text-sm">
+          You have no domains.
+        </p>
+      </div>
+    );
+  return (
+    <div className="divide-y rounded-xl border">
+      {domains.map((domain) => (
+        <div
+          key={domain.name}
+          data-testid={`domain-${domain.name}`}
+          className="p-5"
+        >
+          <span className="font-medium">{domain.name}</span>
+          <ul className="text-muted-foreground mt-1 flex flex-wrap gap-2 text-sm">
+            {(domain.connectors ?? []).map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
