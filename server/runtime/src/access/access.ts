@@ -61,8 +61,17 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
 
   async function session(plugin: Plugin, rep: string): Promise<Session> {
     const credential = await resolveCredential(plugin, rep);
-    if (plugin.credential && !credential)
-      throw new OpFailed(`no ${plugin.name} credential for ${rep}`);
+    if (plugin.credential && !credential) {
+      // A `role:<role>` rep is an internal connector's row: an admin sets it, and it has no form of its own.
+      const role = rep.startsWith("role:")
+        ? rep.slice("role:".length)
+        : undefined;
+      throw new OpFailed(
+        role === undefined
+          ? `you have no ${plugin.name} login: connect it under Settings, Connections`
+          : `you have no ${plugin.name} login for ${role}: ask an admin to set the role's login`,
+      );
+    }
     const slot = `${plugin.name}:${rep}`;
     const key = `${slot}:${credential?.version ?? 0}`;
     const current = sessions.get(slot);
@@ -87,12 +96,25 @@ export function accessOn(store: CredentialStore, control: ControlPlane) {
   const getConnection: Connect = async (plugin, role, userId) => {
     if (!plugin.connect) return undefined;
     const rep = await control.loginOf(userId, plugin.name, role);
-    if (rep === undefined)
-      throw new OpFailed(
+    if (rep === undefined) {
+      // Each domain that would give this user the login, by connector and, when the op has one, its role.
+      const reaching = (await control.domains())
+        .filter(
+          (domain) =>
+            domain.connectors.includes(plugin.name) &&
+            (role === undefined || domain.roles.includes(role)),
+        )
+        .map((domain) => domain.name);
+      const said =
         role === undefined
-          ? `no ${plugin.name} login for ${userId}`
-          : `no ${plugin.name} login for ${userId} with ${role}`,
+          ? `you have no ${plugin.name} login`
+          : `you have no ${plugin.name} login for ${role}`;
+      throw new OpFailed(
+        reaching.length === 0
+          ? `${said}: no domain reaches it`
+          : `${said}: ask an admin for a domain that reaches it: ${reaching.join(", ")}`,
       );
+    }
     const { conn } = await session(plugin, rep);
     return { conn: await conn, login: role ?? "own" };
   };
