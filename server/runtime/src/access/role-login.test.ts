@@ -124,7 +124,7 @@ test("given two users a granted domain gives the same role, when each asks for t
     "ana",
   );
 
-  assert.equal(ana, "conn:svc-reader");
+  assert.deepEqual(ana, { conn: "conn:svc-reader", login: "warehouse-reader" });
 
   const bo = await access.getConnection(
     warehouse.plugin,
@@ -132,7 +132,7 @@ test("given two users a granted domain gives the same role, when each asks for t
     "bo",
   );
 
-  assert.equal(bo, "conn:svc-reader");
+  assert.deepEqual(bo, { conn: "conn:svc-reader", login: "warehouse-reader" });
   assert.equal(connects, 1, "the role's login opens one connection");
 });
 

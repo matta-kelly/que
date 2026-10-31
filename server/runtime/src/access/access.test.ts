@@ -100,14 +100,14 @@ test("given two users granted the domain that reaches a connector and a third no
   await store.set("carl", "shop", { key: "c1" });
   const access = accessOn(store, control);
 
-  assert.equal(
-    await access.getConnection(shop.plugin, undefined, "ana"),
-    "conn:a1",
-  );
-  assert.equal(
-    await access.getConnection(shop.plugin, undefined, "carl"),
-    "conn:c1",
-  );
+  assert.deepEqual(await access.getConnection(shop.plugin, undefined, "ana"), {
+    conn: "conn:a1",
+    login: "own",
+  });
+  assert.deepEqual(await access.getConnection(shop.plugin, undefined, "carl"), {
+    conn: "conn:c1",
+    login: "own",
+  });
   await assert.rejects(
     () => access.getConnection(shop.plugin, undefined, "bo"),
     OpFailed,

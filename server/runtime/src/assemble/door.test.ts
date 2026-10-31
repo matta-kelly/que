@@ -115,9 +115,10 @@ const tagOrders: PlacedOp = { plugin: shop.plugin, op: shop.ops[2] };
 const voidOrder: PlacedOp = { plugin: shop.plugin, op: shop.ops[3] };
 
 /** Access that gives a connection named by what it was asked for. */
-const named = door(
-  async (plugin, role, user) => `${plugin.name}:${role ?? "none"}:${user}`,
-);
+const named = door(async (plugin, role, user) => ({
+  conn: `${plugin.name}:${role ?? "none"}:${user}`,
+  login: role ?? "own",
+}));
 
 // The domain whose op reaches the shop, for the control plane: a grant of it gives ana the role the op runs with.
 const orders: Card = {
@@ -166,7 +167,7 @@ test("given an op and a user, when it is called, then access is asked by the op'
   const asked: unknown[][] = [];
   const call = door(async (plugin, role, user) => {
     asked.push([plugin.name, role, user]);
-    return `conn-${asked.length}`;
+    return { conn: `conn-${asked.length}`, login: role ?? "own" };
   });
 
   assert.deepEqual(await call(getOrder, { id: 4 }, "ana"), {
@@ -452,7 +453,10 @@ const flow = definePlugin({
 const flowTag: PlacedOp = { plugin: flow.plugin, op: flow.ops[0] };
 const flowReserve: PlacedOp = { plugin: flow.plugin, op: flow.ops[1] };
 const through = door(
-  async (plugin, role, user) => `${plugin.name}:${role ?? "none"}:${user}`,
+  async (plugin, role, user) => ({
+    conn: `${plugin.name}:${role ?? "none"}:${user}`,
+    login: role ?? "own",
+  }),
   [getOrder, listOrders, tagOrders, voidOrder, reserve, flowTag, flowReserve],
 );
 
@@ -635,7 +639,10 @@ const vaultFiles: PlacedOp = { plugin: vault.plugin, op: vault.ops[0] };
 const claimsFiles: PlacedOp = { plugin: claims.plugin, op: claims.ops[0] };
 const claimsForward: PlacedOp = { plugin: claims.plugin, op: claims.ops[1] };
 const fileCall = door(
-  async (plugin, role, user) => `${plugin.name}:${role ?? "none"}:${user}`,
+  async (plugin, role, user) => ({
+    conn: `${plugin.name}:${role ?? "none"}:${user}`,
+    login: role ?? "own",
+  }),
   [vaultFiles, claimsFiles, claimsForward],
 );
 
