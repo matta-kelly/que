@@ -4,10 +4,10 @@
  * is a `rep` whose credential another module reads.
  *
  * A grant is of a domain, and only of a domain. A user reaches the domains granted, and each connector that holds an
- * op the domain's `usesOps` names, or a skill its `usesSkills` names. An internal connector (one with roles) is
- * reached with the roles of the ops a granted domain uses; any other connector is reached on the user's own login.
- * A role comes from a domain grant, never a separate table. A use the deployment does not give, of an op or a skill,
- * is skipped.
+ * op the domain's `usesOps` names, a skill its `usesSkills` names, or an op a skill it names uses. An internal connector
+ * (one with roles) is reached with the roles of the ops a granted domain uses; any other connector is reached on the
+ * user's own login. A role comes from a domain grant, never a separate table. A use the deployment does not give, of an
+ * op or a skill, is skipped.
  *
  * Each list is sorted by name, and each list within it too, so a caller sees the same order for the same cards.
  */
@@ -116,6 +116,11 @@ export function controlOn(db: Queryable, cards: Card[]): ControlPlane {
     .filter((card) => que(card).kind === "domain")
     .map((card) => {
       const byConnector = new Map<string, string[]>();
+      for (const name of que(card).usesSkills) {
+        const held = skills.get(name);
+        if (held === undefined) continue;
+        byConnector.set(held.card.name, byConnector.get(held.card.name) ?? []);
+      }
       for (const name of opsUsed(card)) {
         const held = ops.get(name);
         if (held === undefined) continue;
