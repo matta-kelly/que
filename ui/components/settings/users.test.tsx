@@ -2,7 +2,8 @@
 /**
  * The Users settings, as an admin sees it: every user's row lists every domain, with a toggle that is on for the
  * domains the user holds, and the roles and connectors the domain gives. A toggle writes a grant, the role control
- * writes a role, and a refusal is shown on the row. A member sees the list as it was, with no admin call.
+ * writes a role, and a refusal is shown on the row. A member sees the list as it was, with no admin call. A failed
+ * read shows the screen's error line in place of the list.
  */
 import { afterEach, test, vi } from "vitest";
 import assert from "node:assert/strict";
@@ -171,6 +172,95 @@ test("given an admin, when the Users screen loads, then each user's row lists ev
     labelOf(bob, `grant-${BOB.email}-support`),
     "support helpdesk, support-agent",
     "Bob's support label names support with its connectors and roles, and nothing of sales",
+  );
+});
+
+test("given an admin, when the /que/me read fails, then the screen shows its error line in place of the list", async () => {
+  // The server's own 500: text/plain, as the proxy forwards it.
+  stub({
+    [`GET ${ME}`]: () => new Response("Internal Server Error", { status: 500 }),
+  });
+
+  const refused = renderScreen();
+
+  await waitFor(() =>
+    assert.equal(
+      refused.container.textContent,
+      "Couldn't load users.",
+      "a 500 on /que/me shows the screen's error line",
+    ),
+  );
+  assert.equal(
+    refused.container.querySelectorAll("[data-testid^='user-']").length,
+    0,
+    "the failed read shows no user row",
+  );
+
+  cleanup();
+
+  // No answer at all: the read rejects, and there is no status to read.
+  stub({
+    [`GET ${ME}`]: () => {
+      throw new Error("connect ECONNREFUSED 127.0.0.1:3123");
+    },
+  });
+
+  const unreachable = renderScreen();
+
+  await waitFor(() =>
+    assert.equal(
+      unreachable.container.textContent,
+      "Couldn't load users.",
+      "a /que/me read that never answers shows the screen's error line",
+    ),
+  );
+});
+
+test("given an admin, when the /que/admin/domains read fails, then the screen shows its error line in place of the rows", async () => {
+  // The users read has answered; the domains read, which decides what every toggle names, has not.
+  const answered = {
+    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${USERS}`]: () => json([ADA, BOB]),
+    [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
+  };
+
+  // The server's own 500: text/plain, as the proxy forwards it.
+  stub({
+    ...answered,
+    [`GET ${ADMIN_DOMAINS}`]: () => new Response("Internal Server Error", { status: 500 }),
+  });
+
+  const refused = renderScreen();
+
+  await waitFor(() =>
+    assert.equal(
+      refused.container.textContent,
+      "Couldn't load users.",
+      "a 500 on /que/admin/domains shows the screen's error line",
+    ),
+  );
+  assert.equal(
+    refused.container.querySelectorAll("[data-testid^='user-']").length,
+    0,
+    "the failed read shows no user row, though /que/admin/users answered",
+  );
+
+  cleanup();
+
+  // A refusal with a JSON body: the same failure, a different shape.
+  stub({
+    ...answered,
+    [`GET ${ADMIN_DOMAINS}`]: () => json({ error: "domains are unavailable" }, 503),
+  });
+
+  const unavailable = renderScreen();
+
+  await waitFor(() =>
+    assert.equal(
+      unavailable.container.textContent,
+      "Couldn't load users.",
+      "a 503 with a JSON body on /que/admin/domains shows the screen's error line",
+    ),
   );
 });
 
@@ -373,6 +463,64 @@ test("given the server refuses a change (400, 404), then the row shows its error
     (within(bob).getByTestId(`grant-${BOB.email}-support`) as HTMLInputElement).checked,
     false,
     "the support toggle goes back after the 404",
+  );
+});
+
+test("given an admin, when a write is refused with a body that is not JSON, then the row shows the generic error", async () => {
+  // A grant answered 500 text/plain: the parse has no reason to show, so the row shows the generic one.
+  stub({
+    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${USERS}`]: () => json([ADA, BOB]),
+    [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
+    [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
+    [`PUT ${ADMIN_USERS}/${BOB.id}/grants/sales`]: () =>
+      new Response("Internal Server Error", { status: 500 }),
+  });
+
+  renderScreen();
+
+  const bob = await screen.findByTestId(`user-${BOB.email}`);
+  const sales = (await waitsFor(bob, `grant-${BOB.email}-sales`, "Bob's row has a toggle for sales")) as HTMLInputElement;
+
+  fireEvent.click(sales);
+
+  await waitFor(() =>
+    assert.equal(
+      within(bob).queryByRole("alert")?.textContent ?? null,
+      "Something went wrong",
+      "a grant answered 500 text/plain shows the generic error on Bob's row",
+    ),
+  );
+  assert.equal(sales.checked, false, "the sales toggle goes back after the refusal");
+
+  cleanup();
+
+  // A role change answered 502 text/html: another write, another body the parse cannot read.
+  stub({
+    [`GET ${ME}`]: () => json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${USERS}`]: () => json([ADA, BOB]),
+    [`GET ${ADMIN_USERS}`]: () => json(adminUsers({})),
+    [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
+    [`PATCH ${ADMIN_USERS}/${BOB.id}`]: () =>
+      new Response("<html><body>Bad Gateway</body></html>", {
+        status: 502,
+        headers: { "content-type": "text/html" },
+      }),
+  });
+
+  renderScreen();
+
+  const bobAgain = await screen.findByTestId(`user-${BOB.email}`);
+  const role = (await waitsFor(bobAgain, `role-${BOB.email}`, "Bob's row has a role control")) as HTMLSelectElement;
+
+  fireEvent.change(role, { target: { value: "admin" } });
+
+  await waitFor(() =>
+    assert.equal(
+      within(bobAgain).queryByRole("alert")?.textContent ?? null,
+      "Something went wrong",
+      "a role change answered 502 text/html shows the generic error on Bob's row",
+    ),
   );
 });
 
