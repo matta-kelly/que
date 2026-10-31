@@ -87,7 +87,7 @@ The model knows only what the card says, so the card is the whole interface.
 - nothing found is a normal answer, not a failure. It says what was looked for, and where to look instead (`Odoo id 12 is not a company: it's a buyer of Acme; call odoo-get-company with id 7`)
 - a gap is said, never hidden: a missing record is not a zero, and a blank in the service is not a value
 - a list is capped. When more match, the answer says how to get the next page
-- a real failure is one kind of error, `OpFailed`, with a message that says which failure it was (timeout, unreachable, refused, the service's own error), so the model can tell a wrong call, which it fixes, from a refusal, which it tells the user. Any other error is a bug in the plugin
+- a real failure is one kind of error, `OpFailed`, with a message that says which failure it was (timeout, unreachable, refused, the service's own error), so the model can tell a wrong call, which it fixes, from a refusal, which it tells the user. When a service refuses for a missing right, the message names the right to ask for: that is the plugin's to know. Any other error is a bug in the plugin
 - every call to a service has a time limit
 
 ## Writes
