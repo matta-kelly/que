@@ -23,6 +23,7 @@ delete process.env.DEV_USER_EMAIL;
 delete process.env.DEV_USER_NAME;
 const { app } = await import("../serve.js");
 const { control } = await import("../access/control.js");
+const { access } = await import("../access/connections.js");
 
 after(async () => {
   // A connection the runtime opened at load may still be on its way: let it land before the database goes.
@@ -64,6 +65,50 @@ const patchRole = (id: string, role: string) =>
     body: JSON.stringify({ role }),
   });
 
+// K8's routes, as these tests fix them: `PUT /que/admin/logins/:connector/:role` takes `{ values }`, as
+// `PUT /que/connections/:plugin` does; `GET /que/admin/logins` gives one `{ connector, role, set }` per role of each
+// internal connector, never a value; `DELETE` removes one.
+const loginPath = (connector: string, role: string) =>
+  `/que/admin/logins/${connector}/${role}`;
+
+const putLogin = (connector: string, role: string, values: unknown) =>
+  as("admin@example.com", loginPath(connector, role), {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ values }),
+  });
+
+const deleteLogin = (connector: string, role: string) =>
+  as("admin@example.com", loginPath(connector, role), { method: "DELETE" });
+
+/** Each role of each internal connector, and whether its login is set, as GET gives it. */
+const logins = async () => {
+  await as("admin@example.com", "/que/me"); // the first user made is the admin
+  const res = await as("admin@example.com", "/que/admin/logins");
+  assert.equal(res.status, 200, await res.clone().text());
+  const entries = (await res.json()) as {
+    connector: string;
+    role: string;
+    set: boolean;
+  }[];
+  return new Map(entries.map((e) => [`${e.connector}:${e.role}`, e.set]));
+};
+
+/** The credential rows this connector has, by rep: what the store saved, and under what. */
+const loginRows = async (plugin: string) => {
+  const { rows } = await db.query<{ rep: string; plugin: string }>(
+    "SELECT rep, plugin FROM credentials WHERE plugin = $1 ORDER BY rep",
+    [plugin],
+  );
+  return rows;
+};
+
+// A login one test leaves is not another's setup: each test that reads the store starts from none.
+const clearLogins = async () => {
+  await access.connectedPlugins("role:cleanup"); // waits for the store's table
+  await db.query("DELETE FROM credentials WHERE rep LIKE 'role:%'");
+};
+
 test("an admin reads each mounted domain, with the connectors it names and the roles it gives", async () => {
   const res = await as("admin@example.com", "/que/admin/domains");
   assert.equal(res.status, 200);
@@ -87,6 +132,52 @@ test("every /que/admin route answers 401 to no identity and 403 to a member", as
   );
   assert.equal(
     (await as("member@example.com", "/que/admin/no-such-route")).status,
+    403,
+  );
+  // The logins routes are admin API routes: the gate covers them too.
+  assert.equal((await as(undefined, "/que/admin/logins")).status, 401);
+  assert.equal(
+    (
+      await as(undefined, loginPath("warehouse", "warehouse-reader"), {
+        method: "PUT",
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await as(undefined, loginPath("warehouse", "warehouse-reader"), {
+        method: "DELETE",
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (await as("member@example.com", "/que/admin/logins")).status,
+    403,
+  );
+  assert.equal(
+    (
+      await as(
+        "member@example.com",
+        loginPath("warehouse", "warehouse-reader"),
+        {
+          method: "PUT",
+        },
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await as(
+        "member@example.com",
+        loginPath("warehouse", "warehouse-reader"),
+        {
+          method: "DELETE",
+        },
+      )
+    ).status,
     403,
   );
 });
@@ -253,4 +344,204 @@ test("a PATCH with a role that is neither admin nor member is a 400, and the rol
   const superuser = await patchRole(unchangedId, "superuser");
   assert.equal(superuser.status, 400, await superuser.clone().text());
   assert.equal(await roleOf(unchangedId), "member");
+});
+
+test("an admin sets a role's login, and the store keeps it under role:<role>, not on the admin", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+  const adminId = await idOf("admin@example.com");
+
+  const res = await putLogin("warehouse", "warehouse-reader", {
+    url: "https://warehouse.example/reader",
+  });
+  assert.equal(res.status, 200, await res.clone().text());
+  assert.deepEqual(await loginRows("warehouse"), [
+    { rep: "role:warehouse-reader", plugin: "warehouse" },
+  ]);
+
+  const { rows } = await db.query<{ rep: string }>(
+    "SELECT rep FROM credentials WHERE rep = $1",
+    [adminId],
+  );
+  assert.deepEqual(rows, [], "the login was not saved on the admin's own id");
+});
+
+test("each role of a connector gets its own login, under its own rep", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+
+  const reader = await putLogin("warehouse", "warehouse-reader", {
+    url: "https://warehouse.example/reader",
+  });
+  assert.equal(reader.status, 200, await reader.clone().text());
+  const writer = await putLogin("warehouse", "warehouse-writer", {
+    url: "https://warehouse.example/writer",
+  });
+  assert.equal(writer.status, 200, await writer.clone().text());
+
+  assert.deepEqual(await loginRows("warehouse"), [
+    { rep: "role:warehouse-reader", plugin: "warehouse" },
+    { rep: "role:warehouse-writer", plugin: "warehouse" },
+  ]);
+});
+
+test("a login the connector's schema refuses is a 400 that names the field, and is not saved", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+
+  const missing = await putLogin("warehouse", "warehouse-reader", {});
+  assert.equal(missing.status, 400, await missing.clone().text());
+  assert.match(await missing.text(), /url/);
+
+  const wrong = await putLogin("warehouse", "warehouse-writer", { url: 42 });
+  assert.equal(wrong.status, 400, await wrong.clone().text());
+  assert.match(await wrong.text(), /url/);
+
+  assert.deepEqual(await loginRows("warehouse"), []);
+});
+
+test("a role the connector does not list is a 404 that names it, and saves nothing", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+
+  const unknown = await putLogin("warehouse", "warehouse-owner", {
+    url: "https://warehouse.example/owner",
+  });
+  assert.equal(unknown.status, 404, await unknown.clone().text());
+  assert.match(await unknown.text(), /warehouse-owner/);
+
+  const cased = await putLogin("warehouse", "Warehouse-Reader", {
+    url: "https://warehouse.example/reader",
+  });
+  assert.equal(cased.status, 404, await cased.clone().text());
+  assert.match(await cased.text(), /Warehouse-Reader/);
+
+  assert.deepEqual(await loginRows("warehouse"), []);
+});
+
+test("a connector that is not internal is a 404 that names it, and saves nothing", async () => {
+  await as("admin@example.com", "/que/me");
+
+  const archive = await putLogin("archive", "archive-reader", {
+    token: "some-key",
+  });
+  assert.equal(archive.status, 404, await archive.clone().text());
+  assert.match(await archive.text(), /archive/);
+
+  const domain = await putLogin("roles-domain", "warehouse-reader", {
+    url: "https://warehouse.example/reader",
+  });
+  assert.equal(domain.status, 404, await domain.clone().text());
+  assert.match(await domain.text(), /roles-domain/);
+
+  assert.deepEqual(await loginRows("archive"), []);
+});
+
+test("a connector that is not mounted is a 404 that names it, and saves nothing", async () => {
+  await as("admin@example.com", "/que/me");
+
+  const unmounted = await putLogin("till", "till-reader", { key: "some-key" });
+  assert.equal(unmounted.status, 404, await unmounted.clone().text());
+  assert.match(await unmounted.text(), /till/);
+
+  const unknown = await putLogin("no-such-connector", "reader", {
+    url: "https://nowhere.example",
+  });
+  assert.equal(unknown.status, 404, await unknown.clone().text());
+  assert.match(await unknown.text(), /no-such-connector/);
+
+  assert.deepEqual(await loginRows("till"), []);
+});
+
+test("a login whose connect fails is a 502 that names the connector, and is not saved", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+
+  const res = await putLogin("flaky", "flaky-reader", {
+    url: "https://flaky.example",
+  });
+  assert.equal(res.status, 502, await res.clone().text());
+  assert.match(await res.text(), /flaky/);
+
+  assert.deepEqual(await loginRows("flaky"), []);
+});
+
+test("a DELETE removes a role's login", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+  const set = await putLogin("warehouse", "warehouse-writer", {
+    url: "https://warehouse.example/writer",
+  });
+  assert.equal(set.status, 200, await set.clone().text());
+
+  const res = await deleteLogin("warehouse", "warehouse-writer");
+  assert.equal(res.status, 200, await res.clone().text());
+  assert.deepEqual(await loginRows("warehouse"), []);
+});
+
+test("a DELETE of a role with no login removes nothing, and answers as one that has", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+
+  const warehouse = await deleteLogin("warehouse", "warehouse-writer");
+  assert.equal(warehouse.status, 200, await warehouse.clone().text());
+  const flaky = await deleteLogin("flaky", "flaky-reader");
+  assert.equal(flaky.status, 200, await flaky.clone().text());
+
+  assert.deepEqual(await loginRows("warehouse"), []);
+  assert.deepEqual(await loginRows("flaky"), []);
+});
+
+test("GET lists each role of each internal connector with whether its login is set, and no other connector", async () => {
+  await clearLogins();
+
+  const entries = await logins();
+  assert.deepEqual(Object.fromEntries(entries), {
+    "flaky:flaky-reader": false,
+    "warehouse:warehouse-reader": false,
+    "warehouse:warehouse-writer": false,
+  });
+});
+
+test("a login set for one role does not mark the other role's as set", async () => {
+  await clearLogins();
+  const before = await logins();
+  assert.equal(before.get("warehouse:warehouse-writer"), false);
+
+  const res = await putLogin("warehouse", "warehouse-reader", {
+    url: "https://warehouse.example/reader",
+  });
+  assert.equal(res.status, 200, await res.clone().text());
+
+  const after = await logins();
+  assert.equal(after.get("warehouse:warehouse-reader"), true);
+  assert.equal(after.get("warehouse:warehouse-writer"), false);
+});
+
+test("GET never gives a login's value, not even right after a PUT", async () => {
+  await clearLogins();
+  await as("admin@example.com", "/que/me");
+  const readerUrl = "https://warehouse.example/reader-9f3";
+  const writerUrl = "https://warehouse.example/writer-4c1";
+  const reader = await putLogin("warehouse", "warehouse-reader", {
+    url: readerUrl,
+  });
+  assert.equal(reader.status, 200, await reader.clone().text());
+  const writer = await putLogin("warehouse", "warehouse-writer", {
+    url: writerUrl,
+  });
+  assert.equal(writer.status, 200, await writer.clone().text());
+
+  const res = await as("admin@example.com", "/que/admin/logins");
+  assert.equal(res.status, 200, await res.clone().text());
+  const text = await res.text();
+  assert.ok(
+    !text.includes(readerUrl),
+    `GET gave the reader login's value: ${text}`,
+  );
+  assert.ok(
+    !text.includes(writerUrl),
+    `GET gave the writer login's value: ${text}`,
+  );
+  assert.ok(!/secret/i.test(text), `GET gave a secret: ${text}`);
 });
