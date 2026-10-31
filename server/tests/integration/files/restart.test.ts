@@ -52,6 +52,8 @@ const children = new Set<ChildProcess>();
 
 after(async () => {
   for (const proc of children) proc.kill("SIGKILL");
+  // A killed server's socket closes a moment later, and the socket server then asks the database of its transaction.
+  await sleep(500);
   await database.stop();
   await db.close();
   rmSync(data, { recursive: true, force: true });
