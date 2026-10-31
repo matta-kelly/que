@@ -21,6 +21,7 @@ import {
 } from "@earendil-works/pi-ai/providers/faux";
 import { getCurrentSystemPrompt } from "@earendil-works/pi-ai/utils/transcript";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -111,6 +112,7 @@ test("given DEV_USER_INSTRUCTIONS naming a file that cannot be read, when a user
     ["bo@example.com", "Bo Berg"],
   ]) {
     as(email, name);
+    await grant(email, name, "source-domain", "till-domain");
     const run = await runOn(await thread("keeper"), "Find code AB.");
     assert.equal(run.status, 200, `${name}'s run: ${run.body.slice(0, 300)}`);
     assert.ok(run.body.includes("RUN_FINISHED"), run.body.slice(0, 500));

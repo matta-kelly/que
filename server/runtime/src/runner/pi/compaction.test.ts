@@ -36,6 +36,7 @@ import {
 } from "@earendil-works/pi-ai/providers/faux";
 import { estimateMessageTokens } from "@earendil-works/pi-ai/utils/estimate";
 import { deploymentRoot } from "../../../../tests/deployment-root.js";
+import { grant } from "../../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -78,6 +79,8 @@ after(async () => {
 });
 
 process.env.DEV_USER_EMAIL = "ana@example.com";
+// Ana reaches the deployment's connector: the ledger, through its test domain, before her runs.
+await grant("ana@example.com", "ana", "ledger-domain");
 
 const SUMMARY = "SUMMARY OF THE OLD PART";
 

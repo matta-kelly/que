@@ -18,6 +18,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { fauxProvider } from "@earendil-works/pi-ai/providers/faux";
 import { deploymentRoot } from "../../deployment-root.js";
+import { grant } from "../grants.js";
 
 /** The path the Langfuse SDK posts spans to, under the base URL. */
 export const TRACES = "/api/public/otel/v1/traces";
@@ -192,6 +193,8 @@ export async function serveOnPi() {
   /** Signs in as `email`, as @que/identity reads it, and saves their till key: their user id. */
   const signIn = async (email: string, key: string) => {
     process.env.DEV_USER_EMAIL = email;
+    // The user reaches the deployment's connectors: the till, through its test domain, before their connection.
+    await grant(email, email.split("@")[0], "till-domain");
     const saved = await fetch(`${base}/que/connections/till`, {
       method: "PUT",
       headers: { "content-type": "application/json" },

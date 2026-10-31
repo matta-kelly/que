@@ -32,6 +32,7 @@ import {
   type FauxResponseStep,
 } from "@earendil-works/pi-ai/providers/faux";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -65,6 +66,8 @@ after(async () => {
 });
 
 process.env.DEV_USER_EMAIL = "ana@example.com";
+// Ana reaches the deployment's connectors: the till, through its test domain, before her connection.
+await grant("ana@example.com", "ana", "till-domain");
 {
   const saved = await fetch(`${base}/que/connections/till`, {
     method: "PUT",

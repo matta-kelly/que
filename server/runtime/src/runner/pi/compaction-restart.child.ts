@@ -28,6 +28,7 @@ import {
   fauxText,
   fauxToolCall,
 } from "@earendil-works/pi-ai/providers/faux";
+import { grant } from "../../../../tests/integration/grants.js";
 
 /** The steps of each interrupted chat: reports of 1,000 tokens, as pi estimates them (3,500 characters). */
 const STEPS = { whole: 30, late: 35 } as const;
@@ -52,6 +53,8 @@ const server = serve({ fetch: app.fetch, port: 0 });
 await new Promise((ready) => server.once("listening", ready));
 const base = `http://localhost:${(server.address() as AddressInfo).port}`;
 process.env.DEV_USER_EMAIL = "ana@example.com";
+// Ana reaches the deployment's connector: the ledger, through its test domain, before her runs.
+await grant("ana@example.com", "ana", "ledger-domain");
 
 const json = (body: unknown) => ({
   method: "POST",

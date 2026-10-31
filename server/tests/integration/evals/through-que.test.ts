@@ -23,6 +23,7 @@ import {
 } from "@earendil-works/pi-ai/providers/faux";
 import { que, type Message } from "../../../evals/src/que.js";
 import { deploymentRoot } from "../../deployment-root.js";
+import { grant } from "../grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -55,6 +56,7 @@ after(async () => {
 });
 
 // The signed-in user's till key, which the op's result names.
+await grant("ana@example.com", "ana", "till-domain");
 const saved = await fetch(`${base}/que/connections/till`, {
   method: "PUT",
   headers: { "content-type": "application/json" },

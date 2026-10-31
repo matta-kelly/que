@@ -22,6 +22,7 @@ import {
   type FauxResponseStep,
 } from "@earendil-works/pi-ai/providers/faux";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -62,6 +63,8 @@ const as = (email: string, path: string, init?: RequestInit) => {
 };
 
 // Ana reaches the till: her catalog holds it once she has given its key.
+for (const email of [ANA, BEN])
+  await grant(email, email.split("@")[0], "till-domain");
 {
   const saved = await as(ANA, "/que/connections/till", {
     method: "PUT",

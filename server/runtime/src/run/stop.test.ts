@@ -24,6 +24,7 @@ import {
   fauxToolCall,
 } from "@earendil-works/pi-ai/providers/faux";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -74,6 +75,8 @@ type Message = {
 /** Signs in as `email`, as @que/identity reads it, and saves their till key. */
 async function signIn(email: string, key: string) {
   process.env.DEV_USER_EMAIL = email;
+  // The user reaches the deployment's connectors: the till, through its test domain, before their connection.
+  await grant(email, email.split("@")[0], "till-domain");
   const saved = await fetch(`${base}/que/connections/till`, {
     method: "PUT",
     headers: { "content-type": "application/json" },

@@ -28,6 +28,7 @@ import {
   getCurrentTools,
 } from "@earendil-works/pi-ai/utils/transcript";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -195,6 +196,7 @@ const tillOps = (r: Request | undefined) =>
 
 test("given an on-demand agent, when a user's run loads an op and calls it, then the first request sends the on-demand prompt and offers open_plugin, load_operation, read_skill, read_result and the attachment tools (its loop keeps result on, as by default) and no op, the next offers the op, and the call runs through the door as the user; a later run of the chat loads another beside it", async () => {
   as("eve@example.com", "Eve Stone");
+  await grant("eve@example.com", "Eve Stone", "source-domain", "till-domain");
   await connect("eve-key");
   const id = await thread("scout");
 

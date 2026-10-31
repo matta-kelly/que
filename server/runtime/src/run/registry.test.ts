@@ -29,6 +29,7 @@ import {
   type RegistryReader,
 } from "@earendil-works/pi-durable";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -78,6 +79,8 @@ const json = (method: string, body: unknown) => ({
 
 process.env.DEV_USER_EMAIL = "ana@example.com";
 process.env.DEV_USER_NAME = "Ana Lima";
+// Ana reaches the deployment's connectors: the till and source, through their test domains, before her runs.
+await grant("ana@example.com", "Ana Lima", "source-domain", "till-domain");
 
 /** A new thread of the signed-in user's, on the agent `agent`. */
 const thread = async (agent: string) => {

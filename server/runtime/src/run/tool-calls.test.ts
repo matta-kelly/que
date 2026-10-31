@@ -21,6 +21,7 @@ import {
   fauxToolCall,
 } from "@earendil-works/pi-ai/providers/faux";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
+import { grant } from "../../../tests/integration/grants.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 100 });
@@ -76,6 +77,11 @@ const as = (email: string) => (process.env.DEV_USER_EMAIL = email);
 /** The signed-in user's id, as GET /que/me gives it. */
 const me = async () =>
   ((await (await fetch(`${base}/que/me`)).json()) as { id: string }).id;
+
+// Each user these tests run as reaches the deployment's connectors: the till, through its test domain, before any
+// connection of theirs.
+for (const email of ["ana@example.com", "bo@example.com"])
+  await grant(email, email.split("@")[0], "till-domain");
 
 /** Saves the signed-in user's till key, through PUT /que/connections/till. */
 const connect = async (key: string) => {
