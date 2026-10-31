@@ -4,9 +4,12 @@
  */
 
 import { Hono } from "hono";
+import { OpFailed } from "@mku1tra/que-plugin";
 import type { User } from "@que/users";
+import { access } from "../access/connections.js";
 import { control } from "../access/control.js";
 import { users } from "../access/users.js";
+import { plugins } from "../mount/mounted.js";
 import { signedIn, type SignedIn } from "./signed-in.js";
 
 export const admin = new Hono<SignedIn>();
@@ -63,5 +66,62 @@ admin.patch("/que/admin/users/:id", async (c) => {
 // A revoke of a user or a domain that is not there changes nothing, and answers as a revoke does.
 admin.delete("/que/admin/users/:id/grants/:domain", async (c) => {
   await control.revoke(c.req.param("id"), c.req.param("domain"));
+  return c.json({ ok: true });
+});
+
+// A login is of an internal connector's role, kept under `role:<role>`: no user's own. A connector that is not mounted,
+// one with no roles, and a role it does not list are 404s that name what is wrong.
+const rolePlugin = async (name: string, role: string) => {
+  const mounted = plugins.find((p) => p.definition.plugin.name === name);
+  if (!mounted) return `${name} is not mounted`;
+  const held = (await control.roles()).find((c) => c.name === name);
+  if (!held) return `${name} is no internal connector`;
+  if (!held.roles.includes(role)) return `${name} has no role ${role}`;
+  return mounted.definition.plugin;
+};
+
+// A login the schema refuses is a 400; one whose connect fails is a 502, since the fault is not the request.
+admin.put("/que/admin/logins/:connector/:role", async (c) => {
+  const name = c.req.param("connector");
+  const role = c.req.param("role");
+  const found = await rolePlugin(name, role);
+  if (typeof found === "string") return c.json({ error: found }, 404);
+  try {
+    await access.setCredential(
+      found,
+      `role:${role}`,
+      (await c.req.json()).values,
+    );
+  } catch (error) {
+    if (error instanceof OpFailed) return c.json({ error: error.message }, 400);
+    if (error instanceof Error)
+      return c.json({ error: `${name}: ${error.message}` }, 502);
+    throw error;
+  }
+  return c.json({ ok: true });
+});
+
+// One role of each internal connector, and whether its login is set. Never a value.
+admin.get("/que/admin/logins", async (c) =>
+  c.json(
+    await Promise.all(
+      (await control.roles()).flatMap(({ name, roles }) =>
+        roles.map(async (role) => ({
+          connector: name,
+          role,
+          set: (await access.connectedPlugins(`role:${role}`)).has(name),
+        })),
+      ),
+    ),
+  ),
+);
+
+// A role with no login removes nothing, and answers as one that has.
+admin.delete("/que/admin/logins/:connector/:role", async (c) => {
+  const name = c.req.param("connector");
+  const role = c.req.param("role");
+  const found = await rolePlugin(name, role);
+  if (typeof found === "string") return c.json({ error: found }, 404);
+  await access.removeCredential(found, `role:${role}`);
   return c.json({ ok: true });
 });
