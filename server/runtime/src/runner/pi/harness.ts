@@ -81,20 +81,48 @@ const tracing = tracingOnPi(settingsFor(process.env));
 const registry = createRegistry();
 
 // pi's storage runs on one connection of its own, and a session advisory lock on it says this process owns the
-// deployment: the lock goes when the connection does.
+// deployment: the lock goes when the connection does. So a process that outlives its connection keeps answering
+// with what the lock guarantees gone, and the next process may take it. What to do about that is the serving
+// process's to decide (listen.ts stops it), not this module's: every test builds the server in its own process
+// and closes its database at the end. A break is reported twice, `error` and then `end`, so one loss is carried
+// once: the first of them is the cause, and the rest of it says nothing new.
+type StorageLost = (why: string, error?: Error) => void;
+const storageLost = new Set<StorageLost>();
+
+/** Told when the storage connection ends or fails. A listener that stops the process is the server's; with none, the loss is logged. */
+export function onStorageLost(listener: StorageLost): void {
+  storageLost.add(listener);
+}
+
 const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-// A connection lost while nothing reads it says so with an "error" event; with no listener, node-postgres ends
-// the process (node-postgres, Client).
-client.on("error", (error) =>
-  console.error("que: pi's storage connection was lost:", error.message),
-);
-await client.connect();
+let stopping = false;
+let lostAlready = false;
+const lost = (why: string) => (error?: Error) => {
+  if (stopping || lostAlready) return;
+  lostAlready = true;
+  for (const listener of storageLost) listener(why, error);
+  if (storageLost.size === 0)
+    console.error(
+      `que: lost its storage: ${why}${error ? `: ${error.message}` : ""}`,
+    );
+};
+client.on("error", lost("the connection failed"));
+client.on("end", lost("the connection ended"));
+try {
+  await client.connect();
+} catch (error) {
+  throw new Error(
+    `que: the storage does not answer: ${(error as Error).message}`,
+    { cause: error },
+  );
+}
 // The key is "que" and the deployment's number: one deployment per database.
 const { rows: locks } = await client.query(
   "SELECT pg_try_advisory_lock($1, $2) AS owned",
   [0x717565, 1],
 );
 if (!locks[0].owned) {
+  stopping = true;
   await client.end();
   throw new Error(
     "que: another process owns this deployment: its advisory lock on the database is held, so this one stops",
