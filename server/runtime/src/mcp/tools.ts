@@ -17,12 +17,40 @@ export type McpTool = {
   placed: PlacedOp;
 };
 
+/** The characters a tool name may hold: a harness reads it as a name, not as a path or a pattern. */
+const NAME = /^[a-z0-9._-]+$/;
+
 /** The tool name an op of a plugin comes to. */
-export function toolName(_plugin: string, _op: string): string {
-  return "";
+export function toolName(plugin: string, op: string): string {
+  const name = `${plugin}.${op}`.toLowerCase();
+  if (!NAME.test(name))
+    throw new Error(
+      `mcp: the plugin ${plugin} and its op ${op} come to the tool name ${name}, which has a character outside [a-z0-9._-]`,
+    );
+  return name;
 }
 
 /** The tools a catalog gives, one for each op of each plugin it holds. */
-export function toolsOf(_catalog: Catalog): McpTool[] {
-  return [];
+export function toolsOf(catalog: Catalog): McpTool[] {
+  const tools: McpTool[] = [];
+  const named = new Map<string, PlacedOp>();
+  for (const { plugin } of catalog) {
+    for (const op of plugin.definition.ops) {
+      const placed: PlacedOp = { plugin: plugin.definition.plugin, op };
+      const name = toolName(placed.plugin.name, op.name);
+      const other = named.get(name);
+      if (other)
+        throw new Error(
+          `mcp: two ops come to the tool ${name}: ${other.plugin.name}.${other.op.name} and ${placed.plugin.name}.${placed.op.name}`,
+        );
+      named.set(name, placed);
+      tools.push({
+        name,
+        description: op.description,
+        input: op.input,
+        placed,
+      });
+    }
+  }
+  return tools;
 }
