@@ -29,6 +29,10 @@ app.post("/mcp", signedIn, async (c) => {
   return transport.handleRequest(c.req.raw);
 });
 
+// A stateless session offers no SSE stream for a GET, and nothing to end for a DELETE.
+// 405 with allow: POST is the refusal the MCP spec and the SDK client read as correct.
+app.on(["GET", "DELETE"], "/mcp", (c) => c.body(null, 405, { allow: "POST" }));
+
 app.route("/threads", threads);
 app.route("/", admin);
 app.route("/", api);

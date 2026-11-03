@@ -1,9 +1,10 @@
 /**
  * que's MCP server: the same que tools, for a harness that is not que.
  *
- * The server knows who is asking from `identify`, and reuses it: over stdio
- * there are no HTTP headers, so `QUE_ACCESS_JWT` carries the Access JWT into a
- * `Headers` as `cf-access-jwt-assertion`. In dev, `DEV_USER_EMAIL` decides.
+ * On HTTP, who is asking is the request's identity: `signedIn` resolves the row
+ * and `createMcpServer(user)` takes it. Without a row, `identify(headers)` is the
+ * stdio fallback: there are no HTTP headers, so `QUE_ACCESS_JWT` carries the
+ * Access JWT as `cf-access-jwt-assertion`. In dev, `DEV_USER_EMAIL` decides.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -20,9 +21,9 @@ export function sessionHeaders(env = process.env): Headers {
 
 /**
  * The MCP server. `user` is the users row the session resolved, so whoami answers
- * for that row; a server made without one answers the identity the env names.
- * The tools, which need the user's catalog, are the session's to register
- * (`stdio.ts`).
+ * for that row; a server made without one answers the identity `identify` names.
+ * The tools, which need the user's catalog, are registered by `session.ts`, for
+ * both mouths.
  */
 export function createMcpServer(user?: User): McpServer {
   const headers = sessionHeaders();
