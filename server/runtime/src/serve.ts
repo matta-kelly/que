@@ -14,6 +14,9 @@ export const app = new Hono();
 // The health check: it needs no identity.
 app.get("/ok", (c) => c.json({ ok: true }));
 
+// The MCP mouth: a harness speaks the protocol here, on the same identity gate as every other route.
+app.post("/mcp", (c) => c.json({ error: "not implemented" }, 501));
+
 app.route("/threads", threads);
 app.route("/", admin);
 app.route("/", api);
