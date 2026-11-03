@@ -21,6 +21,7 @@
     "@mku1tra/basis": "^0.30.0",
     "@mku1tra/que-harness": "*",
     "@mku1tra/que-plugin": "*",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-node": "^0.223.0",
     "@que/chat-model": "*",
