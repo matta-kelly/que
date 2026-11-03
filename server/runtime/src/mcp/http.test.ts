@@ -262,6 +262,7 @@ test("given a user granted the deployment's domain, when the session posts initi
       "till.till-jam",
       "till.till-stall",
       "till.till-tally",
+      "till.till-void",
       "till.till-wait",
     ],
     `tools/list does not name the deployment's plugin ops: ${names.join(", ")}`,
