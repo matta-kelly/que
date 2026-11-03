@@ -59,6 +59,8 @@ const op = defineType({
     // The role whose login it runs with, when its plugin lists roles.
     role: oneOrNone(() => accessRole),
     input,
+    // Whether it needs a yes from the user before it runs. Left out, it carries none, which the door reads as no.
+    approval: z.boolean().optional(),
     // What it does: run(ctx, params). A connector op gets its connection in ctx, and a domain op the ops it uses.
     run: fn,
     // The ops it calls: a domain op's, each a connector's op. A connector op calls none.

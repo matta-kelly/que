@@ -6,6 +6,8 @@ What this op does, in one line: a verb and its object.
 - [[#Writes]] what it changes, and the key it finds a record by. None for a read
 - [[#Role]] the role whose login it runs with, when its plugin lists roles
 
+- its approval: whether it needs a yes from the user before it runs, in `approval`. Left out, it carries none, and the door reads none as no ([[op-contract#Approval]])
+
 - [[op-contract]]: what makes a good op: its tool card, its answers, and what a write promises
 - its uses: the ops it calls, in its `uses`. Each is an op's name, or it fails (`basis/link`). A connector's op lists none, and a domain's op only connectors' ops (`plugin/op-uses`). Its plugin's `usesOps` is made from these lists and its skills'
 - its context: what its run gets, by its plugin's kind. A connector's op gets `{ conn }`, its connection; a domain's op gets `{ ops }`, a function for each op it uses. Both get `{ files }`, the run thread's files by their ids, never the store's path ([[op-contract#Context]])

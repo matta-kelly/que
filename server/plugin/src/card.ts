@@ -27,7 +27,7 @@ export const CARD_SCHEMA =
   "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 /** The version of que's part of a card. It changes when that part's shape does. */
-export const CARD_FORMAT = 6;
+export const CARD_FORMAT = 7;
 
 /** A node as a card holds it: its fields, with no type. */
 type Written<N> = Omit<N, "type">;
@@ -40,7 +40,7 @@ export type Card = {
   description: string;
   extensions: {
     [NAMESPACE]: {
-      format: typeof CARD_FORMAT;
+      format: number;
       title: string;
       kind: "connector" | "domain";
       credential?: Schema;
@@ -51,6 +51,8 @@ export type Card = {
         role?: string;
         /** The ops it uses, when it lists any: a domain op's, each a connector's op. */
         uses?: string[];
+        /** Whether it needs a yes from the user before it runs. Left out when it carries none. */
+        approval?: boolean;
         input: Schema;
       }[];
       /** A connector's skills, each by its name with the ops it uses: a domain's are not on its card. */
@@ -213,6 +215,7 @@ export function cardOf(
           description: op.description,
           ...(op.role === undefined ? {} : { role: op.role }),
           ...(op.uses === undefined ? {} : { uses: op.uses }),
+          ...(op.approval === undefined ? {} : { approval: op.approval }),
           input: schemaJson(op.input, `op ${op.name}'s input`),
         })),
         skills:

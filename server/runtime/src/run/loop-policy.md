@@ -66,5 +66,5 @@ What an agent keeps, shows and drops from one model call to the next, and how it
 - outside a loop
 	- cheap to lose: a rule of the harness and of how a plugin answers. No agent opts out
 	- repair of an unanswered tool call: always on. The call gets pi's result that says it was aborted (`Tool <name> was aborted`)
-	- approval: which operations wait for a yes. On the agent, because it is about the job
+	- approval: the op declares whether it waits for a yes, and the door holds it. A run with no way to ask refuses the call
 	- audit of tool calls: on for every agent. Not built

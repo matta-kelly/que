@@ -67,7 +67,9 @@ import { endsRun, extension } from "./extension.js";
 export const models = createModels();
 models.setProvider(fireworks(mounted.models));
 
-// Every op runs through the door, on the runtime's access, with every op of every mounted plugin in reach.
+// Every op runs through the door, on the runtime's access, with every op of every mounted plugin in reach. que's run
+// passes no ask: pi-durable 1.4.0 has no user-ask API and que has no inbound channel, so a flagged op refuses and says
+// the call did not run.
 const call = door(
   access.getConnection,
   mounted.plugins.flatMap(({ definition }) =>

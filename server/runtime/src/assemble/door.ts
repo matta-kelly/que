@@ -33,6 +33,9 @@ export type PlacedOp = {
 /** The run's files a call is scoped to: the store, and the run's thread. */
 export type FilesScope = { files: FileStore; thread: string };
 
+/** The question the door asks before a flagged op runs: the op, and its parsed input. */
+export type Ask = (op: PlacedOp, input: unknown) => Promise<boolean>;
+
 /** One call of an op, as one user and the run's thread's files: what the op's run gives back, or the OpFailed it throws. */
 export type Call = (
   op: PlacedOp,
@@ -89,9 +92,10 @@ function filesOf({ files, thread }: FilesScope): OpFiles {
 
 /**
  * The door, on access asked by op and the mounted ops: its `call`. A domain op's context is the ops it lists in `uses`,
- * each bound to that op and the calling user; a connector op's is its connection.
+ * each bound to that op and the calling user; a connector op's is its connection. An op that needs a yes is asked
+ * after its input is parsed and before its connection or listed ops are made.
  */
-export function door(connect: Connect, ops: PlacedOp[] = []): Call {
+export function door(connect: Connect, ops: PlacedOp[] = [], ask?: Ask): Call {
   // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
   // the span. A nested call names its caller's span as its parent, so it sits under the call that made it.
   function call(
@@ -100,6 +104,7 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
     user: string,
     files?: FilesScope,
     parent?: Context,
+    gate = true,
   ): Promise<unknown> {
     return tracer.startActiveSpan(
       op.name,
@@ -130,6 +135,16 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
               ),
             );
           const input = parsed.data;
+          if (gate && op.approval) {
+            if (!ask)
+              throw new OpFailed(
+                `${op.name} needs a yes, and this run has no way to ask: the call did not run`,
+              );
+            if (!(await ask({ plugin, op }, input)))
+              throw new OpFailed(
+                `${op.name}: the user declined: the call did not run`,
+              );
+          }
           const scope = files ? { files: filesOf(files) } : {};
           let ctx;
           if (plugin.kind === "domain") {
@@ -189,6 +204,7 @@ export function door(connect: Connect, ops: PlacedOp[] = []): Call {
             user,
             files,
             parent,
+            false,
           ),
       ]),
     );

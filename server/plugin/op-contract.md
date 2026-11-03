@@ -12,6 +12,7 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 - [[#Input]] what it takes
 - [[#Answer]] what comes back
 - [[#Writes]] what an operation that changes data promises
+- [[#Approval]] whether the door asks for a yes before it runs
 
 - [[plugin-contract]]: the contract an operation is part of
 - the plugin-interoperability design, in kinetic: the design of the domain op, its context and uses. Built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
@@ -27,6 +28,7 @@ A good op does one job, cannot be called wrong, and says truly what happened.
 	- a field that must never be written is not in its input
 	- a value it can work out, such as the logged-in user or today's date, it sets itself
 - it reads only its input and its connection: nothing from around it
+- an op that changes data says whether it needs a yes from the user: `approval` on its node ([[#Approval]])
 - a rule that decides a number or a record lives in one op, and other ops and skills use that op
 - each of its behaviours has a test ([[plugin-contract#Layout]])
 
@@ -97,3 +99,11 @@ The model knows only what the card says, so the card is the whole interface.
 - the description says what it changes
 - success means the service's answer shows the new value, not only that the request returned. Where the service's reads lag its writes, the op trusts the write's answer and does not read back
 - an op over many records does not stop at one bad record: the answer gives the result of each, so a re-run shows what is settled and what is not
+
+## Approval
+
+- the op declares, the door asks: `approval: true` means the model's call to it runs only after the user says yes
+- the door holds the gate after it parses the input and before it makes the connection or a domain op's listed calls, so the user approves what will run
+- the ask gets the op and its parsed input, for the host to show. que's run supplies no ask: a run with no way to ask refuses the call
+- a refusal is an `OpFailed` that says the call did not run, so the model gets it as the tool result and the run goes on
+- only the call the model makes is asked. A domain op's listed calls run without one
