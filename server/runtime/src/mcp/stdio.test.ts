@@ -279,6 +279,81 @@ test("given the same email, when an MCP client calls whoami, then the id it answ
   );
 });
 
+test("given the fixture deployment and a user granted its domain, when an MCP client calls source.source-find, then it answers the op's result as JSON text with no error, and tools/list shows that tool's input as an object with code", async () => {
+  const email = "ana.call@example.com";
+  await grant(email, "Ana Call", "source-domain");
+  const codes = ["A-1", "B-2"];
+
+  const { value } = await withServer(
+    { ...que(), DEV_USER_EMAIL: email },
+    async (client) => {
+      const tools = (await client.listTools()).tools;
+      const calls: Awaited<ReturnType<Client["callTool"]>>[] = [];
+      for (const code of codes)
+        calls.push(
+          await client.callTool({
+            name: "source.source-find",
+            arguments: { code },
+          }),
+        );
+      return { tools, calls };
+    },
+  );
+
+  const find = value.tools.find((tool) => tool.name === "source.source-find");
+  assert.ok(
+    find,
+    `source.source-find is not listed: ${value.tools.map((tool) => tool.name).join(", ")}`,
+  );
+  const input = find.inputSchema as {
+    type?: string;
+    properties?: Record<string, { type?: string }>;
+  };
+  assert.equal(
+    input.type,
+    "object",
+    `the tool's input is not an object: ${JSON.stringify(input)}`,
+  );
+  assert.equal(
+    input.properties?.code?.type,
+    "string",
+    `the tool's input does not show code as a string: ${JSON.stringify(input)}`,
+  );
+
+  for (const [i, call] of value.calls.entries()) {
+    const code = codes[i];
+    assert.notEqual(
+      call.isError,
+      true,
+      `source.source-find with { code: ${JSON.stringify(code)} } failed: ${text(call)}`,
+    );
+    const content = call.content as { type: string; text: string }[];
+    assert.equal(
+      content.length,
+      1,
+      `the answer is not one content part: ${JSON.stringify(content)}`,
+    );
+    assert.equal(content[0]?.type, "text");
+    assert.deepEqual(
+      JSON.parse(content[0]!.text),
+      {},
+      `the answer is not the op's result: ${content[0]!.text}`,
+    );
+  }
+});
+
+test("given no DATABASE_URL in the session's env, when an MCP client lists tools, then the only tool it lists is whoami", async () => {
+  const { value: tools } = await withServer(
+    { DEV_USER_EMAIL: "ana.nodb@example.com" },
+    async (client) => (await client.listTools()).tools,
+  );
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    ["whoami"],
+    `a database-less session lists more than whoami: ${tools.map((tool) => tool.name).join(", ")}`,
+  );
+});
+
 test("given a deployment folder, when one session starts, then the deployment's ops are changed on disk, then a second session starts, then the second session lists the changed tools", async () => {
   const email = "cy.tools@example.com";
   await grant(email, "Cy Tools", "source-domain");

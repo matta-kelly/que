@@ -139,3 +139,52 @@ test("given plugin Till op notes and plugin till op Notes, when the tools are ge
     },
   );
 });
+
+test("given a plugin and an op whose plugin.op is longer than 64 characters, when the tools are generated, then it throws, naming the name and its length", () => {
+  const notesInput = z.object({ text: z.string().describe("The note's text") });
+  // The plugin schema caps an op's name at 64, and the MCP name adds the plugin's to it: 64 is the whole name's limit.
+  const warehouse = "warehouse";
+  const atLimit = plugin(warehouse, [
+    {
+      name: "a".repeat(64 - warehouse.length - 1),
+      description: "Write a note.",
+      input: notesInput,
+    },
+  ]);
+  const overLimit = plugin(warehouse, [
+    {
+      name: "a".repeat(64 - warehouse.length),
+      description: "Write a note.",
+      input: notesInput,
+    },
+  ]);
+  const long = `${warehouse}.${overLimit.definition.ops[0]!.name}`;
+  assert.equal(
+    long.length,
+    65,
+    `the over-long name is ${long.length} characters`,
+  );
+
+  const tool = names([atLimit])[0]!;
+  assert.equal(
+    tool.length,
+    64,
+    `the tool at the limit is ${tool.length} characters: ${tool}`,
+  );
+
+  assert.throws(
+    () => toolsOf(catalog(overLimit)),
+    (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      assert.ok(
+        message.includes(long),
+        `the refusal does not name ${long}: ${message}`,
+      );
+      assert.ok(
+        message.includes(String(long.length)),
+        `the refusal does not give the name's length ${long.length}: ${message}`,
+      );
+      return true;
+    },
+  );
+});
