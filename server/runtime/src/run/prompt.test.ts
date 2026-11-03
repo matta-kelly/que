@@ -266,6 +266,7 @@ const TILL = [
   "till-tally",
   "till-wait",
   "till-stall",
+  "till-void",
   "till-jam",
 ];
 

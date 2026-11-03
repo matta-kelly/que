@@ -189,6 +189,7 @@ const TILL = [
   "till-tally",
   "till-wait",
   "till-stall",
+  "till-void",
   "till-jam",
 ];
 const tillOps = (r: Request | undefined) =>
