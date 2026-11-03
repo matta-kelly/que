@@ -5,15 +5,27 @@
  * identity setting stops the start.
  */
 
-import { test } from "node:test";
+import { after, test } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PGlite } from "@electric-sql/pglite";
+import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import {
   getDefaultEnvironment,
   StdioClientTransport,
 } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { deploymentRoot } from "../../../tests/deployment-root.js";
 
 /** How the runner starts the server, and how this test starts it too. */
 const command = {
@@ -32,6 +44,86 @@ const env = (overrides: Record<string, string>) => ({
   NODE_OPTIONS: "--conditions=@mku1tra/que-source",
   ...overrides,
 });
+
+// The database and the deployment the tool-surface tests read, made as catalog.test.ts makes them: PGlite on a socket,
+// and the fixture deployment "prompt" as a root of its own.
+const db = await PGlite.create();
+const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 10 });
+await database.start();
+process.env.DATABASE_URL = `postgresql://postgres@${database.getServerConn()}/postgres`;
+process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
+process.env.QUE_DEPLOYMENT = deploymentRoot(
+  join(import.meta.dirname, "../../../tests/integration/mount/fixtures"),
+  "prompt",
+);
+// This test owns the identity and the database: a subprocess gets them from `que` and its overrides alone.
+delete process.env.DEV_USER_EMAIL;
+delete process.env.DEV_USER_NAME;
+delete process.env.QUE_ACCESS_JWT;
+
+const { grant } = await import("../../../tests/integration/grants.js");
+const { users } = await import("../access/users.js");
+
+after(async () => {
+  // A connection a subprocess opened may still be on its way: let it land before the database goes.
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  await database.stop();
+  await db.close();
+});
+
+/** The database and deployment every session of the tool-surface tests reads. */
+const que = () => ({
+  DATABASE_URL: process.env.DATABASE_URL!,
+  QUE_CREDENTIALS_KEY: process.env.QUE_CREDENTIALS_KEY!,
+  QUE_DEPLOYMENT: process.env.QUE_DEPLOYMENT!,
+});
+
+/** The tools a session for `email` lists, on the deployment at `deployment`. */
+async function listedTools(
+  email: string,
+  deployment: string = process.env.QUE_DEPLOYMENT!,
+) {
+  const { value } = await withServer(
+    { ...que(), QUE_DEPLOYMENT: deployment, DEV_USER_EMAIL: email },
+    async (client) => (await client.listTools()).tools,
+  );
+  return value;
+}
+
+/** A copy of the deployment at `from`, which a test may change without touching the fixtures. */
+function copyDeployment(from: string): string {
+  const to = join(mkdtempSync(join(tmpdir(), "que-mcp-deployment-")), "prompt");
+  cpSync(from, to, { recursive: true });
+  return to;
+}
+
+/** Adds an op to the copy's source plugin, so a new session sees a changed deployment. */
+function addSourceList(folder: string): void {
+  const file = join(
+    folder,
+    "plugins",
+    "source",
+    "io.github.matta-kelly.que",
+    "index.ts",
+  );
+  const before = readFileSync(file, "utf8");
+  const after = before.replace(
+    "  ],\n});",
+    `    {
+      name: "source-list",
+      type: "op",
+      title: "List",
+      description: "List every thing.",
+      input: z.object({}),
+      run: async () => ({}),
+    },
+  ],
+});
+`,
+  );
+  if (after === before) throw new Error(`could not add an op to ${file}`);
+  writeFileSync(file, after);
+}
 
 /** An MCP client for a real server subprocess, and the watch on anything it writes that is not a protocol message. */
 async function connect(overrides: Record<string, string>) {
@@ -68,7 +160,11 @@ function answer(result: Awaited<ReturnType<Client["callTool"]>>) {
   const content = result.content as { type: string; text: string }[];
   assert.equal(content.length, 1);
   assert.equal(content[0]?.type, "text");
-  return JSON.parse(content[0]!.text) as { email: string; name: string };
+  return JSON.parse(content[0]!.text) as {
+    id?: string;
+    email: string;
+    name: string;
+  };
 }
 
 /** The text a tool result carries. */
@@ -138,5 +234,81 @@ test("given Access settings and DEV_USER_EMAIL both set, when the server starts,
       new RegExp(names),
       `the server's message does not name ${names}: ${started.stderr}`,
     );
+  }
+});
+
+test("given the fixture deployment and a user granted its domain, when an MCP client lists tools, then it lists that deployment's plugin ops as tools, and a plugin the user cannot reach is not listed", async () => {
+  const email = "ana.tools@example.com";
+  await grant(email, "Ana Tools", "source-domain", "till-domain");
+
+  const tools = await listedTools(email);
+  const find = tools.find((tool) => tool.name === "source.source-find");
+  assert.ok(
+    find,
+    `source.source-find is not listed: ${tools.map((tool) => tool.name).join(", ")}`,
+  );
+  assert.equal(
+    find.description,
+    "Find a thing by its code.",
+    "the tool does not carry its op's description",
+  );
+  assert.equal(
+    tools.some((tool) => tool.name.startsWith("till.")),
+    false,
+    `a plugin the user cannot reach is listed: ${tools.map((tool) => tool.name).join(", ")}`,
+  );
+});
+
+test("given the same email, when an MCP client calls whoami, then the id it answers is the id of the users row users.ensure gives for the same identity, so a call decides permissions on the same row the web UI does", async () => {
+  const email = "ben.tools@example.com";
+  const name = "Ben Tools";
+  await grant(email, name, "source-domain");
+
+  const { value: who } = await withServer(
+    { ...que(), DEV_USER_EMAIL: email, DEV_USER_NAME: name },
+    async (client) =>
+      answer(await client.callTool({ name: "whoami", arguments: {} })),
+  );
+  const row = await users.ensure({ email, name });
+
+  assert.equal(
+    who.id,
+    row.id,
+    `whoami answered ${JSON.stringify(who)}, and the users row for ${email} is ${row.id}`,
+  );
+});
+
+test("given a deployment folder, when one session starts, then the deployment's ops are changed on disk, then a second session starts, then the second session lists the changed tools", async () => {
+  const email = "cy.tools@example.com";
+  await grant(email, "Cy Tools", "source-domain");
+  const folder = copyDeployment(process.env.QUE_DEPLOYMENT!);
+  try {
+    const before = await listedTools(email, folder);
+    assert.equal(
+      before.some((tool) => tool.name === "source.source-find"),
+      true,
+      `the first session does not list the source op: ${before.map((tool) => tool.name).join(", ")}`,
+    );
+    assert.equal(
+      before.some((tool) => tool.name === "source.source-list"),
+      false,
+      `the first session lists an op the deployment does not hold yet: ${before.map((tool) => tool.name).join(", ")}`,
+    );
+
+    addSourceList(folder);
+
+    const after = await listedTools(email, folder);
+    assert.equal(
+      after.some((tool) => tool.name === "source.source-list"),
+      true,
+      `the second session does not list the changed deployment's op: ${after.map((tool) => tool.name).join(", ")}`,
+    );
+    assert.equal(
+      after.some((tool) => tool.name === "source.source-find"),
+      true,
+      `the second session lost an op the deployment still holds: ${after.map((tool) => tool.name).join(", ")}`,
+    );
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
   }
 });
