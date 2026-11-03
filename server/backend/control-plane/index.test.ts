@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PGlite } from "@electric-sql/pglite";
-import type { Card } from "@mku1tra/que-plugin";
+import { CARD_FORMAT, type Card } from "@mku1tra/que-plugin";
 import { controlOn } from "./index.js";
 
 // The cards' shape, as @mku1tra/que-plugin writes it: a test fixture needs no plugin code.
@@ -34,7 +34,7 @@ const card = (name: string, nodes: Partial<Que> & Pick<Que, "kind">): Card => ({
   description: `The ${name} plugin.`,
   extensions: {
     "io.github.matta-kelly.que": {
-      format: 6,
+      format: CARD_FORMAT,
       title: name,
       ops: [],
       skills: [],

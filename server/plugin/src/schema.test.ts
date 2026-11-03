@@ -130,6 +130,35 @@ test("a skill lists the ops it uses, or none; a list that is not of names fails,
     assert.deepEqual(issueOf("skill", { ...guide, uses })?.path?.[0], "uses");
 });
 
+test("an op declares that it needs a yes, or leaves it out; a value that is no boolean fails, on its approval", () => {
+  for (const approval of [true, false]) {
+    let parsed: { approval?: boolean } | undefined;
+    assert.doesNotThrow(() => {
+      parsed = plugin.parse("op", {
+        ...getFabric,
+        approval,
+      }) as { approval?: boolean };
+    }, String(approval));
+    assert.equal(
+      parsed?.approval,
+      approval,
+      `an op with approval: ${approval} carries it`,
+    );
+  }
+  const absent = plugin.parse("op", getFabric) as { approval?: boolean };
+  assert.equal(
+    absent.approval,
+    undefined,
+    "an op that leaves approval out carries none, not false",
+  );
+  for (const approval of ["yes", 1, "true", null])
+    assert.deepEqual(
+      issueOf("op", { ...getFabric, approval })?.path,
+      ["approval"],
+      `${JSON.stringify(approval)} is no boolean`,
+    );
+});
+
 test("an op lists the ops it uses, or none; a list that is not of names fails, on its uses", () => {
   for (const uses of [["odoo-search"], ["odoo-search", "odoo-write-partner"]]) {
     let parsed: unknown;

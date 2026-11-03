@@ -162,6 +162,22 @@ const crmOnly: Catalog = [
   },
 ];
 
+/** The shop's catalog with one op flagged, as the op node carries it once the schema has the field. */
+const flaggedShop: Catalog = [
+  {
+    plugin: {
+      definition: {
+        ...shop,
+        ops: shop.ops.map((op) =>
+          op.name === "shop-get-order" ? { ...op, approval: true } : op,
+        ),
+      },
+      skills: shopSkills,
+      card: cardOf({ definition: shop, cases: [], skills: shopSkills }),
+    },
+  },
+];
+
 /** Each call that reaches the door: the op's plugin and name, the params it got, and the user. */
 let doorCalls: { plugin: string; op: string; params: unknown; user: string }[] =
   [];
@@ -515,6 +531,30 @@ test("given an op that throws an OpFailed, when the model calls it, then the mod
   assert.deepEqual(
     [answered?.isError, answered?.text],
     [false, JSON.stringify({ id: 4 })],
+  );
+  assert.equal(answer, "Done.");
+});
+
+test("given a flagged op on a run with no way to ask, when the model calls it, then it gets a failed call that says the call did not run, as this run has no way to ask, and the run goes on to its answer", async () => {
+  const { results, answer } = await turn(
+    [{ name: "shop-get-order", args: { id: 4 }, id: "c1" }],
+    { of: flaggedShop },
+  );
+  const refused = resultOf(results, "c1");
+  assert.equal(
+    refused?.isError,
+    true,
+    "a call that needs a yes and gets none is a failed call",
+  );
+  assert.match(
+    String(refused?.text),
+    /did not run/,
+    "the failed call says the call did not run",
+  );
+  assert.match(
+    String(refused?.text),
+    /no way to ask/,
+    "the failed call says this run has no way to ask",
   );
   assert.equal(answer, "Done.");
 });

@@ -20,7 +20,7 @@ import { controlOn } from "@que/control-plane";
 import { storeOn } from "@que/credentials";
 import { storeOn as fileStoreOn } from "@que/files";
 import { accessOn } from "../access/access.js";
-import { door, type PlacedOp } from "./door.js";
+import { door, type Call, type PlacedOp } from "./door.js";
 
 process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
 
@@ -944,5 +944,218 @@ test("given a domain op whose op calls a connector op it lists, when the domain 
       },
     },
     "the nested call reads U's files, not the last call's thread",
+  );
+});
+
+/**
+ * The ask this cut adds to the door: its third argument, once the door takes it. A signature only, so the tests below
+ * reach their assertions before the code does.
+ */
+type Ask = (op: PlacedOp, input: unknown) => Promise<boolean>;
+const gated = (
+  connect: Parameters<typeof door>[0],
+  ops: PlacedOp[],
+  ask: Ask,
+): Call =>
+  (
+    door as unknown as (
+      connect: Parameters<typeof door>[0],
+      ops: PlacedOp[],
+      ask: Ask,
+    ) => Call
+  )(connect, ops, ask);
+
+/** The flag this cut adds: the op node carries it once the op type does. */
+const flagged = (placed: PlacedOp): PlacedOp => ({
+  ...placed,
+  op: { ...placed.op, approval: true } as unknown as PlacedOp["op"],
+});
+
+/** The calls that reached an op's run, by its name: the tests below clear it first. */
+const ran: string[] = [];
+
+const ledger = definePlugin({
+  name: "ledger",
+  type: "plugin",
+  title: "Ledger",
+  description: "The shop's ledger.",
+  credential: z.object({ key: z.string() }),
+  connect: async ({ key }) => `ledger:${key}`,
+  ops: [
+    {
+      name: "ledger-commit",
+      type: "op",
+      title: "Commit a line",
+      description: "Commits one line to the ledger.",
+      input: z.object({
+        line: z.string().describe("The line to commit"),
+        note: z.string().default("none").describe("A note"),
+      }),
+      run: async (_ctx, params) => {
+        ran.push("ledger-commit");
+        return params;
+      },
+    },
+  ],
+});
+const commit: PlacedOp = { plugin: ledger.plugin, op: ledger.ops[0] };
+
+const audited = definePlugin({
+  name: "audit",
+  type: "plugin",
+  kind: "domain",
+  title: "Audit",
+  description: "A domain that commits through the ledger.",
+  ops: [
+    {
+      name: "audit-commit",
+      type: "op",
+      title: "Commit an audit line",
+      description: "Commits the ledger's line.",
+      uses: ["ledger-commit"],
+      input: z.object({ line: z.string().describe("The line to commit") }),
+      run: async ({ ops }, params) => {
+        ran.push("audit-commit");
+        return ops["ledger-commit"](params);
+      },
+    },
+  ],
+});
+const auditCommit: PlacedOp = { plugin: audited.plugin, op: audited.ops[0] };
+
+/** Access that gives a connection, and records that it was asked. */
+const connecting =
+  (asked: string[] = []) =>
+  async (plugin: { name: string }, role: string | undefined) => {
+    asked.push(plugin.name);
+    return { conn: `${plugin.name}:${role ?? "none"}`, login: role ?? "own" };
+  };
+
+test("given an op with no flag, when the door calls it, then it runs as before, and the ask is never called", async () => {
+  const asked: unknown[] = [];
+  const call = gated(connecting(), [listOrders], async (op, input) => {
+    asked.push([op.op.name, input]);
+    return true;
+  });
+
+  assert.deepEqual(await call(listOrders, { customer: "Ana" }, "ana"), {
+    customer: "Ana",
+    limit: 10,
+  });
+  assert.deepEqual(asked, [], "an op with no flag never reaches the ask");
+});
+
+test("given a flagged op and an ask that answers yes, when the door calls it, then the ask gets the op's name and its parsed input, a default included, and run gets the same input", async () => {
+  const asked: { op: string; input: unknown }[] = [];
+  const call = gated(connecting(), [flagged(listOrders)], async (op, input) => {
+    asked.push({ op: op.op.name, input });
+    return true;
+  });
+
+  assert.deepEqual(
+    await call(flagged(listOrders), { customer: "Ana" }, "ana"),
+    { customer: "Ana", limit: 10 },
+  );
+  assert.deepEqual(
+    await call(flagged(listOrders), { customer: "Bo", limit: 3 }, "ana"),
+    { customer: "Bo", limit: 3 },
+  );
+  assert.deepEqual(
+    asked,
+    [
+      {
+        op: "shop-list-orders",
+        input: { customer: "Ana", limit: 10 },
+      },
+      { op: "shop-list-orders", input: { customer: "Bo", limit: 3 } },
+    ],
+    "the ask is made after the parse, for the op called, with its parsed input",
+  );
+});
+
+test("given a flagged connector op and an ask that answers no, when the door calls it, then neither run nor connect is called, and the caller gets an OpFailed that says the user declined and the call did not run", async () => {
+  ran.length = 0;
+  const connected: string[] = [];
+  const call = gated(
+    connecting(connected),
+    [flagged(commit)],
+    async () => false,
+  );
+
+  const refused = await call(flagged(commit), { line: "a" }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    refused instanceof OpFailed,
+    `the door gave ${String(refused)}, which is no OpFailed`,
+  );
+  assert.match(
+    refused.message,
+    /declined/,
+    "the failure says the user declined",
+  );
+  assert.match(
+    refused.message,
+    /did not run/,
+    "the failure says the call did not run",
+  );
+  assert.deepEqual(ran, [], "the op's run is not called");
+  assert.deepEqual(connected, [], "the connector's connect is not called");
+});
+
+test("given a flagged op and no ask, when the door calls it, then run is not called, and the caller gets an OpFailed that says the op needs a yes, this run has no way to ask, and the call did not run", async () => {
+  ran.length = 0;
+  const call = door(connecting(), [flagged(commit)]);
+
+  const refused = await call(flagged(commit), { line: "a" }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    refused instanceof OpFailed,
+    `the door gave ${String(refused)}, which is no OpFailed`,
+  );
+  assert.match(
+    refused.message,
+    /needs a yes/,
+    "the failure says it needs a yes",
+  );
+  assert.match(
+    refused.message,
+    /no way to ask/,
+    "the failure says this run has no way to ask",
+  );
+  assert.match(
+    refused.message,
+    /did not run/,
+    "the failure says the call did not run",
+  );
+  assert.deepEqual(ran, [], "the op's run is not called");
+});
+
+test("given a flagged domain op whose listed op is flagged too, when the door calls the domain op, then the ask is called once, for the domain op, and the listed op runs without one", async () => {
+  ran.length = 0;
+  const asked: string[] = [];
+  const call = gated(
+    connecting(),
+    [flagged(commit), flagged(auditCommit)],
+    async (op) => {
+      asked.push(op.op.name);
+      return true;
+    },
+  );
+
+  assert.deepEqual(await call(flagged(auditCommit), { line: "a" }, "ana"), {
+    line: "a",
+    note: "none",
+  });
+  assert.deepEqual(
+    asked,
+    ["audit-commit"],
+    "the ask is made once, for the domain op",
+  );
+  assert.deepEqual(
+    ran,
+    ["audit-commit", "ledger-commit"],
+    "the listed op runs, and is not asked again",
   );
 });

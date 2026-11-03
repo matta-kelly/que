@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import { cardOf, cardText, checkedCard, validateCard } from "./card.ts";
+import {
+  cardOf,
+  cardText,
+  CARD_FORMAT,
+  checkedCard,
+  validateCard,
+} from "./card.ts";
 import { parseSkill } from "./skill.ts";
 import { definePlugin } from "./contract.ts";
 
@@ -51,8 +57,8 @@ test("cardOf makes the standard's fields, and que's part as the plugin's nodes, 
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        // 6: a connector's card lists its skills, each with its uses.
-        format: 6,
+        // 7: an op carries whether it needs a yes.
+        format: 7,
         title: "Warehouse",
         kind: "connector",
         credential: {
@@ -392,7 +398,7 @@ description: How to count the fabrics.
 Count them.`,
 );
 
-test("cardOf lists a connector's skills, each by name with its uses, none on a domain's card, and format 6", () => {
+test("cardOf lists a connector's skills, each by name with its uses, none on a domain's card, and format 7", () => {
   const connector = cardOf({
     definition: warehouse,
     cases: [],
@@ -403,7 +409,7 @@ test("cardOf lists a connector's skills, each by name with its uses, none on a d
     { name: "warehouse-count" },
   ]);
   assert.equal("uses" in connector.skills[1], false);
-  assert.equal(connector.format, 6);
+  assert.equal(connector.format, 7);
   const pim = definePlugin({
     name: "pim",
     type: "plugin",
@@ -443,4 +449,29 @@ test("checkedCard puts the plugin's skills on the card it checks", () => {
   assert.deepEqual(card.extensions["io.github.matta-kelly.que"].skills, [
     { name: "warehouse-guide", uses: ["warehouse-get-fabric"] },
   ]);
+});
+
+/** The flag this cut adds: the op node carries it once the op type does. */
+const flaggedOp = (
+  op: NonNullable<ReturnType<typeof definePlugin>>["ops"][number],
+) => ({ ...op, approval: true }) as typeof op & { approval: true };
+
+test("cardOf writes an op's approval, leaves it out when the op has none, and its format is 7", () => {
+  const queOf = (definition: Parameters<typeof cardOf>[0]["definition"]) =>
+    cardOf({ definition, cases: [] }).extensions["io.github.matta-kelly.que"];
+
+  const yes = queOf({ ...warehouse, ops: warehouse.ops.map(flaggedOp) });
+  assert.equal(
+    (yes.ops[0] as { approval?: boolean }).approval,
+    true,
+    "an op that needs a yes says so on its card",
+  );
+  const no = queOf(warehouse);
+  assert.equal(
+    "approval" in no.ops[0],
+    false,
+    "an op that leaves it out has no such key",
+  );
+  assert.equal(no.format, 7, "the card's format is 7");
+  assert.equal(CARD_FORMAT, 7);
 });
