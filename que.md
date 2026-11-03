@@ -40,6 +40,54 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 	- Look into mem0 for memeory
 
 ---
+## Matts notes
+
+*This not has grown a bit and is ill-maintained..it and the ubgraph to be honest..a thoughtful consolidation and remapping of the individual pieces is clear. *
+
+SO this is just a bunch of thinking out loud!
+
+Standing on pi durable as the base convention --> que is more or less an extensible deployment of it + a slightly opinionated paradigm for packages & a the inner loop which interacts with it
+
+- **Core idea:** the content of this are extremely strong, just has became bit monolithic, as que continues to develop these composable and modular pieces need to be isolated a domains and the seams well defined
+	- Package / Extension --> no dominant paradigm, ideally use multiple open standards
+	- Inner Loop
+	- Context is the product
+		- Good context engineering means finding the smallest set of high-signal tokens that gets the result you want. More stuff in the window often makes the agent worse.
+#### Inner Loop: *how the model sees and acts*
+
+The Inner loop is king: *harness engineering is always just context engineering*
+
+- Name of the game: how can we most efficiently provide the model with the sufficient context to solve the give question. 
+	- *Performance / Accuracy per token*
+	- Environment setup & *Inner loop*
+- The agent is a ***Stateless reducer***  
+	- A reducer is a function that takes “everything so far” plus “one new thing” and returns the new “everything so far.” 
+		- A running total is a reducer: `total = total + next_number`.
+	- “Stateless” means the agent itself remembers nothing between calls. 
+		- All memory lives in the log you pass in. Same log in, same decision out.
+	- Think of a chess game. You don’t need the players’ brains to know where things stand. Give anyone the move list and they can rebuild the board and pick the next move.
+
+All it is
+```
+log = [first_event]
+while True:
+    context = build(log)          # context engineering
+    action  = model(context)      # the only "AI" line
+    if action.done: break
+    result  = run(action)         # your code, your rules
+    log.append(action, result)
+```
+
+The nuance worth keeping: 
+- one framing is that context engineering asks what you show the agent, while harness engineering asks what the system prevents, measures and fixes. 
+- Same loop, two jobs: `build` vs `run`.
+
+
+
+---
+
+
+
 ## Thesis
 
 - The harness knows nothing about a role, a job, or a company
