@@ -49,7 +49,8 @@ if (user) {
       async (params) => {
         const result = await call(tool.placed, params, user.id);
         return {
-          content: [{ type: "text", text: JSON.stringify(result) ?? "" }],
+          // An op that gives back nothing gives the JSON text null.
+          content: [{ type: "text", text: JSON.stringify(result) ?? "null" }],
         };
       },
     );
