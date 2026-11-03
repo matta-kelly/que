@@ -33,7 +33,7 @@ const env = (overrides: Record<string, string>) => ({
   ...overrides,
 });
 
-/** An MCP client for a real server subprocess, and the watch on what that subprocess writes to stderr. */
+/** An MCP client for a real server subprocess, and the watch on anything it writes that is not a protocol message. */
 async function connect(overrides: Record<string, string>) {
   const transport = new StdioClientTransport({
     ...command,
@@ -43,6 +43,8 @@ async function connect(overrides: Record<string, string>) {
   const noise: string[] = [];
   transport.stderr?.on("data", (chunk) => noise.push(String(chunk)));
   const client = new Client({ name: "que-mcp-test", version: "0.0.0" });
+  // A line written to stdout that is not a message is dropped silently unless this records it.
+  client.onerror = (error) => noise.push(`protocol: ${String(error)}`);
   await client.connect(transport);
   return { client, noise };
 }
@@ -101,7 +103,7 @@ test("given DEV_USER_EMAIL in the env, when an MCP client calls whoami over stdi
     assert.deepEqual(
       noise,
       [],
-      `the server wrote to stderr: ${noise.join("")}`,
+      `the server wrote outside the protocol: ${noise.join("")}`,
     );
   }
 });
