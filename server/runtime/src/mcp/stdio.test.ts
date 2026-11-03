@@ -93,7 +93,8 @@ async function listedTools(
 /** A copy of the deployment at `from`, which a test may change without touching the fixtures. */
 function copyDeployment(from: string): string {
   const to = join(mkdtempSync(join(tmpdir(), "que-mcp-deployment-")), "prompt");
-  cpSync(from, to, { recursive: true });
+  // Its plugins are installed as links, and copied as they are, so they point into the copy.
+  cpSync(from, to, { recursive: true, verbatimSymlinks: true });
   return to;
 }
 
