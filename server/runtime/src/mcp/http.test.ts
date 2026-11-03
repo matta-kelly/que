@@ -14,9 +14,12 @@
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { createServer, type Server } from "node:http";
+import type { AddressInfo } from "node:net";
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
+import { type CryptoKey, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
 import { grant } from "../../../tests/integration/grants.js";
 
@@ -47,6 +50,20 @@ const as = (email: string, path: string, init?: RequestInit) => {
   return app.request(path, init);
 };
 
+/** The user's own till key, saved on the same connection route the UI uses. */
+const saveKey = async (email: string) => {
+  const saved = await as(email, "/que/connections/till", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ values: { key: "the-key" } }),
+  });
+  assert.equal(
+    saved.status,
+    200,
+    `the till's key was not saved: ${await saved.text()}`,
+  );
+};
+
 /** A JSON-RPC request, as a harness writes one. */
 const rpc = (id: number, method: string, params?: unknown) => ({
   jsonrpc: "2.0",
@@ -75,6 +92,21 @@ const post = (email: string | null, message: unknown) => {
     body: JSON.stringify(message),
   });
 };
+
+/**
+ * One MCP message to POST /mcp, with the headers given: as a harness that
+ * signed in through Cloudflare Access posts one.
+ */
+const posted = (headers: Record<string, string>, message: unknown) =>
+  app.request("/mcp", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      ...headers,
+    },
+    body: JSON.stringify(message),
+  });
 
 /** A JSON-RPC message an MCP answer carries: the JSON body, or the last data line of an SSE stream. */
 type Reply = {
@@ -119,6 +151,55 @@ const answerOf = (reply: Reply | undefined) => {
   return JSON.parse(content[0]!.text) as unknown;
 };
 
+/** The team's key pair, and another's, for the tokens the Access settings must tell apart. */
+const team = await generateKeyPair("RS256");
+const other = await generateKeyPair("RS256");
+const kid = "the-team-key";
+const audience = "the-que-application";
+const teamKeys = {
+  ...(await exportJWK(team.publicKey)),
+  kid,
+  alg: "RS256",
+  use: "sig",
+};
+
+/** A server for the team domain's key set, as Cloudflare Access serves it. */
+async function teamKeyServer(keys: object[]) {
+  const server: Server = createServer((request, response) => {
+    if (request.url !== "/cdn-cgi/access/certs") {
+      response.writeHead(404, { "content-type": "text/plain" });
+      response.end("not the key set");
+      return;
+    }
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ keys }));
+  });
+  await new Promise<void>((ready) => server.listen(0, "127.0.0.1", ready));
+  const { port } = server.address() as AddressInfo;
+  return {
+    url: `http://127.0.0.1:${port}`,
+    close: () => new Promise<void>((closed) => server.close(() => closed())),
+  };
+}
+
+/** A token for `email` from `issuer`, as Cloudflare Access issues one. */
+const tokenFor = (
+  privateKey: CryptoKey,
+  {
+    issuer,
+    aud = audience,
+    email,
+    kid: keyId = kid,
+  }: { issuer: string; aud?: string; email: string; kid?: string },
+) =>
+  new SignJWT({ email })
+    .setProtectedHeader({ alg: "RS256", kid: keyId })
+    .setIssuer(issuer)
+    .setAudience(aud)
+    .setIssuedAt()
+    .setExpirationTime("5m")
+    .sign(privateKey);
+
 test("given a session with no identity, when it posts an initialize to /mcp, then the answer is 401, and no MCP body comes back", async () => {
   const res = await post(null, initialize);
   const text = await res.text();
@@ -140,16 +221,7 @@ test("given a user granted the deployment's domain, when the session posts initi
   await grant(email, "Ana Http", "till-domain");
 
   // The op needs the user's own key, saved on the same connection route the UI uses.
-  const saved = await as(email, "/que/connections/till", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ values: { key: "the-key" } }),
-  });
-  assert.equal(
-    saved.status,
-    200,
-    `the till's key was not saved: ${await saved.text()}`,
-  );
+  await saveKey(email);
 
   const init = await post(email, initialize);
   const initText = await init.text();
@@ -226,16 +298,7 @@ test("given the same user, when two separate posts each list the tools, then eac
   await grant(email, "Ben Http", "till-domain");
 
   // The till declares a credential, so it is listed only once the user's own key is saved.
-  const saved = await as(email, "/que/connections/till", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ values: { key: "the-key" } }),
-  });
-  assert.equal(
-    saved.status,
-    200,
-    `the till's key was not saved: ${await saved.text()}`,
-  );
+  await saveKey(email);
 
   const first = await post(email, rpc(1, "tools/list"));
   const firstText = await first.text();
@@ -278,4 +341,124 @@ test("given the same user, when two separate posts each list the tools, then eac
     firstNames,
     `the second tools/list does not answer the same list: ${secondNames.join(", ")} then ${firstNames.join(", ")}`,
   );
+});
+
+test("given a user granted the domain with no till key saved, when a post lists the tools, then it names no till op, and when the key is saved and a second post lists, then it names till.till-count", async () => {
+  const email = "cleo.http@example.com";
+  await grant(email, "Cleo Http", "till-domain");
+
+  // Nothing is held between requests, so the second post sees the state the first one did not.
+  const before = await post(email, rpc(1, "tools/list"));
+  const beforeText = await before.text();
+  assert.equal(
+    before.status,
+    200,
+    `the first tools/list answered ${before.status}: ${beforeText}`,
+  );
+  const beforeNames = toolsIn(
+    answered(beforeText, before.headers.get("content-type")),
+  );
+  assert.deepEqual(
+    beforeNames.filter((name) => name.startsWith("till.")),
+    [],
+    `a tools/list with no till key saved names a till op: ${beforeNames.join(", ")}`,
+  );
+
+  await saveKey(email);
+
+  const after = await post(email, rpc(2, "tools/list"));
+  const afterText = await after.text();
+  assert.equal(
+    after.status,
+    200,
+    `the second tools/list answered ${after.status}: ${afterText}`,
+  );
+  const afterNames = toolsIn(
+    answered(afterText, after.headers.get("content-type")),
+  );
+  assert.ok(
+    afterNames.includes("till.till-count"),
+    `a tools/list after the till key was saved does not name till.till-count: ${afterNames.join(", ")}`,
+  );
+});
+
+test("given the Access settings and the team's key set, when a post carries a token the team signed for a user, then initialize answers 200 and tools/list answers that user's tools, and when the token is for another audience or signed by another key, then the answer is 401", async () => {
+  const email = "dora.http@example.com";
+  await grant(email, "Dora Http", "till-domain");
+  await saveKey(email);
+
+  const keySet = await teamKeyServer([teamKeys]);
+  process.env.QUE_ACCESS_TEAM_DOMAIN = keySet.url;
+  process.env.QUE_ACCESS_AUDIENCE = audience;
+  try {
+    // A plain email header beside the token: the verified claim decides, never the header.
+    const access = {
+      "cf-access-jwt-assertion": await tokenFor(team.privateKey, {
+        issuer: keySet.url,
+        email,
+      }),
+      "cf-access-authenticated-user-email": "mallory@example.com",
+    };
+
+    const init = await posted(access, initialize);
+    const initText = await init.text();
+    assert.equal(
+      init.status,
+      200,
+      `an initialize on a token the team signed answered ${init.status}: ${initText}`,
+    );
+    assert.ok(
+      answered(initText, init.headers.get("content-type"))?.result,
+      `an initialize on a token the team signed answered no result: ${initText}`,
+    );
+
+    const list = await posted(access, rpc(2, "tools/list"));
+    const listText = await list.text();
+    assert.equal(
+      list.status,
+      200,
+      `a tools/list on a token the team signed answered ${list.status}: ${listText}`,
+    );
+    const names = toolsIn(answered(listText, list.headers.get("content-type")));
+    assert.ok(
+      names.includes("till.till-count"),
+      `a tools/list on the token does not name the token user's till op: ${names.join(", ")}`,
+    );
+
+    const wrongAudience = await posted(
+      {
+        "cf-access-jwt-assertion": await tokenFor(team.privateKey, {
+          issuer: keySet.url,
+          aud: "another-app",
+          email,
+        }),
+      },
+      initialize,
+    );
+    assert.equal(
+      wrongAudience.status,
+      401,
+      `a token for another audience answered ${wrongAudience.status}: ${await wrongAudience.text()}`,
+    );
+
+    const wrongKey = await posted(
+      {
+        "cf-access-jwt-assertion": await tokenFor(other.privateKey, {
+          issuer: keySet.url,
+          email,
+        }),
+      },
+      initialize,
+    );
+    assert.equal(
+      wrongKey.status,
+      401,
+      `a token signed by another key answered ${wrongKey.status}: ${await wrongKey.text()}`,
+    );
+  } finally {
+    delete process.env.QUE_ACCESS_TEAM_DOMAIN;
+    delete process.env.QUE_ACCESS_AUDIENCE;
+    delete process.env.DEV_USER_EMAIL;
+    await keySet.close();
+  }
 });
