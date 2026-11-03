@@ -188,15 +188,22 @@ function start(overrides: Record<string, string>) {
   });
 }
 
-test("given DEV_USER_EMAIL in the env, when an MCP client calls whoami over stdio, then it answers that que user, and the server writes nothing to stderr", async () => {
+test("given DEV_USER_EMAIL in the env, when an MCP client calls whoami over stdio, then it answers that que user, its database-less session lists that tool alone, and the server writes nothing to stderr", async () => {
   for (const email of ["ana.lima@example.com", "ben.lima@example.com"]) {
-    const { value: who, noise } = await withServer(
+    const { value, noise } = await withServer(
       { DEV_USER_EMAIL: email },
-      async (client) =>
-        answer(await client.callTool({ name: "whoami", arguments: {} })),
+      async (client) => ({
+        who: answer(await client.callTool({ name: "whoami", arguments: {} })),
+        tools: (await client.listTools()).tools,
+      }),
     );
-    assert.equal(who.email, email);
-    assert.equal(who.name, email.split("@")[0]);
+    assert.equal(value.who.email, email);
+    assert.equal(value.who.name, email.split("@")[0]);
+    assert.deepEqual(
+      value.tools.map((tool) => tool.name),
+      ["whoami"],
+      `a database-less session lists more than whoami: ${value.tools.map((tool) => tool.name).join(", ")}`,
+    );
     assert.deepEqual(
       noise,
       [],
@@ -238,28 +245,6 @@ test("given Access settings and DEV_USER_EMAIL both set, when the server starts,
   }
 });
 
-test("given the fixture deployment and a user granted its domain, when an MCP client lists tools, then it lists that deployment's plugin ops as tools, and a plugin the user cannot reach is not listed", async () => {
-  const email = "ana.tools@example.com";
-  await grant(email, "Ana Tools", "source-domain", "till-domain");
-
-  const tools = await listedTools(email);
-  const find = tools.find((tool) => tool.name === "source.source-find");
-  assert.ok(
-    find,
-    `source.source-find is not listed: ${tools.map((tool) => tool.name).join(", ")}`,
-  );
-  assert.equal(
-    find.description,
-    "Find a thing by its code.",
-    "the tool does not carry its op's description",
-  );
-  assert.equal(
-    tools.some((tool) => tool.name.startsWith("till.")),
-    false,
-    `a plugin the user cannot reach is listed: ${tools.map((tool) => tool.name).join(", ")}`,
-  );
-});
-
 test("given the same email, when an MCP client calls whoami, then the id it answers is the id of the users row users.ensure gives for the same identity, so a call decides permissions on the same row the web UI does", async () => {
   const email = "ben.tools@example.com";
   const name = "Ben Tools";
@@ -279,9 +264,9 @@ test("given the same email, when an MCP client calls whoami, then the id it answ
   );
 });
 
-test("given the fixture deployment and a user granted its domain, when an MCP client calls source.source-find, then it answers the op's result as JSON text with no error, and tools/list shows that tool's input as an object with code", async () => {
-  const email = "ana.call@example.com";
-  await grant(email, "Ana Call", "source-domain");
+test("given the fixture deployment and a user granted its domain, when an MCP client lists tools, then it lists that deployment's plugin ops as tools, a plugin the user cannot reach is not listed, and a call to such a tool answers the op's result as JSON text with no error", async () => {
+  const email = "ana.tools@example.com";
+  await grant(email, "Ana Tools", "source-domain", "till-domain");
   const codes = ["A-1", "B-2"];
 
   const { value } = await withServer(
@@ -305,6 +290,17 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
     find,
     `source.source-find is not listed: ${value.tools.map((tool) => tool.name).join(", ")}`,
   );
+  assert.equal(
+    find.description,
+    "Find a thing by its code.",
+    "the tool does not carry its op's description",
+  );
+  assert.equal(
+    value.tools.some((tool) => tool.name.startsWith("till.")),
+    false,
+    `a plugin the user cannot reach is listed: ${value.tools.map((tool) => tool.name).join(", ")}`,
+  );
+
   const input = find.inputSchema as {
     type?: string;
     properties?: Record<string, { type?: string }>;
@@ -340,18 +336,6 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
       `the answer is not the op's result: ${content[0]!.text}`,
     );
   }
-});
-
-test("given no DATABASE_URL in the session's env, when an MCP client lists tools, then the only tool it lists is whoami", async () => {
-  const { value: tools } = await withServer(
-    { DEV_USER_EMAIL: "ana.nodb@example.com" },
-    async (client) => (await client.listTools()).tools,
-  );
-  assert.deepEqual(
-    tools.map((tool) => tool.name),
-    ["whoami"],
-    `a database-less session lists more than whoami: ${tools.map((tool) => tool.name).join(", ")}`,
-  );
 });
 
 test("given a deployment folder, when one session starts, then the deployment's ops are changed on disk, then a second session starts, then the second session lists the changed tools", async () => {
