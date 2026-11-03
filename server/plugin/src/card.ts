@@ -40,7 +40,7 @@ export type Card = {
   description: string;
   extensions: {
     [NAMESPACE]: {
-      format: number;
+      format: typeof CARD_FORMAT;
       title: string;
       kind: "connector" | "domain";
       credential?: Schema;

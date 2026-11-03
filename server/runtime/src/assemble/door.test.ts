@@ -169,7 +169,7 @@ const orders: Card = {
   description: "The orders domain.",
   extensions: {
     "io.github.matta-kelly.que": {
-      format: 6,
+      format: 7,
       title: "Orders",
       kind: "domain",
       ops: [],
