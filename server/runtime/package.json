@@ -7,7 +7,8 @@
     "node": ">=22.19"
   },
   "scripts": {
-    "server": "tsx src/listen.ts"
+    "server": "tsx src/listen.ts",
+    "mcp": "tsx src/mcp/stdio.ts"
   },
   "dependencies": {
     "@ag-ui/core": "1.0.3",
