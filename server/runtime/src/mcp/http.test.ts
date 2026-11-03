@@ -462,3 +462,35 @@ test("given the Access settings and the team's key set, when a post carries a to
     await keySet.close();
   }
 });
+
+test("given a signed-in user, when a GET is sent to /mcp, then the answer is 405, it allows POST, and it is not an SSE stream", async () => {
+  const res = await as("erin.http@example.com", "/mcp", { method: "GET" });
+  const text = await res.text();
+
+  assert.equal(
+    res.status,
+    405,
+    `a GET to /mcp answered ${res.status}: ${text}`,
+  );
+  assert.equal(
+    res.headers.get("allow"),
+    "POST",
+    `a GET to /mcp answered allow ${res.headers.get("allow")}: ${text}`,
+  );
+  assert.doesNotMatch(
+    res.headers.get("content-type") ?? "",
+    /text\/event-stream/,
+    `a GET to /mcp answered an SSE stream: ${res.headers.get("content-type")}`,
+  );
+});
+
+test("given a signed-in user, when a DELETE is sent to /mcp, then the answer is 405, because a stateless session has nothing to end", async () => {
+  const res = await as("finn.http@example.com", "/mcp", { method: "DELETE" });
+  const text = await res.text();
+
+  assert.equal(
+    res.status,
+    405,
+    `a DELETE to /mcp answered ${res.status}: ${text}`,
+  );
+});
