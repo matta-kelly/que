@@ -45,7 +45,8 @@ async function withEnv(
 
 /** Calls `whoami` as an MCP client would, and returns what the call answered. */
 async function whoami(server: McpServer) {
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   const client = new Client({ name: "que-mcp-test", version: "0.0.0" });
   await client.connect(clientTransport);
@@ -141,7 +142,11 @@ test("given no token and no DEV_USER_EMAIL, when an MCP client calls whoami, the
     { QUE_ACCESS_TEAM_DOMAIN: teamDomain, QUE_ACCESS_AUDIENCE: audience },
     async () => {
       const result = await whoami(createMcpServer());
-      assert.equal(result.isError, true, "whoami answered a user with no token");
+      assert.equal(
+        result.isError,
+        true,
+        "whoami answered a user with no token",
+      );
     },
   );
 

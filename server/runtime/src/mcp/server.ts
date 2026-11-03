@@ -17,14 +17,18 @@ export function createMcpServer(): McpServer {
 
   const server = new McpServer({ name: "que", version: "0.0.0" });
 
-  server.registerTool("whoami", { description: "The que user asking" }, async () => {
-    const who = await identify(headers);
-    if (!who)
-      throw new Error(
-        "whoami: no que user for this session. Set QUE_ACCESS_JWT, or DEV_USER_EMAIL in dev",
-      );
-    return { content: [{ type: "text", text: JSON.stringify(who) }] };
-  });
+  server.registerTool(
+    "whoami",
+    { description: "The que user asking" },
+    async () => {
+      const who = await identify(headers);
+      if (!who)
+        throw new Error(
+          "whoami: no que user for this session. Set QUE_ACCESS_JWT, or DEV_USER_EMAIL in dev",
+        );
+      return { content: [{ type: "text", text: JSON.stringify(who) }] };
+    },
+  );
 
   return server;
 }
