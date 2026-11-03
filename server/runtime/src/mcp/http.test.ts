@@ -225,6 +225,18 @@ test("given the same user, when two separate posts each list the tools, then eac
   const email = "ben.http@example.com";
   await grant(email, "Ben Http", "till-domain");
 
+  // The till declares a credential, so it is listed only once the user's own key is saved.
+  const saved = await as(email, "/que/connections/till", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ values: { key: "the-key" } }),
+  });
+  assert.equal(
+    saved.status,
+    200,
+    `the till's key was not saved: ${await saved.text()}`,
+  );
+
   const first = await post(email, rpc(1, "tools/list"));
   const firstText = await first.text();
   const second = await post(email, rpc(2, "tools/list"));
