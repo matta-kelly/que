@@ -53,7 +53,7 @@ import {
 } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
 import { access } from "../../access/connections.js";
-import { door } from "../../assemble/door.js";
+import { door, type Ask } from "../../assemble/door.js";
 import { systemPrompt } from "../../assemble/prompt.js";
 import type { Way } from "../../assemble/way.js";
 import * as mounted from "../../mount/mounted.js";
@@ -67,14 +67,10 @@ import { endsRun, extension } from "./extension.js";
 export const models = createModels();
 models.setProvider(fireworks(mounted.models));
 
-// Every op runs through the door, on the runtime's access, with every op of every mounted plugin in reach. que's run
-// passes no ask: pi-durable 1.4.0 has no user-ask API and que has no inbound channel, so a flagged op refuses and says
-// the call did not run.
-const call = door(
-  access.getConnection,
-  mounted.plugins.flatMap(({ definition }) =>
-    definition.ops.map((op) => ({ plugin: definition.plugin, op })),
-  ),
+// Every op runs through the door, on the runtime's access, with every op of every mounted plugin in reach. Each run
+// has a door of its own, on the run's ask: a run with none refuses a flagged op and says the call did not run.
+const placed = mounted.plugins.flatMap(({ definition }) =>
+  definition.ops.map((op) => ({ plugin: definition.plugin, op })),
 );
 
 // A run is traced when the deployment's `.env` says where to send the trace (run/trace.ts).
@@ -329,7 +325,7 @@ function conversationFor(
  * waits for a run that goes on the conversation already. The run does not
  * depend on `send`: it goes on, and its ids are recorded, when no one reads
  * it. What it gives is the message of a model call that failed, if one did.
- * Its tools are the ops of `catalog`, each called through the door as `user`.
+ * Its tools are the ops of `catalog`, each called through the door as `user`: one that needs a yes asks `ask` first.
  * Its system prompt is the agent's, as assemble's `systemPrompt` gives it from
  * `prompt`, `catalog` and `way`, the agent's way of loading, sent as it is; the
  * way also says when an op is offered (extension.ts). A result over the loop's
@@ -350,6 +346,7 @@ export async function run(
     way,
     result,
     summarize,
+    ask,
   }: {
     catalog: Catalog;
     user: string;
@@ -359,6 +356,8 @@ export async function run(
     way: Way;
     result?: ResolvedLoop["result"];
     summarize: ResolvedLoop["summarize"];
+    /** How the run asks the user for a yes before a flagged op runs: with none, the op refuses. */
+    ask?: Ask;
   },
   {
     runId,
@@ -373,11 +372,18 @@ export async function run(
 ): Promise<{ error?: string }> {
   const text = systemPrompt({ ...prompt, catalog, environment: way.prompt });
   const que = {
-    ...extension(catalog, call, user, way, result, {
-      files,
-      thread,
-      dataDir: mounted.dataDir,
-    }),
+    ...extension(
+      catalog,
+      door(access.getConnection, placed, ask),
+      user,
+      way,
+      result,
+      {
+        files,
+        thread,
+        dataDir: mounted.dataDir,
+      },
+    ),
     // One section, untagged: the model reads que's prompt whole, as systemPrompt writes it.
     sections: [section("prompt", () => text, { tag: false })],
     hooks: tracing.hooks,

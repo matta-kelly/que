@@ -104,6 +104,8 @@ The model knows only what the card says, so the card is the whole interface.
 
 - the op declares, the door asks: `approval: true` means the model's call to it runs only after the user says yes
 - the door holds the gate after it parses the input and before it makes the connection or a domain op's listed calls, so the user approves what will run
-- the ask gets the op and its parsed input, for the host to show. que's run supplies no ask: a run with no way to ask refuses the call
+- the ask gets the op, its parsed input and the tool call's id, for the host to show. A run with no way to ask refuses the call
+	- que's web run asks: the stream ends on an AG-UI `tool_call` interrupt on that call, the UI shows the op and its input with Approve and Deny, and the answer resumes the run, which runs the op or refuses it (`server/runtime/src/run/runs.ts`)
+	- que's MCP server asks nothing, so it refuses the call
 - a refusal is an `OpFailed` that says the call did not run, so the model gets it as the tool result and the run goes on
 - only the call the model makes is asked. A domain op's listed calls run without one

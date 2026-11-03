@@ -124,6 +124,7 @@ export function extension(
                 args,
                 user,
                 attachments,
+                api.callId,
               ),
             ) ?? "null",
           api,

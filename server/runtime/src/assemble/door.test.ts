@@ -20,7 +20,7 @@ import { controlOn } from "@que/control-plane";
 import { storeOn } from "@que/credentials";
 import { storeOn as fileStoreOn } from "@que/files";
 import { accessOn } from "../access/access.js";
-import { door, type Call, type PlacedOp } from "./door.js";
+import { door, type Ask, type Call, type PlacedOp } from "./door.js";
 
 process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
 
@@ -947,29 +947,16 @@ test("given a domain op whose op calls a connector op it lists, when the domain 
   );
 });
 
-/**
- * The ask this cut adds to the door: its third argument, once the door takes it. A signature only, so the tests below
- * reach their assertions before the code does.
- */
-type Ask = (op: PlacedOp, input: unknown) => Promise<boolean>;
+/** The door on an ask: its third argument. */
 const gated = (
   connect: Parameters<typeof door>[0],
   ops: PlacedOp[],
   ask: Ask,
-): Call =>
-  (
-    door as unknown as (
-      connect: Parameters<typeof door>[0],
-      ops: PlacedOp[],
-      ask: Ask,
-    ) => Call
-  )(connect, ops, ask);
+): Call => door(connect, ops, ask);
 
-/** The flag this cut adds: the op node carries it once the op type does. */
-const flagged = (placed: PlacedOp): PlacedOp => ({
-  ...placed,
-  op: { ...placed.op, approval: true } as unknown as PlacedOp["op"],
-});
+/** An op that needs a yes. */
+const flagged = (placed: PlacedOp): PlacedOp =>
+  ({ ...placed, op: { ...placed.op, approval: true } }) as PlacedOp;
 
 /** The calls that reached an op's run, by its name: the tests below clear it first. */
 const ran: string[] = [];
@@ -1071,6 +1058,27 @@ test("given a flagged op and an ask that answers yes, when the door calls it, th
     ],
     "the ask is made after the parse, for the op called, with its parsed input",
   );
+});
+
+test("given a flagged op called with a tool call's id, when the door asks, then the ask gets that id, and a call with none gives none", async () => {
+  const ids: (string | undefined)[] = [];
+  const call = gated(
+    connecting(),
+    [flagged(listOrders)],
+    async (_op, _input, callId) => {
+      ids.push(callId);
+      return true;
+    },
+  );
+  await call(
+    flagged(listOrders),
+    { customer: "Ana" },
+    "ana",
+    undefined,
+    "call-1",
+  );
+  await call(flagged(listOrders), { customer: "Ana" }, "ana");
+  assert.deepEqual(ids, ["call-1", undefined]);
 });
 
 test("given a flagged connector op and an ask that answers no, when the door calls it, then neither run nor connect is called, and the caller gets an OpFailed that says the user declined and the call did not run", async () => {

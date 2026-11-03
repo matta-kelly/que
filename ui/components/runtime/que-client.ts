@@ -1,4 +1,5 @@
 import { HttpAgent, type Message } from "@ag-ui/client";
+import type { AgUiInterrupt } from "@assistant-ui/react-ag-ui";
 import type { RunPick } from "@/components/chat/run-pickers/pick";
 
 // que's server, through the Next.js proxy at /api: the user's threads, and an
@@ -40,11 +41,18 @@ export const threads = {
   /** A new thread, with the picks made before it was. */
   make: async (pick: RunPick) =>
     json<QueThread>(await fetch("/api/threads", send("POST", pick))),
-  /** A thread, with its messages as AG-UI messages, each with the id que's server gave it, and whether its run goes. */
+  /**
+   * A thread, with its messages as AG-UI messages, each with the id que's server gave it, whether its run goes, and the
+   * interrupts it waits on: each a yes an op asks for.
+   */
   get: async (id: string) =>
-    json<QueThread & { messages: Message[]; running: boolean }>(
-      await fetch(thread(id)),
-    ),
+    json<
+      QueThread & {
+        messages: Message[];
+        running: boolean;
+        interrupts: AgUiInterrupt[];
+      }
+    >(await fetch(thread(id))),
   change: async (id: string, change: QueChange) =>
     json<QueThread>(await fetch(thread(id), send("PATCH", change))),
   remove: async (id: string) => {

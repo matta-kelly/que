@@ -2,7 +2,8 @@
  * The thread routes, mounted at /threads: a user makes, lists and opens their
  * own threads, renames, archives and deletes them, picks the agent config and
  * the model their runs take, and runs, joins and stops them (run/runs.ts). A
- * thread says whether its run goes: a join gives the rest of it. A delete
+ * thread says whether its run goes: a join gives the rest of it, and the
+ * interrupts it waits on, each a yes a flagged op asks for. A delete
  * stops the thread's run first, if one goes. A pick is
  * made on PATCH /threads/:id, or on POST /threads before the thread exists; it
  * names an agent or a model the deployment lists, or is null to follow the
@@ -16,7 +17,7 @@ import { createStore } from "@que/threads";
 import { agents, models } from "../mount/mounted.js";
 import { messages, stop } from "../runner/pi/harness.js";
 import { fileRoutes, removeFiles } from "./files.js";
-import { goes, runs } from "./runs.js";
+import { goes, refuseWaiting, runs, waiting } from "./runs.js";
 import { signedIn, type SignedIn } from "./signed-in.js";
 
 const store = createStore();
@@ -72,6 +73,7 @@ threads.get("/:id", async (c) => {
         ...thread,
         messages: await messages(thread.id),
         running: goes(thread.id),
+        interrupts: waiting(thread.id),
       })
     : c.json({ error: "not found" }, 404);
 });
@@ -88,7 +90,8 @@ threads.delete("/:id", async (c) => {
   const user = c.get("userId");
   const thread = await store.get(user, c.req.param("id"));
   if (!thread) return c.json({ error: "not found" }, 404);
-  // A run that goes is stopped first, so it ends on a thread that is still there.
+  // A run that goes is stopped first, so it ends on a thread that is still there: a call that waits for a yes is refused.
+  refuseWaiting(thread.id);
   await stop(thread.id);
   // The files go before the thread, so none is left on the disk or in the table.
   await removeFiles(thread.id);

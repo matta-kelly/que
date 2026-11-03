@@ -33,15 +33,26 @@ export type PlacedOp = {
 /** The run's files a call is scoped to: the store, and the run's thread. */
 export type FilesScope = { files: FileStore; thread: string };
 
-/** The question the door asks before a flagged op runs: the op, and its parsed input. */
-export type Ask = (op: PlacedOp, input: unknown) => Promise<boolean>;
+/**
+ * The question the door asks before a flagged op runs: the op, its parsed input, and the id of the tool call that
+ * made it, when the caller gave one.
+ */
+export type Ask = (
+  op: PlacedOp,
+  input: unknown,
+  callId?: string,
+) => Promise<boolean>;
 
-/** One call of an op, as one user and the run's thread's files: what the op's run gives back, or the OpFailed it throws. */
+/**
+ * One call of an op, as one user and the run's thread's files: what the op's run gives back, or the OpFailed it throws.
+ * `callId` is the id of the tool call that made it, which the door hands to its ask.
+ */
 export type Call = (
   op: PlacedOp,
   params: unknown,
   user: string,
   files?: FilesScope,
+  callId?: string,
 ) => Promise<unknown>;
 
 /** The door's call bound to one user, as a run hands it to its tools. */
@@ -98,11 +109,12 @@ function filesOf({ files, thread }: FilesScope): OpFiles {
 export function door(connect: Connect, ops: PlacedOp[] = [], ask?: Ask): Call {
   // One span per call, named by the op. An OpFailed from run, or from access, is thrown on as it is, and recorded on
   // the span. A nested call names its caller's span as its parent, so it sits under the call that made it.
-  function call(
+  function invoke(
     { plugin, op }: PlacedOp,
     params: unknown,
     user: string,
-    files?: FilesScope,
+    files: FilesScope | undefined,
+    callId: string | undefined,
     parent?: Context,
     gate = true,
   ): Promise<unknown> {
@@ -140,7 +152,7 @@ export function door(connect: Connect, ops: PlacedOp[] = [], ask?: Ask): Call {
               throw new OpFailed(
                 `${op.name} needs a yes, and this run has no way to ask: the call did not run`,
               );
-            if (!(await ask({ plugin, op }, input)))
+            if (!(await ask({ plugin, op }, input, callId)))
               throw new OpFailed(
                 `${op.name}: the user declined: the call did not run`,
               );
@@ -198,11 +210,12 @@ export function door(connect: Connect, ops: PlacedOp[] = [], ask?: Ask): Call {
       (op.uses ?? []).map((name) => [
         name,
         (params: unknown) =>
-          call(
+          invoke(
             ops.find((placed) => placed.op.name === name)!,
             params,
             user,
             files,
+            undefined,
             parent,
             false,
           ),
@@ -210,5 +223,6 @@ export function door(connect: Connect, ops: PlacedOp[] = [], ask?: Ask): Call {
     );
   }
 
-  return call;
+  return (op, params, user, files, callId) =>
+    invoke(op, params, user, files, callId);
 }

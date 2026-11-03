@@ -16,6 +16,7 @@ import { setStopped } from "@/components/chat/run-states/store";
 import { oneReplyPerTurn } from "@/components/runtime/one-reply-per-turn";
 import { join, ThreadAgent, threads } from "@/components/runtime/que-client";
 import { threadListAdapter } from "@/components/runtime/thread-list-adapter";
+import { waitingOn } from "@/components/runtime/waiting";
 
 /**
  * One chat's runtime: its runs go to que's server over AG-UI, and its messages
@@ -24,7 +25,9 @@ import { threadListAdapter } from "@/components/runtime/thread-list-adapter";
  * A chat opened while its reply goes joins the run on que's server: it is
  * loaded to the user's message, and the reply comes from the join, so far and
  * then live, as one reply. When the join ends, the chat is loaded again, so
- * the reply has the id que's server gave it, as each other message has.
+ * the reply has the id que's server gave it, as each other message has. A
+ * chat opened while its run waits for a yes is loaded whole, with the question
+ * on its tool call: the answer resumes the run.
  */
 function useChatRuntime() {
   const aui = useAui();
@@ -45,8 +48,14 @@ function useChatRuntime() {
       async load() {
         const { remoteId } = aui.threadListItem().getState();
         if (!remoteId) return { messages: [] };
-        const { messages, stopped, running } = await threads.get(remoteId);
+        const { messages, stopped, running, interrupts } =
+          await threads.get(remoteId);
         setStopped(remoteId, stopped);
+        // A run that waits for a yes is loaded whole, its reply waiting on the question; its answer resumes the run.
+        if (interrupts.length)
+          return ExportedMessageRepository.fromArray(
+            waitingOn(oneReplyPerTurn(fromAgUiMessages(messages)), interrupts),
+          );
         // A run that goes is joined: its reply comes from resume().
         const shown = running
           ? messages.slice(0, askedIn(messages) + 1)

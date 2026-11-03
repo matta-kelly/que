@@ -68,6 +68,16 @@ export default definePlugin({
       },
     },
     {
+      name: "till-void",
+      type: "op",
+      title: "Void",
+      description:
+        "Voids an item's sale: a write, so it needs the user's yes before it runs.",
+      approval: true,
+      input: z.object({ item: z.string().describe("The item's name") }),
+      run: async ({ conn }, { item }) => ({ conn, item, voided: true }),
+    },
+    {
       name: "till-jam",
       type: "op",
       title: "Jam",
