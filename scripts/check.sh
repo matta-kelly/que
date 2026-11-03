@@ -33,6 +33,14 @@ plan() {
   need_shell=false
   need_notes=false
   local paths path
+  # On main in the pipeline, every set: the full run catches what a skip missed.
+  if [ "${GITHUB_REF:-}" = refs/heads/main ]; then
+    need_server=true
+    need_ui=true
+    need_shell=true
+    need_notes=true
+    return
+  fi
   if ! paths=$(changed); then
     echo "Cannot tell what changed against $base: every set runs." >&2
     need_server=true
