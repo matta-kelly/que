@@ -65,6 +65,14 @@ function answer(result: Awaited<ReturnType<typeof whoami>>) {
   return JSON.parse(content[0]!.text) as { email: string; name: string };
 }
 
+/** The text a rejected tool result carries. */
+function failure(result: Awaited<ReturnType<typeof whoami>>) {
+  const content = result.content as { type: string; text: string }[];
+  assert.equal(content.length, 1);
+  assert.equal(content[0]?.type, "text");
+  return content[0]!.text;
+}
+
 const audience = "the-que-application";
 const team = await generateKeyPair("RS256");
 const kid = "the-team-key";
@@ -147,6 +155,11 @@ test("given no token and no DEV_USER_EMAIL, when an MCP client calls whoami, the
         true,
         "whoami answered a user with no token",
       );
+      assert.match(
+        failure(result),
+        /QUE_ACCESS_JWT|DEV_USER_EMAIL/,
+        "whoami's error does not name the setting that gives an identity",
+      );
     },
   );
 
@@ -156,6 +169,11 @@ test("given no token and no DEV_USER_EMAIL, when an MCP client calls whoami, the
       result.isError,
       true,
       "whoami answered the default user with no DEV_USER_EMAIL",
+    );
+    assert.match(
+      failure(result),
+      /QUE_ACCESS_JWT|DEV_USER_EMAIL/,
+      "whoami's error does not name the setting that gives an identity",
     );
   });
 });
