@@ -3,11 +3,13 @@
 # The tests of the smoke check's git step (scripts/smoke-image.sh), on one machine, with no image,
 # no build and no container. The step's only input is what the container engine answers to
 # `run ... find`, so a stand-in engine runs the real `find` over a tree that stands for the image's
-# root, as the user the step asks for: `--user root` is a user namespace, where the mapped root
-# reads a mode-000 folder, as the image's root reads every folder. A `.git` that only root can read
-# is what `COPY .git` from a checkout under `umask 077` gives the image, and the case puts it behind
-# a folder only root can enter, so `find` as any other user cannot reach it: that is what the step's
-# user decides.
+# root, as the user the step asks for. A folder that holds a `.root-only` marker stands for a folder
+# only root can enter: as root the stand-in reads it, as any other user it does not, and find exits 1
+# as it does on a folder it cannot read. The marker is plain userland, so the test needs no user
+# namespace and no privilege, and runs the same on every machine. A `.git` that only root can read is
+# what `COPY .git` from a checkout under `umask 077` gives the image, and the case puts it in a folder
+# only root can enter, so `find` as any other user cannot reach it: that is what the step's user
+# decides. That a real root reads every folder is the container engine's guarantee, not the step's.
 # Run it from anywhere: scripts/smoke-image.test.sh. One ok or not ok line per case, exit 1 if any fails.
 set -uo pipefail
 
@@ -23,14 +25,14 @@ given_image() {
   export SMOKE_IMAGE_ROOT=$root
   mkdir -p "$root/app" "$root/data" "$root/root" || return 1
   # The image's /root is 0700 and root's: a process in the image cannot search it.
-  chmod 000 "$root/root" || return 1
-  # root: the .git sits behind a folder only root can enter, so a process that is not root
-  # cannot reach it: `find` stats `app/.git` in a readable folder and prints it either way, so
-  # only a folder it cannot enter makes the step's user decide the case.
+  : >"$root/root/.root-only" || return 1
+  # root: the .git sits in a folder only root can enter, so a process that is not root cannot
+  # reach it: `find` stats `app/.git` in a readable folder and prints it either way, so only a
+  # folder it cannot enter makes the step's user decide the case.
   case $1 in
   root)
     mkdir -p "$root/app/locked/.git" || return 1
-    chmod 000 "$root/app/locked/.git" && chmod 000 "$root/app/locked" || return 1
+    : >"$root/app/locked/.root-only" || return 1
     ;;
   readable) mkdir -p "$root/app/.git/objects" || return 1 ;;
   none) ;;
@@ -43,8 +45,8 @@ given_image() {
 #!/usr/bin/env bash
 # A stand-in for the container engine. `image exists` answers yes, so a step runs. `run` runs the
 # command it is given in the folder that stands for the image's root ($SMOKE_IMAGE_ROOT), as the
-# user the step asks for: `--user root` is a user namespace, where the mapped root reads a mode-000
-# folder. Only `find` is run, so a step that asks for another command exits 2 here and its case
+# user the step asks for: root reads every folder, and any other user cannot enter a folder that
+# holds a `.root-only` marker. Only `find` is run, so a step that asks for another command exits 2 here and its case
 # fails loud, rather than reading as a pass.
 set -uo pipefail
 case ${1:-} in
@@ -89,10 +91,20 @@ for arg in "$@"; do
     [ "$arg" = / ] && arg=$SMOKE_IMAGE_ROOT
     args+=("$arg")
 done
-if [ "$user" = root ]; then
-    exec unshare -r -- "${args[@]}"
-fi
-exec "${args[@]}"
+[ "$user" = root ] && exec "${args[@]}"
+# Not root: a folder that holds a marker is one this user cannot enter. find names it on stderr, does
+# not print what is in it, and exits 1, as find does on a folder it cannot read.
+mapfile -t locked < <(find "$SMOKE_IMAGE_ROOT" -name .root-only -printf '%h\n')
+for dir in "${locked[@]}"; do echo "find: '$dir': Permission denied" >&2; done
+"${args[@]}" | while IFS= read -r path; do
+    for dir in "${locked[@]}"; do
+        case $path in "$dir"/*) continue 2 ;; esac
+    done
+    printf '%s\n' "$path"
+done
+status=${PIPESTATUS[0]}
+[ "$status" -ne 0 ] && exit "$status"
+[ "${#locked[@]}" -eq 0 ] || exit 1
 ENGINE
   chmod +x "$engine" || return 1
 }
@@ -128,14 +140,6 @@ step_output() {
   while IFS= read -r line; do echo "  | $line"; done <<<"$out"
 }
 
-# then_the_image_has_a_git_only_root_can_read: the case's own premise. The folder app/locked must
-# be one a plain process cannot enter and the image's root can, and the .git in it must be the
-# same; without that the case cannot tell the cut from its negation, so it fails rather than pass
-# on a lie.
-root_can_read_only() {
-  [ ! -r "$1" ] && unshare -r -- test -r "$1" && unshare -r -- test -x "$1"
-}
-
 pass() { echo "ok - $name"; }
 
 # --- a .git only root can read: the cut's check fails, and says where ---
@@ -143,11 +147,6 @@ pass() { echo "ok - $name"; }
 test_a_git_that_only_root_can_read_fails_the_step() {
   name="an image whose .git only root can reach fails the git step, which names it"
   given_image root || return 1
-  if ! root_can_read_only "$root/app/locked" || ! root_can_read_only "$root/app/locked/.git"; then
-    echo "not ok - $name"
-    echo "  the case needs a folder only root can enter: this machine cannot make one, or its user namespace does not read it"
-    return 1
-  fi
   when_git
   then_is "the step's exit" 1 "$code" &&
     then_says "the .git it found" "holds a \.git at: .*/app/locked/\.git" &&
@@ -179,6 +178,6 @@ test_a_git_a_process_can_read_fails_the_step() {
 # Each case in its own subshell, so its exports and its folder stay its own.
 failed=0
 for t in $(declare -F | awk '$3 ~ /^test_/ {print $3}'); do
-  ("$t"; rc=$?; [ -z "${T:-}" ] || { chmod -R u+rwX "$T" 2>/dev/null; rm -rf "$T"; }; exit "$rc") || failed=1
+  ("$t"; rc=$?; [ -z "${T:-}" ] || rm -rf "$T"; exit "$rc") || failed=1
 done
 exit "$failed"

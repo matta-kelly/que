@@ -99,9 +99,6 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      # The smoke check's git step makes a user namespace (unshare), which Ubuntu 24.04 runners refuse to an
-      # unprivileged user by default (AppArmor). This lets it, for this job's runner only.
-      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: scripts/check.sh shell
 
   notes:
