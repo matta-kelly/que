@@ -87,7 +87,7 @@ server.stderr?.on("data", (chunk) => (output += chunk));
 /** Waits until que's server answers, and says what the process printed when it does not. */
 const listening = async () => {
   const at = `http://127.0.0.1:${port}`;
-  for (let tries = 0; tries < 100; tries++) {
+  for (let tries = 0; tries < 600; tries++) {
     try {
       if ((await fetch(`${at}/ok`)).ok) return at;
     } catch {
