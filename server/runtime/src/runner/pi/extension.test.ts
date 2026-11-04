@@ -40,7 +40,7 @@ import fc from "fast-check";
 import * as z from "zod";
 import { cardOf, definePlugin, OpFailed } from "@mku1tra/que-plugin";
 import type { Catalog } from "../../access/catalog.js";
-import { door, type Call } from "../../assemble/door.js";
+import { door, Responded, type Call } from "../../assemble/door.js";
 import { eager } from "../../assemble/eager/index.js";
 import {
   besideNothing,
@@ -182,6 +182,8 @@ const flaggedShop: Catalog = [
 let doorCalls: { plugin: string; op: string; params: unknown; user: string }[] =
   [];
 const theDoor = door(async () => undefined);
+/** What the door answers, when a test sets it: the door's own result otherwise. */
+let answering: (() => unknown) | undefined;
 const call: Call = (placed, params, user) => {
   doorCalls.push({
     plugin: placed.plugin.name,
@@ -189,7 +191,9 @@ const call: Call = (placed, params, user) => {
     params: structuredClone(params),
     user,
   });
-  return theDoor(placed, params, user);
+  return answering
+    ? Promise.resolve(answering())
+    : theDoor(placed, params, user);
 };
 
 const faux = fauxProvider({
@@ -533,6 +537,41 @@ test("given an op that throws an OpFailed, when the model calls it, then the mod
     [false, JSON.stringify({ id: 4 })],
   );
   assert.equal(answer, "Done.");
+});
+
+test("given a door call that answers a Responded, when the model calls the op, then the tool result text is its message as it is, not a JSON string, and the result is not a failed one; given any other answer, then the text is its JSON.stringify", async () => {
+  try {
+    answering = () => new Responded("Nothing was written.");
+    const responded = await turn([
+      { name: "shop-get-order", args: { id: 4 }, id: "c1" },
+    ]);
+    assert.deepEqual(
+      resultOf(responded.results, "c1"),
+      {
+        id: "c1",
+        tool: "shop-get-order",
+        isError: false,
+        text: "Nothing was written.",
+      },
+      "a Responded gives its message as the tool's text",
+    );
+  } finally {
+    answering = undefined;
+  }
+
+  const plain = await turn([
+    { name: "shop-get-order", args: { id: 4 }, id: "c1" },
+  ]);
+  assert.deepEqual(
+    resultOf(plain.results, "c1"),
+    {
+      id: "c1",
+      tool: "shop-get-order",
+      isError: false,
+      text: JSON.stringify({ id: 4 }),
+    },
+    "any other answer is JSON, as today",
+  );
 });
 
 test("given a flagged op on a run with no way to ask, when the model calls it, then it gets a failed call that says the call did not run, as this run has no way to ask, and the run goes on to its answer", async () => {

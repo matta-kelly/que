@@ -57,8 +57,8 @@ test("cardOf makes the standard's fields, and que's part as the plugin's nodes, 
     description: "The record.",
     extensions: {
       "io.github.matta-kelly.que": {
-        // 7: an op carries whether it needs a yes.
-        format: 7,
+        // 8: an op's approval widens to an object with decisions and a fixed description.
+        format: 8,
         title: "Warehouse",
         kind: "connector",
         credential: {
@@ -398,7 +398,7 @@ description: How to count the fabrics.
 Count them.`,
 );
 
-test("cardOf lists a connector's skills, each by name with its uses, none on a domain's card, and format 7", () => {
+test("cardOf lists a connector's skills, each by name with its uses, none on a domain's card, and format 8", () => {
   const connector = cardOf({
     definition: warehouse,
     cases: [],
@@ -409,7 +409,7 @@ test("cardOf lists a connector's skills, each by name with its uses, none on a d
     { name: "warehouse-count" },
   ]);
   assert.equal("uses" in connector.skills[1], false);
-  assert.equal(connector.format, 7);
+  assert.equal(connector.format, 8);
   const pim = definePlugin({
     name: "pim",
     type: "plugin",
@@ -456,7 +456,7 @@ const flaggedOp = (
   op: NonNullable<ReturnType<typeof definePlugin>>["ops"][number],
 ) => ({ ...op, approval: true }) as typeof op & { approval: true };
 
-test("cardOf writes an op's approval, leaves it out when the op has none, and its format is 7", () => {
+test("cardOf writes an op's approval, leaves it out when the op has none, and its format is 8", () => {
   const queOf = (definition: Parameters<typeof cardOf>[0]["definition"]) =>
     cardOf({ definition, cases: [] }).extensions["io.github.matta-kelly.que"];
 
@@ -472,6 +472,60 @@ test("cardOf writes an op's approval, leaves it out when the op has none, and it
     false,
     "an op that leaves it out has no such key",
   );
-  assert.equal(no.format, 7, "the card's format is 7");
-  assert.equal(CARD_FORMAT, 7);
+  assert.equal(no.format, 8, "the card's format is 8");
+  assert.equal(CARD_FORMAT, 8);
+});
+
+test("given an op whose approval is an object, when its card is made, then the card's op says approval: true with its decisions and a fixed description, and carries no function", () => {
+  const when = () => true;
+  const computed = (input: unknown) => `Commit ${JSON.stringify(input)}`;
+  const fixed = "Set the address of Acme to 1 Main St";
+  const queOf = (approval: unknown) => {
+    const definition = {
+      ...warehouse,
+      ops: [{ ...getFabric, role: undefined, approval }],
+    } as unknown as Parameters<typeof cardOf>[0]["definition"];
+    return cardOf({ definition, cases: [] }).extensions[
+      "io.github.matta-kelly.que"
+    ];
+  };
+  const op = (approval: unknown) =>
+    queOf(approval).ops[0] as {
+      approval?: unknown;
+      decisions?: unknown;
+      approvalDescription?: unknown;
+      description?: unknown;
+    };
+
+  const declared = op({
+    when,
+    description: fixed,
+    decisions: ["approve", "reject"],
+  });
+  assert.equal(declared.approval, true, "the op says it may ask");
+  assert.deepEqual(declared.decisions, ["approve", "reject"]);
+  assert.equal(
+    declared.approvalDescription,
+    fixed,
+    "a fixed description is kept",
+  );
+  assert.equal(typeof declared.approvalDescription, "string");
+  assert.equal(
+    "when" in (declared as object),
+    false,
+    "the card carries no when",
+  );
+  assert.equal(
+    declared.description,
+    "One fabric by its code.",
+    "the op's model-facing description is not overwritten",
+  );
+
+  const computedForm = op({ when, description: computed });
+  assert.equal(computedForm.approval, true);
+  assert.equal(
+    "approvalDescription" in (computedForm as object),
+    false,
+    "a computed description is not on the card",
+  );
 });

@@ -59,6 +59,14 @@ export type Call = (
 export type BoundCall = (op: PlacedOp, params: unknown) => Promise<unknown>;
 
 /**
+ * What a call answers when the user answers respond: the message is the call's result text. One value in `Call`'s
+ * `unknown` result, read only by the chat's extension, which gives the message as the tool's text as it is.
+ */
+export class Responded {
+  constructor(public message: string) {}
+}
+
+/**
  * An op's input with no other fields allowed: what the door parses and the tool shows. Made as zod's own `.strict()`
  * makes it, so it works for an input made with zod or with zod/mini. Inside a nested object, zod's own rule holds.
  */

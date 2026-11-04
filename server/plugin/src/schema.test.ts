@@ -159,6 +159,59 @@ test("an op declares that it needs a yes, or leaves it out; a value that is no b
     );
 });
 
+test("given an op whose approval is an object with a description, when the plugin schema parses it, then it carries that value; an object with no description, or a decision outside the four, fails on its approval", () => {
+  const when = (input: unknown) => typeof input === "object" && input !== null;
+  const describe = (input: unknown) => `Get ${JSON.stringify(input)}`;
+  const forms = [
+    { description: "Get one fabric by its code." },
+    { description: describe, when },
+    {
+      description: "Get one fabric by its code.",
+      decisions: ["approve", "reject"],
+    },
+  ];
+  for (const approval of forms) {
+    let parsed: { approval?: unknown } | undefined;
+    assert.doesNotThrow(() => {
+      parsed = plugin.parse("op", { ...getFabric, approval }) as {
+        approval?: unknown;
+      };
+    }, JSON.stringify(approval));
+    assert.deepEqual(
+      parsed?.approval,
+      approval,
+      `an op with approval: ${JSON.stringify(approval)} carries it`,
+    );
+  }
+  for (const approval of [{ when }, { decisions: ["approve"] }]) {
+    const issue = issueOf("op", { ...getFabric, approval });
+    assert.equal(
+      issue?.path?.[0],
+      "approval",
+      `an object with no description fails on approval: ${JSON.stringify(approval)}`,
+    );
+    assert.match(
+      issue?.message ?? "",
+      /description/,
+      "the message says the object form needs a description",
+    );
+  }
+  for (const decisions of [
+    ["approve", "deny"],
+    ["approve", "edit", "reject", "respond", "cancel"],
+  ]) {
+    const issue = issueOf("op", {
+      ...getFabric,
+      approval: { description: "Get one.", decisions },
+    });
+    assert.equal(
+      issue?.path?.[0],
+      "approval",
+      `a decision outside the four fails on approval: ${decisions.join(", ")}`,
+    );
+  }
+});
+
 test("an op lists the ops it uses, or none; a list that is not of names fails, on its uses", () => {
   for (const uses of [["odoo-search"], ["odoo-search", "odoo-write-partner"]]) {
     let parsed: unknown;
