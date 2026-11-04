@@ -1245,7 +1245,9 @@ test("given the ask answers edit with new args, when the door calls the flagged 
     note: "none",
   });
 
-  // The same strict parse: a field the input does not name is refused.
+  // The same strict parse: a field the input does not name is refused. The run that the successful edit just made is
+  // cleared, so this checks the failing parse alone.
+  ran.length = 0;
   const extra = gated(connecting(), [flagged(commit)], async () => ({
     type: "edit",
     args: { line: "a", color: "red" },
@@ -1274,15 +1276,28 @@ test("given the ask answers edit with new args, when the door calls the flagged 
   assert.match(alsoRefused.message, /\bline\b/);
 });
 
-test("given the ask answers respond with a message, when the door calls the flagged op, then run and connect are not called, and the call answers a Responded whose message is that message", async () => {
+test("given the ask answers respond with a message, when the door calls an op that allows respond, then run and connect are not called, and the call answers a Responded whose message is that message", async () => {
   ran.length = 0;
   const connected: string[] = [];
-  const call = gated(connecting(connected), [flagged(commit)], async () => ({
-    type: "respond",
-    message: "Nothing was committed.",
-  }));
+  // respond is honored only when the op lists it; the default decisions are approve, edit and reject.
+  const allowsRespond = {
+    description: "Commit a line",
+    decisions: ["approve", "edit", "reject", "respond"],
+  };
+  const call = gated(
+    connecting(connected),
+    [approving(commit, allowsRespond)],
+    async () => ({
+      type: "respond",
+      message: "Nothing was committed.",
+    }),
+  );
 
-  const answer = await call(flagged(commit), { line: "a" }, "ana");
+  const answer = await call(
+    approving(commit, allowsRespond),
+    { line: "a" },
+    "ana",
+  );
   assert.ok(
     answer instanceof Responded,
     `the door gave ${String(answer)}, which is no Responded`,
@@ -1294,6 +1309,29 @@ test("given the ask answers respond with a message, when the door calls the flag
   );
   assert.deepEqual(ran, [], "the op's run is not called");
   assert.deepEqual(connected, [], "the connector's connect is not called");
+});
+
+test("given an op with no explicit decisions, when the ask answers respond, then it is a reject that says respond is not allowed for this op", async () => {
+  ran.length = 0;
+  const call = gated(connecting(), [flagged(commit)], async () => ({
+    type: "respond",
+    message: "hi",
+  }));
+
+  const refused = await call(flagged(commit), { line: "a" }, "ana").catch(
+    (error: unknown) => error,
+  );
+  assert.ok(
+    refused instanceof OpFailed,
+    `the door gave ${String(refused)}, which is no OpFailed`,
+  );
+  assert.match(refused.message, /respond/, "the failure names the decision");
+  assert.match(
+    refused.message,
+    /not allowed/,
+    "the failure says the decision is not allowed",
+  );
+  assert.deepEqual(ran, [], "the op's run is not called");
 });
 
 test("given a decision the op does not allow, when the door calls the flagged op, then it is a reject that says that decision is not allowed for this op", async () => {
