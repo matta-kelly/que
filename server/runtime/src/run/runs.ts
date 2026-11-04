@@ -12,13 +12,18 @@
  *
  * An op that needs a yes stops the stream, not the run: the run's tool call
  * waits, and the stream ends with RUN_FINISHED whose outcome is an AG-UI
- * interrupt, `tool_call`, on that call's id, with the op and its parsed input
- * in its metadata. Every call of one tool round that asks waits for the same
- * pause: the part ends once each call of the round has asked or has run, so
- * one resume answers the round. The client answers with a new POST whose
- * `resume` answers each interrupt: `resolved` with `{ approved: true }` runs
- * the op, any other answer refuses it, and that POST streams the rest of the
- * run. A resume that also sends a new user message answers the interrupts, and
+ * interrupt, `tool_call`, on that call's id, with the op, its parsed input and
+ * the decisions the op allows in its metadata, and one branch of its
+ * `responseSchema` per decision, on `type`. Every call of one tool round that
+ * asks waits for the same pause: the part ends once each call of the round has
+ * asked or has run, so one resume answers the round. The client answers with a
+ * new POST whose `resume` answers each interrupt: `resolved` with LangChain's
+ * decision runs the op (`{type: "approve"}`), refuses it
+ * (`{type: "reject", message?}`), changes its args
+ * (`{type: "edit", edited_action: {name, args}}`), or gives the message as the
+ * call's result (`{type: "respond", message}`). A payload that matches no
+ * decision is refused, and the run still waits. A resume that also sends a new
+ * user message answers the interrupts, and
  * the new message waits for the run, as a message sent while a run goes does.
  * A stop, or the thread's delete, refuses each call that waits. A restart of
  * the server ends the wait with the run's other work: what pi does with a tool
@@ -73,6 +78,44 @@ import { tagsOf } from "./trace.js";
 
 /** A yes a run waits for: the interrupt it is asked as, and how the call gets the answer. */
 type Asking = { interrupt: Interrupt; answer: (decision: Decision) => void };
+
+/** The decisions LangChain's per-call payload can name: the four the door reads, and no others. */
+const DECISION_TYPES = ["approve", "edit", "reject", "respond"] as const;
+
+/** One branch of an interrupt's `responseSchema`: the payload that names `decision`. */
+function branchOf(decision: (typeof DECISION_TYPES)[number], op: string) {
+  const type = { const: decision };
+  switch (decision) {
+    case "approve":
+      return { required: ["type"], properties: { type } };
+    case "reject":
+      return {
+        required: ["type"],
+        properties: { type, message: { type: "string" } },
+      };
+    case "respond":
+      return {
+        required: ["type", "message"],
+        properties: { type, message: { type: "string" } },
+      };
+    case "edit":
+      return {
+        required: ["type", "edited_action"],
+        properties: {
+          type,
+          edited_action: {
+            required: ["name", "args"],
+            properties: { name: { const: op }, args: { type: "object" } },
+          },
+        },
+      };
+  }
+}
+
+/** An interrupt's schema: one branch per decision the op allows, on `type`. */
+const schemaOf = (decisions: readonly (typeof DECISION_TYPES)[number][], op: string) => ({
+  oneOf: decisions.map((decision) => branchOf(decision, op)),
+});
 
 /**
  * A run that goes, as its viewers get it. Its stream is one AG-UI run, or one for each part when it stops for a yes:
@@ -183,10 +226,12 @@ const askOf =
           reason: request.callId ? "tool_call" : "confirmation",
           ...(request.callId ? { toolCallId: request.callId } : {}),
           message: request.description,
+          responseSchema: schemaOf(request.decisions, op.name),
           metadata: {
             plugin: plugin.name,
             op: op.name,
             input: request.args,
+            decisions: request.decisions,
           },
         },
         answer,
@@ -198,17 +243,44 @@ const askOf =
       settle(run);
     });
 
+/** The op an ask's interrupt names, as its metadata holds it. */
+const opOf = (asking: Asking) =>
+  (asking.interrupt.metadata as { op?: string } | undefined)?.op ?? "the op";
+
 /**
- * The decision a resume gives: `approved: true` is approve, and any other answer is a reject. The cut that carries
- * edit and respond in the chat's payload is `approval-decisions`, and it widens this.
+ * The decision a resume entry gives, in LangChain's per-call payload: `approve`, `reject` with an optional message,
+ * `edit` of the call's action, or `respond` with the message that is the call's result. An entry that is not `resolved`
+ * is a reject, and one whose payload names no decision is `undefined`: the route refuses the resume. A decision the op
+ * does not allow is passed on, for the door to refuse as it refuses any other.
  */
-const decisionOf = (entry: ResumeEntry): Decision =>
-  entry.status === "resolved" &&
-  typeof entry.payload === "object" &&
-  entry.payload !== null &&
-  (entry.payload as { approved?: unknown }).approved === true
-    ? { type: "approve" }
-    : { type: "reject" };
+const decisionOf = (entry: ResumeEntry, asking: Asking): Decision | undefined => {
+  if (entry.status !== "resolved") return { type: "reject" };
+  const payload = entry.payload as Record<string, unknown> | null | undefined;
+  if (typeof payload !== "object" || payload === null) return undefined;
+  const { type, message } = payload;
+  if (!DECISION_TYPES.includes(type as (typeof DECISION_TYPES)[number]))
+    return undefined;
+  if (type === "approve") return { type: "approve" };
+  if (type === "reject") {
+    if (message !== undefined && typeof message !== "string") return undefined;
+    return { type: "reject", ...(message ? { message } : {}) };
+  }
+  if (type === "respond") {
+    if (typeof message !== "string") return undefined;
+    return { type: "respond", message };
+  }
+  const action = payload.edited_action as Record<string, unknown> | undefined;
+  if (typeof action !== "object" || action === null) return undefined;
+  const { name, args } = action;
+  if (typeof name !== "string" || typeof args !== "object" || args === null)
+    return undefined;
+  if (name !== opOf(asking))
+    return {
+      type: "reject",
+      message: `the edit names ${name}, not ${opOf(asking)}: the call was not run`,
+    };
+  return { type: "edit", args };
+};
 
 /** An SSE stream as a part's client: what it writes, and the end the stream waits for. */
 function clientOf(sse: { writeSSE: (m: { data: string }) => Promise<void> }) {
@@ -260,6 +332,16 @@ export function runs(store: ThreadStore) {
           },
           400,
         );
+      const decisions = new Map<string, Decision>();
+      for (const entry of resume) {
+        const decision = decisionOf(entry, run.asking.get(entry.interruptId)!);
+        if (!decision)
+          return c.json(
+            { error: "the resume's payload matches no decision of the op" },
+            400,
+          );
+        decisions.set(entry.interruptId, decision);
+      }
       if (last?.role !== "user") {
         await store.setStopped(threadId, false);
         const chat = await messages(threadId);
@@ -274,7 +356,7 @@ export function runs(store: ThreadStore) {
           run.client = client;
           await emit(run, { type: EventType.RUN_STARTED, threadId, runId });
           for (const entry of resume)
-            asking.get(entry.interruptId)?.answer(decisionOf(entry));
+            asking.get(entry.interruptId)?.answer(decisions.get(entry.interruptId)!);
           await ended;
         });
       }
@@ -282,7 +364,7 @@ export function runs(store: ThreadStore) {
       const asking = run.asking;
       run.asking = new Map();
       for (const entry of resume)
-        asking.get(entry.interruptId)?.answer(decisionOf(entry));
+        asking.get(entry.interruptId)?.answer(decisions.get(entry.interruptId)!);
     }
     if (last?.role !== "user")
       return c.json({ error: "the last message is not the user's" }, 400);
