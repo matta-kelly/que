@@ -112,6 +112,8 @@ The model knows only what the card says, so the card is the whole interface.
 	- respond: the call does not run, and the message is the call's result text, as a `Responded` the chat's extension reads. It is never the way to deny an op that changes data
 - a decision the op does not allow is a reject that says so
 - que's web run asks: the stream ends on an AG-UI `tool_call` interrupt on that call, the UI shows the op and its input with Approve and Deny, and the answer resumes the run, which runs the op or refuses it (`server/runtime/src/run/runs.ts`)
-- que's MCP server asks nothing, so it refuses the call
+- que's MCP server asks too, by the 2026-07-28 elicitation: a client that declares form elicitation gets an `input_required` result with one `elicitation/create` for the call, and the retry's `accept`, `decline` or `cancel` decides it. The ask carries a `requestState` sealed to the user, the tool and the parsed args, so another user's answer, or an answer for other args, does not count. A retry with no usable answer asks again. A 2025-era client over HTTP is refused, because que's stateless HTTP mouth can ask only a 2026-07-28 client, and a client that declares no elicitation is refused with the reason. Over stdio, a 2025-era client that declares elicitation is asked on the live connection
+- edit and respond are the chat's alone: an MCP client is asked only for a yes. An op that needs a new input, or a message as its result, runs from the web UI
+- a flagged op's tool says `annotations.destructiveHint: true`. It is a hint: clients treat annotations as untrusted, so it never replaces the ask, and the door still asks
 - a refusal is an `OpFailed` that says the call did not run, so the model gets it as the tool result and the run goes on
 - only the call the model makes is asked. A domain op's listed calls run without one
