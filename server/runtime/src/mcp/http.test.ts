@@ -334,6 +334,41 @@ test("given a user granted the deployment's domain, when the session posts initi
   );
 });
 
+test("given a signed-in user, when a 2025-era initialize is posted to /mcp, then the answer is a JSON body, not an SSE stream", async () => {
+  const email = "hana.http@example.com";
+  await grant(email, "Hana Http", "till-domain");
+
+  // Two 2025-era revisions: the v1 SDK answered each with a JSON body, and the v2 mouth keeps that.
+  for (const protocolVersion of ["2024-11-05", "2025-06-18"]) {
+    const res = await post(
+      email,
+      rpc(1, "initialize", {
+        protocolVersion,
+        capabilities: {},
+        clientInfo: { name: "test", version: "0" },
+      }),
+    );
+    const text = await res.text();
+    const contentType = res.headers.get("content-type") ?? "";
+
+    assert.equal(
+      res.status,
+      200,
+      `a ${protocolVersion} initialize answered ${res.status}: ${text}`,
+    );
+    assert.equal(
+      contentType.split(";")[0]?.trim(),
+      "application/json",
+      `a ${protocolVersion} initialize answered ${contentType}, not a JSON body: ${text}`,
+    );
+    assert.doesNotMatch(
+      contentType,
+      /text\/event-stream/,
+      `a ${protocolVersion} initialize answered an SSE stream: ${contentType}`,
+    );
+  }
+});
+
 test("given the same user, when two separate posts each list the tools, then each answers the same list, because nothing is held between requests", async () => {
   const email = "ben.http@example.com";
   await grant(email, "Ben Http", "till-domain");
