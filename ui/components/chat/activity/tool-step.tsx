@@ -185,6 +185,13 @@ function ApprovalStep({
                   } catch {
                     return;
                   }
+                  // The route takes the edited action's args as an object, so nothing else is sent.
+                  if (
+                    typeof edited !== "object" ||
+                    edited === null ||
+                    Array.isArray(edited)
+                  )
+                    return;
                   answer({
                     type: "edit",
                     edited_action: { name: toolName, args: edited },
