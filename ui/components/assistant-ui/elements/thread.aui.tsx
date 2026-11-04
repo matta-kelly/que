@@ -73,7 +73,9 @@ const groupedByType = groupPartByType({
 /**
  * A call that waits for the user's yes is its own card, outside the collapsed
  * chain of thought, so the question shows where the call is. Every other part
- * groups as it did.
+ * groups as it did. A call waits on the library's terms, `isPending` in
+ * @assistant-ui/react-ag-ui's tool-approval: no decision, and no settlement
+ * either, so a cancelled gate is not shown as one still asking.
  */
 export const messageGroupBy = (
   part: Parameters<typeof groupedByType>[0],
@@ -81,7 +83,8 @@ export const messageGroupBy = (
 ): ReturnType<typeof groupedByType> =>
   part.type === "tool-call" &&
   !!part.approval &&
-  part.approval.approved === undefined
+  part.approval.approved === undefined &&
+  !part.approval.resolution
     ? []
     : groupedByType(part, context);
 
