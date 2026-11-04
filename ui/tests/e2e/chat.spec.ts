@@ -173,9 +173,11 @@ test("chat: an op that needs a yes shows a card at the call with the steps shut,
   const card = page.locator('[data-slot="tool-approval"]');
   await expect(card).toBeVisible({ timeout: 90_000 });
   await expect(card).toContainText("scarf");
-  const steps = page.locator('[data-slot="aui_chain-of-thought"]');
-  if (await steps.count())
-    await expect(steps.first()).toHaveAttribute("data-state", "closed");
+  await expect(
+    page.locator(
+      '[data-slot="aui_chain-of-thought"] [data-slot="tool-approval"]',
+    ),
+  ).toHaveCount(0);
 
   // Approve posts one resume, and the run ends on its answer.
   await card.getByRole("button", { name: "Approve" }).click();

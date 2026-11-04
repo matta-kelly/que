@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { messageGroupBy } from "./thread.aui";
+import { messageGroupBy } from "@/components/assistant-ui/elements/thread.aui";
 
 /**
  * A reply's parts, grouped: a call that waits for a yes is the card's own row, so it sits outside the collapsed steps.
@@ -47,5 +47,10 @@ test("given a reply whose tool call waits for a yes, when its parts are grouped,
     messageGroupBy(call({ approval: { id: "i2", approved: false } })),
     ["group-chainOfThought", "group-tool"],
     "a call whose approval was answered stayed outside the steps",
+  );
+  assert.deepEqual(
+    messageGroupBy(call({ approval: { id: "i3", resolution: "cancelled" } })),
+    ["group-chainOfThought", "group-tool"],
+    "a call whose approval was settled with no decision stayed outside the steps",
   );
 });
