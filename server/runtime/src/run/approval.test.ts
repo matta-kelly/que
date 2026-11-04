@@ -232,6 +232,57 @@ async function asked(item: string, then: string) {
   return { id, call, chat: [u1, a1], events, ended };
 }
 
+/**
+ * A run on a new thread in which the model calls each of `calls` in one turn, then answers `then`: the stream the first
+ * POST gives, which ends on the yes the flagged calls ask, and the chat the client holds after it.
+ */
+async function called(
+  calls: { call: string; op: string; args: Record<string, string> }[],
+  then: string,
+) {
+  const id = await thread();
+  const u1 = user("Do the till's work.");
+  faux.setResponses([
+    fauxAssistantMessage(
+      [
+        fauxText("Working. "),
+        ...calls.map(({ call, op, args }) =>
+          fauxToolCall(op, args, { id: call }),
+        ),
+      ],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage(fauxText(then)),
+  ]);
+  const { events, ended } = await eventsOf(await sent(id, [u1]));
+  const start = events.find((e) => e.type === "TOOL_CALL_START");
+  const a1: Message = {
+    id: String(start?.parentMessageId),
+    role: "assistant",
+    content: "Working. ",
+    toolCalls: calls.map(({ call, op, args }) => ({
+      id: call,
+      type: "function",
+      function: { name: op, arguments: JSON.stringify(args) },
+    })),
+  };
+  return { id, chat: [u1, a1], events, ended };
+}
+
+/** A round's interrupts, in call-id order: the order a parallel round asks them in does not decide a test. */
+const byCall = (interrupts: Interrupt[]) =>
+  [...interrupts].sort((a, b) =>
+    String(a.toolCallId).localeCompare(String(b.toolCallId)),
+  );
+
+/** The interrupt that asks for `item`, as its metadata's input names it. */
+const asksFor = (interrupts: Interrupt[], item: string) =>
+  interrupts.find(
+    (interrupt) =>
+      (interrupt.metadata as { input?: { item?: string } } | undefined)?.input
+        ?.item === item,
+  );
+
 const resultOf = (events: Event[], call: string) =>
   events.find((e) => e.type === "TOOL_CALL_RESULT" && e.toolCallId === call);
 
@@ -411,4 +462,299 @@ test("given a run that waits on a yes, when the thread is stopped, then the op d
       waits: [],
     },
   );
+});
+
+test("given a model turn with two flagged calls, when the run reaches them, then the stream ends on one RUN_FINISHED with a tool_call interrupt on each call and neither op has run", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await called(
+    [
+      { call: "void-scarf", op: "till-void", args: { item: "scarf" } },
+      { call: "void-hat", op: "till-void", args: { item: "hat" } },
+    ],
+    "Voided.",
+  );
+  const pause = byCall(interruptsOf(run.events));
+  const held = await record(run.id);
+  const ran = [
+    resultOf(run.events, "void-scarf"),
+    resultOf(run.events, "void-hat"),
+  ].filter((result) => result !== undefined).length;
+  assert.deepEqual(
+    {
+      ended: run.ended,
+      last: run.events.at(-1)?.type,
+      outcome: (run.events.at(-1)?.outcome as { type?: string } | undefined)
+        ?.type,
+      // One pause, not a pause on the first call and a queued second.
+      pauses: run.events.filter((e) => e.type === "RUN_FINISHED").length,
+      calls: pause.map((interrupt) => [interrupt.reason, interrupt.toolCallId]),
+      metadata: pause.map((interrupt) => interrupt.metadata),
+      ran,
+      running: held.running,
+      waits: byCall(held.interrupts).map((interrupt) => interrupt.toolCallId),
+    },
+    {
+      ended: true,
+      last: "RUN_FINISHED",
+      outcome: "interrupt",
+      pauses: 1,
+      calls: [
+        ["tool_call", "void-hat"],
+        ["tool_call", "void-scarf"],
+      ],
+      metadata: [
+        { plugin: "till", op: "till-void", input: { item: "hat" } },
+        { plugin: "till", op: "till-void", input: { item: "scarf" } },
+      ],
+      ran: 0,
+      running: true,
+      waits: ["void-hat", "void-scarf"],
+    },
+  );
+  // The run is not left waiting for the next test.
+  await sent(
+    run.id,
+    run.chat,
+    pause.map((interrupt) => ({
+      interruptId: interrupt.id,
+      status: "cancelled",
+    })),
+  ).then((response) => response.body?.cancel());
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a pause on two flagged calls, when one resume answers both, then each runs or refuses by its answer, the model gets both results, and the run ends with nothing left to wait on", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await called(
+    [
+      { call: "void-scarf", op: "till-void", args: { item: "scarf" } },
+      { call: "void-hat", op: "till-void", args: { item: "hat" } },
+    ],
+    "Done.",
+  );
+  const pause = interruptsOf(run.events);
+  const hat = asksFor(pause, "hat");
+  const scarf = asksFor(pause, "scarf");
+  const resumed = await eventsOf(
+    await sent(run.id, run.chat, [
+      {
+        interruptId: hat?.id ?? "",
+        status: "resolved",
+        payload: { approved: true },
+      },
+      {
+        interruptId: scarf?.id ?? "",
+        status: "resolved",
+        payload: { approved: false },
+      },
+    ]),
+  );
+  const approved = String(resultOf(resumed.events, "void-hat")?.content);
+  const refused = String(resultOf(resumed.events, "void-scarf")?.content);
+  assert.deepEqual(
+    {
+      first: resumed.events[0]?.type,
+      last: resumed.events.at(-1)?.type,
+      outcome: resumed.events.at(-1)?.outcome,
+      approved,
+      refused: refused.includes("the user declined: the call did not run"),
+      voided: refused.includes("voided"),
+      answered: said(resumed.events, "Done."),
+    },
+    {
+      first: "RUN_STARTED",
+      last: "RUN_FINISHED",
+      outcome: undefined,
+      approved: JSON.stringify({
+        conn: "till:ana-key",
+        item: "hat",
+        voided: true,
+      }),
+      refused: true,
+      voided: false,
+      answered: true,
+    },
+  );
+  assert.equal(await idle(run.id), true);
+  const held = await record(run.id);
+  assert.deepEqual(
+    {
+      waits: held.interrupts,
+      roles: held.messages.map((message) => message.role),
+    },
+    { waits: [], roles: ["user", "assistant", "tool", "tool", "assistant"] },
+  );
+});
+
+test("given a pause on two flagged calls, when a resume answers only one, then the route refuses it with 400 and the run still waits on both", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await called(
+    [
+      { call: "void-scarf", op: "till-void", args: { item: "scarf" } },
+      { call: "void-hat", op: "till-void", args: { item: "hat" } },
+    ],
+    "Voided.",
+  );
+  const pause = byCall(interruptsOf(run.events));
+  const wrong = await sent(run.id, run.chat, [
+    {
+      interruptId: pause[0]!.id,
+      status: "resolved",
+      payload: { approved: true },
+    },
+  ]);
+  // The route the behavior asks for ends no stream: only a code that took the answer gives one to cancel.
+  if (wrong.status !== 400) await wrong.body?.cancel();
+  const still = byCall((await record(run.id)).interrupts);
+  assert.deepEqual(
+    {
+      status: wrong.status,
+      waits: still.length,
+      calls: still.map((interrupt) => interrupt.toolCallId),
+    },
+    { status: 400, waits: 2, calls: ["void-hat", "void-scarf"] },
+  );
+  await sent(
+    run.id,
+    run.chat,
+    pause.map((interrupt) => ({
+      interruptId: interrupt.id,
+      status: "cancelled",
+    })),
+  ).then((response) => response.body?.cancel());
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a turn with one flagged call and one unflagged call, when the run reaches them, then the unflagged call runs, the pause comes after its result, and it holds the one interrupt", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await called(
+    [
+      { call: "wait-sock", op: "till-wait", args: { item: "sock" } },
+      { call: "void-sock", op: "till-void", args: { item: "sock" } },
+    ],
+    "Done.",
+  );
+  const pause = interruptsOf(run.events);
+  const result = resultOf(run.events, "wait-sock");
+  const resultAt = run.events.findIndex(
+    (e) => e.type === "TOOL_CALL_RESULT" && e.toolCallId === "wait-sock",
+  );
+  const pauseAt = run.events.findIndex((e) => e.type === "RUN_FINISHED");
+  const held = await record(run.id);
+  assert.deepEqual(
+    {
+      ended: run.ended,
+      last: run.events.at(-1)?.type,
+      ran: String(result?.content),
+      beforeThePause: resultAt >= 0 && resultAt < pauseAt,
+      pauses: run.events.filter((e) => e.type === "RUN_FINISHED").length,
+      holds: pause.map((interrupt) => [interrupt.reason, interrupt.toolCallId]),
+      flagged: resultOf(run.events, "void-sock") === undefined,
+      running: held.running,
+      waits: held.interrupts.map((interrupt) => interrupt.toolCallId),
+    },
+    {
+      ended: true,
+      last: "RUN_FINISHED",
+      ran: JSON.stringify({ item: "sock", counted: 3 }),
+      beforeThePause: true,
+      pauses: 1,
+      holds: [["tool_call", "void-sock"]],
+      flagged: true,
+      running: true,
+      waits: ["void-sock"],
+    },
+  );
+  await sent(run.id, run.chat, [
+    { interruptId: pause[0]!.id, status: "cancelled" },
+  ]).then((response) => response.body?.cancel());
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a pause on two flagged calls, when the thread is stopped, then neither op runs, the run ends, and nothing is left to wait on", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await called(
+    [
+      { call: "void-scarf", op: "till-void", args: { item: "scarf" } },
+      { call: "void-hat", op: "till-void", args: { item: "hat" } },
+    ],
+    "Voided.",
+  );
+  const pause = byCall(interruptsOf(run.events));
+  const watched = fetch(`${base}/threads/${run.id}/join`).then((r) =>
+    eventsOf(r),
+  );
+  const stopped = await fetch(`${base}/threads/${run.id}/stop`, {
+    method: "POST",
+  });
+  const joined = await watched;
+  const ended = await idle(run.id);
+  const held = await record(run.id);
+  const voided = held.messages.some((message) =>
+    JSON.stringify(message).includes('"voided":true'),
+  );
+  assert.deepEqual(
+    {
+      paused: pause.map((interrupt) => [
+        interrupt.reason,
+        interrupt.toolCallId,
+      ]),
+      stopped: await stopped.json(),
+      last: joined.events.at(-1)?.type,
+      voided,
+      ended,
+      waits: held.interrupts,
+    },
+    {
+      paused: [
+        ["tool_call", "void-hat"],
+        ["tool_call", "void-scarf"],
+      ],
+      stopped: { stopped: true },
+      last: "RUN_FINISHED",
+      voided: false,
+      ended: true,
+      waits: [],
+    },
+  );
+});
+
+test("given a run's ask, when the pause goes out, then no interrupt is a confirmation and each one names the call it asks for", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await called(
+    [
+      { call: "void-scarf", op: "till-void", args: { item: "scarf" } },
+      { call: "void-hat", op: "till-void", args: { item: "hat" } },
+    ],
+    "Voided.",
+  );
+  const pause = interruptsOf(run.events);
+  const named = (item: string) => {
+    const asking = asksFor(pause, item);
+    return [asking?.reason, asking?.toolCallId];
+  };
+  assert.deepEqual(
+    {
+      scarf: named("scarf"),
+      hat: named("hat"),
+      unnamed: pause.filter(
+        (interrupt) =>
+          interrupt.reason !== "tool_call" || !interrupt.toolCallId,
+      ).length,
+    },
+    {
+      scarf: ["tool_call", "void-scarf"],
+      hat: ["tool_call", "void-hat"],
+      unnamed: 0,
+    },
+  );
+  await sent(
+    run.id,
+    run.chat,
+    pause.map((interrupt) => ({
+      interruptId: interrupt.id,
+      status: "cancelled",
+    })),
+  ).then((response) => response.body?.cancel());
+  assert.equal(await idle(run.id), true);
 });
