@@ -47,7 +47,14 @@ import {
   RefreshCwIcon,
   SquareIcon,
 } from "lucide-react";
-import { createContext, useContext, type ComponentType, type FC } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  type ComponentType,
+  type FC,
+} from "react";
+import { useAgUiInterrupts } from "@assistant-ui/react-ag-ui";
 
 export type ThreadGroupPart = MessagePrimitive.GroupedParts.GroupPart;
 
@@ -400,7 +407,24 @@ const MessageError: FC = () => {
 
 const AssistantMessage: FC = () => {
   const { TaskGroup: TaskGroupComponent } = useContext(ThreadComponentsContext);
-  const groupBy = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
+  // A call whose interrupt the wire names still waits for a yes, even where the
+  // library's own gate does not carry its schema: its card sits outside the steps too.
+  const interrupts = useAgUiInterrupts();
+  const base = TaskGroupComponent ? taskAwareGroupBy : messageGroupBy;
+  const groupBy = useMemo(
+    () =>
+      (
+        part: Parameters<typeof messageGroupBy>[0],
+        context?: Parameters<typeof messageGroupBy>[1],
+      ) =>
+        part.type === "tool-call" &&
+        interrupts.some((interrupt) =>
+          part.toolCallId ? interrupt.toolCallId === part.toolCallId : false,
+        )
+          ? ([] as ReturnType<typeof messageGroupBy>)
+          : base(part, context),
+    [interrupts, base],
+  );
 
   const ACTION_BAR_PT = "pt-1.5";
   // Keep the action bar inside the contained root's paint box, then cancel its reserved space in flow.

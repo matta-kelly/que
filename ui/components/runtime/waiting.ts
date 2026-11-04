@@ -1,11 +1,23 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import type { AgUiInterrupt } from "@assistant-ui/react-ag-ui";
 
+/** The decisions an interrupt's op allows, as its metadata lists them: none when it lists none. */
+function decisionsOf(interrupt: AgUiInterrupt): string[] {
+  const decisions = (interrupt.metadata as { decisions?: unknown } | undefined)
+    ?.decisions;
+  return Array.isArray(decisions)
+    ? decisions.filter(
+        (decision): decision is string => typeof decision === "string",
+      )
+    : [];
+}
+
 /**
  * The thread's messages, with its last reply marked as waiting on the interrupts its run waits on, as AG-UI's runtime
  * marks a reply whose run ended on them: its status asks for action, its metadata holds the interrupts, and each tool
- * call an interrupt names carries the approval it asks for. So a chat loaded while its run waits for a yes shows the
- * question, and its answer resumes the run. With no interrupts, the messages as they are.
+ * call an interrupt names carries the approval it asks for, with the decisions the op allows. So a chat loaded while
+ * its run waits for a yes shows the question, and its answer resumes the run. With no interrupts, the messages as they
+ * are.
  */
 export function waitingOn(
   messages: readonly ThreadMessageLike[],
@@ -35,7 +47,10 @@ export function waitingOn(
                   ...(interrupt.message !== undefined
                     ? { prompt: interrupt.message }
                     : {}),
-                },
+                  ...(decisionsOf(interrupt).length
+                    ? { decisions: decisionsOf(interrupt) }
+                    : {}),
+                } as never,
               }
             : part;
         });

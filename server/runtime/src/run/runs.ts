@@ -113,7 +113,10 @@ function branchOf(decision: (typeof DECISION_TYPES)[number], op: string) {
 }
 
 /** An interrupt's schema: one branch per decision the op allows, on `type`. */
-const schemaOf = (decisions: readonly (typeof DECISION_TYPES)[number][], op: string) => ({
+const schemaOf = (
+  decisions: readonly (typeof DECISION_TYPES)[number][],
+  op: string,
+) => ({
   oneOf: decisions.map((decision) => branchOf(decision, op)),
 });
 
@@ -253,7 +256,10 @@ const opOf = (asking: Asking) =>
  * is a reject, and one whose payload names no decision is `undefined`: the route refuses the resume. A decision the op
  * does not allow is passed on, for the door to refuse as it refuses any other.
  */
-const decisionOf = (entry: ResumeEntry, asking: Asking): Decision | undefined => {
+const decisionOf = (
+  entry: ResumeEntry,
+  asking: Asking,
+): Decision | undefined => {
   if (entry.status !== "resolved") return { type: "reject" };
   const payload = entry.payload as Record<string, unknown> | null | undefined;
   if (typeof payload !== "object" || payload === null) return undefined;
@@ -356,7 +362,9 @@ export function runs(store: ThreadStore) {
           run.client = client;
           await emit(run, { type: EventType.RUN_STARTED, threadId, runId });
           for (const entry of resume)
-            asking.get(entry.interruptId)?.answer(decisions.get(entry.interruptId)!);
+            asking
+              .get(entry.interruptId)
+              ?.answer(decisions.get(entry.interruptId)!);
           await ended;
         });
       }
@@ -364,7 +372,9 @@ export function runs(store: ThreadStore) {
       const asking = run.asking;
       run.asking = new Map();
       for (const entry of resume)
-        asking.get(entry.interruptId)?.answer(decisions.get(entry.interruptId)!);
+        asking
+          .get(entry.interruptId)
+          ?.answer(decisions.get(entry.interruptId)!);
     }
     if (last?.role !== "user")
       return c.json({ error: "the last message is not the user's" }, 400);
