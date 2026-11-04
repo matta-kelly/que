@@ -9,7 +9,7 @@
  */
 
 import { checkAccessSettings, identify } from "@que/identity";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import type { User } from "@que/users";
 import { sessionHeaders } from "./server.js";
 import { sessionServer } from "./session.js";
@@ -26,6 +26,4 @@ if (identity && process.env.DATABASE_URL) {
   user = await users.ensure(identity);
 }
 
-const server = await sessionServer(user);
-
-await server.connect(new StdioServerTransport());
+serveStdio(() => sessionServer(user));

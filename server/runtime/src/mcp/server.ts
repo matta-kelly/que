@@ -7,7 +7,7 @@
  * Access JWT as `cf-access-jwt-assertion`. In dev, `DEV_USER_EMAIL` decides.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { identify } from "@que/identity";
 import type { User } from "@que/users";
 

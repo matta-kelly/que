@@ -5,7 +5,7 @@
  */
 
 import { Hono } from "hono";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { createMcpHandler } from "@modelcontextprotocol/server";
 import { sessionServer } from "./mcp/session.js";
 import { admin } from "./run/admin.js";
 import { app as api } from "./run/api.js";
@@ -19,14 +19,11 @@ app.get("/ok", (c) => c.json({ ok: true }));
 
 // The MCP mouth: a harness speaks the protocol here, on the same identity gate as every other route.
 // Stateless: each request is a session of its own, so nothing is held between requests and no session id is issued.
+// The handler serves protocol 2026-07-28, and the SDK's stateless fallback serves 2025-era traffic.
 app.post("/mcp", signedIn, async (c) => {
-  const server = await sessionServer(c.get("user"));
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  });
-  await server.connect(transport);
-  return transport.handleRequest(c.req.raw);
+  const user = c.get("user");
+  const handler = createMcpHandler(() => sessionServer(user));
+  return handler.fetch(c.req.raw);
 });
 
 // A stateless session offers no SSE stream for a GET, and nothing to end for a DELETE.

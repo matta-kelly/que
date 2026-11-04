@@ -9,7 +9,7 @@
  * HTTP is the next request.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { User } from "@que/users";
 import { door } from "../assemble/door.js";
 import { createMcpServer } from "./server.js";
