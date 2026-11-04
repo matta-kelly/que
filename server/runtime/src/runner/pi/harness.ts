@@ -318,6 +318,15 @@ function conversationFor(
 }
 
 /**
+ * What the run layer knows of each tool round, as the harness counts it: a response's calls, as their ids, and each
+ * call that has its result.
+ */
+export type Round = {
+  called: (callIds: readonly string[]) => void;
+  result: (callId: string) => void;
+};
+
+/**
  * Sends the user's message `last` on the conversation the branch rule chooses
  * for it (`before` are the ids of the messages the client sent before it),
  * and gives `send` the answer as AG-UI events until its run ends: none for a
@@ -333,6 +342,10 @@ function conversationFor(
  * The loop's `summarize` setting is set as its model's compaction. Its trace
  * names `user`, the thread and `agent`, the agent config it runs, and holds
  * `tags`.
+ *
+ * `round` tells the run layer how the harness counts the tool round: a
+ * response's calls, and each call that has a result. It is how the run layer
+ * knows when every call of a round has asked for a yes or has run.
  */
 export async function run(
   thread: string,
@@ -347,6 +360,7 @@ export async function run(
     result,
     summarize,
     ask,
+    round,
   }: {
     catalog: Catalog;
     user: string;
@@ -358,6 +372,8 @@ export async function run(
     summarize: ResolvedLoop["summarize"];
     /** How the run asks the user for a yes before a flagged op runs: with none, the op refuses. */
     ask?: Ask;
+    /** How the harness counts the tool round, for the run layer. */
+    round?: Round;
   },
   {
     runId,
@@ -404,7 +420,7 @@ export async function run(
     const own = new Promise<SubmissionId>((resolve) => (given = resolve));
     let mine = false;
     /** The tool round of the run's last response: its calls, its results so far, and those the run ends on. */
-    let round = { calls: 0, results: 0, ends: 0 };
+    let counted = { calls: 0, results: 0, ends: 0 };
     const ended = new Promise<void>((end) =>
       events.start(async (batch) => {
         const id = await own;
@@ -412,20 +428,24 @@ export async function run(
           if (event.type === "run_start") mine = event.inputs.includes(id);
           if (!mine) continue;
           for (const out of agui.of(event)) await send(out);
-          if (event.type === "message_end" && AssistantEntry.is(event.entry))
-            round = { calls: callsOf(event.entry), results: 0, ends: 0 };
+          if (event.type === "message_end" && AssistantEntry.is(event.entry)) {
+            const calls = callsOf(event.entry);
+            counted = { calls: calls.length, results: 0, ends: 0 };
+            round?.called(calls.map((call) => call.id));
+          }
           if (event.type === "tool_execution_end" && event.entry) {
-            round.results++;
+            counted.results++;
+            round?.result(event.toolCallId);
             const result = ToolResultEntry.is(event.entry)
               ? event.entry.model?.[0]
               : undefined;
             if (result?.role === "toolResult" && endsRun(result.details))
-              round.ends++;
+              counted.ends++;
             // pi ended the run itself when every result asked; one that did not keeps it going, so it is ended here.
             if (
-              round.results === round.calls &&
-              round.ends > 0 &&
-              round.ends < round.calls
+              counted.results === counted.calls &&
+              counted.ends > 0 &&
+              counted.ends < counted.calls
             )
               void endRun(conversation, id);
           }
@@ -481,7 +501,7 @@ export async function run(
 const callsOf = (entry: EntryRecord) =>
   (entry.model?.[0]?.role === "assistant" ? entry.model[0].content : []).filter(
     (block) => block.type === "toolCall",
-  ).length;
+  );
 
 /**
  * Ends the run of input `id`, if it still goes: its generation alone is

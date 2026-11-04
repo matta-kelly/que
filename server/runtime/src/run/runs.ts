@@ -13,14 +13,16 @@
  * An op that needs a yes stops the stream, not the run: the run's tool call
  * waits, and the stream ends with RUN_FINISHED whose outcome is an AG-UI
  * interrupt, `tool_call`, on that call's id, with the op and its parsed input
- * in its metadata. The client answers with a new POST whose `resume` answers
- * each interrupt: `resolved` with `{ approved: true }` runs the op, any other
- * answer refuses it, and that POST streams the rest of the run. A resume that
- * also sends a new user message answers the interrupts, and the new message
- * waits for the run, as a message sent while a run goes does. Two calls that
- * ask at once are asked one after the other. A stop, or the thread's delete,
- * refuses each call that waits. A restart of the server ends the wait with the
- * run's other work: what pi does with a tool call it cut off.
+ * in its metadata. Every call of one tool round that asks waits for the same
+ * pause: the part ends once each call of the round has asked or has run, so
+ * one resume answers the round. The client answers with a new POST whose
+ * `resume` answers each interrupt: `resolved` with `{ approved: true }` runs
+ * the op, any other answer refuses it, and that POST streams the rest of the
+ * run. A resume that also sends a new user message answers the interrupts, and
+ * the new message waits for the run, as a message sent while a run goes does.
+ * A stop, or the thread's delete, refuses each call that waits. A restart of
+ * the server ends the wait with the run's other work: what pi does with a tool
+ * call it cut off.
  *
  * GET /threads/:id/join gives a viewer the thread's run while it goes: the
  * stream it gives the client that sent it, with a MESSAGES_SNAPSHOT of the
@@ -78,7 +80,9 @@ type Asking = { interrupt: Interrupt; answer: (decision: Decision) => void };
  * - `asked`: the chat's last message before the part, the user's message first, and `placed`: whether the chat holds it
  * - `events`: the part's events so far, and `viewers`: each viewer that joined
  * - `client`: the stream of the client that sent the part, while it is open
- * - `asking`: the yeses the part ended on, by interrupt id, and `queued`: the ones asked after, which end the next part
+ * - `asking`: the yeses the part ended on, by interrupt id
+ * - `round`: the tool round the run is in, whose asks wait until every call of
+ *   it has asked or has its result, so the part ends on the round's batch
  */
 type Going = {
   threadId: string;
@@ -89,7 +93,14 @@ type Going = {
   viewers: Set<(event: AGUIEvent) => void>;
   client?: { write: (event: AGUIEvent) => Promise<unknown>; end: () => void };
   asking: Map<string, Asking>;
-  queued: Asking[];
+  round: {
+    /** The round's call ids, as its response named them. */
+    calls: Set<string>;
+    /** The calls of the round that have their result. */
+    results: Set<string>;
+    /** The asks of the round that wait in it, by call id. */
+    asks: Map<string, Asking>;
+  };
 };
 
 /** Each thread's run that goes, by the thread's id. */
@@ -106,9 +117,9 @@ export const waiting = (thread: string): Interrupt[] =>
 export function refuseWaiting(thread: string) {
   const run = going.get(thread);
   if (!run) return;
-  const all = [...run.asking.values(), ...run.queued];
+  const all = [...run.asking.values(), ...run.round.asks.values()];
   run.asking = new Map();
-  run.queued = [];
+  run.round.asks.clear();
   for (const asking of all) asking.answer({ type: "reject" });
 }
 
@@ -136,6 +147,7 @@ async function emit(run: Going, event: AGUIEvent) {
 
 /** Ends the run's part on the interrupts of `asks`: the run waits for their answers. */
 function pause(run: Going, asks: Asking[]) {
+  run.round.asks.clear();
   for (const asking of asks) run.asking.set(asking.interrupt.id, asking);
   return emit(run, {
     type: EventType.RUN_FINISHED,
@@ -146,9 +158,20 @@ function pause(run: Going, asks: Asking[]) {
 }
 
 /**
+ * Ends the run's part on its round's asks, once every call of the round has asked or has its result: one pause holds
+ * the batch, and none goes out while a call the UI cannot answer still runs.
+ */
+function settle(run: Going) {
+  const { calls, results, asks } = run.round;
+  if (!asks.size || !calls.size) return;
+  for (const call of calls) if (!asks.has(call) && !results.has(call)) return;
+  void pause(run, [...asks.values()]);
+}
+
+/**
  * The run's ask: a yes for a flagged op is an interrupt on its tool call, with the op, its parsed input and the
- * allowed decisions. The first ends the part; one asked while the run waits is queued, and ends the part that answers
- * the first. The interrupt's message is the request's description.
+ * allowed decisions. It waits in its round until every call of the round has asked or has its result, and then the
+ * round's asks end the part together. The interrupt's message is the request's description.
  */
 const askOf =
   (run: Going): Ask =>
@@ -168,8 +191,11 @@ const askOf =
         },
         answer,
       };
-      if (run.asking.size) run.queued.push(asking);
-      else void pause(run, [asking]);
+      const call = request.callId ?? asking.interrupt.id;
+      // An ask with no call id is a call of its own, so it can end the part on its own.
+      if (request.callId === undefined) run.round.calls.add(call);
+      run.round.asks.set(call, asking);
+      settle(run);
     });
 
 /**
@@ -249,7 +275,6 @@ export function runs(store: ThreadStore) {
           await emit(run, { type: EventType.RUN_STARTED, threadId, runId });
           for (const entry of resume)
             asking.get(entry.interruptId)?.answer(decisionOf(entry));
-          if (run.queued.length) await pause(run, run.queued.splice(0));
           await ended;
         });
       }
@@ -258,7 +283,6 @@ export function runs(store: ThreadStore) {
       run.asking = new Map();
       for (const entry of resume)
         asking.get(entry.interruptId)?.answer(decisionOf(entry));
-      if (run.queued.length) void pause(run, run.queued.splice(0));
     }
     if (last?.role !== "user")
       return c.json({ error: "the last message is not the user's" }, 400);
@@ -287,7 +311,7 @@ export function runs(store: ThreadStore) {
         viewers: new Set(),
         client,
         asking: new Map(),
-        queued: [],
+        round: { calls: new Set(), results: new Set(), asks: new Map() },
       };
       going.set(threadId, mine);
       const send = (event: AGUIEvent) => emit(mine, event);
@@ -310,6 +334,17 @@ export function runs(store: ThreadStore) {
           result: loop.result,
           summarize: loop.summarize,
           ask: askOf(mine),
+          round: {
+            called: (callIds) => {
+              mine.round.calls = new Set(callIds);
+              mine.round.results = new Set();
+              settle(mine);
+            },
+            result: (callId) => {
+              mine.round.results.add(callId);
+              settle(mine);
+            },
+          },
         },
         {
           runId,
