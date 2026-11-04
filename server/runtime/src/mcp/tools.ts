@@ -6,14 +6,16 @@
  */
 
 import type { Op } from "@mku1tra/que-plugin";
+import type { ToolAnnotations } from "@modelcontextprotocol/server";
 import type { PlacedOp } from "../assemble/door.js";
 import type { Catalog } from "../access/catalog.js";
 
-/** One MCP tool a mounted op gives: its name, what it does, its input, and the op behind it. */
+/** One MCP tool a mounted op gives: its name, what it does, its input, the hints a host reads, and the op behind it. */
 export type McpTool = {
   name: string;
   description: string;
   input: Op["input"];
+  annotations?: ToolAnnotations;
   placed: PlacedOp;
 };
 

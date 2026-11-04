@@ -12,7 +12,12 @@ import type { Catalog } from "../access/catalog.js";
 import type { MountedPlugin } from "../mount/plugins.js";
 import { toolsOf } from "./tools.js";
 
-type GivenOp = { name: string; description: string; input: z.ZodObject };
+type GivenOp = {
+  name: string;
+  description: string;
+  input: z.ZodObject;
+  approval?: true;
+};
 
 /** A mounted plugin, as mount gives one, with only what the tools read. */
 function plugin(name: string, ops: GivenOp[]): MountedPlugin {
@@ -23,12 +28,13 @@ function plugin(name: string, ops: GivenOp[]): MountedPlugin {
       title: name,
       description: `The ${name} plugin.`,
     },
-    ops: ops.map(({ name: op, description, input }) => ({
+    ops: ops.map(({ name: op, description, input, approval }) => ({
       name: op,
       type: "op",
       title: op,
       description,
       input,
+      ...(approval === undefined ? {} : { approval }),
       run: async () => ({}),
     })),
     roles: [],
@@ -73,6 +79,34 @@ test("given a catalog whose plugin till holds ops notes and search, when the too
   assert.equal(search.input, searchOp.input);
   assert.equal(search.placed.plugin.name, "till");
   assert.equal(search.placed.op.name, "search");
+});
+
+test("given a catalog whose plugin holds a flagged op and an unflagged one, when the tools are generated, then the flagged op's tool says destructiveHint and the unflagged one's does not", () => {
+  const item = z.object({ item: z.string().describe("The item's name") });
+  const till = plugin("till", [
+    {
+      name: "void",
+      description: "Voids an item's sale.",
+      input: item,
+      approval: true,
+    },
+    { name: "count", description: "Counts an item.", input: item },
+  ]);
+
+  const tools = toolsOf(catalog(till));
+  const voided = tools.find((tool) => tool.name === "till.void")!;
+  const counted = tools.find((tool) => tool.name === "till.count")!;
+
+  assert.equal(
+    voided.annotations?.destructiveHint,
+    true,
+    "the flagged op's tool does not say destructiveHint",
+  );
+  assert.notEqual(
+    counted.annotations?.destructiveHint,
+    true,
+    "the unflagged op's tool says destructiveHint",
+  );
 });
 
 test("given an op named Notes, when the tools are generated, then its tool is till.notes", () => {

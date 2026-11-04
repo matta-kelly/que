@@ -108,6 +108,9 @@ const posted = (headers: Record<string, string>, message: unknown) =>
     body: JSON.stringify(message),
   });
 
+/** The capabilities of a 2026-07-28 client that can show a form: the envelope declares the form elicitation it can show. */
+const FORM = { elicitation: { form: {} } };
+
 /**
  * One MCP message to POST /mcp as a 2026-07-28 client posts it: the per-request
  * envelope in `params._meta`, and the standard `MCP-Protocol-Version` and
@@ -119,6 +122,7 @@ const modern = (
   id: number,
   method: string,
   params: Record<string, unknown> = {},
+  capabilities: Record<string, unknown> = {},
 ) => {
   if (email === null) delete process.env.DEV_USER_EMAIL;
   else process.env.DEV_USER_EMAIL = email;
@@ -141,20 +145,36 @@ const modern = (
         _meta: {
           "io.modelcontextprotocol/protocolVersion": "2026-07-28",
           "io.modelcontextprotocol/clientInfo": { name: "test", version: "0" },
-          "io.modelcontextprotocol/clientCapabilities": {},
+          "io.modelcontextprotocol/clientCapabilities": capabilities,
         },
       },
     }),
   });
 };
 
+/** One embedded input request a 2026-07-28 answer carries: an elicitation, with its message and form. */
+type Ask = {
+  method?: string;
+  params?: {
+    message?: string;
+    requestedSchema?: {
+      type?: string;
+      properties?: Record<string, unknown>;
+    };
+  };
+};
+
 /** A JSON-RPC message an MCP answer carries: the JSON body, or the last data line of an SSE stream. */
 type Reply = {
   result?: {
-    tools?: { name: string }[];
+    tools?: { name: string; annotations?: { destructiveHint?: boolean } }[];
     isError?: boolean;
     content?: { type: string; text: string }[];
+    resultType?: string;
+    inputRequests?: Record<string, Ask>;
+    requestState?: string;
   };
+  error?: { code: number; message: string; data?: unknown };
 };
 
 /** The JSON-RPC message an MCP answer carries, or nothing when the answer has no MCP body. */
@@ -190,6 +210,58 @@ const answerOf = (reply: Reply | undefined) => {
   assert.equal(content[0]?.type, "text");
   return JSON.parse(content[0]!.text) as unknown;
 };
+
+/** The text a tool call's one content part carries, as it is. */
+const textIn = (reply: Reply | undefined) => {
+  const content = reply?.result?.content ?? [];
+  assert.equal(
+    content.length,
+    1,
+    `the call's answer is not one content part: ${JSON.stringify(reply)}`,
+  );
+  assert.equal(content[0]?.type, "text");
+  return content[0]!.text;
+};
+
+/**
+ * The ask a 2026-07-28 client gets for `till-void`: the key its retry answers,
+ * the embedded request, and the `requestState` that comes with it. The ask's
+ * shape is asserted here, so each test that retries starts from a real ask.
+ */
+async function askedForVoid(email: string, id: number) {
+  const res = await modern(
+    email,
+    id,
+    "tools/call",
+    { name: "till.till-void", arguments: { item: "apple" } },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+  const result = reply?.result;
+  assert.equal(
+    result?.resultType,
+    "input_required",
+    `the call did not ask: ${replyText}`,
+  );
+  const requests = result?.inputRequests ?? {};
+  const keys = Object.keys(requests);
+  assert.equal(
+    keys.length,
+    1,
+    `the answer asks ${keys.length} things, not one: ${replyText}`,
+  );
+  assert.equal(
+    typeof result?.requestState,
+    "string",
+    `the ask came with no requestState: ${replyText}`,
+  );
+  return {
+    key: keys[0]!,
+    request: requests[keys[0]!]!,
+    state: result!.requestState!,
+  };
+}
 
 /** The team's key pair, and another's, for the tokens the Access settings must tell apart. */
 const team = await generateKeyPair("RS256");
@@ -621,5 +693,364 @@ test("given a signed-in user, when a DELETE is sent to /mcp, then the answer is 
     res.status,
     405,
     `a DELETE to /mcp answered ${res.status}: ${text}`,
+  );
+});
+
+test("given a 2026-07-28 client that declares form elicitation, when it calls the flagged till-void, then the answer asks once for the op's description with an empty flat form, the op has not run, and the ask carries a requestState", async () => {
+  const email = "ivy.http@example.com";
+  await grant(email, "Ivy Http", "till-domain");
+  await saveKey(email);
+
+  const res = await modern(
+    email,
+    1,
+    "tools/call",
+    { name: "till.till-void", arguments: { item: "apple" } },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+  const result = reply?.result;
+
+  assert.equal(
+    result?.resultType,
+    "input_required",
+    `the call did not ask before it ran: ${replyText}`,
+  );
+  assert.equal(
+    result?.content,
+    undefined,
+    `the op ran before the user answered: ${replyText}`,
+  );
+  const requests = result?.inputRequests ?? {};
+  const keys = Object.keys(requests);
+  assert.equal(
+    keys.length,
+    1,
+    `the ask is not one embedded request: ${replyText}`,
+  );
+  const ask = requests[keys[0]!]!;
+  assert.equal(
+    ask.method,
+    "elicitation/create",
+    `the embedded request is not an elicitation: ${replyText}`,
+  );
+  assert.equal(
+    ask.params?.message,
+    "Void: run till-void with this input?",
+    `the elicitation's message is not the call's description: ${replyText}`,
+  );
+  assert.equal(
+    ask.params?.requestedSchema?.type,
+    "object",
+    `the elicitation's form is not an object: ${replyText}`,
+  );
+  assert.deepEqual(
+    ask.params?.requestedSchema?.properties,
+    {},
+    `the elicitation's form is not empty and flat: ${replyText}`,
+  );
+  assert.equal(
+    typeof result?.requestState,
+    "string",
+    `the ask came with no requestState: ${replyText}`,
+  );
+  assert.notEqual(
+    result?.requestState,
+    "",
+    `the ask came with an empty requestState: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client's ask for till-void, when it retries with an accept, then till-void runs with the call's args and the answer is the op's result", async () => {
+  const email = "jo.http@example.com";
+  await grant(email, "Jo Http", "till-domain");
+  await saveKey(email);
+
+  const { key, state } = await askedForVoid(email, 1);
+  const res = await modern(
+    email,
+    2,
+    "tools/call",
+    {
+      name: "till.till-void",
+      arguments: { item: "apple" },
+      requestState: state,
+      inputResponses: { [key]: { action: "accept", content: {} } },
+    },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+
+  assert.notEqual(
+    reply?.result?.isError,
+    true,
+    `the answered call failed: ${replyText}`,
+  );
+  assert.deepEqual(
+    answerOf(reply),
+    { conn: "till:the-key", item: "apple", voided: true },
+    `the call did not run with the first call's args: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client's ask for till-void, when it retries with a decline, then till-void does not run, and the answer is an error that says the user declined and the call did not run", async () => {
+  const email = "kai.http@example.com";
+  await grant(email, "Kai Http", "till-domain");
+  await saveKey(email);
+
+  const { key, state } = await askedForVoid(email, 1);
+  const res = await modern(
+    email,
+    2,
+    "tools/call",
+    {
+      name: "till.till-void",
+      arguments: { item: "apple" },
+      requestState: state,
+      inputResponses: { [key]: { action: "decline" } },
+    },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+
+  assert.equal(
+    reply?.result?.isError,
+    true,
+    `a declined call did not fail: ${replyText}`,
+  );
+  const reason = textIn(reply);
+  assert.match(
+    reason,
+    /declined/i,
+    `the refusal does not say the user declined: ${replyText}`,
+  );
+  assert.match(
+    reason,
+    /did not run/i,
+    `the refusal does not say the call did not run: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client's ask for till-void, when it retries with a cancel, then till-void does not run, and the answer is an error that says the user dismissed the ask and the call did not run", async () => {
+  const email = "lex.http@example.com";
+  await grant(email, "Lex Http", "till-domain");
+  await saveKey(email);
+
+  const { key, state } = await askedForVoid(email, 1);
+  const res = await modern(
+    email,
+    2,
+    "tools/call",
+    {
+      name: "till.till-void",
+      arguments: { item: "apple" },
+      requestState: state,
+      inputResponses: { [key]: { action: "cancel" } },
+    },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+
+  assert.equal(
+    reply?.result?.isError,
+    true,
+    `a cancelled call did not fail: ${replyText}`,
+  );
+  const reason = textIn(reply);
+  assert.match(
+    reason,
+    /dismiss/i,
+    `the refusal does not say the user dismissed the ask: ${replyText}`,
+  );
+  assert.match(
+    reason,
+    /did not run/i,
+    `the refusal does not say the call did not run: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client's ask for till-void, when it retries with different args, then till-void does not run, and the call asks again or refuses with a reason", async () => {
+  const email = "mo.http@example.com";
+  await grant(email, "Mo Http", "till-domain");
+  await saveKey(email);
+
+  const { key, state } = await askedForVoid(email, 1);
+  const res = await modern(
+    email,
+    2,
+    "tools/call",
+    {
+      name: "till.till-void",
+      arguments: { item: "pear" },
+      requestState: state,
+      inputResponses: { [key]: { action: "accept", content: {} } },
+    },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+
+  assert.equal(
+    reply?.result?.isError === undefined &&
+      reply?.result?.content !== undefined,
+    false,
+    `till-void ran on args that differ from the ask's: ${replyText}`,
+  );
+  const askedAgain = reply?.result?.resultType === "input_required";
+  const reason =
+    reply?.error?.message ??
+    (reply?.result?.isError === true ? textIn(reply) : "");
+  assert.ok(
+    askedAgain || /state|args|differ/i.test(reason),
+    `the call neither asked again nor refused with a reason about the changed args: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client's ask for till-void, when another user retries with that requestState, then till-void does not run, and the call asks again or refuses with a reason", async () => {
+  const ana = "nina.http@example.com";
+  const bo = "oskar.http@example.com";
+  await grant(ana, "Nina Http", "till-domain");
+  await grant(bo, "Oskar Http", "till-domain");
+  await saveKey(ana);
+  await saveKey(bo);
+
+  const { key, state } = await askedForVoid(ana, 1);
+  const res = await modern(
+    bo,
+    2,
+    "tools/call",
+    {
+      name: "till.till-void",
+      arguments: { item: "apple" },
+      requestState: state,
+      inputResponses: { [key]: { action: "accept", content: {} } },
+    },
+    FORM,
+  );
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+
+  assert.equal(
+    reply?.result?.isError === undefined &&
+      reply?.result?.content !== undefined,
+    false,
+    `till-void ran on another user's ask: ${replyText}`,
+  );
+  const askedAgain = reply?.result?.resultType === "input_required";
+  const reason =
+    reply?.error?.message ??
+    (reply?.result?.isError === true ? textIn(reply) : "");
+  assert.ok(
+    askedAgain || /state|user|expired|invalid/i.test(reason),
+    `the call neither asked again nor refused with a reason about the other user's state: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client that declares no elicitation, when it calls till-void, then the op does not run, and the error says the op needs a yes, that the client does not declare elicitation, and that the call did not run", async () => {
+  const email = "pia.http@example.com";
+  await grant(email, "Pia Http", "till-domain");
+  await saveKey(email);
+
+  const res = await modern(email, 1, "tools/call", {
+    name: "till.till-void",
+    arguments: { item: "apple" },
+  });
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+  const reason =
+    reply?.error?.message ??
+    (reply?.result?.isError === true ? textIn(reply) : "");
+
+  assert.match(
+    reason,
+    /needs a yes/i,
+    `the error does not say the op needs a yes: ${replyText}`,
+  );
+  assert.match(
+    reason,
+    /elicit/i,
+    `the error does not say the client declares no elicitation: ${replyText}`,
+  );
+  assert.match(
+    reason,
+    /did not run/i,
+    `the error does not say the call did not run: ${replyText}`,
+  );
+});
+
+test("given a 2025-era client over HTTP, when it calls till-void, then the op does not run, and the error says the op needs a yes and que's stateless HTTP mouth can ask only a 2026-07-28 client", async () => {
+  const email = "quinn.http@example.com";
+  await grant(email, "Quinn Http", "till-domain");
+  await saveKey(email);
+
+  const init = await post(email, initialize);
+  assert.equal(
+    init.status,
+    200,
+    `the 2025-era initialize answered ${init.status}: ${await init.text()}`,
+  );
+  const call = await post(
+    email,
+    rpc(2, "tools/call", {
+      name: "till.till-void",
+      arguments: { item: "apple" },
+    }),
+  );
+  const replyText = await call.text();
+  const reply = answered(replyText, call.headers.get("content-type"));
+
+  assert.equal(
+    reply?.result?.isError,
+    true,
+    `a 2025-era call of till-void did not fail: ${replyText}`,
+  );
+  const reason = textIn(reply);
+  assert.match(
+    reason,
+    /needs a yes/i,
+    `the refusal does not say the op needs a yes: ${replyText}`,
+  );
+  assert.match(
+    reason,
+    /stateless HTTP/i,
+    `the refusal does not name que's stateless HTTP mouth: ${replyText}`,
+  );
+  assert.match(
+    reason,
+    /2026-07-28/,
+    `the refusal does not name the revision that can be asked: ${replyText}`,
+  );
+});
+
+test("given a 2026-07-28 client, when it lists the tools, then the flagged till-void's tool says destructiveHint, and the unflagged till-count's does not", async () => {
+  const email = "rae.http@example.com";
+  await grant(email, "Rae Http", "till-domain");
+  await saveKey(email);
+
+  const res = await modern(email, 1, "tools/list");
+  const replyText = await res.text();
+  const reply = answered(replyText, res.headers.get("content-type"));
+  const voided = reply?.result?.tools?.find(
+    (tool) => tool.name === "till.till-void",
+  );
+  const counted = reply?.result?.tools?.find(
+    (tool) => tool.name === "till.till-count",
+  );
+
+  assert.ok(voided, `tools/list names no till.till-void: ${replyText}`);
+  assert.ok(counted, `tools/list names no till.till-count: ${replyText}`);
+  assert.equal(
+    voided.annotations?.destructiveHint,
+    true,
+    `the flagged op's tool does not say destructiveHint: ${replyText}`,
+  );
+  assert.notEqual(
+    counted.annotations?.destructiveHint,
+    true,
+    `the unflagged op's tool says destructiveHint: ${replyText}`,
   );
 });

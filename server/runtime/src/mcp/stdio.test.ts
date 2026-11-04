@@ -25,6 +25,11 @@ import {
   getDefaultEnvironment,
   StdioClientTransport,
 } from "@modelcontextprotocol/sdk/client/stdio.js";
+import {
+  ElicitRequestSchema,
+  type ElicitRequest,
+  type ElicitResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
 
 /** How the runner starts the server, and how this test starts it too. */
@@ -63,6 +68,12 @@ delete process.env.QUE_ACCESS_JWT;
 
 const { grant } = await import("../../../tests/integration/grants.js");
 const { users } = await import("../access/users.js");
+const { access } = await import("../access/connections.js");
+const { plugins } = await import("../mount/mounted.js");
+
+// The prompt deployment's till, whose key the approval tests save as the user's own.
+const till = plugins.find((p) => p.definition.plugin.name === "till");
+if (!till) throw new Error("the prompt deployment mounts no till");
 
 after(async () => {
   // A connection a subprocess opened may still be on its way: let it land before the database goes.
@@ -150,6 +161,41 @@ async function withServer<T>(
   const { client, noise } = await connect(overrides);
   try {
     return { value: await run(client), noise };
+  } finally {
+    await client.close();
+  }
+}
+
+/**
+ * Runs `run` against a server subprocess with `overrides`, as a client that
+ * declares form elicitation: `decide` answers each ask, and `asks` gives each
+ * request the server made, in order.
+ */
+async function withFormServer<T>(
+  overrides: Record<string, string>,
+  decide: (ask: ElicitRequest["params"]) => ElicitResult,
+  run: (client: Client) => Promise<T>,
+): Promise<{ value: T; asks: ElicitRequest["params"][]; noise: string[] }> {
+  const transport = new StdioClientTransport({
+    ...command,
+    env: env(overrides),
+    stderr: "pipe",
+  });
+  const noise: string[] = [];
+  transport.stderr?.on("data", (chunk) => noise.push(String(chunk)));
+  const client = new Client(
+    { name: "que-mcp-test", version: "0.0.0" },
+    { capabilities: { elicitation: { form: {} } } },
+  );
+  client.onerror = (error) => noise.push(`protocol: ${String(error)}`);
+  const asks: ElicitRequest["params"][] = [];
+  client.setRequestHandler(ElicitRequestSchema, async (request) => {
+    asks.push(request.params);
+    return decide(request.params);
+  });
+  await client.connect(transport);
+  try {
+    return { value: await run(client), asks, noise };
   } finally {
     await client.close();
   }
@@ -336,6 +382,96 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
       `the answer is not the op's result: ${content[0]!.text}`,
     );
   }
+});
+
+test("given a 2025-era client over stdio that declares form elicitation, when it calls the flagged till-void and accepts the ask, then the ask is the op's description with an empty flat form, and the call runs with the op's result", async () => {
+  const email = "sam.stdio@example.com";
+  const id = await grant(email, "Sam Stdio", "till-domain");
+  await access.setCredential(till.definition.plugin, id, { key: "the-key" });
+
+  const { value, asks, noise } = await withFormServer(
+    { ...que(), DEV_USER_EMAIL: email },
+    () => ({ action: "accept", content: {} }),
+    (client) =>
+      client.callTool({ name: "till.till-void", arguments: { item: "apple" } }),
+  );
+
+  assert.equal(
+    asks.length,
+    1,
+    `the call asked ${asks.length} times: ${noise.join("")}`,
+  );
+  const ask = asks[0] as {
+    message: string;
+    requestedSchema: { type?: string; properties?: unknown };
+  };
+  assert.equal(
+    ask.message,
+    "Void: run till-void with this input?",
+    `the elicitation's message is not the call's description: ${JSON.stringify(ask)}`,
+  );
+  assert.equal(
+    ask.requestedSchema.type,
+    "object",
+    `the elicitation's form is not an object: ${JSON.stringify(ask)}`,
+  );
+  assert.deepEqual(
+    ask.requestedSchema.properties,
+    {},
+    `the elicitation's form is not empty and flat: ${JSON.stringify(ask)}`,
+  );
+  assert.notEqual(
+    value.isError,
+    true,
+    `the accepted call failed: ${text(value)}`,
+  );
+  const content = value.content as { type: string; text: string }[];
+  assert.equal(
+    content.length,
+    1,
+    `the answer is not one content part: ${JSON.stringify(content)}`,
+  );
+  assert.equal(content[0]?.type, "text");
+  assert.deepEqual(
+    JSON.parse(content[0]!.text),
+    { conn: "till:the-key", item: "apple", voided: true },
+    `the call did not run with the op's result: ${content[0]!.text}`,
+  );
+});
+
+test("given a 2025-era client over stdio that declares form elicitation, when it calls the flagged till-void and declines the ask, then the op does not run, and the result is an error that says the user declined and the call did not run", async () => {
+  const email = "tess.stdio@example.com";
+  const id = await grant(email, "Tess Stdio", "till-domain");
+  await access.setCredential(till.definition.plugin, id, { key: "the-key" });
+
+  const { value, asks, noise } = await withFormServer(
+    { ...que(), DEV_USER_EMAIL: email },
+    () => ({ action: "decline" }),
+    (client) =>
+      client.callTool({ name: "till.till-void", arguments: { item: "apple" } }),
+  );
+
+  assert.equal(
+    asks.length,
+    1,
+    `the call asked ${asks.length} times: ${noise.join("")}`,
+  );
+  assert.equal(
+    value.isError,
+    true,
+    `a declined call did not fail: ${text(value)}`,
+  );
+  const reason = text(value);
+  assert.match(
+    reason,
+    /declined/i,
+    `the refusal does not say the user declined: ${reason}`,
+  );
+  assert.match(
+    reason,
+    /did not run/i,
+    `the refusal does not say the call did not run: ${reason}`,
+  );
 });
 
 test("given a deployment folder, when one session starts, then the deployment's ops are changed on disk, then a second session starts, then the second session lists the changed tools", async () => {
