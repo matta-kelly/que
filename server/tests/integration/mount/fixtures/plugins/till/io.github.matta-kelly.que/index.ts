@@ -78,6 +78,19 @@ export default definePlugin({
       run: async ({ conn }, { item }) => ({ conn, item, voided: true }),
     },
     {
+      name: "till-note",
+      type: "op",
+      title: "Note",
+      description:
+        "Notes what the user says about an item: a read, so the user may answer in the till's place.",
+      approval: {
+        description: "Note: what should the till hold about this item?",
+        decisions: ["approve", "reject", "respond"],
+      },
+      input: z.object({ item: z.string().describe("The item's name") }),
+      run: async ({ conn }, { item }) => ({ conn, item, noted: true }),
+    },
+    {
       name: "till-jam",
       type: "op",
       title: "Jam",

@@ -372,6 +372,7 @@ test("given a user granted the deployment's domain, when the session posts initi
     [
       "till.till-count",
       "till.till-jam",
+      "till.till-note",
       "till.till-stall",
       "till.till-tally",
       "till.till-void",
@@ -633,6 +634,7 @@ test("given a user on protocol 2026-07-28, when the session posts tools/list and
     [
       "till.till-count",
       "till.till-jam",
+      "till.till-note",
       "till.till-stall",
       "till.till-tally",
       "till.till-void",

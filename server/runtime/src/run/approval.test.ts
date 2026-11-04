@@ -171,6 +171,9 @@ type Interrupt = {
   reason: string;
   toolCallId?: string;
   message?: string;
+  responseSchema?: {
+    oneOf?: { required?: string[]; properties?: Record<string, unknown> }[];
+  };
   metadata?: unknown;
 };
 
@@ -233,6 +236,38 @@ async function asked(item: string, then: string) {
 }
 
 /**
+ * A run on a new thread in which the model calls `till-note` for `item`, then answers `then`: the stream the first POST
+ * gives, which ends on the yes the op asks. Its thread, the call's id, and the messages the client then holds.
+ */
+async function noted(item: string, then: string) {
+  const id = await thread();
+  const call = `note-${item}`;
+  const u1 = user(`Note the ${item}.`);
+  faux.setResponses([
+    fauxAssistantMessage(
+      [fauxText("Noting. "), fauxToolCall("till-note", { item }, { id: call })],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage(fauxText(then)),
+  ]);
+  const { events, ended } = await eventsOf(await sent(id, [u1]));
+  const start = events.find((e) => e.type === "TOOL_CALL_START");
+  const a1: Message = {
+    id: String(start?.parentMessageId),
+    role: "assistant",
+    content: "Noting. ",
+    toolCalls: [
+      {
+        id: call,
+        type: "function",
+        function: { name: "till-note", arguments: JSON.stringify({ item }) },
+      },
+    ],
+  };
+  return { id, call, chat: [u1, a1], events, ended };
+}
+
+/**
  * A run on a new thread in which the model calls each of `calls` in one turn, then answers `then`: the stream the first
  * POST gives, which ends on the yes the flagged calls ask, and the chat the client holds after it.
  */
@@ -286,6 +321,16 @@ const asksFor = (interrupts: Interrupt[], item: string) =>
 const resultOf = (events: Event[], call: string) =>
   events.find((e) => e.type === "TOOL_CALL_RESULT" && e.toolCallId === call);
 
+/** A call's result as a value when it is JSON, and as its text when it is not: a failed call is text. */
+const jsonOf = (events: Event[], call: string) => {
+  const content = String(resultOf(events, call)?.content);
+  try {
+    return JSON.parse(content) as unknown;
+  } catch {
+    return content;
+  }
+};
+
 const said = (events: Event[], text: string) =>
   events.some(
     (e) => e.type === "TEXT_MESSAGE_CONTENT" && String(e.delta).includes(text),
@@ -327,7 +372,7 @@ test("given a run whose model calls an op that needs a yes, when the op is calle
   assert.equal(await idle(run.id), true);
 });
 
-test("given a run that waits on a yes, when the client resumes it with approved: true, then the resume's stream runs the op on the user's connection, gives its result and the model's answer, and ends the run with nothing left to wait on", async () => {
+test("given a run that waits on a yes, when the client resumes it with {type: approve}, then the resume's stream runs the op on the user's connection, gives its result and the model's answer, and ends the run with nothing left to wait on", async () => {
   await signIn("ana@example.com", "ana-key");
   const run = await asked("hat", "Voided.");
   const [interrupt] = interruptsOf(run.events);
@@ -336,11 +381,10 @@ test("given a run that waits on a yes, when the client resumes it with approved:
       {
         interruptId: interrupt!.id,
         status: "resolved",
-        payload: { approved: true },
+        payload: { type: "approve" },
       },
     ]),
   );
-  const result = resultOf(resumed.events, run.call);
   assert.equal(await idle(run.id), true);
   const held = await record(run.id);
   assert.deepEqual(
@@ -348,7 +392,7 @@ test("given a run that waits on a yes, when the client resumes it with approved:
       first: resumed.events[0]?.type,
       last: resumed.events.at(-1)?.type,
       outcome: resumed.events.at(-1)?.outcome,
-      result: JSON.parse(String(result?.content)),
+      result: jsonOf(resumed.events, run.call),
       answered: said(resumed.events, "Voided."),
       waits: held.interrupts,
       roles: held.messages.map((m) => m.role),
@@ -365,7 +409,7 @@ test("given a run that waits on a yes, when the client resumes it with approved:
   );
 });
 
-test("given a run that waits on a yes, when the client resumes it with approved: false, then the op does not run, the model gets a failed call that says the user declined, and the run goes on to its answer", async () => {
+test("given a run that waits on a yes, when the client resumes it with {type: reject, message}, then the op does not run, the model gets a failed call that holds the message, and the run goes on to its answer", async () => {
   await signIn("ana@example.com", "ana-key");
   const run = await asked("belt", "Left as it is.");
   const [interrupt] = interruptsOf(run.events);
@@ -374,7 +418,7 @@ test("given a run that waits on a yes, when the client resumes it with approved:
       {
         interruptId: interrupt!.id,
         status: "resolved",
-        payload: { approved: false },
+        payload: { type: "reject", message: "The belt is fine." },
       },
     ]),
   );
@@ -382,11 +426,18 @@ test("given a run that waits on a yes, when the client resumes it with approved:
   assert.deepEqual(
     {
       declined: result.includes("the user declined: the call did not run"),
+      message: result.includes("The belt is fine."),
       voided: result.includes("voided"),
       answered: said(resumed.events, "Left as it is."),
       last: resumed.events.at(-1)?.type,
     },
-    { declined: true, voided: false, answered: true, last: "RUN_FINISHED" },
+    {
+      declined: true,
+      message: true,
+      voided: false,
+      answered: true,
+      last: "RUN_FINISHED",
+    },
   );
   assert.equal(await idle(run.id), true);
 });
@@ -396,7 +447,11 @@ test("given a run that waits on a yes, when a resume answers another interrupt, 
   const run = await asked("sock", "Voided.");
   const [interrupt] = interruptsOf(run.events);
   const wrong = await sent(run.id, run.chat, [
-    { interruptId: "not-one", status: "resolved", payload: { approved: true } },
+    {
+      interruptId: "not-one",
+      status: "resolved",
+      payload: { type: "approve" },
+    },
   ]);
   const twice = await sent(run.id, run.chat, [
     { interruptId: interrupt!.id, status: "cancelled" },
@@ -540,12 +595,12 @@ test("given a pause on two flagged calls, when one resume answers both, then eac
       {
         interruptId: hat?.id ?? "",
         status: "resolved",
-        payload: { approved: true },
+        payload: { type: "approve" },
       },
       {
         interruptId: scarf?.id ?? "",
         status: "resolved",
-        payload: { approved: false },
+        payload: { type: "reject" },
       },
     ]),
   );
@@ -600,7 +655,7 @@ test("given a pause on two flagged calls, when a resume answers only one, then t
     {
       interruptId: pause[0]!.id,
       status: "resolved",
-      payload: { approved: true },
+      payload: { type: "approve" },
     },
   ]);
   // The route the behavior asks for ends no stream: only a code that took the answer gives one to cancel.
@@ -756,5 +811,267 @@ test("given a run's ask, when the pause goes out, then no interrupt is a confirm
       status: "cancelled",
     })),
   ).then((response) => response.body?.cancel());
+  assert.equal(await idle(run.id), true);
+});
+
+type Branch = {
+  required?: string[];
+  properties?: {
+    type?: { const?: string };
+    edited_action?: unknown;
+    message?: unknown;
+  };
+};
+
+/** The decision each branch of a pause's schema matches, on its `type`. */
+const branchTypes = (interrupt: Interrupt | undefined) =>
+  (interrupt?.responseSchema?.oneOf ?? []).map(
+    (branch) => (branch as Branch).properties?.type?.const,
+  );
+
+/** The branch of a pause's schema that matches `decision`, on its `type`. */
+const branchFor = (interrupt: Interrupt | undefined, decision: string) =>
+  (interrupt?.responseSchema?.oneOf ?? []).find(
+    (branch) => (branch as Branch).properties?.type?.const === decision,
+  ) as Branch | undefined;
+
+test("given a pause, then each interrupt's responseSchema has one branch per allowed decision, on type, and its metadata lists the decisions", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const voided = await asked("scarf", "Voided.");
+  const notedRun = await noted("scarf", "Noted.");
+  const [voidInterrupt] = interruptsOf(voided.events);
+  const [noteInterrupt] = interruptsOf(notedRun.events);
+  const edit = branchFor(voidInterrupt, "edit");
+  const edited = edit?.properties?.edited_action as
+    | { required?: string[]; properties?: Record<string, { const?: string }> }
+    | undefined;
+  const respond = branchFor(noteInterrupt, "respond");
+  const message = respond?.properties?.message as { type?: string } | undefined;
+  assert.deepEqual(
+    {
+      void: {
+        branches: branchTypes(voidInterrupt),
+        required: (voidInterrupt?.responseSchema?.oneOf ?? []).map((branch) =>
+          (branch as Branch).required?.includes("type"),
+        ),
+        metadata: voidInterrupt?.metadata,
+      },
+      note: {
+        branches: branchTypes(noteInterrupt),
+        metadata: noteInterrupt?.metadata,
+      },
+      // The edit branch names the call it may change, and the respond branch holds its message.
+      edit: {
+        requiresTheAction: edit?.required?.includes("edited_action"),
+        requiresANameAndArgs:
+          edited?.required?.includes("name") &&
+          edited?.required?.includes("args"),
+        name: edited?.properties?.name?.const,
+      },
+      respond: {
+        requiresTheMessage: respond?.required?.includes("message"),
+        message: message?.type,
+      },
+    },
+    {
+      void: {
+        branches: ["approve", "edit", "reject"],
+        required: [true, true, true],
+        metadata: {
+          plugin: "till",
+          op: "till-void",
+          input: { item: "scarf" },
+          decisions: ["approve", "edit", "reject"],
+        },
+      },
+      note: {
+        branches: ["approve", "reject", "respond"],
+        metadata: {
+          plugin: "till",
+          op: "till-note",
+          input: { item: "scarf" },
+          decisions: ["approve", "reject", "respond"],
+        },
+      },
+      edit: {
+        requiresTheAction: true,
+        requiresANameAndArgs: true,
+        name: "till-void",
+      },
+      respond: { requiresTheMessage: true, message: "string" },
+    },
+  );
+  for (const run of [voided, notedRun])
+    await sent(
+      run.id,
+      run.chat,
+      interruptsOf(run.events).map((interrupt) => ({
+        interruptId: interrupt.id,
+        status: "cancelled",
+      })),
+    ).then((response) => response.body?.cancel());
+  assert.equal(await idle(voided.id), true);
+  assert.equal(await idle(notedRun.id), true);
+});
+
+test("given a run that waits on a yes, when the client resumes it with an edit of the call, then the op runs with the edited args and the model gets that result", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await asked("scarf", "Edited.");
+  const [interrupt] = interruptsOf(run.events);
+  const resumed = await eventsOf(
+    await sent(run.id, run.chat, [
+      {
+        interruptId: interrupt!.id,
+        status: "resolved",
+        payload: {
+          type: "edit",
+          edited_action: { name: "till-void", args: { item: "coat" } },
+        },
+      },
+    ]),
+  );
+  assert.deepEqual(
+    {
+      first: resumed.events[0]?.type,
+      last: resumed.events.at(-1)?.type,
+      result: jsonOf(resumed.events, run.call),
+      answered: said(resumed.events, "Edited."),
+      waits: (await record(run.id)).interrupts,
+    },
+    {
+      first: "RUN_STARTED",
+      last: "RUN_FINISHED",
+      result: { conn: "till:ana-key", item: "coat", voided: true },
+      answered: true,
+      waits: [],
+    },
+  );
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a run that waits on a yes, when the client resumes it with an edit whose name is not the call's, then it is a reject that says so and the op does not run", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await asked("scarf", "Left as it is.");
+  const [interrupt] = interruptsOf(run.events);
+  const resumed = await eventsOf(
+    await sent(run.id, run.chat, [
+      {
+        interruptId: interrupt!.id,
+        status: "resolved",
+        payload: {
+          type: "edit",
+          edited_action: { name: "till-count", args: { item: "scarf" } },
+        },
+      },
+    ]),
+  );
+  const result = String(resultOf(resumed.events, run.call)?.content);
+  assert.deepEqual(
+    {
+      declined: result.includes("the user declined: the call did not run"),
+      namesTheCall: result.includes("till-void"),
+      namesTheEdit: result.includes("till-count"),
+      voided: result.includes("voided"),
+      answered: said(resumed.events, "Left as it is."),
+    },
+    {
+      declined: true,
+      namesTheCall: true,
+      namesTheEdit: true,
+      voided: false,
+      answered: true,
+    },
+  );
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a run that waits on a yes whose op allows respond, when the client resumes it with respond, then the op does not run and the model's tool result is the message", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await noted("scarf", "Noted.");
+  const [interrupt] = interruptsOf(run.events);
+  const message = "The scarf is not for sale.";
+  const resumed = await eventsOf(
+    await sent(run.id, run.chat, [
+      {
+        interruptId: interrupt!.id,
+        status: "resolved",
+        payload: { type: "respond", message },
+      },
+    ]),
+  );
+  const result = String(resultOf(resumed.events, run.call)?.content);
+  assert.deepEqual(
+    {
+      result,
+      ran: result.includes("noted"),
+      answered: said(resumed.events, "Noted."),
+      last: resumed.events.at(-1)?.type,
+      waits: (await record(run.id)).interrupts,
+    },
+    {
+      result: message,
+      ran: false,
+      answered: true,
+      last: "RUN_FINISHED",
+      waits: [],
+    },
+  );
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a run that waits on a yes whose op does not allow respond, when the client resumes it with respond, then it is a reject that says respond is not allowed and the op does not run", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await asked("scarf", "Left as it is.");
+  const [interrupt] = interruptsOf(run.events);
+  const resumed = await eventsOf(
+    await sent(run.id, run.chat, [
+      {
+        interruptId: interrupt!.id,
+        status: "resolved",
+        payload: { type: "respond", message: "The scarf is not for sale." },
+      },
+    ]),
+  );
+  const result = String(resultOf(resumed.events, run.call)?.content);
+  assert.deepEqual(
+    {
+      notAllowed: result.includes("respond is not allowed"),
+      voided: result.includes("voided"),
+      answered: said(resumed.events, "Left as it is."),
+    },
+    { notAllowed: true, voided: false, answered: true },
+  );
+  assert.equal(await idle(run.id), true);
+});
+
+test("given a run that waits on a yes, when the client resumes it with a payload that matches no branch of the schema, then the route refuses the resume with 400 and the run still waits", async () => {
+  await signIn("ana@example.com", "ana-key");
+  const run = await asked("scarf", "Voided.");
+  const [interrupt] = interruptsOf(run.events);
+  const unknown = await sent(run.id, run.chat, [
+    {
+      interruptId: interrupt!.id,
+      status: "resolved",
+      payload: { type: "deny" },
+    },
+  ]);
+  const typeless = await sent(run.id, run.chat, [
+    { interruptId: interrupt!.id, status: "resolved", payload: {} },
+  ]);
+  // The route the behavior asks for ends no stream: only a code that took the answer gives one to cancel.
+  if (unknown.status !== 400) await unknown.body?.cancel();
+  if (typeless.status !== 400) await typeless.body?.cancel();
+  const still = (await record(run.id)).interrupts;
+  assert.deepEqual(
+    {
+      unknown: unknown.status,
+      typeless: typeless.status,
+      waits: still.map((held) => held.id),
+    },
+    { unknown: 400, typeless: 400, waits: [interrupt!.id] },
+  );
+  await sent(run.id, run.chat, [
+    { interruptId: interrupt!.id, status: "cancelled" },
+  ]).then((response) => response.body?.cancel());
   assert.equal(await idle(run.id), true);
 });

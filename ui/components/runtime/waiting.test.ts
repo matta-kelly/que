@@ -27,9 +27,22 @@ const interrupt = {
   reason: "tool_call",
   toolCallId: "c1",
   message: "Void: run till-void with this input?",
+  responseSchema: {
+    oneOf: [
+      { required: ["type"], properties: { type: { const: "approve" } } },
+      { required: ["type"], properties: { type: { const: "edit" } } },
+      { required: ["type"], properties: { type: { const: "reject" } } },
+    ],
+  },
+  metadata: {
+    plugin: "till",
+    op: "till-void",
+    input: { item: "hat" },
+    decisions: ["approve", "edit", "reject"],
+  },
 };
 
-test("given a reply whose run waits on a tool_call interrupt, then the reply asks for action, holds the interrupt, and its tool call carries the approval", () => {
+test("given a reply whose run waits on a tool_call interrupt, then the reply asks for action, holds the interrupt, and its tool call carries the approval with the decisions the op allows", () => {
   const [, marked] = waitingOn([asked, reply], [interrupt]);
   assert.deepEqual(marked, {
     ...reply,
@@ -43,7 +56,11 @@ test("given a reply whose run waits on a tool_call interrupt, then the reply ask
         toolName: "till-void",
         args: { item: "hat" },
         argsText: '{"item":"hat"}',
-        approval: { id: "i1", prompt: interrupt.message },
+        approval: {
+          id: "i1",
+          prompt: interrupt.message,
+          decisions: ["approve", "edit", "reject"],
+        },
       },
     ],
   });

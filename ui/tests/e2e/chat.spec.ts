@@ -156,21 +156,20 @@ test("chat: a message that needs a tool gets its answer streamed from que's serv
   expect(kept[0].id).toBe(run.body.messages.at(-1)?.id);
 });
 
-test("chat: an op that needs a yes shows a card at the call with the steps shut, and Approve resumes the run to its answer @live", async ({
+test("chat: an op that needs a yes shows a card at the call with the steps shut, and Approve or Reject with a message each resumes the run to its answer @live", async ({
   page,
 }) => {
   const requests = watchRequests(page);
   await openApp(page);
-  const before = requests.runs().length;
-
   const input = page.getByPlaceholder("Send a message...");
+  const card = page.locator('[data-slot="tool-approval"]');
+
+  // Approve: one resume, and the run ends on its answer.
+  const beforeApprove = requests.runs().length;
   await input.fill(
     "Void the sale of the scarf in the till. Call till-void with item scarf, and nothing else.",
   );
   await input.press("Enter");
-
-  // The run waits: the card is at the call, with the steps shut, and it shows the question.
-  const card = page.locator('[data-slot="tool-approval"]');
   await expect(card).toBeVisible({ timeout: 90_000 });
   await expect(card).toContainText("scarf");
   await expect(
@@ -178,16 +177,50 @@ test("chat: an op that needs a yes shows a card at the call with the steps shut,
       '[data-slot="aui_chain-of-thought"] [data-slot="tool-approval"]',
     ),
   ).toHaveCount(0);
-
-  // Approve posts one resume, and the run ends on its answer.
   await card.getByRole("button", { name: "Approve" }).click();
   await expect
     .poll(() => requests.runs().length, {
       message: "the page did not resume the run after Approve",
     })
-    .toBe(before + 2);
-  const resumed = requests.runs().at(-1);
-  expect(resumed?.body.resume?.length).toBeGreaterThan(0);
+    .toBe(beforeApprove + 2);
+  const approved = requests.runs().at(-1);
+  expect(
+    (approved?.body.resume as { payload?: unknown }[] | undefined)?.[0]
+      ?.payload,
+  ).toEqual({ type: "approve" });
+  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
+  await expect(replies(page).last()).not.toHaveText("");
+
+  // Reject with a message: one resume that holds the message, and the run ends on its answer.
+  const beforeReject = requests.runs().length;
+  await input.fill(
+    "Void the sale of the hat in the till. Call till-void with item hat, and nothing else.",
+  );
+  await input.press("Enter");
+  await expect(card).toBeVisible({ timeout: 90_000 });
+  await expect(card).toContainText("hat");
+  await expect(
+    page.locator(
+      '[data-slot="aui_chain-of-thought"] [data-slot="tool-approval"]',
+    ),
+  ).toHaveCount(0);
+  await expect(card.getByRole("button", { name: "Respond" })).toHaveCount(0);
+  await card.getByRole("button", { name: "Reject" }).click();
+  await card
+    .getByPlaceholder("Why reject? (optional)")
+    .fill("The hat is not for sale.");
+  await card.getByRole("button", { name: "Send reject" }).click();
+  await expect
+    .poll(() => requests.runs().length, {
+      message: "the page did not resume the run after Reject",
+    })
+    .toBe(beforeReject + 2);
+  const rejected = requests.runs().at(-1);
+  expect(
+    (rejected?.body.resume as { payload?: unknown }[] | undefined)?.[0]
+      ?.payload,
+  ).toEqual({ type: "reject", message: "The hat is not for sale." });
   await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
   await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
   await expect(replies(page).last()).not.toHaveText("");

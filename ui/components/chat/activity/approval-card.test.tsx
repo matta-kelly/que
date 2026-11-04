@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * The card at a waiting tool call: the default card for any op, and the slot a toolkit entry takes in its place. The
- * card shows the question's description and the call's args, with Approve and Deny; an entry gets the args, the
+ * card shows the question's description and the call's args, with the decisions the op allows; an entry gets the args, the
  * description and a way to answer, and draws its own view. Either way the card sits outside the chain of thought.
  */
 import { afterEach, test } from "vitest";
@@ -71,6 +71,19 @@ function waiting({
     reason: "tool_call",
     toolCallId: id,
     message: prompt,
+    responseSchema: {
+      oneOf: [
+        { required: ["type"], properties: { type: { const: "approve" } } },
+        { required: ["type"], properties: { type: { const: "edit" } } },
+        { required: ["type"], properties: { type: { const: "reject" } } },
+      ],
+    },
+    metadata: {
+      plugin: "till",
+      op: "till-void",
+      input: { item },
+      decisions: ["approve", "edit", "reject"],
+    },
   };
   return waitingOn([asked, reply], [interrupt as never]);
 }
@@ -115,7 +128,7 @@ function renderChat({
 
 afterEach(cleanup);
 
-test("given a reply whose call waits for a yes, when it shows with the steps shut, then the card shows the description and the args, and Approve and Deny", async () => {
+test("given a reply whose call waits for a yes, when it shows with the steps shut, then the card shows the description and the args, and the decisions the op allows", async () => {
   const prompt = "Void: run till-void with the hat?";
   renderChat({
     messages: waiting({ id: "c1", item: "hat", prompt }),
@@ -129,12 +142,21 @@ test("given a reply whose call waits for a yes, when it shows with the steps shu
     "the card did not show the args of the hat",
   );
   assert.ok(
-    within(card).getByRole("button", { name: "Approve" }),
+    within(card).queryByRole("button", { name: "Approve" }),
     "the card offered no Approve",
   );
   assert.ok(
-    within(card).getByRole("button", { name: "Deny" }),
-    "the card offered no Deny",
+    within(card).queryByRole("button", { name: "Reject" }),
+    "the card offered no Reject",
+  );
+  assert.ok(
+    within(card).queryByRole("button", { name: "Edit" }),
+    "the card offered no Edit",
+  );
+  assert.equal(
+    within(card).queryByRole("button", { name: "Respond" }),
+    null,
+    "the card offered a Respond the op does not allow",
   );
   assert.equal(
     card.closest('[data-slot="aui_chain-of-thought"]'),
@@ -143,7 +165,7 @@ test("given a reply whose call waits for a yes, when it shows with the steps shu
   );
 });
 
-test("given a second reply whose call waits for a yes, when it shows, then its card shows its own description and args, and Approve and Deny", async () => {
+test("given a second reply whose call waits for a yes, when it shows, then its card shows its own description and args, and the decisions the op allows", async () => {
   const prompt = "Void: run till-void with the coat?";
   renderChat({
     messages: waiting({ id: "c2", item: "coat", prompt }),
@@ -157,12 +179,21 @@ test("given a second reply whose call waits for a yes, when it shows, then its c
     "the card did not show the args of the coat",
   );
   assert.ok(
-    within(card).getByRole("button", { name: "Approve" }),
+    within(card).queryByRole("button", { name: "Approve" }),
     "the card offered no Approve",
   );
   assert.ok(
-    within(card).getByRole("button", { name: "Deny" }),
-    "the card offered no Deny",
+    within(card).queryByRole("button", { name: "Reject" }),
+    "the card offered no Reject",
+  );
+  assert.ok(
+    within(card).queryByRole("button", { name: "Edit" }),
+    "the card offered no Edit",
+  );
+  assert.equal(
+    within(card).queryByRole("button", { name: "Respond" }),
+    null,
+    "the card offered a Respond the op does not allow",
   );
   assert.equal(
     card.closest('[data-slot="aui_chain-of-thought"]'),

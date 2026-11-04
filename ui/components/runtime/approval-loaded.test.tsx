@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import {
   act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -128,18 +129,85 @@ const cards = () =>
     document.querySelectorAll<HTMLElement>('[data-slot="tool-approval"]'),
   );
 
+/** The decisions a waiting call allows: the default three, or the ones the op names. */
+const DEFAULT = ["approve", "edit", "reject"];
+
+/**
+ * The interrupt que's server sends for a waiting call: its call, the description, LangChain's schema with one branch
+ * per allowed decision, and the metadata the card reads its decisions from.
+ */
+function waiting({
+  id,
+  item,
+  prompt,
+  decisions = DEFAULT,
+}: {
+  id: string;
+  item: string;
+  prompt: string;
+  decisions?: string[];
+}) {
+  return {
+    id: `i-${id}`,
+    reason: "tool_call",
+    toolCallId: id,
+    message: prompt,
+    responseSchema: {
+      oneOf: decisions.map((type) => ({
+        required: [
+          "type",
+          ...(type === "edit"
+            ? ["edited_action"]
+            : type === "respond"
+              ? ["message"]
+              : []),
+        ],
+        properties: {
+          type: { const: type },
+          ...(type === "edit"
+            ? {
+                edited_action: {
+                  required: ["name", "args"],
+                  properties: {
+                    name: { const: "till-void" },
+                    args: { type: "object" },
+                  },
+                },
+              }
+            : {}),
+          ...(type === "respond" || type === "reject"
+            ? { message: { type: "string" } }
+            : {}),
+        },
+      })),
+    },
+    metadata: {
+      plugin: "till",
+      op: "till-void",
+      input: { item },
+      decisions,
+    },
+  };
+}
+
+/** A chat's card, by the item its call is about. */
+const cardFor = (item: string) => {
+  const found = cards().find((card) => card.textContent?.includes(item));
+  assert.ok(found, `no card was shown for the ${item}`);
+  return found;
+};
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 
 test("given a chat loaded while its run waits for a yes, then the card shows at the call with the question and the args", async () => {
-  const interrupt = {
-    id: "i1",
-    reason: "tool_call",
-    toolCallId: "c1",
-    message: "Void: run till-void with the hat?",
-  };
+  const interrupt = waiting({
+    id: "c1",
+    item: "hat",
+    prompt: "Void: run till-void with the hat?",
+  });
   const server = queServer({
     messages: [
       { id: "u1", role: "user", content: "Void the hat." },
@@ -169,12 +237,21 @@ test("given a chat loaded while its run waits for a yes, then the card shows at 
     "the loaded card did not show the call's args",
   );
   assert.ok(
-    screen.getByRole("button", { name: "Approve" }),
+    screen.queryByRole("button", { name: "Approve" }),
     "the loaded card offered no Approve",
   );
   assert.ok(
-    screen.getByRole("button", { name: "Deny" }),
-    "the loaded card offered no Deny",
+    screen.queryByRole("button", { name: "Reject" }),
+    "the loaded card offered no Reject",
+  );
+  assert.ok(
+    screen.queryByRole("button", { name: "Edit" }),
+    "the loaded card offered no Edit",
+  );
+  assert.equal(
+    screen.queryByRole("button", { name: "Respond" }),
+    null,
+    "the loaded card offered a Respond the op does not allow",
   );
   assert.ok(
     server.calls.some(
@@ -186,18 +263,16 @@ test("given a chat loaded while its run waits for a yes, then the card shows at 
 
 test("given two calls waiting in one loaded reply, when one is answered, then nothing is sent until the other is answered, and one resume carries both answers", async () => {
   const interrupts = [
-    {
-      id: "i1",
-      reason: "tool_call",
-      toolCallId: "c1",
-      message: "Void: run till-void with the hat?",
-    },
-    {
-      id: "i2",
-      reason: "tool_call",
-      toolCallId: "c2",
-      message: "Void: run till-void with the coat?",
-    },
+    waiting({
+      id: "c1",
+      item: "hat",
+      prompt: "Void: run till-void with the hat?",
+    }),
+    waiting({
+      id: "c2",
+      item: "coat",
+      prompt: "Void: run till-void with the coat?",
+    }),
   ];
   const server = queServer({
     messages: [
@@ -238,7 +313,7 @@ test("given two calls waiting in one loaded reply, when one is answered, then no
   );
 
   await act(async () => {
-    within(cards()[0]!).getByRole("button", { name: "Approve" }).click();
+    within(cardFor("hat")).getByRole("button", { name: "Approve" }).click();
   });
   await new Promise((waited) => setTimeout(waited, 300));
   assert.equal(
@@ -246,13 +321,27 @@ test("given two calls waiting in one loaded reply, when one is answered, then no
     0,
     "answering one card sent a resume before the other was answered",
   );
+  // The first card holds its answer, and the second still asks.
+  assert.ok(
+    within(cardFor("hat")).queryByText("Approved"),
+    "the answered card did not hold its answer",
+  );
+  assert.ok(
+    within(cardFor("coat")).queryByRole("button", { name: "Approve" }),
+    "the unanswered card lost its answers",
+  );
 
-  const unanswered = () =>
-    cards().find((card) =>
-      within(card).queryByRole("button", { name: "Approve" }),
-    );
   await act(async () => {
-    within(unanswered()!).getByRole("button", { name: "Approve" }).click();
+    within(cardFor("coat")).getByRole("button", { name: "Reject" }).click();
+  });
+  fireEvent.change(
+    within(cardFor("coat")).getByPlaceholderText("Why reject? (optional)"),
+    { target: { value: "The coat stays." } },
+  );
+  await act(async () => {
+    within(cardFor("coat"))
+      .getByRole("button", { name: "Send reject" })
+      .click();
   });
   await waitFor(() =>
     assert.equal(
@@ -261,6 +350,216 @@ test("given two calls waiting in one loaded reply, when one is answered, then no
       "the batch sent no resume after both cards were answered",
     ),
   );
+  const body = JSON.parse(server.posts()[0]!.body) as {
+    resume?: { interruptId: string; status: string; payload?: unknown }[];
+  };
+  assert.deepEqual(body.resume, [
+    {
+      interruptId: "i-c1",
+      status: "resolved",
+      payload: { type: "approve" },
+    },
+    {
+      interruptId: "i-c2",
+      status: "resolved",
+      payload: { type: "reject", message: "The coat stays." },
+    },
+  ]);
+});
+
+/** The user message a loaded card sits after. */
+function userAsked(item: string) {
+  return {
+    id: "u1",
+    role: "user",
+    content: `Void the ${item}.`,
+  };
+}
+
+const waitingCall = (item: string) => ({
+  id: "a1",
+  role: "assistant",
+  content: [
+    { type: "text", text: "Working. " },
+    {
+      type: "tool-call",
+      toolCallId: "c1",
+      toolName: "till-void",
+      args: { item },
+      argsText: JSON.stringify({ item }),
+    },
+  ],
+});
+
+test("given a loaded card whose op allows respond, when Respond gets a message, then one resume carries it as a respond and the op does not run", async () => {
+  const interrupt = waiting({
+    id: "c1",
+    item: "hat",
+    prompt: "Note: what should the till hold about the hat?",
+    decisions: ["approve", "reject", "respond"],
+  });
+  const server = queServer({
+    messages: [userAsked("hat"), waitingCall("hat")],
+    interrupts: [interrupt],
+  });
+  const aui = renderApp();
+  await loadThread(aui);
+  await screen.findByText(interrupt.message);
+
+  const card = cardFor("hat");
+  assert.equal(
+    within(card).queryByRole("button", { name: "Edit" }),
+    null,
+    "the card offered an Edit the op does not allow",
+  );
+  assert.ok(
+    within(card).queryByRole("button", { name: "Respond" }),
+    "the card did not offer the Respond its op allows",
+  );
+  await act(async () => {
+    within(card).getByRole("button", { name: "Respond" }).click();
+  });
+  assert.ok(
+    within(card).queryByPlaceholderText("Your response"),
+    "Respond did not ask for a message",
+  );
+  fireEvent.change(within(card).getByPlaceholderText("Your response"), {
+    target: { value: "The sale is cancelled." },
+  });
+  assert.ok(
+    within(card).queryByRole("button", { name: "Send response" }),
+    "Respond had no way to send its message",
+  );
+  await act(async () => {
+    within(card).getByRole("button", { name: "Send response" }).click();
+  });
+  await waitFor(() =>
+    assert.equal(
+      server.posts().length,
+      1,
+      "Respond sent no resume after its message",
+    ),
+  );
   const body = JSON.parse(server.posts()[0]!.body) as { resume?: unknown[] };
-  assert.equal(body.resume?.length, 2, "the resume did not carry both answers");
+  assert.deepEqual(body.resume, [
+    {
+      interruptId: "i-c1",
+      status: "resolved",
+      payload: { type: "respond", message: "The sale is cancelled." },
+    },
+  ]);
+});
+
+test("given a loaded card, when Edit gets JSON that does not parse, then it sends nothing, and when the JSON parses, then it sends the edited action", async () => {
+  const interrupt = waiting({
+    id: "c1",
+    item: "hat",
+    prompt: "Void: run till-void with the hat?",
+  });
+  const server = queServer({
+    messages: [userAsked("hat"), waitingCall("hat")],
+    interrupts: [interrupt],
+  });
+  const aui = renderApp();
+  await loadThread(aui);
+  await screen.findByText(interrupt.message);
+
+  const card = cardFor("hat");
+  assert.ok(
+    within(card).queryByRole("button", { name: "Edit" }),
+    "the card did not offer the Edit its op allows",
+  );
+  await act(async () => {
+    within(card).getByRole("button", { name: "Edit" }).click();
+  });
+  assert.ok(
+    within(card).queryByPlaceholderText("The args as JSON"),
+    "Edit did not show the call's args to change",
+  );
+  const editor = within(card).getByPlaceholderText("The args as JSON");
+  assert.match(
+    (editor as HTMLTextAreaElement).value,
+    /"item":\s*"hat"/,
+    "the edit did not start from the call's args",
+  );
+
+  assert.ok(
+    within(card).queryByRole("button", { name: "Send edit" }),
+    "Edit had no way to send the args",
+  );
+  fireEvent.change(editor, { target: { value: "{" } });
+  await act(async () => {
+    within(card).getByRole("button", { name: "Send edit" }).click();
+  });
+  await new Promise((waited) => setTimeout(waited, 300));
+  assert.equal(
+    server.posts().length,
+    0,
+    "an edit whose JSON does not parse sent a resume",
+  );
+
+  fireEvent.change(editor, { target: { value: '{"item":"coat"}' } });
+  await act(async () => {
+    within(card).getByRole("button", { name: "Send edit" }).click();
+  });
+  await waitFor(() =>
+    assert.equal(
+      server.posts().length,
+      1,
+      "an edit whose JSON parses sent no resume",
+    ),
+  );
+  const body = JSON.parse(server.posts()[0]!.body) as { resume?: unknown[] };
+  assert.deepEqual(body.resume, [
+    {
+      interruptId: "i-c1",
+      status: "resolved",
+      payload: {
+        type: "edit",
+        edited_action: { name: "till-void", args: { item: "coat" } },
+      },
+    },
+  ]);
+});
+
+test("given a loaded card, when Reject is sent with no message, then its payload is a reject alone", async () => {
+  const interrupt = waiting({
+    id: "c1",
+    item: "hat",
+    prompt: "Void: run till-void with the hat?",
+  });
+  const server = queServer({
+    messages: [userAsked("hat"), waitingCall("hat")],
+    interrupts: [interrupt],
+  });
+  const aui = renderApp();
+  await loadThread(aui);
+  await screen.findByText(interrupt.message);
+
+  const card = cardFor("hat");
+  assert.ok(
+    within(card).queryByRole("button", { name: "Reject" }),
+    "the card did not offer the Reject its op allows",
+  );
+  await act(async () => {
+    within(card).getByRole("button", { name: "Reject" }).click();
+  });
+  assert.ok(
+    within(card).queryByRole("button", { name: "Send reject" }),
+    "Reject had no way to send without a message",
+  );
+  await act(async () => {
+    within(card).getByRole("button", { name: "Send reject" }).click();
+  });
+  await waitFor(() =>
+    assert.equal(
+      server.posts().length,
+      1,
+      "a reject with no message sent no resume",
+    ),
+  );
+  const body = JSON.parse(server.posts()[0]!.body) as { resume?: unknown[] };
+  assert.deepEqual(body.resume, [
+    { interruptId: "i-c1", status: "resolved", payload: { type: "reject" } },
+  ]);
 });
