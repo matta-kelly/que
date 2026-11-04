@@ -1,16 +1,6 @@
 import type { ThreadMessageLike } from "@assistant-ui/react";
 import type { AgUiInterrupt } from "@assistant-ui/react-ag-ui";
-
-/** The decisions an interrupt's op allows, as its metadata lists them: none when it lists none. */
-function decisionsOf(interrupt: AgUiInterrupt): string[] {
-  const decisions = (interrupt.metadata as { decisions?: unknown } | undefined)
-    ?.decisions;
-  return Array.isArray(decisions)
-    ? decisions.filter(
-        (decision): decision is string => typeof decision === "string",
-      )
-    : [];
-}
+import { listedDecisions, type Approval } from "./approval";
 
 /**
  * The thread's messages, with its last reply marked as waiting on the interrupts its run waits on, as AG-UI's runtime
@@ -39,20 +29,16 @@ export function waitingOn(
             part.type === "tool-call" && part.toolCallId
               ? byCall.get(part.toolCallId)
               : undefined;
-          return interrupt
-            ? {
-                ...part,
-                approval: {
-                  id: interrupt.id,
-                  ...(interrupt.message !== undefined
-                    ? { prompt: interrupt.message }
-                    : {}),
-                  ...(decisionsOf(interrupt).length
-                    ? { decisions: decisionsOf(interrupt) }
-                    : {}),
-                } as never,
-              }
-            : part;
+          if (!interrupt) return part;
+          const decisions = listedDecisions(interrupt);
+          const approval: Approval = {
+            id: interrupt.id,
+            ...(interrupt.message !== undefined
+              ? { prompt: interrupt.message }
+              : {}),
+            ...(decisions.length ? { decisions } : {}),
+          };
+          return { ...part, approval };
         });
   const custom = reply.metadata?.custom ?? {};
   return messages.with(at, {
