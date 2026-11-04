@@ -7,7 +7,10 @@ import { openApp } from "./helpers";
 // is a call to the real model, as each @live test's is.
 
 type Message = { id: string; role: string; content?: unknown };
-type Run = { path: string; body: { messages: Message[] } };
+type Run = {
+  path: string;
+  body: { messages: Message[]; resume?: readonly unknown[] };
+};
 
 const isRun = (path: string) => /^\/api\/threads\/[^/]+\/runs$/.test(path);
 const threadOf = (run: Run) => run.path.split("/")[3];
@@ -151,6 +154,41 @@ test("chat: a message that needs a tool gets its answer streamed from que's serv
     "assistant",
   ]);
   expect(kept[0].id).toBe(run.body.messages.at(-1)?.id);
+});
+
+test("chat: an op that needs a yes shows a card at the call with the steps shut, and Approve resumes the run to its answer @live", async ({
+  page,
+}) => {
+  const requests = watchRequests(page);
+  await openApp(page);
+  const before = requests.runs().length;
+
+  const input = page.getByPlaceholder("Send a message...");
+  await input.fill(
+    "Void the sale of the scarf in the till. Call till-void with item scarf, and nothing else.",
+  );
+  await input.press("Enter");
+
+  // The run waits: the card is at the call, with the steps shut, and it shows the question.
+  const card = page.locator('[data-slot="tool-approval"]');
+  await expect(card).toBeVisible({ timeout: 90_000 });
+  await expect(card).toContainText("scarf");
+  const steps = page.locator('[data-slot="aui_chain-of-thought"]');
+  if (await steps.count())
+    await expect(steps.first()).toHaveAttribute("data-state", "closed");
+
+  // Approve posts one resume, and the run ends on its answer.
+  await card.getByRole("button", { name: "Approve" }).click();
+  await expect
+    .poll(() => requests.runs().length, {
+      message: "the page did not resume the run after Approve",
+    })
+    .toBe(before + 2);
+  const resumed = requests.runs().at(-1);
+  expect(resumed?.body.resume?.length).toBeGreaterThan(0);
+  await expect(sendButton(page)).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator(".aui-message-error-root")).toHaveCount(0);
+  await expect(replies(page).last()).not.toHaveText("");
 });
 
 test("chat: Refresh on a reply runs its turn again from the message before it @live", async ({
