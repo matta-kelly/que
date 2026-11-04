@@ -31,14 +31,14 @@ app.post("/mcp", signedIn, async (c) => {
 
   // 2026-07-28 traffic: the SDK's per-request handler. Legacy traffic is routed below, so it is refused here.
   if (!(await isLegacyRequest(request))) {
-    const handler = createMcpHandler(() => sessionServer(user), {
+    const handler = createMcpHandler(() => sessionServer(user, "http"), {
       legacy: "reject",
     });
     return handler.fetch(request);
   }
 
   // 2025-era traffic: one stateless transport per request, answering JSON instead of an SSE stream.
-  const server = await sessionServer(user);
+  const server = await sessionServer(user, "http");
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,

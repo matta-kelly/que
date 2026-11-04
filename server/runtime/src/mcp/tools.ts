@@ -57,6 +57,8 @@ export function toolsOf(catalog: Catalog): McpTool[] {
         name,
         description: op.description,
         input: op.input,
+        // A flagged op changes data: the host reads the hint, and the door still asks.
+        ...(op.approval ? { annotations: { destructiveHint: true } } : {}),
         placed,
       });
     }

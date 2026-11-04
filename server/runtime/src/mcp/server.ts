@@ -7,7 +7,7 @@
  * Access JWT as `cf-access-jwt-assertion`. In dev, `DEV_USER_EMAIL` decides.
  */
 
-import { McpServer } from "@modelcontextprotocol/server";
+import { McpServer, type McpServerOptions } from "@modelcontextprotocol/server";
 import { identify } from "@que/identity";
 import type { User } from "@que/users";
 
@@ -25,9 +25,12 @@ export function sessionHeaders(env = process.env): Headers {
  * The tools, which need the user's catalog, are registered by `session.ts`, for
  * both mouths.
  */
-export function createMcpServer(user?: User): McpServer {
+export function createMcpServer(
+  user?: User,
+  options?: McpServerOptions,
+): McpServer {
   const headers = sessionHeaders();
-  const server = new McpServer({ name: "que", version: "0.0.0" });
+  const server = new McpServer({ name: "que", version: "0.0.0" }, options);
 
   server.registerTool(
     "whoami",
