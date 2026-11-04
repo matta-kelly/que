@@ -10,6 +10,9 @@ import type * as z from "zod";
 import { faults, refuse } from "./check.ts";
 import { plugin as schema } from "./schema.ts";
 
+// An op's approval and its allowed decisions, as the plugin schema defines them.
+export type { Approval, ApprovalDecision } from "./schema.ts";
+
 const types = schema.types;
 
 /** The node of a type of the plugin schema, as its type parses it. */

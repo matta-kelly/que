@@ -102,10 +102,16 @@ The model knows only what the card says, so the card is the whole interface.
 
 ## Approval
 
-- the op declares, the door asks: `approval: true` means the model's call to it runs only after the user says yes
-- the door holds the gate after it parses the input and before it makes the connection or a domain op's listed calls, so the user approves what will run
-- the ask gets the op, its parsed input and the tool call's id, for the host to show. A run with no way to ask refuses the call
-	- que's web run asks: the stream ends on an AG-UI `tool_call` interrupt on that call, the UI shows the op and its input with Approve and Deny, and the answer resumes the run, which runs the op or refuses it (`server/runtime/src/run/runs.ts`)
-	- que's MCP server asks nothing, so it refuses the call
+- the op declares, the door asks: `approval` on its node. `true` asks with the default text and decisions; an object gives a `description` (a fixed string, or a function of the parsed input), an optional `when` (a function of the parsed input), and the `decisions` it allows (default approve, edit and reject). The object form needs its description
+- the door holds the gate after it parses the input and before it makes the connection or a domain op's listed calls, so the user approves what will run. A `when` that answers false for the parsed input skips the ask and runs the op
+- the ask gets one request: the op's name, its parsed input, the tool call's id, the description, and the allowed decisions. A run with no way to ask refuses the call
+- the four decisions, and what each does
+	- approve: the call runs
+	- reject: the call does not run, and an optional message goes to the model; the door throws an `OpFailed` that says the user declined and the call did not run
+	- edit: the new args are parsed with the same strict parse, and the call runs with them
+	- respond: the call does not run, and the message is the call's result text, as a `Responded` the chat's extension reads. It is never the way to deny an op that changes data
+- a decision the op does not allow is a reject that says so
+- que's web run asks: the stream ends on an AG-UI `tool_call` interrupt on that call, the UI shows the op and its input with Approve and Deny, and the answer resumes the run, which runs the op or refuses it (`server/runtime/src/run/runs.ts`)
+- que's MCP server asks nothing, so it refuses the call
 - a refusal is an `OpFailed` that says the call did not run, so the model gets it as the tool result and the run goes on
 - only the call the model makes is asked. A domain op's listed calls run without one

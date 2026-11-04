@@ -17,7 +17,12 @@ import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import * as z from "zod";
 import type { Case } from "./case.ts";
-import type { AccessRole, Capability, Definition } from "./contract.ts";
+import type {
+  AccessRole,
+  ApprovalDecision,
+  Capability,
+  Definition,
+} from "./contract.ts";
 import { pluginFiles } from "./layout.ts";
 import type { Skill } from "./skill.ts";
 import { NAMESPACE } from "./names.ts";
@@ -27,7 +32,7 @@ export const CARD_SCHEMA =
   "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 /** The version of que's part of a card. It changes when that part's shape does. */
-export const CARD_FORMAT = 7;
+export const CARD_FORMAT = 8;
 
 /** A node as a card holds it: its fields, with no type. */
 type Written<N> = Omit<N, "type">;
@@ -53,6 +58,10 @@ export type Card = {
         uses?: string[];
         /** Whether it needs a yes from the user before it runs. Left out when it carries none. */
         approval?: boolean;
+        /** The decisions this op allows, when it declares them: the door defaults to approve, edit and reject. */
+        decisions?: ApprovalDecision[];
+        /** The ask's text, when the op gives a fixed one: a computed description is code, and is not on the card. */
+        approvalDescription?: string;
         input: Schema;
       }[];
       /** A connector's skills, each by its name with the ops it uses: a domain's are not on its card. */
@@ -215,7 +224,19 @@ export function cardOf(
           description: op.description,
           ...(op.role === undefined ? {} : { role: op.role }),
           ...(op.uses === undefined ? {} : { uses: op.uses }),
-          ...(op.approval === undefined ? {} : { approval: op.approval }),
+          ...(op.approval === undefined
+            ? {}
+            : typeof op.approval === "boolean"
+              ? { approval: op.approval }
+              : {
+                  approval: true,
+                  ...(op.approval.decisions === undefined
+                    ? {}
+                    : { decisions: op.approval.decisions }),
+                  ...(typeof op.approval.description === "string"
+                    ? { approvalDescription: op.approval.description }
+                    : {}),
+                }),
           input: schemaJson(op.input, `op ${op.name}'s input`),
         })),
         skills:

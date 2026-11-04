@@ -50,6 +50,58 @@ const credential = z
   .custom<z.ZodObject>()
   .refine(isObject, "must be a zod object");
 
+/** The four answers a flagged op accepts: approve, edit, reject and respond. */
+export const DECISIONS = ["approve", "edit", "reject", "respond"] as const;
+export type ApprovalDecision = (typeof DECISIONS)[number];
+
+/**
+ * An op's approval: `true`, or an object with a `description` (a fixed string, or a function of the parsed input),
+ * an optional `when` (a function of the parsed input) and an optional list of `decisions`. The object form needs its
+ * description; the default decisions are approve, edit and reject.
+ */
+export type Approval =
+  | boolean
+  | {
+      description: string | ((input: unknown) => string);
+      when?: (input: unknown) => boolean;
+      decisions?: ApprovalDecision[];
+    };
+
+const decision = z.enum(DECISIONS);
+
+// The object form needs a description, its decisions are the four, and when is a function. A boolean passes as it is.
+const approval = z.custom<Approval>().superRefine((value, ctx) => {
+  if (typeof value === "boolean") return;
+  if (typeof value !== "object" || value === null) {
+    ctx.addIssue({
+      code: "custom",
+      message: "must be true, false, or an object with a description",
+    });
+    return;
+  }
+  const { description, when, decisions } = value as {
+    description?: unknown;
+    when?: unknown;
+    decisions?: unknown;
+  };
+  if (description === undefined)
+    ctx.addIssue({
+      code: "custom",
+      message: "the object form needs a description",
+    });
+  if (when !== undefined && typeof when !== "function")
+    ctx.addIssue({ code: "custom", message: "when must be a function" });
+  if (
+    decisions !== undefined &&
+    (!Array.isArray(decisions) ||
+      !decisions.every((one) => decision.safeParse(one).success))
+  )
+    ctx.addIssue({
+      code: "custom",
+      message: `decisions must each be one of ${DECISIONS.join(", ")}`,
+    });
+});
+
 const op = defineType({
   name: "op",
   description:
@@ -59,8 +111,9 @@ const op = defineType({
     // The role whose login it runs with, when its plugin lists roles.
     role: oneOrNone(() => accessRole),
     input,
-    // Whether it needs a yes from the user before it runs. Left out, it carries none, which the door reads as no.
-    approval: z.boolean().optional(),
+    // Whether it needs a yes from the user before it runs, and how it asks. Left out, it carries none, which the
+    // door reads as no.
+    approval: approval.optional(),
     // What it does: run(ctx, params). A connector op gets its connection in ctx, and a domain op the ops it uses.
     run: fn,
     // The ops it calls: a domain op's, each a connector's op. A connector op calls none.

@@ -11,6 +11,7 @@ import {
 } from "@opentelemetry/api";
 import {
   OpFailed,
+  type ApprovalDecision,
   type Op,
   type OpFiles,
   type Plugin,
@@ -34,14 +35,32 @@ export type PlacedOp = {
 export type FilesScope = { files: FileStore; thread: string };
 
 /**
- * The question the door asks before a flagged op runs: the op, its parsed input, and the id of the tool call that
- * made it, when the caller gave one.
+ * One call that waits for a yes, as the ask gets it: the call's name and parsed args, the tool call's id when the
+ * caller gave one, the ask's text, and the decisions this op allows.
  */
-export type Ask = (
-  op: PlacedOp,
-  input: unknown,
-  callId?: string,
-) => Promise<boolean>;
+export type ApprovalRequest = {
+  name: string;
+  args: unknown;
+  callId?: string;
+  description: string;
+  decisions: ApprovalDecision[];
+};
+
+/** One answer to a call that waits: approve it, reject it with an optional message, edit its args, or respond. */
+export type Decision =
+  | { type: "approve" }
+  | { type: "reject"; message?: string }
+  | { type: "edit"; args: unknown }
+  | { type: "respond"; message: string };
+
+/**
+ * The question the door asks before a flagged op runs: one request, and the placed op that made it. The op is beside
+ * the request, not in it, so a host that shows a call reads only the request; the ask names the plugin from the op.
+ */
+export type Ask = (request: ApprovalRequest, op: PlacedOp) => Promise<Decision>;
+
+/** The decisions a flagged op allows when it names none: approve, edit and reject. */
+const DECISIONS: ApprovalDecision[] = ["approve", "edit", "reject"];
 
 /**
  * One call of an op, as one user and the run's thread's files: what the op's run gives back, or the OpFailed it throws.
@@ -134,36 +153,67 @@ export function door(connect: Connect, ops: PlacedOp[] = [], ask?: Ask): Call {
         try {
           // The door is the one parse. Extra arguments are refused, as the shown schema says there are none.
           // A refine or a transform that throws is a failed parse too, with the throw's message.
-          let parsed;
-          try {
-            parsed = await z.safeParseAsync(strictInput(op.input), params);
-          } catch (thrown) {
-            throw new OpFailed(
-              oneLine(
-                `invalid ${op.name} input: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
-              ),
-            );
-          }
-          if (!parsed.success)
-            throw new OpFailed(
-              oneLine(
-                `invalid ${op.name} input: ${parsed.error.issues
-                  .map(({ path, message }) =>
-                    [...path.map(String), message].join(": "),
-                  )
-                  .join("; ")}`,
-              ),
-            );
-          const input = parsed.data;
+          const parse = async (value: unknown) => {
+            let parsed;
+            try {
+              parsed = await z.safeParseAsync(strictInput(op.input), value);
+            } catch (thrown) {
+              throw new OpFailed(
+                oneLine(
+                  `invalid ${op.name} input: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
+                ),
+              );
+            }
+            if (!parsed.success)
+              throw new OpFailed(
+                oneLine(
+                  `invalid ${op.name} input: ${parsed.error.issues
+                    .map(({ path, message }) =>
+                      [...path.map(String), message].join(": "),
+                    )
+                    .join("; ")}`,
+                ),
+              );
+            return parsed.data;
+          };
+          let input = await parse(params);
           if (gate && op.approval) {
-            if (!ask)
-              throw new OpFailed(
-                `${op.name} needs a yes, and this run has no way to ask: the call did not run`,
+            const settings = op.approval === true ? undefined : op.approval;
+            if (!settings?.when || (await settings.when(input))) {
+              if (!ask)
+                throw new OpFailed(
+                  `${op.name} needs a yes, and this run has no way to ask: the call did not run`,
+                );
+              const description =
+                typeof settings?.description === "function"
+                  ? settings.description(input)
+                  : (settings?.description ??
+                    `${op.title}: run ${op.name} with this input?`);
+              const decisions = settings?.decisions ?? DECISIONS;
+              const decision = await ask(
+                {
+                  name: op.name,
+                  args: input,
+                  ...(callId === undefined ? {} : { callId }),
+                  description,
+                  decisions,
+                },
+                { plugin, op },
               );
-            if (!(await ask({ plugin, op }, input, callId)))
-              throw new OpFailed(
-                `${op.name}: the user declined: the call did not run`,
-              );
+              if (!decisions.includes(decision.type))
+                throw new OpFailed(
+                  `${op.name}: ${decision.type} is not allowed for this op: the call did not run`,
+                );
+              if (decision.type === "reject")
+                throw new OpFailed(
+                  `${op.name}: the user declined: the call did not run${
+                    decision.message ? `: ${decision.message}` : ""
+                  }`,
+                );
+              if (decision.type === "respond")
+                return new Responded(decision.message);
+              if (decision.type === "edit") input = await parse(decision.args);
+            }
           }
           const scope = files ? { files: filesOf(files) } : {};
           let ctx;

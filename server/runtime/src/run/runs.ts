@@ -55,7 +55,7 @@ import {
 } from "@ag-ui/core";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
 import type { ThreadStore } from "@que/threads";
-import type { Ask } from "../assemble/door.js";
+import type { Ask, Decision } from "../assemble/door.js";
 import { catalogFor } from "../access/catalog.js";
 import { taken } from "../access/instructions.js";
 import { narrow } from "../access/narrow.js";
@@ -70,7 +70,7 @@ import type { SignedIn } from "./signed-in.js";
 import { tagsOf } from "./trace.js";
 
 /** A yes a run waits for: the interrupt it is asked as, and how the call gets the answer. */
-type Asking = { interrupt: Interrupt; answer: (approved: boolean) => void };
+type Asking = { interrupt: Interrupt; answer: (decision: Decision) => void };
 
 /**
  * A run that goes, as its viewers get it. Its stream is one AG-UI run, or one for each part when it stops for a yes:
@@ -109,7 +109,7 @@ export function refuseWaiting(thread: string) {
   const all = [...run.asking.values(), ...run.queued];
   run.asking = new Map();
   run.queued = [];
-  for (const asking of all) asking.answer(false);
+  for (const asking of all) asking.answer({ type: "reject" });
 }
 
 const ends = (event: AGUIEvent) =>
@@ -146,20 +146,25 @@ function pause(run: Going, asks: Asking[]) {
 }
 
 /**
- * The run's ask: a yes for a flagged op is an interrupt on its tool call, with the op and its parsed input. The first
- * ends the part; one asked while the run waits is queued, and ends the part that answers the first.
+ * The run's ask: a yes for a flagged op is an interrupt on its tool call, with the op, its parsed input and the
+ * allowed decisions. The first ends the part; one asked while the run waits is queued, and ends the part that answers
+ * the first. The interrupt's message is the request's description.
  */
 const askOf =
   (run: Going): Ask =>
-  ({ plugin, op }, input, callId) =>
-    new Promise<boolean>((answer) => {
+  (request, { plugin, op }) =>
+    new Promise<Decision>((answer) => {
       const asking: Asking = {
         interrupt: {
           id: randomUUID(),
-          reason: callId ? "tool_call" : "confirmation",
-          ...(callId ? { toolCallId: callId } : {}),
-          message: `${op.title}: run ${op.name} with this input?`,
-          metadata: { plugin: plugin.name, op: op.name, input },
+          reason: request.callId ? "tool_call" : "confirmation",
+          ...(request.callId ? { toolCallId: request.callId } : {}),
+          message: request.description,
+          metadata: {
+            plugin: plugin.name,
+            op: op.name,
+            input: request.args,
+          },
         },
         answer,
       };
@@ -167,12 +172,17 @@ const askOf =
       else void pause(run, [asking]);
     });
 
-/** Whether a resume says yes: a resolved answer with `approved: true`. Any other answer is a no. */
-const approves = (entry: ResumeEntry) =>
+/**
+ * The decision a resume gives: `approved: true` is approve, and any other answer is a reject. The cut that carries
+ * edit and respond in the chat's payload is `approval-decisions`, and it widens this.
+ */
+const decisionOf = (entry: ResumeEntry): Decision =>
   entry.status === "resolved" &&
   typeof entry.payload === "object" &&
   entry.payload !== null &&
-  (entry.payload as { approved?: unknown }).approved === true;
+  (entry.payload as { approved?: unknown }).approved === true
+    ? { type: "approve" }
+    : { type: "reject" };
 
 /** An SSE stream as a part's client: what it writes, and the end the stream waits for. */
 function clientOf(sse: { writeSSE: (m: { data: string }) => Promise<void> }) {
@@ -238,7 +248,7 @@ export function runs(store: ThreadStore) {
           run.client = client;
           await emit(run, { type: EventType.RUN_STARTED, threadId, runId });
           for (const entry of resume)
-            asking.get(entry.interruptId)?.answer(approves(entry));
+            asking.get(entry.interruptId)?.answer(decisionOf(entry));
           if (run.queued.length) await pause(run, run.queued.splice(0));
           await ended;
         });
@@ -247,7 +257,7 @@ export function runs(store: ThreadStore) {
       const asking = run.asking;
       run.asking = new Map();
       for (const entry of resume)
-        asking.get(entry.interruptId)?.answer(approves(entry));
+        asking.get(entry.interruptId)?.answer(decisionOf(entry));
       if (run.queued.length) void pause(run, run.queued.splice(0));
     }
     if (last?.role !== "user")

@@ -18,7 +18,7 @@ import * as z from "zod";
 import { OpFailed } from "@mku1tra/que-plugin";
 import type { ResolvedLoop } from "@mku1tra/que-harness";
 import type { Catalog } from "../../access/catalog.js";
-import { strictInput, type Call } from "../../assemble/door.js";
+import { strictInput, Responded, type Call } from "../../assemble/door.js";
 import {
   LOAD_OPERATION,
   OPEN_PLUGIN,
@@ -116,17 +116,19 @@ export function extension(
         const answer = await result(
           op.name,
           args,
-          async () =>
-            // An op that gives back nothing gives the JSON text null.
-            JSON.stringify(
-              await call(
-                { plugin: definition.plugin, op },
-                args,
-                user,
-                attachments,
-                api.callId,
-              ),
-            ) ?? "null",
+          async () => {
+            const value = await call(
+              { plugin: definition.plugin, op },
+              args,
+              user,
+              attachments,
+              api.callId,
+            );
+            // A respond is the tool's text as it is; anything else is JSON, and an op that gives back nothing is null.
+            return value instanceof Responded
+              ? value.message
+              : (JSON.stringify(value) ?? "null");
+          },
           api,
           context,
         );
