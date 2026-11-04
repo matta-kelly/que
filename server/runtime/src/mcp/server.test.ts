@@ -12,7 +12,6 @@ import type { AddressInfo } from "node:net";
 import { type CryptoKey, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpServer } from "./server.js";
 
 /** The env this test owns, and gives back as it found it. */
@@ -44,7 +43,7 @@ async function withEnv(
 }
 
 /** Calls `whoami` as an MCP client would, and returns what the call answered. */
-async function whoami(server: McpServer) {
+async function whoami(server: Awaited<ReturnType<typeof createMcpServer>>) {
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);

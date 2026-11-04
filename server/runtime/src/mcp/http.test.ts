@@ -108,6 +108,46 @@ const posted = (headers: Record<string, string>, message: unknown) =>
     body: JSON.stringify(message),
   });
 
+/**
+ * One MCP message to POST /mcp as a 2026-07-28 client posts it: the per-request
+ * envelope in `params._meta`, and the standard `MCP-Protocol-Version` and
+ * `Mcp-Method` headers (with `Mcp-Name` on a call). No initialize: this era
+ * carries its version on every request, so a stateless mouth can serve it.
+ */
+const modern = (
+  email: string | null,
+  id: number,
+  method: string,
+  params: Record<string, unknown> = {},
+) => {
+  if (email === null) delete process.env.DEV_USER_EMAIL;
+  else process.env.DEV_USER_EMAIL = email;
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    accept: "application/json, text/event-stream",
+    "mcp-protocol-version": "2026-07-28",
+    "mcp-method": method,
+  };
+  if (typeof params.name === "string") headers["mcp-name"] = params.name;
+  return app.request("/mcp", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id,
+      method,
+      params: {
+        ...params,
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": { name: "test", version: "0" },
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
+    }),
+  });
+};
+
 /** A JSON-RPC message an MCP answer carries: the JSON body, or the last data line of an SSE stream. */
 type Reply = {
   result?: {
@@ -462,6 +502,59 @@ test("given the Access settings and the team's key set, when a post carries a to
     delete process.env.DEV_USER_EMAIL;
     await keySet.close();
   }
+});
+
+test("given a user on protocol 2026-07-28, when the session posts tools/list and then calls a tool to /mcp with no initialize, then it lists that user's tools and the call answers the op's result", async () => {
+  const email = "gwen.http@example.com";
+  await grant(email, "Gwen Http", "till-domain");
+
+  // The till declares a credential, so it is listed only once the user's own key is saved.
+  await saveKey(email);
+
+  const list = await modern(email, 1, "tools/list");
+  const listText = await list.text();
+  assert.equal(
+    list.status,
+    200,
+    `a 2026-07-28 tools/list answered ${list.status}: ${listText}`,
+  );
+  const names = toolsIn(answered(listText, list.headers.get("content-type")));
+  assert.deepEqual(
+    names
+      .filter((name) => name.startsWith("till."))
+      .sort((a, b) => a.localeCompare(b)),
+    [
+      "till.till-count",
+      "till.till-jam",
+      "till.till-stall",
+      "till.till-tally",
+      "till.till-void",
+      "till.till-wait",
+    ],
+    `a 2026-07-28 tools/list does not name the deployment's plugin ops: ${names.join(", ")}`,
+  );
+
+  const call = await modern(email, 2, "tools/call", {
+    name: "till.till-count",
+    arguments: { item: "apple" },
+  });
+  const callText = await call.text();
+  assert.equal(
+    call.status,
+    200,
+    `a 2026-07-28 tools/call answered ${call.status}: ${callText}`,
+  );
+  const reply = answered(callText, call.headers.get("content-type"));
+  assert.notEqual(
+    reply?.result?.isError,
+    true,
+    `the call of till.till-count failed: ${callText}`,
+  );
+  assert.deepEqual(
+    answerOf(reply),
+    { conn: "till:the-key", item: "apple" },
+    `the call's answer is not the op's result: ${callText}`,
+  );
 });
 
 test("given a signed-in user, when a GET is sent to /mcp, then the answer is 405, it allows POST, and it is not an SSE stream", async () => {
