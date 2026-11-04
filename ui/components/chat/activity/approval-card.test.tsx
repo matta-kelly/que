@@ -6,14 +6,7 @@
  */
 import { afterEach, test } from "vitest";
 import assert from "node:assert/strict";
-import {
-  act,
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import {
   AuiConfig,
   AssistantRuntimeProvider,
@@ -202,7 +195,7 @@ test("given a second reply whose call waits for a yes, when it shows, then its c
   );
 });
 
-test("given a toolkit entry for the tool, when its call waits for a yes, then the entry shows in the card's place, gets the args, the description and a way to answer, and the answer is recorded", async () => {
+test("given a toolkit entry for the tool, when its call waits for a yes, then the entry shows in the card's place, with the args and the description", async () => {
   const prompt = "Void: run till-void with the scarf?";
   const seen: ToolCallMessagePartProps[] = [];
   const View = (props: ToolCallMessagePartProps) => {
@@ -211,18 +204,13 @@ test("given a toolkit entry for the tool, when its call waits for a yes, then th
       <div data-testid="till-view">
         <p>{props.approval?.prompt}</p>
         <p>{JSON.stringify(props.args)}</p>
-        <button
-          onClick={() => void props.respondToApproval({ approved: true })}
-        >
-          Agree in the till view
-        </button>
       </div>
     );
   };
   const toolkit = defineToolkit({
     "till-void": { type: "backend", render: View },
   } as never);
-  const aui = renderChat({
+  renderChat({
     messages: waiting({ id: "c3", item: "scarf", prompt }),
     toolkit,
   });
@@ -241,11 +229,6 @@ test("given a toolkit entry for the tool, when its call waits for a yes, then th
     "the toolkit entry got no description, or the wrong one",
   );
   assert.equal(
-    typeof last.respondToApproval,
-    "function",
-    "the toolkit entry got no way to answer",
-  );
-  assert.equal(
     screen.queryByRole("button", { name: "Approve" }),
     null,
     "the default card showed in the toolkit entry's place",
@@ -255,23 +238,6 @@ test("given a toolkit entry for the tool, when its call waits for a yes, then th
     null,
     "the toolkit entry was shown inside the chain of thought",
   );
-
-  await act(async () => {
-    within(view)
-      .getByRole("button", { name: "Agree in the till view" })
-      .click();
-  });
-  await waitFor(() => {
-    const reply = aui()
-      .thread.getState()
-      .messages.findLast((message) => message.role === "assistant");
-    const part = reply?.content.find((content) => content.type === "tool-call");
-    assert.equal(
-      part?.type === "tool-call" ? part.approval?.approved : undefined,
-      true,
-      "the entry's answer did not reach the call",
-    );
-  });
 });
 
 test("given a second toolkit entry for the tool, when its call waits for a yes, then the entry gets that call's args", async () => {

@@ -15,8 +15,20 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { useAui } from "@assistant-ui/react";
+import {
+  AuiConfig,
+  AuiProvider,
+  Tools,
+  defineToolkit,
+  useAui,
+  type ToolCallMessagePartProps,
+} from "@assistant-ui/react";
 import { Thread } from "@/components/assistant-ui/elements/thread.aui";
+import {
+  useAnswer,
+  useHeldAnswer,
+  useInterrupt,
+} from "@/components/runtime/approval";
 import { RuntimeProvider } from "@/components/runtime/runtime-provider";
 
 // jsdom has no layout: the composer's size observer has nothing to observe.
@@ -39,13 +51,21 @@ const thread = (id: string) => ({
 
 type Call = { method: string; url: string; body: string };
 
-/** que's server, stubbed: the thread, its messages and waiting interrupts, and the run its resume posts. */
+/** The events a run streams, as que's server writes them. */
+type Event = Record<string, unknown>;
+
+/**
+ * que's server, stubbed: the thread, its messages and waiting interrupts, and the run its resume posts. A test that
+ * goes live gives `run`, the events its run streams.
+ */
 function queServer({
   messages,
   interrupts,
+  run,
 }: {
   messages: unknown[];
   interrupts: unknown[];
+  run?: Event[];
 }) {
   const calls: Call[] = [];
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -73,12 +93,14 @@ function queServer({
     if (url === "/api/threads/T1/files") return Response.json([]);
     if (url === "/api/threads/T1/runs")
       return new Response(
-        [
-          `data: ${JSON.stringify({ type: "RUN_STARTED", threadId: "T1", runId: "r1" })}`,
-          "",
-          `data: ${JSON.stringify({ type: "RUN_FINISHED", threadId: "T1", runId: "r1" })}`,
-          "",
-        ].join("\n"),
+        (
+          run ?? [
+            { type: "RUN_STARTED", threadId: "T1", runId: "r1" },
+            { type: "RUN_FINISHED", threadId: "T1", runId: "r1" },
+          ]
+        )
+          .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+          .join(""),
         { status: 200, headers: { "content-type": "text/event-stream" } },
       );
     return Response.json(
@@ -96,16 +118,32 @@ function queServer({
   };
 }
 
-/** The app's chat runtime, as the app makes it: the provider, and the thread it holds. */
-function renderApp() {
+/**
+ * The app's chat runtime, as the app makes it: the provider, and the thread it holds. A test that registers a toolkit
+ * gets the same provider the app's chat page puts around the thread.
+ */
+function renderApp(toolkit?: ReturnType<typeof defineToolkit>) {
   let aui: ReturnType<typeof useAui> | undefined;
   const Capture = () => {
     aui = useAui();
     return null;
   };
+  const Chat = () => {
+    const held = useAui();
+    return toolkit ? (
+      <AuiProvider
+        extends={held}
+        config={AuiConfig({ tools: Tools({ toolkit }) })}
+      >
+        <Thread autoFocus={false} />
+      </AuiProvider>
+    ) : (
+      <Thread autoFocus={false} />
+    );
+  };
   render(
     <RuntimeProvider>
-      <Thread autoFocus={false} />
+      <Chat />
       <Capture />
     </RuntimeProvider>,
   );
@@ -562,4 +600,225 @@ test("given a loaded card, when Reject is sent with no message, then its payload
   assert.deepEqual(body.resume, [
     { interruptId: "i-c1", status: "resolved", payload: { type: "reject" } },
   ]);
+});
+
+/** The events a live run streams for a call: the model calls till-void for `item`. */
+const callEvents = (id: string, item: string): Event[] => [
+  {
+    type: "TOOL_CALL_START",
+    toolCallId: id,
+    toolCallName: "till-void",
+    parentMessageId: "a1",
+  },
+  { type: "TOOL_CALL_ARGS", toolCallId: id, delta: JSON.stringify({ item }) },
+  { type: "TOOL_CALL_END", toolCallId: id },
+];
+
+/** The events a live run streams when it pauses: its calls, then one interrupt outcome holding their questions. */
+const pausedRun = (interrupts: ReturnType<typeof waiting>[]): Event[] => [
+  { type: "RUN_STARTED", threadId: "T1", runId: "r1" },
+  ...interrupts.flatMap((interrupt) =>
+    callEvents(
+      String(interrupt.toolCallId),
+      String((interrupt.metadata.input as { item: string }).item),
+    ),
+  ),
+  {
+    type: "RUN_FINISHED",
+    threadId: "T1",
+    runId: "r1",
+    outcome: { type: "interrupt", interrupts },
+  },
+];
+
+test("given a live run whose calls wait for a yes, when its stream ends on the interrupts, then a card shows at each call, and one resume carries both answers", async () => {
+  const interrupts = [
+    waiting({
+      id: "l1",
+      item: "hat",
+      prompt: "Void: run till-void with the hat?",
+    }),
+    waiting({
+      id: "l2",
+      item: "coat",
+      prompt: "Note: what should the till hold about the coat?",
+      decisions: ["approve", "reject", "respond"],
+    }),
+  ];
+  const server = queServer({
+    messages: [],
+    interrupts: [],
+    run: pausedRun(interrupts),
+  });
+  const aui = renderApp();
+  await loadThread(aui);
+  await act(async () => {
+    aui().thread().append("Void the hat and note the coat.");
+  });
+
+  await waitFor(() =>
+    assert.equal(
+      cards().length,
+      2,
+      "the live run showed no card for each call that waits",
+    ),
+  );
+  const hat = cardFor("hat");
+  const coat = cardFor("coat");
+  assert.ok(
+    within(hat).getByText(interrupts[0]!.message),
+    "the live card did not show the call's question",
+  );
+  assert.ok(
+    within(hat).getByText(/"item": "hat"/),
+    "the live card did not show the call's args",
+  );
+  assert.ok(
+    within(hat).queryByRole("button", { name: "Edit" }),
+    "the live card did not offer the Edit its op allows",
+  );
+  assert.ok(
+    within(coat).getByText(interrupts[1]!.message),
+    "the second live card did not show its own question",
+  );
+  assert.ok(
+    within(coat).getByText(/"item": "coat"/),
+    "the second live card did not show its own args",
+  );
+  assert.equal(
+    within(coat).queryByRole("button", { name: "Edit" }),
+    null,
+    "the second live card offered an Edit its op does not allow",
+  );
+  assert.ok(
+    within(coat).queryByRole("button", { name: "Respond" }),
+    "the second live card did not offer the Respond its op allows",
+  );
+  assert.equal(
+    hat.closest('[data-slot="aui_chain-of-thought"]'),
+    null,
+    "the live card was shown inside the chain of thought",
+  );
+
+  await act(async () => {
+    within(hat).getByRole("button", { name: "Approve" }).click();
+  });
+  await new Promise((waited) => setTimeout(waited, 300));
+  assert.equal(
+    server.posts().length,
+    1,
+    "answering one live card sent a resume before the other was answered",
+  );
+  await act(async () => {
+    within(coat).getByRole("button", { name: "Reject" }).click();
+  });
+  fireEvent.change(
+    within(coat).getByPlaceholderText("Why reject? (optional)"),
+    { target: { value: "The coat stays." } },
+  );
+  await act(async () => {
+    within(coat).getByRole("button", { name: "Send reject" }).click();
+  });
+  await waitFor(() =>
+    assert.equal(
+      server.posts().length,
+      2,
+      "the live batch sent no resume after both cards were answered",
+    ),
+  );
+  const body = JSON.parse(server.posts()[1]!.body) as { resume?: unknown[] };
+  assert.deepEqual(body.resume, [
+    {
+      interruptId: "i-l1",
+      status: "resolved",
+      payload: { type: "approve" },
+    },
+    {
+      interruptId: "i-l2",
+      status: "resolved",
+      payload: { type: "reject", message: "The coat stays." },
+    },
+  ]);
+});
+
+test("given a live run whose call waits for a yes, when a toolkit entry answers through the app's approval hooks, then one resume carries its answer", async () => {
+  const interrupt = waiting({
+    id: "t1",
+    item: "scarf",
+    prompt: "Void: run till-void with the scarf?",
+  });
+  const server = queServer({
+    messages: [],
+    interrupts: [],
+    run: pausedRun([interrupt]),
+  });
+  const seen: string[] = [];
+  const View = (props: ToolCallMessagePartProps) => {
+    const live = useInterrupt(props.toolCallId);
+    const held = useHeldAnswer(live?.id);
+    const answer = useAnswer(live?.id);
+    if (live?.message) seen.push(live.message);
+    return (
+      <div data-testid="till-entry">
+        <p>{live?.message ?? "no interrupt"}</p>
+        <p>{JSON.stringify(props.args)}</p>
+        {held ? (
+          <p>{`Held: ${String(held.type)}`}</p>
+        ) : (
+          <button onClick={() => answer({ type: "approve" })}>
+            Agree in the till entry
+          </button>
+        )}
+      </div>
+    );
+  };
+  const toolkit = defineToolkit({
+    "till-void": { type: "backend", render: View },
+  } as never);
+  const aui = renderApp(toolkit);
+  await loadThread(aui);
+  await act(async () => {
+    aui().thread().append("Void the scarf.");
+  });
+
+  const entry = await screen.findByTestId("till-entry");
+  assert.deepEqual(
+    seen,
+    [interrupt.message],
+    "the toolkit entry read no pending interrupt for its call",
+  );
+  assert.ok(
+    within(entry).getByText(/"item":"scarf"/),
+    "the toolkit entry got no args, or the wrong ones",
+  );
+  assert.equal(
+    screen.queryByRole("button", { name: "Approve" }),
+    null,
+    "the default card showed in the toolkit entry's place",
+  );
+
+  await act(async () => {
+    within(entry)
+      .getByRole("button", { name: "Agree in the till entry" })
+      .click();
+  });
+  await waitFor(() =>
+    assert.equal(
+      server.posts().length,
+      2,
+      "the toolkit entry's answer sent no resume",
+    ),
+  );
+  const body = JSON.parse(server.posts()[1]!.body) as { resume?: unknown[] };
+  assert.deepEqual(
+    body.resume,
+    [
+      {
+        interruptId: "i-t1",
+        status: "resolved",
+        payload: { type: "approve" },
+      },
+    ],
+    "the resume did not carry the toolkit entry's answer",
+  );
 });
