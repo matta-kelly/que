@@ -64,11 +64,26 @@ export type ThreadComponents = {
   TaskGroup?: ComponentType<{ group: ThreadGroupPart }> | undefined;
 };
 
-export const messageGroupBy = groupPartByType({
+const groupedByType = groupPartByType({
   reasoning: ["group-chainOfThought", "group-reasoning"],
   "tool-call": ["group-chainOfThought", "group-tool"],
   "standalone-tool-call": [],
 });
+
+/**
+ * A call that waits for the user's yes is its own card, outside the collapsed
+ * chain of thought, so the question shows where the call is. Every other part
+ * groups as it did.
+ */
+export const messageGroupBy = (
+  part: Parameters<typeof groupedByType>[0],
+  context?: Parameters<typeof groupedByType>[1],
+): ReturnType<typeof groupedByType> =>
+  part.type === "tool-call" &&
+  !!part.approval &&
+  part.approval.approved === undefined
+    ? []
+    : groupedByType(part, context);
 
 type ThreadGroupKey =
   "group-chainOfThought" | "group-reasoning" | "group-tool" | "group-task";
