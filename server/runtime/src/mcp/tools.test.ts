@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
-import type { Definition } from "@mku1tra/que-plugin";
+import type { Approval, Definition } from "@mku1tra/que-plugin";
 import type { Catalog } from "../access/catalog.js";
 import type { MountedPlugin } from "../mount/plugins.js";
 import { toolsOf } from "./tools.js";
@@ -16,7 +16,7 @@ type GivenOp = {
   name: string;
   description: string;
   input: z.ZodObject;
-  approval?: true;
+  approval?: Approval;
 };
 
 /** A mounted plugin, as mount gives one, with only what the tools read. */
@@ -51,6 +51,10 @@ const catalog = (...plugins: MountedPlugin[]): Catalog =>
 /** The last line a flagged op's tool description carries: the model reads it and does not call the op. */
 const APPROVAL_LINE =
   "Needs approval, and cannot be approved over MCP: do not call it.";
+
+/** The last line an op whose approval has a `when` carries: some calls run, and the ones that need approval are refused. */
+const SOME_LINE =
+  "Some calls need approval, which cannot be given over MCP: those calls are refused, and the others run.";
 
 /** The tool names, in the order the tools came. */
 const names = (plugins: MountedPlugin[]) =>
@@ -120,6 +124,29 @@ test("given a catalog whose plugin holds a flagged op and an unflagged one, when
     counted.description,
     "Counts an item.",
     "the unflagged op's tool description carries more than the op's own text",
+  );
+});
+
+test("given a flagged op whose approval has a when, when the tools are generated, then its tool says destructiveHint and ends its description with the line for some calls, not the line that says do not call it", () => {
+  const item = z.object({ item: z.string().describe("The item's name") });
+  const till = plugin("till", [
+    {
+      name: "note",
+      description: "Notes an item.",
+      input: item,
+      approval: {
+        description: "Note an item",
+        when: (input: unknown) => (input as { item: string }).item !== "free",
+      },
+    },
+  ]);
+
+  const [noted] = toolsOf(catalog(till));
+  assert.equal(noted!.annotations?.destructiveHint, true);
+  assert.equal(
+    noted!.description,
+    `Notes an item.\n\n${SOME_LINE}`,
+    "an op that runs for some calls is told not to be called",
   );
 });
 

@@ -5,7 +5,7 @@
  * another.
  */
 
-import type { Op } from "@mku1tra/que-plugin";
+import type { Approval, Op } from "@mku1tra/que-plugin";
 import type { ToolAnnotations } from "@modelcontextprotocol/server";
 import type { PlacedOp } from "../assemble/door.js";
 import type { Catalog } from "../access/catalog.js";
@@ -28,6 +28,17 @@ const LIMIT = 64;
 /** The last line a flagged op's tool description carries: the model reads it and does not call the op. */
 const APPROVAL_LINE =
   "Needs approval, and cannot be approved over MCP: do not call it.";
+
+/** The line an op whose approval has a `when` ends with: the door asks only some calls, and refuses those over MCP. */
+const SOME_LINE =
+  "Some calls need approval, which cannot be given over MCP: those calls are refused, and the others run.";
+
+/** The line a flagged op's description ends with: one that always asks, or one whose `when` asks only some calls. */
+function approvalLine(approval: Approval): string {
+  return typeof approval === "object" && approval.when
+    ? SOME_LINE
+    : APPROVAL_LINE;
+}
 
 /** The tool name an op of a plugin comes to. */
 export function toolName(plugin: string, op: string): string {
@@ -59,9 +70,9 @@ export function toolsOf(catalog: Catalog): McpTool[] {
       named.set(name, placed);
       tools.push({
         name,
-        // A flagged op cannot run over MCP, so its description says so, after the op's own text.
+        // A call that needs approval cannot run over MCP, so the description says so, after the op's own text.
         description: op.approval
-          ? `${op.description}\n\n${APPROVAL_LINE}`
+          ? `${op.description}\n\n${approvalLine(op.approval)}`
           : op.description,
         input: op.input,
         // A flagged op changes data: the host reads the hint, and the door still refuses the call.
