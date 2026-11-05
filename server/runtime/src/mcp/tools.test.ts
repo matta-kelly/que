@@ -48,6 +48,10 @@ function plugin(name: string, ops: GivenOp[]): MountedPlugin {
 const catalog = (...plugins: MountedPlugin[]): Catalog =>
   plugins.map((plugin) => ({ plugin }));
 
+/** The last line a flagged op's tool description carries: the model reads it and does not call the op. */
+const APPROVAL_LINE =
+  "Needs approval, and cannot be approved over MCP: do not call it.";
+
 /** The tool names, in the order the tools came. */
 const names = (plugins: MountedPlugin[]) =>
   toolsOf(catalog(...plugins)).map((tool) => tool.name);
@@ -81,7 +85,7 @@ test("given a catalog whose plugin till holds ops notes and search, when the too
   assert.equal(search.placed.op.name, "search");
 });
 
-test("given a catalog whose plugin holds a flagged op and an unflagged one, when the tools are generated, then the flagged op's tool says destructiveHint and the unflagged one's does not", () => {
+test("given a catalog whose plugin holds a flagged op and an unflagged one, when the tools are generated, then the flagged op's tool says destructiveHint and ends its description with the approval line, and the unflagged one's does neither", () => {
   const item = z.object({ item: z.string().describe("The item's name") });
   const till = plugin("till", [
     {
@@ -106,6 +110,16 @@ test("given a catalog whose plugin holds a flagged op and an unflagged one, when
     counted.annotations?.destructiveHint,
     true,
     "the unflagged op's tool says destructiveHint",
+  );
+  assert.equal(
+    voided.description,
+    `Voids an item's sale.\n\n${APPROVAL_LINE}`,
+    "the flagged op's tool description does not end with the approval line",
+  );
+  assert.equal(
+    counted.description,
+    "Counts an item.",
+    "the unflagged op's tool description carries more than the op's own text",
   );
 });
 

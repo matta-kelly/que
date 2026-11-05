@@ -28,7 +28,6 @@ import {
 import {
   ElicitRequestSchema,
   type ElicitRequest,
-  type ElicitResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
 
@@ -43,12 +42,16 @@ const command = {
   cwd: join(import.meta.dirname, "../.."),
 };
 
-/** The env a subprocess gets under `overrides`: the defaults, and no identity of this test's own. */
-const env = (overrides: Record<string, string>) => ({
-  ...getDefaultEnvironment(),
-  NODE_OPTIONS: "--conditions=@mku1tra/que-source",
-  ...overrides,
-});
+/** The env a subprocess gets under `overrides`: the defaults, and no identity of this test's own. A value that is undefined is left out. */
+const env = (overrides: Record<string, string | undefined>) => {
+  const merged: Record<string, string> = {
+    ...getDefaultEnvironment(),
+    NODE_OPTIONS: "--conditions=@mku1tra/que-source",
+  };
+  for (const [key, value] of Object.entries(overrides))
+    if (value !== undefined) merged[key] = value;
+  return merged;
+};
 
 // The database and the deployment the tool-surface tests read, made as catalog.test.ts makes them: PGlite on a socket,
 // and the fixture deployment "prompt" as a root of its own.
@@ -138,7 +141,7 @@ function addSourceList(folder: string): void {
 }
 
 /** An MCP client for a real server subprocess, and the watch on anything it writes that is not a protocol message. */
-async function connect(overrides: Record<string, string>) {
+async function connect(overrides: Record<string, string | undefined>) {
   const transport = new StdioClientTransport({
     ...command,
     env: env(overrides),
@@ -155,7 +158,7 @@ async function connect(overrides: Record<string, string>) {
 
 /** Runs `run` against a server subprocess with `overrides`, and gives its answer and stderr once the client is closed. */
 async function withServer<T>(
-  overrides: Record<string, string>,
+  overrides: Record<string, string | undefined>,
   run: (client: Client) => Promise<T>,
 ): Promise<{ value: T; noise: string[] }> {
   const { client, noise } = await connect(overrides);
@@ -168,12 +171,11 @@ async function withServer<T>(
 
 /**
  * Runs `run` against a server subprocess with `overrides`, as a client that
- * declares form elicitation: `decide` answers each ask, and `asks` gives each
- * request the server made, in order.
+ * declares form elicitation: `asks` holds every elicitation request the server
+ * made. An ask is declined, so a call that wrongly waits cannot hang.
  */
-async function withFormServer<T>(
-  overrides: Record<string, string>,
-  decide: (ask: ElicitRequest["params"]) => ElicitResult,
+async function withElicitingServer<T>(
+  overrides: Record<string, string | undefined>,
   run: (client: Client) => Promise<T>,
 ): Promise<{ value: T; asks: ElicitRequest["params"][]; noise: string[] }> {
   const transport = new StdioClientTransport({
@@ -191,7 +193,7 @@ async function withFormServer<T>(
   const asks: ElicitRequest["params"][] = [];
   client.setRequestHandler(ElicitRequestSchema, async (request) => {
     asks.push(request.params);
-    return decide(request.params);
+    return { action: "decline" };
   });
   await client.connect(transport);
   try {
@@ -199,6 +201,57 @@ async function withFormServer<T>(
   } finally {
     await client.close();
   }
+}
+
+/** Runs `run`, giving its value or the error it threw. */
+const tried = async <T>(run: () => Promise<T>) =>
+  run().then(
+    (value) => ({ value }),
+    (error: unknown) => ({ error }),
+  );
+
+/**
+ * Asserts that a call of the flagged `till-void` was refused over MCP: it needs
+ * approval, it cannot be approved over MCP, and the call did not run. The
+ * refusal names no other place to approve, and the op did not run.
+ */
+function refused(result: Awaited<ReturnType<Client["callTool"]>>) {
+  assert.equal(
+    result.isError,
+    true,
+    `the call of till-void was not an error: ${text(result)}`,
+  );
+  const reason = text(result);
+  assert.match(
+    reason,
+    /till-void/,
+    `the refusal does not name till-void: ${reason}`,
+  );
+  assert.match(
+    reason,
+    /needs approval/i,
+    `the refusal does not say the op needs approval: ${reason}`,
+  );
+  assert.match(
+    reason,
+    /cannot be approved over MCP/i,
+    `the refusal does not say the op cannot be approved over MCP: ${reason}`,
+  );
+  assert.match(
+    reason,
+    /did not run/i,
+    `the refusal does not say the call did not run: ${reason}`,
+  );
+  assert.doesNotMatch(
+    reason,
+    /web ui|\bchat\b|browser|dashboard/i,
+    `the refusal names another place to approve: ${reason}`,
+  );
+  assert.doesNotMatch(
+    reason,
+    /voided/,
+    `the op ran, and its result came back: ${reason}`,
+  );
 }
 
 /** The single text content a tool result carries, read as JSON. */
@@ -384,93 +437,82 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
   }
 });
 
-test("given a 2025-era client over stdio that declares form elicitation, when it calls the flagged till-void and accepts the ask, then the ask is the op's description with an empty flat form, and the call runs with the op's result", async () => {
+test("given a 2025-era client over stdio that declares form elicitation, when it calls the flagged till-void, then no elicitation is asked, the op does not run, and the result is an error that says it needs approval, that it cannot be approved over MCP, and that the call did not run", async () => {
   const email = "sam.stdio@example.com";
   const id = await grant(email, "Sam Stdio", "till-domain");
   await access.setCredential(till.definition.plugin, id, { key: "the-key" });
 
-  const { value, asks, noise } = await withFormServer(
+  const { value, asks } = await withElicitingServer(
     { ...que(), DEV_USER_EMAIL: email },
-    () => ({ action: "accept", content: {} }),
     (client) =>
       client.callTool({ name: "till.till-void", arguments: { item: "apple" } }),
   );
 
-  assert.equal(
-    asks.length,
-    1,
-    `the call asked ${asks.length} times: ${noise.join("")}`,
-  );
-  const ask = asks[0] as {
-    message: string;
-    requestedSchema: { type?: string; properties?: unknown };
-  };
-  assert.equal(
-    ask.message,
-    "Void: run till-void with this input?",
-    `the elicitation's message is not the call's description: ${JSON.stringify(ask)}`,
-  );
-  assert.equal(
-    ask.requestedSchema.type,
-    "object",
-    `the elicitation's form is not an object: ${JSON.stringify(ask)}`,
-  );
   assert.deepEqual(
-    ask.requestedSchema.properties,
-    {},
-    `the elicitation's form is not empty and flat: ${JSON.stringify(ask)}`,
+    asks,
+    [],
+    `the server asked the client to answer: ${JSON.stringify(asks)}`,
   );
-  assert.notEqual(
-    value.isError,
-    true,
-    `the accepted call failed: ${text(value)}`,
-  );
-  const content = value.content as { type: string; text: string }[];
-  assert.equal(
-    content.length,
-    1,
-    `the answer is not one content part: ${JSON.stringify(content)}`,
-  );
-  assert.equal(content[0]?.type, "text");
-  assert.deepEqual(
-    JSON.parse(content[0]!.text),
-    { conn: "till:the-key", item: "apple", voided: true },
-    `the call did not run with the op's result: ${content[0]!.text}`,
-  );
+  refused(value);
 });
 
-test("given a 2025-era client over stdio that declares form elicitation, when it calls the flagged till-void and declines the ask, then the op does not run, and the result is an error that says the user declined and the call did not run", async () => {
+test("given a 2025-era client over stdio that declares no elicitation, when it calls till-void, then the op does not run, and the result is the same refusal", async () => {
   const email = "tess.stdio@example.com";
   const id = await grant(email, "Tess Stdio", "till-domain");
   await access.setCredential(till.definition.plugin, id, { key: "the-key" });
 
-  const { value, asks, noise } = await withFormServer(
+  const { value } = await withServer(
     { ...que(), DEV_USER_EMAIL: email },
-    () => ({ action: "decline" }),
     (client) =>
       client.callTool({ name: "till.till-void", arguments: { item: "apple" } }),
   );
 
-  assert.equal(
-    asks.length,
-    1,
-    `the call asked ${asks.length} times: ${noise.join("")}`,
+  refused(value);
+});
+
+test("given a session with no QUE_CREDENTIALS_KEY, when an MCP client lists the tools and calls one, then it lists the user's tools and the call answers the op's result", async () => {
+  const email = "uma.tools@example.com";
+  await grant(email, "Uma Tools", "source-domain");
+
+  // The mouth needs no key of its own: only the credential store does, and this plugin has no credential.
+  const { value } = await withServer(
+    { ...que(), DEV_USER_EMAIL: email, QUE_CREDENTIALS_KEY: undefined },
+    async (client) => ({
+      listed: await tried(() => client.listTools()),
+      called: await tried(() =>
+        client.callTool({
+          name: "source.source-find",
+          arguments: { code: "A-1" },
+        }),
+      ),
+    }),
   );
-  assert.equal(
-    value.isError,
+
+  assert.ok(
+    value.listed.value,
+    `a session with no QUE_CREDENTIALS_KEY did not list its tools: ${String(value.listed.error)}`,
+  );
+  assert.ok(
+    value.listed.value.tools.some((tool) => tool.name === "source.source-find"),
+    `the list does not name source.source-find: ${value.listed.value.tools.map((tool) => tool.name).join(", ")}`,
+  );
+  assert.ok(
+    value.called.value,
+    `a session with no QUE_CREDENTIALS_KEY did not answer the call: ${String(value.called.error)}`,
+  );
+  assert.notEqual(
+    value.called.value.isError,
     true,
-    `a declined call did not fail: ${text(value)}`,
+    `the call failed: ${text(value.called.value)}`,
   );
-  const reason = text(value);
-  assert.match(
-    reason,
-    /declined/i,
-    `the refusal does not say the user declined: ${reason}`,
-  );
-  assert.match(
-    reason,
-    /did not run/i,
-    `the refusal does not say the call did not run: ${reason}`,
+  const content = value.called.value.content as {
+    type: string;
+    text: string;
+  }[];
+  assert.deepEqual(
+    JSON.parse(content[0]!.text),
+    {},
+    `the call's answer is not the op's result: ${content[0]!.text}`,
   );
 });
 

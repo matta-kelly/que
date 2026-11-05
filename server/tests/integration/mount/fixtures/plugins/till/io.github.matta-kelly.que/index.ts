@@ -86,6 +86,8 @@ export default definePlugin({
       approval: {
         description: "Note: what should the till hold about this item?",
         decisions: ["approve", "reject", "respond"],
+        // A free item is noted as it is, so the door asks only for the items that are not free.
+        when: ({ item }) => item !== "free",
       },
       input: z.object({ item: z.string().describe("The item's name") }),
       run: async ({ conn }, { item }) => ({ conn, item, noted: true }),
