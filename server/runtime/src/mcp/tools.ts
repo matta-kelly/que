@@ -25,6 +25,10 @@ const NAME = /^[a-z0-9._-]+$/;
 /** The most characters a tool name may hold: model APIs take at most 64. */
 const LIMIT = 64;
 
+/** The last line a flagged op's tool description carries: the model reads it and does not call the op. */
+const APPROVAL_LINE =
+  "Needs approval, and cannot be approved over MCP: do not call it.";
+
 /** The tool name an op of a plugin comes to. */
 export function toolName(plugin: string, op: string): string {
   const name = `${plugin}.${op}`.toLowerCase();
@@ -55,9 +59,12 @@ export function toolsOf(catalog: Catalog): McpTool[] {
       named.set(name, placed);
       tools.push({
         name,
-        description: op.description,
+        // A flagged op cannot run over MCP, so its description says so, after the op's own text.
+        description: op.approval
+          ? `${op.description}\n\n${APPROVAL_LINE}`
+          : op.description,
         input: op.input,
-        // A flagged op changes data: the host reads the hint, and the door still asks.
+        // A flagged op changes data: the host reads the hint, and the door still refuses the call.
         ...(op.approval ? { annotations: { destructiveHint: true } } : {}),
         placed,
       });
