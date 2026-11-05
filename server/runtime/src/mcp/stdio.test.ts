@@ -210,6 +210,12 @@ const tried = async <T>(run: () => Promise<T>) =>
     (error: unknown) => ({ error }),
   );
 
+/** Gives the value `tried` holds, or fails the test with the error it held. */
+function answered<T>(result: { value: T } | { error: unknown }, what: string) {
+  if ("error" in result) assert.fail(`${what}: ${String(result.error)}`);
+  return result.value;
+}
+
 /**
  * Asserts that a call of the flagged `till-void` was refused over MCP: it needs
  * approval, it cannot be approved over MCP, and the call did not run. The
@@ -488,24 +494,20 @@ test("given a session with no QUE_CREDENTIALS_KEY, when an MCP client lists the 
     }),
   );
 
-  assert.ok(
-    value.listed.value,
-    `a session with no QUE_CREDENTIALS_KEY did not list its tools: ${String(value.listed.error)}`,
+  const listed = answered(
+    value.listed,
+    "a session with no QUE_CREDENTIALS_KEY did not list its tools",
   );
   assert.ok(
-    value.listed.value.tools.some((tool) => tool.name === "source.source-find"),
-    `the list does not name source.source-find: ${value.listed.value.tools.map((tool) => tool.name).join(", ")}`,
+    listed.tools.some((tool) => tool.name === "source.source-find"),
+    `the list does not name source.source-find: ${listed.tools.map((tool) => tool.name).join(", ")}`,
   );
-  assert.ok(
-    value.called.value,
-    `a session with no QUE_CREDENTIALS_KEY did not answer the call: ${String(value.called.error)}`,
+  const called = answered(
+    value.called,
+    "a session with no QUE_CREDENTIALS_KEY did not answer the call",
   );
-  assert.notEqual(
-    value.called.value.isError,
-    true,
-    `the call failed: ${text(value.called.value)}`,
-  );
-  const content = value.called.value.content as {
+  assert.notEqual(called.isError, true, `the call failed: ${text(called)}`);
+  const content = called.content as {
     type: string;
     text: string;
   }[];
