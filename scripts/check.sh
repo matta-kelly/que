@@ -225,6 +225,8 @@ check_shell() {
   step "shell: lint" . shell_lint
   # The smoke check's git step is decided by a command it runs in an image, so it is held without one.
   step "shell: smoke-image's git step" . scripts/smoke-image.test.sh
+  # The dev image's hash, ref and ensure, held with stand-in skopeo and podman.
+  step "shell: dev-image's tests" . scripts/dev-image.test.sh
 }
 
 # Each folder of notes is the root of one graph, with its own basis.config.ts: the repo's root (que's notes, of the
