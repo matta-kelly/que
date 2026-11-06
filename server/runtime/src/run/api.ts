@@ -16,6 +16,7 @@ import { access } from "../access/connections.js";
 import { control } from "../access/control.js";
 import { accepted } from "../access/instructions.js";
 import { instructionsFile, userInstructions, users } from "../access/users.js";
+import { chatEnabled } from "./chat.js";
 import { deploymentInfo } from "./deployment-info.js";
 import { signedIn, type SignedIn } from "./signed-in.js";
 
@@ -139,7 +140,7 @@ app.patch("/que/me", async (c) => {
 
 app.get("/que/users", async (c) => c.json(await users.list()));
 
-// The same for every user, and fixed at mount.
+// The same for every user: what the deployment lists, fixed at mount, and whether it serves the chat.
 app.get("/que/deployment", (c) =>
-  c.json(deploymentInfo(agents, models, loops)),
+  c.json(deploymentInfo(agents, models, loops, chatEnabled())),
 );

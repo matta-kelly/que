@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$PWD
-podman ps --filter label=devcontainer.local_folder --format '{{.Names}} {{index .Labels "devcontainer.local_folder"}}' |
+podman ps --filter label=devcontainer.local_folder --format '{{.Names}} {{.Label "devcontainer.local_folder"}}' |
   while read -r name folder; do
     if [ "$folder" != "$root" ] && [ -f "$folder/server/harness/package.json" ] &&
       podman exec "$name" pgrep -f "src/listen.ts|next dev" >/dev/null; then

@@ -267,8 +267,8 @@ const ThreadListItem: FC = () => {
       ) : (
         <ThreadListItemPrimitive.Trigger
           ref={triggerRef}
-          // Opens the chat on the chat page, even from another page (Reports,
-          // …); preventDefault skips the primitive's own switch, which
+          // Opens the chat on the chat page, even from another page;
+          // preventDefault skips the primitive's own switch, which
           // useOpenChat already does.
           onClick={(e) => {
             e.preventDefault();

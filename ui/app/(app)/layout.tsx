@@ -1,7 +1,7 @@
 "use client";
 
 // The app shell shared by every page: sidebar, settings, command palette.
-// Pages (chat, Reports, …) render in the main area with their own PageHeader.
+// Pages (the chat, …) render in the main area with their own PageHeader.
 
 import { useSyncExternalStore } from "react";
 import { AppSidebar } from "@/components/shell/sidebar/app-sidebar";

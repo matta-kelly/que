@@ -1,12 +1,11 @@
 "use client";
 
 import type * as React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Eclipse, MessageSquareText } from "lucide-react";
 import { brandFont } from "@/lib/fonts";
-import { NAV } from "@/components/shell/nav";
 import { NavUser } from "@/components/shell/sidebar/nav-user";
+import { useChatEnabled } from "@/hooks/use-chat-enabled";
 import { useNewChat } from "@/hooks/use-new-chat";
 import {
   Sidebar,
@@ -25,17 +24,22 @@ import { SidebarResizeHandle } from "./sidebar-resize-handle";
 // (collapsible="icon") instead of disappearing.
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const newChat = useNewChat();
-  const pathname = usePathname();
+  const chat = useChatEnabled();
+  const router = useRouter();
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="aui-sidebar-header h-16 justify-center border-b">
         <SidebarMenu>
           <SidebarMenuItem>
-            {/* The brand opens a fresh chat. */}
+            {/* The brand opens a fresh chat, or home on a deployment that serves no chat. */}
             <SidebarMenuButton
               size="lg"
-              onClick={newChat}
-              aria-label="Lotus and Luna: new chat"
+              onClick={chat === false ? () => router.push("/") : newChat}
+              aria-label={
+                chat === false
+                  ? "Lotus and Luna: home"
+                  : "Lotus and Luna: new chat"
+              }
             >
               <div className="text-sidebar-foreground flex aspect-square size-8 shrink-0 items-center justify-center">
                 <Eclipse className="size-6" />
@@ -51,31 +55,18 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       {/* Scrolls, without a visible scrollbar. */}
       <SidebarContent className="aui-sidebar-content px-2 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {/* Top: app areas (placeholders until their pages exist). Below: the
-            dropdown sections, Chats first. Collapsed rail: a chats icon that
-            opens the sidebar. */}
-        <SidebarMenu className="mb-2">
-          {NAV.map((item) => (
-            <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton
-                asChild
-                tooltip={item.name}
-                isActive={pathname === item.href}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.name}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-        <ChatsSection />
-        <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
-          <SidebarMenuItem>
-            <RailChatsButton />
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* The dropdown sections, Chats first. Collapsed rail: a chats icon
+            that opens the sidebar. */}
+        {chat && (
+          <>
+            <ChatsSection />
+            <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+              <SidebarMenuItem>
+                <RailChatsButton />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </>
+        )}
       </SidebarContent>
       <SidebarResizeHandle />
       {/* You (opens Settings) with the sidebar toggle inline; stacked when collapsed. */}

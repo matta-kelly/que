@@ -107,3 +107,36 @@ test("/que/* answers as the signed-in user: /que/me is each user's own row", asy
 test("/ok answers with no identity", async () => {
   assert.equal((await as(undefined, "/ok")).status, 200);
 });
+
+test("given QUE_CHAT=off, when a user lists, makes or opens a thread, then each answers 403 with the line that the chat is off, no thread is made, and the deployment says chat false; with it unset, the chat answers again", async () => {
+  const email = "chat-off@example.com";
+  process.env.QUE_CHAT = "off";
+  try {
+    for (const [path, init] of [
+      ["/threads", undefined],
+      ["/threads", { method: "POST" }],
+      [`/threads/${randomUUID()}`, undefined],
+    ] as const) {
+      const res = await as(email, path, init);
+      assert.equal(res.status, 403, `${init?.method ?? "GET"} ${path}`);
+      assert.deepEqual(await res.json(), {
+        error:
+          "Chat isn't enabled for this deployment. Connect your own AI to que over MCP.",
+      });
+    }
+    const off = await as(email, "/que/deployment");
+    assert.equal(((await off.json()) as { chat: boolean }).chat, false);
+  } finally {
+    delete process.env.QUE_CHAT;
+  }
+
+  const listed = await as(email, "/threads");
+  assert.equal(listed.status, 200);
+  assert.deepEqual(
+    await listed.json(),
+    [],
+    "a thread was made while the chat was off",
+  );
+  const on = await as(email, "/que/deployment");
+  assert.equal(((await on.json()) as { chat: boolean }).chat, true);
+});

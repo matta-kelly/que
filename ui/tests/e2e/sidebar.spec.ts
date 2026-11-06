@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openApp, openChats } from "./helpers";
+import { openApp, openChat, openChats } from "./helpers";
 
 test("sidebar: search turns the chats row into a search field", async ({
   page,
@@ -101,20 +101,32 @@ test("sidebar: Chats, rail icon and brand open a fresh chat", async ({
       "New chat",
     );
   };
-  await openApp(page, "/reports");
-  await expect(page.getByText("No reports yet")).toBeVisible();
-  await page.getByRole("button", { name: "Chats", exact: true }).click();
-  await freshChat();
+  // A chat of this test's own, made and named on que's server with no model call. Each step starts
+  // from it, so a new chat is a change the test can see.
+  const title = `sidebar fresh ${Date.now()}`;
+  const made = await page.request.post("/api/threads");
+  const { id } = (await made.json()) as { id: string };
+  await page.request.patch(`/api/threads/${id}`, { data: { title } });
+  const openSomeChat = () => openChat(page, title);
 
-  await page.getByRole("link", { name: "Workflows", exact: true }).click();
-  await page.getByRole("button", { name: /Lotus and Luna/ }).click();
-  await freshChat();
+  try {
+    await openApp(page);
+    await openSomeChat();
+    await page.getByRole("button", { name: "Chats", exact: true }).click();
+    await freshChat();
 
-  await page.getByRole("link", { name: "Skills", exact: true }).click();
-  await page
-    .locator('[data-sidebar="footer"]')
-    .getByRole("button", { name: "Toggle Sidebar" })
-    .click();
-  await page.getByRole("button", { name: "Chats", exact: true }).click();
-  await freshChat();
+    await openSomeChat();
+    await page.getByRole("button", { name: /Lotus and Luna/ }).click();
+    await freshChat();
+
+    await openSomeChat();
+    await page
+      .locator('[data-sidebar="footer"]')
+      .getByRole("button", { name: "Toggle Sidebar" })
+      .click();
+    await page.getByRole("button", { name: "Chats", exact: true }).click();
+    await freshChat();
+  } finally {
+    await page.request.delete(`/api/threads/${id}`);
+  }
 });

@@ -12,7 +12,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import { useAuiState } from "@assistant-ui/react";
 import { useTheme } from "next-themes";
-import { useRouter } from "next/navigation";
 import {
   Cable,
   MessageSquare,
@@ -31,8 +30,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { NAV } from "@/components/shell/nav";
 import { SECTIONS, useSettings } from "@/components/settings/settings-dialog";
+import { useChatEnabled } from "@/hooks/use-chat-enabled";
 import { useNewChat } from "@/hooks/use-new-chat";
 import { useOpenChat } from "@/hooks/use-open-chat";
 import { fetcher, QUE_API, type Connection } from "@/lib/que-api";
@@ -45,22 +44,17 @@ type Entry = {
   run: () => void;
 };
 
-// "Reports" → ["reports", "report"]: what you can type before ":" for it.
+// "Settings" → ["settings", "setting"]: what you can type before ":" for it.
 const prefixesOf = (name: string) => {
   const plural = name.toLowerCase();
   return [...new Set([plural, plural.replace(/s$/, "")])];
 };
 
-// Search types, in display order (chats last): actions, a scope per page in
-// NAV, settings (its SECTIONS and each connector), chats. `prefixes` are what you can
+// Search types, in display order (chats last): actions, settings (its SECTIONS
+// and each connector), chats. `prefixes` are what you can
 // type before ":" to scope to it.
 const SCOPES = [
   { id: "actions", label: "Actions", prefixes: prefixesOf("Actions") },
-  ...NAV.map((n) => ({
-    id: n.href,
-    label: n.name,
-    prefixes: prefixesOf(n.name),
-  })),
   {
     id: "settings",
     label: "Settings",
@@ -72,8 +66,8 @@ const SCOPES = [
   { id: "chats", label: "Chats", prefixes: prefixesOf("Chats") },
 ];
 
-const scopeFromPrefix = (word: string) =>
-  SCOPES.find((s) => s.prefixes.includes(word.toLowerCase()));
+const scopeFromPrefix = (scopes: typeof SCOPES, word: string) =>
+  scopes.find((s) => s.prefixes.includes(word.toLowerCase()));
 
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
@@ -91,7 +85,6 @@ export function CommandPalette() {
   const threadIds = useAuiState((s) => s.threads.threadIds);
   const threadItems = useAuiState((s) => s.threads.threadItems);
   const { openSettings } = useSettings();
-  const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -136,10 +129,14 @@ export function CommandPalette() {
     fn();
   };
 
+  // A deployment that serves no chat has no chats to search and no new chat to start.
+  const chat = useChatEnabled() !== false;
+  const scopes = chat ? SCOPES : SCOPES.filter((s) => s.id !== "chats");
+
   // "chat: foo" → scope Chats, search "foo".
   const onSearchChange = (value: string) => {
     const match = !scope && value.match(/^(\w+):\s?(.*)$/);
-    const next = match && scopeFromPrefix(match[1]);
+    const next = match && scopeFromPrefix(scopes, match[1]);
     if (next) {
       setScope(next.id);
       setSearch(match[2]);
@@ -157,13 +154,17 @@ export function CommandPalette() {
 
   const groups: Record<string, Entry[]> = {
     actions: [
-      {
-        key: "new",
-        value: "new chat",
-        label: "New chat",
-        icon: SquarePen,
-        run: newChat,
-      },
+      ...(chat
+        ? [
+            {
+              key: "new",
+              value: "new chat",
+              label: "New chat",
+              icon: SquarePen,
+              run: newChat,
+            },
+          ]
+        : []),
       {
         key: "theme",
         value: "theme dark light mode",
@@ -172,20 +173,6 @@ export function CommandPalette() {
         run: () => setTheme(dark ? "light" : "dark"),
       },
     ],
-    ...Object.fromEntries(
-      NAV.map((n) => [
-        n.href,
-        [
-          {
-            key: n.name,
-            value: `page ${n.name}`,
-            label: n.name,
-            icon: n.icon,
-            run: () => router.push(n.href),
-          },
-        ],
-      ]),
-    ),
     settings: [
       ...SECTIONS.map((s) => ({
         key: s.id,
@@ -210,15 +197,15 @@ export function CommandPalette() {
       run: () => openChat(id),
     })),
   };
-  const shown = SCOPES.filter((s) => (scope ? s.id === scope : true));
-  const scopeLabel = SCOPES.find((s) => s.id === scope)?.label;
+  const shown = scopes.filter((s) => (scope ? s.id === scope : true));
+  const scopeLabel = scopes.find((s) => s.id === scope)?.label;
 
   return (
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
       title="Search"
-      description="Search chats, pages, settings, and actions"
+      description="Search chats, settings, and actions"
       className="sm:max-w-3xl"
     >
       <CommandInput
@@ -256,7 +243,7 @@ export function CommandPalette() {
         {/* Typing a type's name suggests scoping to it. */}
         {!scope && search && (
           <CommandGroup heading="Search in">
-            {SCOPES.map((s) => (
+            {scopes.map((s) => (
               <CommandItem
                 key={s.id}
                 value={`search in ${s.label} ${s.prefixes.join(" ")}`}

@@ -14,6 +14,7 @@ import { sessionServer } from "./mcp/session.js";
 import { admin } from "./run/admin.js";
 import { app as api } from "./run/api.js";
 import { signedIn, type SignedIn } from "./run/signed-in.js";
+import { CHAT_OFF, chatEnabled } from "./run/chat.js";
 import { threads } from "./run/threads.js";
 
 export const app = new Hono<SignedIn>();
@@ -54,6 +55,11 @@ app.post("/mcp", signedIn, async (c) => {
 // 405 with allow: POST is the refusal the MCP spec and the SDK client read as correct.
 app.on(["GET", "DELETE"], "/mcp", (c) => c.body(null, 405, { allow: "POST" }));
 
+// The chat. A deployment with the chat off answers every thread route with why, and no run starts.
+for (const path of ["/threads", "/threads/*"])
+  app.use(path, async (c, next) =>
+    chatEnabled() ? next() : c.json({ error: CHAT_OFF }, 403),
+  );
 app.route("/threads", threads);
 app.route("/", admin);
 app.route("/", api);

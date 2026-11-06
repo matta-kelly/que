@@ -32,7 +32,6 @@ test("palette: Ctrl+K toggles it; / in the message box doesn't open it", async (
   await page.locator('[data-slot="page-title"]').click();
   await page.keyboard.press("Control+k");
   await expect(input).toBeVisible();
-  await expect(page.getByRole("option", { name: /Reports/ })).toBeVisible();
   await expect(page.getByRole("option", { name: /New chat/ })).toBeVisible();
   await page.keyboard.press("Control+k");
   await expect(input).toHaveCount(0);
@@ -59,15 +58,13 @@ test("palette: scoped search with prefixes and suggestions", async ({
   await expect(pill).toHaveText("Chats");
   await expect(input).toHaveValue("");
   await expect(input).toHaveAttribute("placeholder", "Search chats…");
-  await expect(page.getByRole("option", { name: /Reports/ })).toHaveCount(0);
   await expect(page.getByRole("option", { name: /New chat/ })).toHaveCount(0);
   await expect(page.getByRole("option").first()).toBeVisible();
 
   await input.press("Backspace");
   await expect(pill).toHaveCount(0);
 
-  await input.fill("rep");
-  await page.getByRole("option", { name: "Search in Reports" }).click();
-  await expect(pill).toHaveText("Reports");
-  await expect(page.getByRole("option", { name: "Reports" })).toBeVisible();
+  await input.fill("sett");
+  await page.getByRole("option", { name: "Search in Settings" }).click();
+  await expect(pill).toHaveText("Settings");
 });

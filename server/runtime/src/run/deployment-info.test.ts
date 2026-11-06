@@ -122,3 +122,8 @@ test("a model with no price, one the model catalog has no entry for and whose fi
     { name: "beam", window: 64_000, maxTokens: 8_000 },
   ]);
 });
+
+test("the info says whether the deployment serves the chat: on unless it is given off", () => {
+  assert.equal(deploymentInfo([chat], [big], [longChat]).chat, true);
+  assert.equal(deploymentInfo([chat], [big], [longChat], false).chat, false);
+});

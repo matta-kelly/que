@@ -22,14 +22,18 @@ export type DeploymentInfo = {
     maxTokens: number;
     price?: ModelPrice;
   }[];
+  /** Whether the deployment serves que's chat. With it off, the UI shows the control plane alone. */
+  chat: boolean;
 };
 
 export function deploymentInfo(
   agents: Agent[],
   models: Model[],
   loops: Loop[],
+  chat = true,
 ): DeploymentInfo {
   return {
+    chat,
     // `model` is the one the agent names: a run of it gets that one when the run names none.
     agents: agents.map((agent) => {
       const { summarize } = loopFor(loops, agent);

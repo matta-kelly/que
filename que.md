@@ -205,7 +205,8 @@ agent ─────────────────▶  assemble  turn its
 	- its settings, in a `.env`
 		- user: `DEV_USER_EMAIL`, `DEV_USER_NAME`, and `DEV_USER_INSTRUCTIONS`, a file with the user's own instructions. With none named, they are on the user's account
 		- storage: `POSTGRES_PASSWORD`, `DATABASE_URL`, `QUE_CREDENTIALS_KEY`
-		- model: `FIREWORKS_API_KEY`, the key of the one provider que has
+		- model: `FIREWORKS_API_KEY`, the key of the one provider que has. A deployment with the chat off needs none
+		- chat: `QUE_CHAT=off` serves the control plane (account, connections, users) and MCP alone. Every thread route answers that chat isn't enabled, and the UI's home says so: users bring their own AI over MCP, and no run spends the deployment's model. Unset, the chat is on
 		- traces: `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. All three, or none
 - **Deployment**: one live instance: an environment and its agent config, on que's harness and a backend
 	- one folder holds its definition (`index.ts`: the names of its `plugins`, `agents`, `loops` and `models`), a file for each agent, loop and model in `agents/`, `loops/` and `models/`, its plugins installed as npm packages, and its backend settings (`.env`), and starts que with `just start`

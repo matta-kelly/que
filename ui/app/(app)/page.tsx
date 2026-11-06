@@ -13,9 +13,18 @@ import { Thread } from "@/components/assistant-ui/elements/thread.aui";
 import { PageHeader } from "@/components/shell/page-header";
 import { CHAT_SUGGESTIONS } from "@/components/chat/suggestions";
 import toolkit from "@/components/chat/toolkit";
+import { ChatOff } from "@/components/chat/chat-off";
+import { useChatEnabled } from "@/hooks/use-chat-enabled";
+
+// Home: the chat, or, on a deployment that serves no chat, the line that says so.
+export default function HomePage() {
+  const chat = useChatEnabled();
+  if (chat === undefined) return null;
+  return chat ? <ChatPage /> : <ChatOff />;
+}
 
 // The chat. Its header shows the current chat's title.
-export default function ChatPage() {
+function ChatPage() {
   const aui = useAui();
   const config = AuiConfig({
     tools: Tools({ toolkit }),

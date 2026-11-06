@@ -1,6 +1,7 @@
 import type { RemoteThreadListAdapter } from "@assistant-ui/react";
 import { threads, type QueThread } from "@/components/runtime/que-client";
 import {
+  loadDeployment,
   pickOf,
   rememberPick,
   useRunPicks,
@@ -28,6 +29,11 @@ type TitleStream = Awaited<
 
 export const threadListAdapter: RemoteThreadListAdapter = {
   async list() {
+    // A deployment that serves no chat has no threads to list, and its server answers none. A deployment
+    // that fails to load counts as one with the chat on.
+    await loadDeployment().catch(() => {});
+    if (useRunPicks.getState().deployment?.chat === false)
+      return { threads: [] };
     // The newest first.
     return { threads: (await threads.list()).reverse().map(toMeta) };
   },

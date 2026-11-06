@@ -69,6 +69,8 @@ export type Deployment = {
     maxTokens: number;
     price?: ModelPrice;
   }[];
+  /** Whether the deployment serves que's chat. An older server does not say, and its chat is on. */
+  chat?: boolean;
 };
 
 /** GET a URL as JSON; a non-OK response throws, so SWR reports it as an error. */
