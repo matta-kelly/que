@@ -895,6 +895,76 @@ test_the_check_passes_in_the_container_one_set_and_all() {
   assert_eq "$id" "$(cid)" "the check runs in the one container the file makes" || return 1
 }
 
+# --- the dev image (.devcontainer/Containerfile) ---
+
+DEV_IMAGE_TAG=localhost/que-dev:check
+BASE_IMAGE=mcr.microsoft.com/devcontainers/javascript-node:22
+
+# The dev image, built once per run from the Containerfile, and removed when the run ends.
+dev_image() {
+  [ -e "$tmp/dev-image-built" ] && return 0
+  podman build -q -f "$root/.devcontainer/Containerfile" -t "$DEV_IMAGE_TAG" "$root" >"$tmp/dev-image-build.log" 2>&1 ||
+    fail "the dev image does not build: $(tail -20 "$tmp/dev-image-build.log")" || return 1
+  touch "$tmp/dev-image-built"
+}
+
+# Given que's checkout, when the dev image is built and its smoke runs, then it passes, and says so last.
+test_the_dev_image_passes_its_smoke() {
+  dev_image || return 1
+  local out code
+  out=$("$root/scripts/dev-image-smoke.sh" "$DEV_IMAGE_TAG" 2>&1)
+  code=$?
+  assert_eq 0 "$code" "the smoke passes the dev image: $out" || return 1
+  assert_eq "dev image smoke: ok" "$(tail -1 <<<"$out")" "the smoke's last line" || return 1
+}
+
+# Given the base image, which holds no cache, when the smoke runs on it, then it fails at the first install.
+test_the_smoke_fails_an_image_with_no_cache() {
+  local out code
+  out=$("$root/scripts/dev-image-smoke.sh" "$BASE_IMAGE" 2>&1)
+  code=$?
+  assert_ne 0 "$code" "the smoke fails an image with no cache" || return 1
+  assert_contains "$out" "the offline install of server/package-lock.json" "the smoke names the step it failed at" || return 1
+}
+
+# Given the dev image, when it is inspected, then it runs as root, holds the cache's env, and names its repo.
+test_the_dev_image_has_its_paths_and_runs_as_root() {
+  dev_image || return 1
+  local user env src
+  user=$(podman image inspect --format '{{.Config.User}}' "$DEV_IMAGE_TAG")
+  case "$user" in "" | root) ;; *) fail "the dev image runs as root, got [$user]" || return 1 ;; esac
+  env=$(podman image inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$DEV_IMAGE_TAG")
+  assert_contains "$env" "npm_config_cache=/opt/npm-cache" "the image's npm cache" || return 1
+  assert_contains "$env" "npm_config_prefer_offline=true" "the image's npm prefers the cache" || return 1
+  assert_contains "$env" "PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright" "the image's browsers path" || return 1
+  src=$(podman image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$DEV_IMAGE_TAG")
+  assert_eq "https://github.com/matta-kelly/que" "$src" "the image's source label" || return 1
+}
+
+# Given the dev image, when it is searched for the checkout, then it holds neither the bake nor the repo.
+test_the_dev_image_holds_no_checkout_file() {
+  dev_image || return 1
+  podman run --rm "$DEV_IMAGE_TAG" sh -c "test ! -e /tmp/bake && test ! -e '$root'" ||
+    fail "the dev image holds a checkout file (/tmp/bake or $root)" || return 1
+}
+
+# Given a fresh container from scripts/container.sh, when Chromium is looked for as node, then it is in
+# PLAYWRIGHT_BROWSERS_PATH, though the checkout's cache volume is mounted on ~/.cache; and the file
+# builds only the base stage.
+test_the_dev_container_finds_chromium_under_its_cache_volume() {
+  cd "$root" || return 1
+  clean
+  local id target
+  "$root/scripts/container.sh" >/dev/null 2>"$tmp/make.log" ||
+    fail "scripts/container.sh makes the container: $(tail -20 "$tmp/make.log")" || return 1
+  id=$(cid)
+  podman exec -u node "$id" sh -c 'ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*' >/dev/null 2>&1 ||
+    fail "the dev container finds Chromium in PLAYWRIGHT_BROWSERS_PATH" || return 1
+  target=$("${CLI[@]}" read-configuration --workspace-folder "$root" --docker-path podman 2>/dev/null |
+    jq -r '.configuration.build.target // empty')
+  assert_eq base "$target" "the file builds the base stage" || return 1
+}
+
 # --- the runner ---
 
 TESTS=(
@@ -916,6 +986,11 @@ TESTS=(
   test_just_stop_and_a_start_reinstall_nothing
   test_just_start_with_no_container_says_to_run_up_and_makes_none
   test_the_check_passes_in_the_container_one_set_and_all
+  test_the_dev_image_passes_its_smoke
+  test_the_smoke_fails_an_image_with_no_cache
+  test_the_dev_image_has_its_paths_and_runs_as_root
+  test_the_dev_image_holds_no_checkout_file
+  test_the_dev_container_finds_chromium_under_its_cache_volume
 )
 
 if [ "${1:-}" = "--list" ]; then
@@ -941,6 +1016,9 @@ for name in "${selected[@]}"; do
     failed+=("$name")
   fi
 done
+
+# The dev image a test built, removed: this run's own tag, nothing else.
+[ ! -e "$tmp/dev-image-built" ] || podman image rm -f "$DEV_IMAGE_TAG" >/dev/null 2>&1 || true
 
 if [ "${#failed[@]}" -gt 0 ]; then
   echo
