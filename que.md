@@ -11,6 +11,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 - built on [[basis]] (`~/lot/daworks/basis`, GitHub matta-kelly/basis): que imports it, and hands it to the folders it mounts and checks
 - [[plugin-contract]]: the plugin contract as built
 - [[que-mcp]]: que's plugin ops as MCP tools, for a harness that is not que
+- [[files]]: attachments: a user attaches a file to a chat, and the agent and its ops can read it
 - [[que2-design]]: que2, the redesign in draft: people are given agents built from one workspace, not tools. Not built
 - [[que-ui]]: the chat UI: what it is built on, what it shows, and the outside components that fit. Its Work has the designs in flight on the UI
 - [[evals]]: how an agent is checked: the stores, the movers and the loops. que has two parts of it
@@ -160,7 +161,8 @@ agent ─────────────────▶  assemble  turn its
 		- identity, users and credentials: on Postgres
 		- state: the thread records and pi's conversations, on Postgres, with each thread's conversation in its row
 		- the trigger: que's server, `POST /threads/:id/runs`
-		- workspace: none
+		- files: a thread's attachments, a row on Postgres and the bytes in the data folder ([[files]])
+		- workspace: a folder of each conversation's own, in the data folder (`QUE_DATA_DIR`)
 	- its settings, in a `.env`
 		- user: `DEV_USER_EMAIL`, `DEV_USER_NAME`, and `DEV_USER_INSTRUCTIONS`, a file with the user's own instructions. With none named, they are on the user's account
 		- storage: `POSTGRES_PASSWORD`, `DATABASE_URL`, `QUE_CREDENTIALS_KEY`
