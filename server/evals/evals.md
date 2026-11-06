@@ -13,6 +13,12 @@ How an agent is checked against what good looks like: one system, two loops that
 - [[que]]: the harness these evals check
 
 ---
+## Matt snotes
+
+- langchain
+	- *They value targeted evals over lots of evals. Their own team argues that more evals don’t make better agents, and that each eval should directly measure a behavior you want in production. Your instinct to build suites from real traces matches their thinking.*
+	- *Online evals are where you can stand out. In their 2026 survey, about 52% of teams run offline evals and only about 37% run online evals, with fewer than a third doing both. If you close the online loop, you’re ahead of most of their customers.*
+
 ## System
 
 Data that stays, and machinery that moves it.
