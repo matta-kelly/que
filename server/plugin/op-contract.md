@@ -15,7 +15,6 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 - [[#Approval]] whether the door asks for a yes before it runs
 
 - [[plugin-contract]]: the contract an operation is part of
-- the plugin-interoperability design, in kinetic: the design of the domain op, its context and uses. Built: [[#Kinds]], [[#Context]] and [[#Uses]] say what is
 
 ## A good op
 
