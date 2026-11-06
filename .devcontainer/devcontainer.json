@@ -5,7 +5,9 @@
 // calls, both make it from here through the dev container CLI, so a change is made once.
 {
   "name": "que",
-  "build": { "dockerfile": "Dockerfile" },
+  // Until the dev container starts from ghcr, a create builds the base stage alone, so it never
+  // runs the bake (its npm installs), which copies all of server/.
+  "build": { "dockerfile": "Containerfile", "context": "..", "target": "base" },
 
   // Mount the repo at its host path, so absolute paths baked into caches (.next,
   // tsbuildinfo) and tool output mean the same thing inside the container and out.

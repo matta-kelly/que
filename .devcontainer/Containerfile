@@ -1,0 +1,21 @@
+# que's dev image: Node 22, the system libraries Chromium needs, and the npm cache of both apps'
+# lockfiles and Chromium. No node_modules and no build output: each checkout installs into its
+# own volume from this cache (devcontainer.json's postCreateCommand). Built from the repo's root.
+# Keep the playwright version in step with ui/package.json.
+FROM mcr.microsoft.com/devcontainers/javascript-node:22 AS base
+RUN npx -y playwright@1.63.0 install-deps chromium
+ENV npm_config_cache=/opt/npm-cache \
+    npm_config_prefer_offline=true \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+RUN install -d -o node -g node /opt/npm-cache /opt/ms-playwright
+
+FROM base AS bake
+USER node
+COPY --chown=node:node server /tmp/bake/server
+COPY --chown=node:node ui/package.json ui/package-lock.json /tmp/bake/ui/
+RUN cd /tmp/bake/server && npm ci && cd /tmp/bake/ui && npm ci && npx playwright install chromium
+
+FROM base
+COPY --from=bake --chown=node:node /opt/npm-cache /opt/npm-cache
+COPY --from=bake --chown=node:node /opt/ms-playwright /opt/ms-playwright
+LABEL org.opencontainers.image.source=https://github.com/matta-kelly/que
