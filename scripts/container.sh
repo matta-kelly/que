@@ -112,10 +112,11 @@ else
   cli_up || code=$?
   # The bound is above a create that runs the file's install. A call it cuts before any install is cheap to
   # make again. A call it cuts in an install is not: that is an install too slow for the bound, and running
-  # it again throws its work away.
+  # it again throws its work away. The install is the onCreate, updateContent and postCreate commands;
+  # initializeCommand, which pulls the dev image on the host, runs first and is not the install.
   if [ "$code" -eq 124 ]; then
     stop_cli
-    if grep -q 'Running the [A-Za-z]*Command from' "$cli_log"; then
+    if grep -qE 'Running the (onCreate|updateContent|postCreate)Command from' "$cli_log"; then
       echo "The dev container CLI's install ran past its bound. The install is not run again." >&2
       exit 1
     fi
