@@ -50,7 +50,8 @@ done
 # the container's `node` can make the deployment's node_modules inside it.
 tmp=$(mktemp -d "$(dirname "$root")/c5-fixture.XXXXXX")
 chmod 777 "$tmp"
-trap 'rm -rf "$tmp"' EXIT
+# On exit, a Ctrl-C included: the dev image a test built, then the fixture.
+trap 'if [ -e "$tmp/dev-image-built" ]; then podman image rm -f "$DEV_IMAGE_TAG" >/dev/null 2>&1 || true; fi; rm -rf "$tmp"' EXIT
 
 # The tracked file a test changes, and the copy it is restored from. The copy and the restore are global,
 # and the copy sits outside $tmp: a test's own names are gone by the time the EXIT trap runs, so a trap
@@ -331,7 +332,7 @@ test_a_fresh_container_has_the_files_cap_and_mounts() {
   assert_eq "$expected_names" "$names" "the four volumes are the ones the file names with \${devcontainerId}" || return 1
 }
 
-# Given a container `just check` made with que's own folder alone, when `just check-deployment` runs on a
+# Given a container the maker made with que's own folder alone, when `just check-deployment` runs on a
 # deployment outside que, then the maker remakes the container to see that folder: it is bound at its own
 # path, its node_modules is a volume under seam 3's name, and the file's four volumes are still there.
 test_check_remakes_when_the_deployment_is_new_and_binds_it_with_its_volume() {
@@ -932,7 +933,8 @@ test_the_check_runs_in_the_container_the_file_makes() {
 
 # --- the dev image (.devcontainer/Containerfile) ---
 
-DEV_IMAGE_TAG=localhost/que-dev:check
+# Its own tag per checkout, so two checkouts that run the suite at once never remove each other's image.
+DEV_IMAGE_TAG=localhost/que-dev:check-$OWN_HASH
 BASE_IMAGE=mcr.microsoft.com/devcontainers/javascript-node:22
 
 # The dev image, built once per run from the Containerfile, and removed when the run ends.
@@ -983,12 +985,11 @@ test_the_dev_image_holds_no_checkout_file() {
     fail "the dev image holds a checkout file (/tmp/bake or $root)" || return 1
 }
 
-# Given a fresh container from scripts/container.sh, when Chromium is looked for as node, then it is in
+# Given the container scripts/container.sh gives (it reuses one), when Chromium is looked for as node, then it is in
 # PLAYWRIGHT_BROWSERS_PATH, though the checkout's cache volume is mounted on ~/.cache; and the file
 # starts from the dev image, which is where that Chromium is.
 test_the_dev_container_finds_chromium_under_its_cache_volume() {
   cd "$root" || return 1
-  clean
   local id image
   "$root/scripts/container.sh" >/dev/null 2>"$tmp/make.log" ||
     fail "scripts/container.sh makes the container: $(tail -20 "$tmp/make.log")" || return 1
@@ -1116,9 +1117,6 @@ for name in "${selected[@]}"; do
     failed+=("$name")
   fi
 done
-
-# The dev image a test built, removed: this run's own tag, nothing else.
-[ ! -e "$tmp/dev-image-built" ] || podman image rm -f "$DEV_IMAGE_TAG" >/dev/null 2>&1 || true
 
 if [ "${#failed[@]}" -gt 0 ]; then
   echo
