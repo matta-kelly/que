@@ -523,10 +523,10 @@ test_the_timeouts_fit_the_work() {
     shell) want=10 ;;
     esac
     then_is "the $j job's timeout" "timeout-minutes: $want" \
-      "$(grep -E '^    timeout-minutes:' <<<"$(job "$j")")" || return 1
+      "$(grep -E '^    timeout-minutes:' <<<"$(job "$j")" | sed "s/^ *//")" || return 1
   done
   then_is "the dev-image job's timeout, the budget changes has to fit" "timeout-minutes: 30" \
-    "$(block_in '^  image:' <"$here/../.github/workflows/dev-image.yml" | grep -E '^    timeout-minutes:')" || return 1
+    "$(block_in '^  image:' <"$here/../.github/workflows/dev-image.yml" | grep -E "^    timeout-minutes:" | sed "s/^ *//")" || return 1
   pass
 }
 
