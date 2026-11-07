@@ -3,11 +3,15 @@
 // Opens the whole repo: server/ and ui/ are two apps, each with its own node_modules.
 // This is the one description of que's container: VS Code and scripts/container.sh, which `just`
 // calls, both make it from here through the dev container CLI, so a change is made once.
+// The image is que's dev image from ghcr (dev-image workflow, from .devcontainer/Containerfile):
+// Node 22, Chromium, and the npm cache of both apps' lockfiles.
 {
   "name": "que",
-  // Until the dev container starts from ghcr, a create builds the base stage alone, so it never
-  // runs the bake (its npm installs), which copies all of server/.
-  "build": { "dockerfile": "Containerfile", "context": "..", "target": "base" },
+  // A tag the machine has is never pulled by the CLI, so initializeCommand pulls it on the host
+  // before the image is resolved. A failed pull does not fail the start: it says so, and the CLI
+  // uses the copy this machine has.
+  "image": "ghcr.io/matta-kelly/que-dev:main",
+  "initializeCommand": "podman pull ghcr.io/matta-kelly/que-dev:main || echo 'could not pull ghcr.io/matta-kelly/que-dev:main: the copy this machine has is used' >&2",
 
   // Mount the repo at its host path, so absolute paths baked into caches (.next,
   // tsbuildinfo) and tool output mean the same thing inside the container and out.
@@ -32,17 +36,15 @@
     // it sees the folder, and makes one when it cannot.
     "source=que-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/server/node_modules,type=volume",
     "source=que-ui-node-modules-${devcontainerId},target=${containerWorkspaceFolder}/ui/node_modules,type=volume",
-    // The user's cache: Playwright's Chromium and the check's pinned tools, kept
-    // across rebuilds. One per checkout too: `playwright install` deletes any
-    // browser no link in the cache can still reach, and a link from another
-    // checkout's container cannot be reached from this one.
+    // The user's cache: the check's pinned tools, kept across rebuilds. Chromium
+    // is in the image, at PLAYWRIGHT_BROWSERS_PATH, so it is not here.
     "source=que-cache-${devcontainerId},target=/home/node/.cache,type=volume",
     // Next.js build cache, thousands of files: keep it out of the repo folder too.
     "source=que-ui-next-${devcontainerId},target=${containerWorkspaceFolder}/ui/.next,type=volume"
   ],
 
-  // New volumes start root-owned: hand it to `node`, then install.
-  "postCreateCommand": "sudo chown node:node server/node_modules ui/node_modules ui/.next /home/node/.cache && (cd server && npm ci) && (cd ui && npm ci && npx playwright install chromium)",
+  // New volumes start root-owned: hand it to `node`, then install from the image's cache.
+  "postCreateCommand": "sudo chown node:node server/node_modules ui/node_modules ui/.next /home/node/.cache && (cd server && npm ci) && (cd ui && npm ci)",
 
   "customizations": {
     "vscode": {
