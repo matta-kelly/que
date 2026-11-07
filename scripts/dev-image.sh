@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# que's dev image in ghcr: one per hash of its inputs, built once on main, and pulled by the dev
-# container, CI and each factory attempt.
+# que's dev image in ghcr: one per hash of its inputs, built once wherever it is first needed,
+# and pulled by the dev container, CI and each factory attempt.
 #   hash    the hash of the inputs at HEAD: 16 lowercase hex
 #   ref     <name>@<digest> of <name>:<hash> if it exists, else of <name>:main
 #   ensure  build, smoke and push <name>:<hash> only when ghcr lacks it, and print its ref. Any
@@ -57,15 +57,30 @@ ref() {
   fi
 }
 
+# drop <tag>: take a tag out of this machine's store, whether or not it is there.
+drop() { "$engine" image rm "$1" >/dev/null 2>&1 || true; }
+
+# build_to <tag>: build to <tag>-candidate and smoke that, then move it to <tag>. The move is the
+# last step, so no <tag> reaches this machine's store unless its smoke passed. The candidate tag is
+# dropped either way. A failed step exits non-zero before the next.
+build_to() {
+  local candidate=$1-candidate built=0
+  "$engine" build -f .devcontainer/Containerfile -t "$candidate" . &&
+    "$smoke" "$candidate" &&
+    "$engine" tag "$candidate" "$1" &&
+    built=1
+  drop "$candidate"
+  [ "$built" = 1 ]
+}
+
 ensure() {
   local h d
   h=$(input_hash)
   if digest "$h" >/dev/null; then
     echo "$name:$h exists: not built" >&2
   else
-    "$engine" build -f .devcontainer/Containerfile -t "$name:$h" .
-    "$smoke" "$name:$h"
-    "$engine" push "$name:$h"
+    build_to "$name:$h" >&2
+    "$engine" push "$name:$h" >&2
   fi
   d=$(digest "$h")
   echo "$name@$d"
@@ -79,7 +94,7 @@ promote() {
     echo "dev-image: $name:$h is not in ghcr: run ensure first" >&2
     exit 1
   }
-  skopeo copy --preserve-digests "docker://$name:$h" "docker://$name:main"
+  skopeo copy --preserve-digests "docker://$name:$h" "docker://$name:main" >&2
   d=$(digest "$h")
   echo "$name@$d"
 }
@@ -88,8 +103,7 @@ local_() {
   local h
   h=$(input_hash)
   if ! "$engine" image exists "$name:$h" && ! "$engine" pull "$name:$h" >/dev/null 2>&1; then
-    "$engine" build -f .devcontainer/Containerfile -t "$name:$h" . >&2
-    "$smoke" "$name:$h" >&2
+    build_to "$name:$h" >&2
   fi
   echo "$name:$h"
 }
