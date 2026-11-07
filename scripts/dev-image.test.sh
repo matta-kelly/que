@@ -368,6 +368,83 @@ test_usage_exits_2() {
     pass
 }
 
+# --- the workflow (.github/workflows/dev-image.yml), read as text ---
+
+wf=$here/../.github/workflows/dev-image.yml
+# The workflow's lines with no comment lines and no blank lines.
+wf_lines() { grep -vE '^\s*(#|$)' "$wf"; }
+# list_under <key regex>: the `- item` lines of the block list under the first line matching the key.
+list_under() {
+  wf_lines | awk -v k="$1" '
+    found && /^ *- / { sub(/^ *- */, ""); sub(/ *#.*/, ""); print; next }
+    found { exit }
+    $0 ~ k { found = 1 }'
+}
+# block <key regex>: the lines indented under the first line matching the key.
+block() {
+  wf_lines | awk -v k="$1" '
+    found { match($0, /^ */); if (RLENGTH <= ind) exit; print; next }
+    $0 ~ k { found = 1; match($0, /^ */); ind = RLENGTH }'
+}
+then_file() { [ -f "$wf" ] || { miss "no $wf"; return 1; }; }
+
+test_the_workflow_starts_on_main_and_the_inputs() {
+  name="the workflow starts on a push to main that changes an input, and by hand"
+  out= err=
+  T=$(mktemp -d)
+  : >"$T/calls"
+  then_file || return 1
+  want=$( (sed -n 's/^inputs=(\(.*\))$/\1/p' "$here/dev-image.sh" | tr ' ' '\n'
+    printf '%s\n' scripts/dev-image.sh scripts/dev-image-smoke.sh .github/workflows/dev-image.yml) | sort)
+  then_is "on.push.branches" "main" "$(block '^  push:' | sed -n 's/^ *branches: *\[\(.*\)\]$/\1/p')" &&
+    then_is "on.push.paths" "$want" "$(list_under '^    paths:' | sort)" &&
+    then_has "the triggers" "workflow_dispatch:" "$(block '^on:')" &&
+    pass
+}
+
+test_only_the_image_job_writes() {
+  name="the workflow reads by default, and only its image job may write packages, on main"
+  out= err=
+  T=$(mktemp -d)
+  : >"$T/calls"
+  then_file || return 1
+  then_is "the top-level permissions" "contents: read" "$(block '^permissions:' | sed 's/^ *//')" &&
+    then_is "the image job's permissions" "$(printf '%s\n' 'contents: read' 'packages: write')" \
+      "$(block '^    permissions:' | sed 's/^ *//')" &&
+    then_has "the image job" "timeout-minutes:" "$(block '^  image:')" &&
+    then_has "the image job" "if: github.ref == 'refs/heads/main'" "$(block '^  image:')" &&
+    pass
+}
+
+test_the_job_logs_in_then_ensures_then_promotes() {
+  name="the image job logs in with its own token, then runs ensure, then promote"
+  out= err=
+  T=$(mktemp -d)
+  : >"$T/calls"
+  then_file || return 1
+  steps=$(block '^    steps:')
+  login=$(grep -n 'podman login ghcr.io' <<<"$steps" | cut -d: -f1)
+  ensure=$(grep -n 'run: scripts/dev-image.sh ensure$' <<<"$steps" | cut -d: -f1)
+  promote=$(grep -n 'run: scripts/dev-image.sh promote$' <<<"$steps" | cut -d: -f1)
+  then_has "the steps" 'TOKEN: ${{ secrets.GITHUB_TOKEN }}' "$steps" &&
+    then_has "the steps" "printf '%s' \"\$TOKEN\" | podman login ghcr.io --username \"\${{ github.actor }}\" --password-stdin" "$steps" &&
+    { [ -n "$login" ] && [ -n "$ensure" ] && [ -n "$promote" ] && [ "$login" -lt "$ensure" ] && [ "$ensure" -lt "$promote" ] ||
+      miss "the steps: expected login, then ensure, then promote; got lines [$login] [$ensure] [$promote]"; } &&
+    pass
+}
+
+test_each_action_is_pinned() {
+  name="each action the workflow uses is pinned to a full commit hash"
+  out= err=
+  T=$(mktemp -d)
+  : >"$T/calls"
+  then_file || return 1
+  uses=$(wf_lines | grep -E '^\s*-?\s*uses:')
+  [ -n "$uses" ] || { miss "the workflow uses no action"; return 1; }
+  bad=$(grep -vE 'uses: [^@ ]+@[0-9a-f]{40}( |$)' <<<"$uses" || true)
+  then_is "the unpinned uses" "" "$bad" && pass
+}
+
 # Each case in its own subshell, so its exports and its folder stay its own.
 failed=0
 for t in $(declare -F | awk '$3 ~ /^test_/ {print $3}'); do
