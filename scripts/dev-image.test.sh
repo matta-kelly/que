@@ -5,10 +5,13 @@
 # case makes a temp git repo that holds the four inputs and a copy of the script, and puts stand-in
 # `skopeo` and `podman` first on PATH. Each stand-in appends its arguments as one line to $T/calls.
 # The registry is $T/registry, one `<tag> <digest>` per line: `skopeo inspect` answers a tag listed
-# there, and `skopeo copy` and `podman push` add their target tag to it. The smoke is a stand-in too
+# there, and `skopeo copy` and `podman push` add their target tag to it. This machine's store is
+# $T/local, one tag per line: `podman build -t`, `podman tag` and `podman pull` add a tag, `podman
+# image exists` reads it, and `podman image rm` removes one. The smoke is a stand-in too
 # (DEV_IMAGE_SMOKE), which exits $SMOKE_EXIT.
 # Run it from anywhere: scripts/dev-image.test.sh. One ok or not ok line per case, exit 1 if any fails.
 set -uo pipefail
+out='' err='' code=0
 
 here=$(cd "$(dirname "$0")" && pwd -P)
 script=$here/dev-image.sh
@@ -50,14 +53,27 @@ esac
 STUB
   cat >"$T/bin/podman" <<'STUB'
 #!/usr/bin/env bash
-# A stand-in for podman: push adds the tag to $T/registry with a new digest; build, and pull of a tag
-# in the registry, add it to the local store, $T/local; `image exists` reads that store.
+# A stand-in for podman: push adds the tag to $T/registry with a new digest; build, tag and pull of
+# a tag in the registry add the tag to this machine's store, $T/local; `image exists` reads that
+# store, and `image rm` removes a tag from it.
 echo "podman $*" >>"$T/calls"
 case $1 in
 push) echo "$2 sha256:$(echo "$2" | sha256sum | cut -c1-64)" >>"$T/registry" ;;
 build) echo "${*: -2:1}" >>"$T/local" ;;
+tag)
+  grep -qxF -- "$2" "$T/local" || exit 1
+  echo "$3" >>"$T/local"
+  ;;
 pull) awk -v r="$2" '$1 == r {f=1} END {exit !f}' "$T/registry" && echo "$2" >>"$T/local" || exit 1 ;;
-image) [ "$2" = exists ] && grep -qxF -- "$3" "$T/local" ;;
+image)
+  case $2 in
+  exists) grep -qxF -- "$3" "$T/local" ;;
+  rm)
+    grep -vxF -- "$3" "$T/local" >"$T/local.new"
+    mv "$T/local.new" "$T/local"
+    ;;
+  esac
+  ;;
 esac
 STUB
   cat >"$T/smoke" <<'STUB'
@@ -72,11 +88,19 @@ STUB
 commit() { git -C "$repo" -c user.email=t@t -c user.name=t commit -qam "$1"; }
 digest() { echo "sha256:$(printf '%064d' "$1")"; }
 
-# when <command>: runs the script in the repo; sets out, err and code.
-when() {
-  out=$("$repo/scripts/dev-image.sh" "$1" 2>"$T/err")
+# run <args>: runs the script in the repo with them; sets out, err and code.
+run() {
+  out=$("$repo/scripts/dev-image.sh" "$@" 2>"$T/err")
   code=$?
   err=$(cat "$T/err")
+}
+when() { run "$1"; }
+
+# fail <why>: a case whose setup failed, named as the case it is, and ended there.
+fail() {
+  echo "not ok - ${name:-a case}"
+  printf '  %s\n' "$@"
+  exit 1
 }
 hash_now() { "$repo/scripts/dev-image.sh" hash 2>/dev/null; }
 
@@ -90,6 +114,7 @@ miss() {
 then_is() { [ "$2" = "$3" ] || miss "$1: expected $(printf %q "$2"), got $(printf %q "$3")"; }
 then_has() { grep -qF -- "$2" <<<"$3" || miss "$1: expected to hold $(printf %q "$2")"; }
 then_lacks() { ! grep -qF -- "$2" <<<"$3" || miss "$1: expected not to hold $(printf %q "$2")"; }
+then_lacks_local() { ! grep -qxF -- "$2" "$T/local" || miss "$1: expected $(printf %q "$2") not on this machine"; }
 calls() { cat "$T/calls"; }
 pass() { echo "ok - $name"; }
 
@@ -97,7 +122,7 @@ pass() { echo "ok - $name"; }
 
 test_hash_is_stable() {
   name="hash prints the same 16 hex characters twice"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   when hash
   first=$out
   when hash
@@ -109,8 +134,9 @@ test_hash_is_stable() {
 
 test_hash_fails_on_a_missing_input() {
   name="hash fails, naming the input, when one is missing"
-  given_repo || return 1
-  git -C "$repo" rm -q ui/package-lock.json && commit "rm" || return 1
+  given_repo || fail "setup: the repo"
+  git -C "$repo" rm -q ui/package-lock.json || fail "setup: the removal of ui/package-lock.json"
+  commit "rm" || fail "setup: the commit"
   when hash
   { [ "$code" -ne 0 ] || miss "the exit: expected non-zero, got 0"; } &&
     then_has "stderr" "ui/package-lock.json" "$err" &&
@@ -119,10 +145,11 @@ test_hash_fails_on_a_missing_input() {
 
 test_hash_follows_each_input() {
   name="hash changes when any one of the four inputs changes"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   for f in "${inputs[@]}"; do
     before=$(hash_now)
-    echo "$f changed" >>"$repo/$f" && commit "$f" || return 1
+    echo "$f changed" >>"$repo/$f" || fail "setup: the change to $f"
+    commit "$f" || fail "setup: the commit of $f"
     after=$(hash_now)
     [ "$before" != "$after" ] || { miss "the hash did not change with $f"; return 1; }
   done
@@ -131,10 +158,11 @@ test_hash_follows_each_input() {
 
 test_hash_ignores_other_files() {
   name="hash stays the same when only README.md changes"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   before=$(hash_now)
   [ -n "$before" ] || { miss "the hash: expected one, got none"; return 1; }
-  echo more >>"$repo/README.md" && commit readme || return 1
+  echo more >>"$repo/README.md" || fail "setup: the change to README.md"
+  commit readme || fail "setup: the commit"
   then_is "the hash" "$before" "$(hash_now)" && pass
 }
 
@@ -142,7 +170,7 @@ test_hash_ignores_other_files() {
 
 test_ensure_builds_nothing_when_the_tag_exists() {
   name="ensure builds nothing when ghcr has the tag, and moves no :main"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   echo "$name_:$h $(digest 7)" >>"$T/registry"
   when ensure
@@ -157,24 +185,26 @@ test_ensure_builds_nothing_when_the_tag_exists() {
 }
 
 test_ensure_builds_smokes_and_pushes_when_the_tag_is_missing() {
-  name="ensure builds, smokes and pushes, in order, and moves no :main, when the tag is missing"
-  given_repo || return 1
+  name="ensure builds a candidate, smokes it, tags and pushes it in order, and moves no :main"
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   when ensure
   want=$(printf '%s\n' \
-    "podman build -f .devcontainer/Containerfile -t $name_:$h ." \
-    "smoke $name_:$h" \
+    "podman build -f .devcontainer/Containerfile -t $name_:$h-candidate ." \
+    "smoke $name_:$h-candidate" \
+    "podman tag $name_:$h-candidate $name_:$h" \
     "podman push $name_:$h")
-  got=$(grep -E '^(podman (build|push)|smoke|skopeo copy)' "$T/calls")
+  got=$(grep -E '^(podman (build|tag|push)|smoke|skopeo copy)' "$T/calls")
   then_is "the exit" 0 "$code" &&
     then_is "the calls, in order" "$want" "$got" &&
+    then_has "the calls" "podman image rm $name_:$h-candidate" "$(calls)" &&
     then_lacks "the calls" "skopeo copy" "$(calls)" &&
     pass
 }
 
 test_ensure_moves_nothing_on_a_failed_smoke() {
   name="ensure pushes nothing and moves nothing when the smoke fails"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   export SMOKE_EXIT=1
   when ensure
   { [ "$code" -ne 0 ] || miss "the exit: expected non-zero, got 0"; } &&
@@ -183,11 +213,47 @@ test_ensure_moves_nothing_on_a_failed_smoke() {
     pass
 }
 
+# --- a failed smoke leaves no image ---
+
+test_a_failed_smoke_leaves_no_image() {
+  name="a failed smoke leaves no <name>:<hash> on this machine, after ensure or local"
+  given_repo || fail "setup: the repo"
+  h=$(hash_now)
+  export SMOKE_EXIT=1
+  when ensure
+  ensure_code=$code
+  when local
+  local_code=$code
+  { [ "$ensure_code" -ne 0 ] || miss "ensure's exit: expected non-zero, got $ensure_code"; } &&
+    then_lacks_local "this machine after a failed ensure" "$name_:$h" &&
+    { [ "$local_code" -ne 0 ] || miss "local's exit: expected non-zero, got $local_code"; } &&
+    then_lacks_local "this machine after a failed local" "$name_:$h" &&
+    then_lacks_local "this machine after both" "$name_:$h-candidate" &&
+    pass
+}
+
+test_a_failed_smoke_does_not_leave_a_good_image() {
+  name="local builds again after a failed smoke, and gives out the tag then"
+  given_repo || fail "setup: the repo"
+  h=$(hash_now)
+  export SMOKE_EXIT=1
+  when local
+  first_code=$code
+  export SMOKE_EXIT=0
+  when local
+  { [ "$first_code" -ne 0 ] || miss "the first exit: expected non-zero, got $first_code"; } &&
+    then_is "the second exit" 0 "$code" &&
+    then_is "the image" "$name_:$h" "$out" &&
+    then_is "the builds" 2 "$(grep -c '^podman build' "$T/calls")" &&
+    then_is "the smokes" 2 "$(grep -c '^smoke' "$T/calls")" &&
+    pass
+}
+
 # --- promote ---
 
 test_promote_points_main_at_the_commits_tag() {
   name="promote points :main at the commit's tag, keeping its digest"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   echo "$name_:$h $(digest 3)" >>"$T/registry"
   when promote
@@ -199,7 +265,7 @@ test_promote_points_main_at_the_commits_tag() {
 
 test_promote_fails_when_the_tag_is_missing() {
   name="promote fails, and moves nothing, when ghcr lacks the commit's tag"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   when promote
   { [ "$code" -ne 0 ] || miss "the exit: expected non-zero, got 0"; } &&
     then_lacks "the calls" "skopeo copy" "$(calls)" &&
@@ -211,7 +277,7 @@ test_promote_fails_when_the_tag_is_missing() {
 
 test_local_uses_the_machines_copy() {
   name="local prints the commit's tag and pulls and builds nothing when this machine has it"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   echo "$name_:$h" >>"$T/local"
   when local
@@ -224,7 +290,7 @@ test_local_uses_the_machines_copy() {
 
 test_local_pulls_from_ghcr() {
   name="local pulls the commit's tag when ghcr has it, and builds nothing"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   echo "$name_:$h $(digest 4)" >>"$T/registry"
   when local
@@ -237,13 +303,14 @@ test_local_pulls_from_ghcr() {
 
 test_local_builds_when_no_one_has_it() {
   name="local builds and smokes the commit's tag when neither this machine nor ghcr has it, and pushes nothing"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   when local
   then_is "the exit" 0 "$code" &&
     then_is "the image" "$name_:$h" "$out" &&
-    then_has "the calls" "podman build -f .devcontainer/Containerfile -t $name_:$h ." "$(calls)" &&
-    then_has "the calls" "smoke $name_:$h" "$(calls)" &&
+    then_has "the calls" "podman build -f .devcontainer/Containerfile -t $name_:$h-candidate ." "$(calls)" &&
+    then_has "the calls" "smoke $name_:$h-candidate" "$(calls)" &&
+    then_has "the calls" "podman tag $name_:$h-candidate $name_:$h" "$(calls)" &&
     then_lacks "the calls" "podman push" "$(calls)" &&
     then_lacks "the calls" "skopeo copy" "$(calls)" &&
     pass
@@ -251,7 +318,7 @@ test_local_builds_when_no_one_has_it() {
 
 test_local_fails_on_a_failed_smoke() {
   name="local fails when the image it built fails its smoke"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   export SMOKE_EXIT=1
   when local
   { [ "$code" -ne 0 ] || miss "the exit: expected non-zero, got 0"; } && pass
@@ -261,7 +328,7 @@ test_local_fails_on_a_failed_smoke() {
 
 test_ref_prefers_the_commits_own_tag() {
   name="ref prints the digest of the commit's tag over :main's"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   printf '%s\n' "$name_:$h $(digest 1)" "$name_:main $(digest 2)" >>"$T/registry"
   when ref
@@ -270,7 +337,7 @@ test_ref_prefers_the_commits_own_tag() {
 
 test_ref_falls_back_to_main() {
   name="ref prints :main's digest when the commit's tag is missing"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   echo "$name_:main $(digest 2)" >>"$T/registry"
   when ref
   then_is "the exit" 0 "$code" && then_is "the ref" "$name_@$(digest 2)" "$out" && pass
@@ -278,12 +345,26 @@ test_ref_falls_back_to_main() {
 
 test_ref_fails_when_neither_exists() {
   name="ref fails, naming both tags, when neither exists"
-  given_repo || return 1
+  given_repo || fail "setup: the repo"
   h=$(hash_now)
   when ref
   { [ "$code" -ne 0 ] || miss "the exit: expected non-zero, got 0"; } &&
     then_has "stderr" "$name_:$h" "$err" &&
     then_has "stderr" "$name_:main" "$err" &&
+    pass
+}
+
+# --- usage ---
+
+test_usage_exits_2() {
+  name="no command, and an unknown one, exit 2 and say how to use it"
+  given_repo || fail "setup: the repo"
+  run
+  none=$code
+  run no-such-command
+  then_is "the exit with no command" 2 "$none" &&
+    then_is "the exit with an unknown command" 2 "$code" &&
+    then_has "stderr" "usage: scripts/dev-image.sh" "$err" &&
     pass
 }
 
