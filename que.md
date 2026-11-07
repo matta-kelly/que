@@ -12,7 +12,7 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 - [[plugin-contract]]: the plugin contract as built
 - [[que-mcp]]: que's plugin ops as MCP tools, for a harness that is not que
 - [[files]]: attachments: a user attaches a file to a chat, and the agent and its ops can read it
-- [[que2-design]]: que2, the redesign in draft: people are given agents built from one workspace, not tools. Not built
+- [[que-pasa]]: que-v2's harness, the redesign: people are given agents built from one workspace, not tools. Being built
 - [[que-ui]]: the chat UI: what it is built on, what it shows, and the outside components that fit. Its Work has the designs in flight on the UI
 - [[evals]]: how an agent is checked: the stores, the movers and the loops. que has two parts of it
 	- the eval runner: `just eval` in a deployment runs each case of its plugins under each of its agent configs, and prints what the agent did. With the Langfuse settings, it keeps each run in Langfuse, as an experiment on a dataset mirrored from the cases
