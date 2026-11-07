@@ -23,6 +23,11 @@ label="devcontainer.local_folder=$root"
 CLI=(npx --yes @devcontainers/cli@0.90.0)
 CAP=3000000000
 SHARES=256
+# A fresh worktree's container, pulled and installed, is up within this many seconds. A little over twice
+# the probe's 26.4 s for the whole `devcontainer up`; the pull is once per image per machine, and not in it.
+BOUND=60
+# The image the file names: ghcr's tag, which CI moves on main. The dev container starts from it.
+DEV_IMAGE_REF=ghcr.io/matta-kelly/que-dev:main
 FILE="$root/.devcontainer/devcontainer.json"
 # A short hash of the checkout's path, the way scripts/container.sh names que's own volumes today. It is
 # used only to clean up after runs that made them, never as an expected value.
@@ -252,6 +257,10 @@ assert_contains() {
   fail "$3: expected to contain [$2], got [$1]"
 }
 
+assert_not_contains() {
+  case "$1" in *"$2"*) fail "$3: expected not to contain [$2], got [$1]" ;; *) return 0 ;; esac
+}
+
 # Given a line-by-line output and a whole line it must not hold, when the two are compared, then no line
 # is that line. A line that names a folder names exactly that folder, so a folder whose path starts with
 # it is a different folder, and other lines say nothing about it.
@@ -265,15 +274,14 @@ assert_no_line() {
   done <<<"$1"
 }
 
-# Given a container, when it is read, then the CLI made it from the file: its image is the one the CLI
-# builds, not a podman run of que's own. The CLI names that image after the folder, vsc-<folder>-<hash>,
-# and this machine prefixes it with the registry it was built into (localhost/), so the name is a
-# substring, not the whole.
+# Given a container, when it is read, then the CLI made it from the file: it carries the CLI's default
+# label, and its image is the dev image the file names. A podman run of que's own would carry neither.
 assert_made_by_the_cli() {
-  local image made
+  local image
+  assert_eq "$root" "$(field "$1" '{{index .Config.Labels "devcontainer.local_folder"}}')" \
+    "the container is not the one the CLI makes from the file: no devcontainer.local_folder label" || return 1
   image=$(field "$1" '{{.ImageName}}')
-  made="vsc-$(basename "$root")-"
-  assert_contains "$image" "$made" "the container is not the one the CLI makes from the file: image [$image], expected $made*"
+  assert_eq "$DEV_IMAGE_REF" "$image" "the container's image is not the one the file names" || return 1
 }
 
 # --- the behaviors ---
@@ -950,19 +958,75 @@ test_the_dev_image_holds_no_checkout_file() {
 
 # Given a fresh container from scripts/container.sh, when Chromium is looked for as node, then it is in
 # PLAYWRIGHT_BROWSERS_PATH, though the checkout's cache volume is mounted on ~/.cache; and the file
-# builds only the base stage.
+# starts from the dev image, which is where that Chromium is.
 test_the_dev_container_finds_chromium_under_its_cache_volume() {
   cd "$root" || return 1
   clean
-  local id target
+  local id image
   "$root/scripts/container.sh" >/dev/null 2>"$tmp/make.log" ||
     fail "scripts/container.sh makes the container: $(tail -20 "$tmp/make.log")" || return 1
   id=$(cid)
   podman exec -u node "$id" sh -c 'ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*' >/dev/null 2>&1 ||
     fail "the dev container finds Chromium in PLAYWRIGHT_BROWSERS_PATH" || return 1
-  target=$("${CLI[@]}" read-configuration --workspace-folder "$root" --docker-path podman 2>/dev/null |
-    jq -r '.configuration.build.target // empty')
-  assert_eq base "$target" "the file builds the base stage" || return 1
+  image=$("${CLI[@]}" read-configuration --workspace-folder "$root" --docker-path podman 2>/dev/null |
+    jq -r '.configuration.image // empty')
+  assert_eq "$DEV_IMAGE_REF" "$image" "the file starts from the dev image" || return 1
+}
+
+# Given the file, when the CLI reads it, then the container starts from the dev image in ghcr, no image is
+# built, and initializeCommand pulls that image first: the CLI uses a tag the machine has and never pulls
+# it again, and it runs initializeCommand before it resolves the image.
+test_the_file_names_the_dev_image_and_pulls_it_first() {
+  local conf image build init
+  conf=$(config) || return 1
+  image=$(jq -r '.configuration.image // empty' <<<"$conf")
+  assert_eq "$DEV_IMAGE_REF" "$image" "the file names the dev image" || return 1
+  build=$(jq -r '.configuration.build // empty' <<<"$conf")
+  assert_eq "" "$build" "the file builds no image" || return 1
+  init=$(jq -r '.configuration.initializeCommand // empty' <<<"$conf")
+  assert_contains "$init" "podman pull $DEV_IMAGE_REF" "initializeCommand pulls the dev image first" || return 1
+}
+
+# Given the file, when its install is read, then each app installs from the image's cache with `npm ci`, and
+# no browser is fetched: Chromium is in the image at PLAYWRIGHT_BROWSERS_PATH.
+test_the_install_reads_the_cache_and_fetches_no_browser() {
+  local install
+  install=$(config | jq -r '.configuration.postCreateCommand // empty')
+  assert_contains "$install" "cd server && npm ci" "the install runs npm ci in server/" || return 1
+  assert_contains "$install" "cd ui && npm ci" "the install runs npm ci in ui/" || return 1
+  assert_not_contains "$install" "playwright install" "the install fetches no browser: Chromium is in the image" || return 1
+}
+
+# Given the dev image pulled and this checkout clean, when the maker runs, then the container is up within
+# the bound, from the dev image's digest, and both apps' tools and Chromium are in it: the install reads the
+# image's cache, so a fresh worktree needs no browser and fetches almost nothing.
+test_a_fresh_container_is_up_from_the_dev_image_within_the_bound() {
+  cd "$root" || return 1
+  local out code id started elapsed want got
+  out=$(podman pull "$DEV_IMAGE_REF" 2>&1)
+  code=$?
+  assert_eq 0 "$code" "the dev image pulls: $out" || return 1
+  clean
+  started=$(date +%s%3N)
+  out=$("$root/scripts/container.sh" 2>&1)
+  code=$?
+  elapsed=$(($(date +%s%3N) - started))
+  assert_eq 0 "$code" "the maker makes the container: $out" || return 1
+  id=$(cid)
+  [ -n "$id" ] || {
+    fail "the maker left no container for the folder"
+    return 1
+  }
+  if [ "$elapsed" -gt $((BOUND * 1000)) ]; then
+    fail "a fresh container took ${elapsed}ms: the bound is ${BOUND}s"
+    return 1
+  fi
+  want=$(podman image inspect --format '{{.Digest}}' "$DEV_IMAGE_REF") || return 1
+  got=$(field "$id" '{{.ImageDigest}}')
+  assert_eq "$want" "$got" "the container's image is the dev image's digest" || return 1
+  out=$(podman exec -u node -w "$root" "$id" bash -c 'cd server && npx tsc --version && cd ../ui && npx next --version && ls -d "$PLAYWRIGHT_BROWSERS_PATH"/chromium-*' 2>&1)
+  code=$?
+  assert_eq 0 "$code" "the container has both apps' tools and Chromium: $out" || return 1
 }
 
 # --- the runner ---
@@ -991,6 +1055,9 @@ TESTS=(
   test_the_dev_image_has_its_paths_and_runs_as_root
   test_the_dev_image_holds_no_checkout_file
   test_the_dev_container_finds_chromium_under_its_cache_volume
+  test_the_file_names_the_dev_image_and_pulls_it_first
+  test_the_install_reads_the_cache_and_fetches_no_browser
+  test_a_fresh_container_is_up_from_the_dev_image_within_the_bound
 )
 
 if [ "${1:-}" = "--list" ]; then
