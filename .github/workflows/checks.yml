@@ -1,7 +1,8 @@
 # The checks every push runs, to every branch, main included, behind the pre-push hook (.githooks/pre-push), which runs
 # the same set. The ruleset on main requires the job `checks` on the exact commit, so the trigger has no path filter (a
 # required check that a path filter skips stays pending): the script skips what a change does not need.
-# The check set is in `scripts/check.sh`, which `just check` runs too: this file sets up the toolchain and calls it.
+# The check set is in `scripts/check.sh`, which `just check` runs too: the jobs run in the dev image that `changes`
+# resolves for the commit, by digest, and call it.
 name: checks
 
 on:
@@ -22,11 +23,16 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The one job that writes to the registry, with the run's own token, never printed.
+    permissions:
+      contents: read
+      packages: write
     outputs:
       server: ${{ steps.plan.outputs.server }}
       ui: ${{ steps.plan.outputs.ui }}
       shell: ${{ steps.plan.outputs.shell }}
       notes: ${{ steps.plan.outputs.notes }}
+      image: ${{ steps.image.outputs.image }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -40,13 +46,31 @@ jobs:
         run: |
           scripts/check.sh --plan >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
+      - name: Log in to the registry
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$TOKEN" | podman login ghcr.io --username "${{ github.actor }}" --password-stdin
+      # Built here when ghcr lacks this commit's image, so every run is on the image of its own inputs.
+      - id: image
+        run: |
+          image=$(scripts/dev-image.sh ensure)
+          echo "image=$image" >> "$GITHUB_OUTPUT"
 
   server:
     needs: [changes]
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ${{ needs.changes.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - run: 'echo "dev image: ${{ needs.changes.outputs.image }}"'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # The folders the server set reads: the check script, the server, the template deployment, which a test mounts,
@@ -58,11 +82,6 @@ jobs:
             scripts
             server
             templates
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
       - run: scripts/check.sh server
 
   ui:
@@ -70,18 +89,22 @@ jobs:
     if: needs.changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ${{ needs.changes.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - run: 'echo "dev image: ${{ needs.changes.outputs.image }}"'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # Without server/ on disk, a pass proves the UI stands alone.
           sparse-checkout: |
             scripts
             ui
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
       - run: scripts/check.sh ui
 
   shell:
@@ -89,7 +112,16 @@ jobs:
     if: needs.changes.outputs.shell == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ${{ needs.changes.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - run: 'echo "dev image: ${{ needs.changes.outputs.image }}"'
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # The scripts, the justfile at the root, and the file that reads the justfile's recipes, are all the set reads;
@@ -98,9 +130,6 @@ jobs:
             scripts
             server/scripts
             .github
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
       - run: scripts/check.sh shell
 
   notes:
@@ -108,14 +137,18 @@ jobs:
     if: needs.changes.outputs.notes == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ${{ needs.changes.outputs.image }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - run: 'echo "dev image: ${{ needs.changes.outputs.image }}"'
       # The whole repo: the notes are everywhere in it, and the lint reads them from its root.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
       - run: scripts/check.sh notes
 
   # The one result of a run. It always starts, so it is never left pending:
