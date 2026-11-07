@@ -503,6 +503,44 @@ test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing() {
   fi
 }
 
+# Given a CLI call the bound cuts after the file's initializeCommand ran but before its install, when the
+# maker runs, then it makes the container again: initializeCommand (the dev image's pull) is not the
+# install, so a call cut there is cheap to make again. The stub's first call prints the CLI's own line for
+# it and exits as the bound does (124), so the case needs no real hang.
+test_a_create_the_bound_cuts_after_initialize_is_made_again() {
+  cd "$root" || return 1
+  clean
+  make_deployment || return 1
+  local stub state real out code id
+  real=$(command -v timeout)
+  stub="$tmp/timeout-stub"
+  state="$tmp/timeout-stub.state"
+  rm -rf "$stub" "$state"
+  mkdir -p "$stub" "$state"
+  cat >"$stub/timeout" <<STUB
+#!/usr/bin/env bash
+if [ -e "$state/first-call-done" ]; then
+  exec "$real" "\$@"
+fi
+: >"$state/first-call-done"
+echo "[2026-01-01T00:00:00.000Z] Running the initializeCommand from devcontainer.json..."
+exit 124
+STUB
+  chmod +x "$stub/timeout" || return 1
+  out=$(PATH="$stub:$PATH" "$root/scripts/container.sh" "$dep" 2>&1)
+  code=$?
+  rm -rf "$stub" "$state"
+  assert_eq 0 "$code" "the maker passes when its first create is cut after initializeCommand: $out" || return 1
+  assert_contains "$out" "The dev container CLI stopped answering. Making the container again." \
+    "the maker makes the container again, since the install had not started" || return 1
+  id=$(cid)
+  [ -n "$id" ] || {
+    fail "the maker left no container after the retried create"
+    return 1
+  }
+  assert_made_by_the_cli "$id" || return 1
+}
+
 # Given a CLI call the maker's 900s bound cuts before its install starts, when the maker runs, then it
 # retries the call instead of failing, and the container it leaves is the CLI's with the file's install in
 # it. The bound is a literal in the script, so the stub below shorts the first call, to less than the CLI
@@ -1035,6 +1073,7 @@ TESTS=(
   # Each of these makes its own container: the create itself, or a changed file, is what it tests.
   test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing
   test_a_create_the_bound_cuts_is_made_again_and_leaves_a_working_container
+  test_a_create_the_bound_cuts_after_initialize_is_made_again
   test_a_create_the_bound_cuts_during_its_install_is_not_made_again
   test_a_create_on_a_terminal_answers
   test_ctrl_c_on_a_terminal_stops_the_create_and_leaves_nothing
