@@ -512,6 +512,24 @@ test_each_set_job_runs_in_the_dev_image() {
   pass
 }
 
+test_the_timeouts_fit_the_work() {
+  name="changes allows the dev image's 30-minute build, and each set job has the 5 minutes more its pull needs"
+  given_workflow checks.yml || return 1
+  local j want
+  for j in changes server ui shell notes; do
+    case $j in
+    changes) want=30 ;;
+    server | ui | notes) want=15 ;;
+    shell) want=10 ;;
+    esac
+    then_is "the $j job's timeout" "timeout-minutes: $want" \
+      "$(grep -E '^    timeout-minutes:' <<<"$(job "$j")")" || return 1
+  done
+  then_is "the dev-image job's timeout, the budget changes has to fit" "timeout-minutes: 30" \
+    "$(block_in '^  image:' <"$here/../.github/workflows/dev-image.yml" | grep -E '^    timeout-minutes:')" || return 1
+  pass
+}
+
 test_no_job_sets_up_a_toolchain() {
   name="no line of the checks workflow names actions/setup-node"
   given_workflow checks.yml || return 1
