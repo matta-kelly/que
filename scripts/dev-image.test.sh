@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2329 # A function here is called by name: a case by the loop at the end, the rest by a case.
 # shellcheck disable=SC2312 # An assertion reads a command's output; its exit is the assertion's, not the command's.
+# shellcheck disable=SC2016 # The workflow cases hold GitHub's expressions as text: a pattern is literal.
 # The tests of scripts/dev-image.sh, on one machine, with no image, no registry and no network. Each
 # case makes a temp git repo that holds the four inputs and a copy of the script, and puts stand-in
 # `skopeo` and `podman` first on PATH. Each stand-in appends its arguments as one line to $T/calls.
@@ -368,26 +369,48 @@ test_usage_exits_2() {
     pass
 }
 
-# --- the workflow (.github/workflows/dev-image.yml), read as text ---
+# --- a workflow, read as text ---
 
-wf=$here/../.github/workflows/dev-image.yml
-# The workflow's lines with no comment lines and no blank lines.
+# The lines of $wf with no comment lines and no blank lines.
 wf_lines() { grep -vE '^\s*(#|$)' "$wf"; }
-# list_under <key regex>: the `- item` lines of the block list under the first line matching the key.
-list_under() {
-  wf_lines | awk -v k="$1" '
+# list_in <key regex>: stdin's `- item` lines of the block list under the first line matching the key.
+list_in() {
+  awk -v k="$1" '
     found && /^ *- / { sub(/^ *- */, ""); sub(/ *#.*/, ""); print; next }
     found { exit }
     $0 ~ k { found = 1 }'
 }
-# block <key regex>: the lines indented under the first line matching the key.
-block() {
-  wf_lines | awk -v k="$1" '
+# block_in <key regex>: stdin's lines indented under the first line matching the key.
+block_in() {
+  awk -v k="$1" '
     found { match($0, /^ */); if (RLENGTH <= ind) exit; print; next }
     $0 ~ k { found = 1; match($0, /^ */); ind = RLENGTH }'
 }
-# given: the workflow file, and the case's own folder for miss's report.
+# list_under <key regex>: the `- item` lines of the workflow's block list under the first matching line.
+list_under() { wf_lines | list_in "$1"; }
+# block <key regex>: the workflow's lines indented under the first matching line.
+block() { wf_lines | block_in "$1"; }
+# job <name>: the lines of the job's block: its own line, and each line indented under it.
+job() {
+  wf_lines | awk -v j="  $1:" '
+    found { if ($0 ~ /^  [^ ]/) exit; print; next }
+    $0 == j { found = 1; print }'
+}
+# item_with <string>: stdin's first `- item` whose first line holds the string, and its lines.
+item_with() {
+  awk -v s="$1" '
+    started { if ($0 ~ /^ *- /) exit; print; next }
+    /^ *- / && index($0, s) { started = 1; print }'
+}
+# first_item: stdin's first `- item`, and its lines.
+first_item() {
+  awk '
+    started { if ($0 ~ /^ *- /) exit; print; next }
+    /^ *- / { started = 1; print }'
+}
+# given: the workflow file, dev-image.yml by default, and the case's own folder for miss's report.
 given_workflow() {
+  wf=$here/../.github/workflows/${1:-dev-image.yml}
   out='' err=''
   T=$(mktemp -d) || return 1
   : >"$T/calls"
@@ -438,6 +461,85 @@ test_each_action_is_pinned() {
   [ -n "$uses" ] || { miss "the workflow uses no action"; return 1; }
   bad=$(grep -vE 'uses: [^@ ]+@[0-9a-f]{40}( |$)' <<<"$uses" || true)
   then_is "the unpinned uses" "" "$bad" && pass
+}
+
+# --- the checks workflow (.github/workflows/checks.yml), read as text ---
+#
+# The four set jobs run in the dev image that `changes` resolves for the commit, by digest, so a `:main` that moves
+# while a run waits does not change the image under it. `changes` is the only job that writes to the registry.
+
+test_the_changes_job_resolves_the_dev_image() {
+  name="the changes job logs in with its token, ensures the commit's dev image, and gives its ref out as image"
+  given_workflow checks.yml || return 1
+  c=$(job changes)
+  [ -n "$c" ] || { miss "the job changes: expected it in $wf"; return 1; }
+  steps=$(block_in '^    steps:' <<<"$c")
+  env_line=$(sed -n 's/^ *\([A-Za-z_][A-Za-z0-9_]*\): *\${{ secrets.GITHUB_TOKEN }}$/\1/p' <<<"$steps" | head -1)
+  login=$(grep -F 'podman login ghcr.io --username "${{ github.actor }}" --password-stdin' <<<"$steps")
+  image_step=$(item_with 'id: image' <<<"$steps")
+  login_at=$(grep -n 'podman login ghcr.io' <<<"$steps" | cut -d: -f1)
+  image_at=$(grep -n 'id: image' <<<"$steps" | cut -d: -f1)
+  then_is "the changes job's permissions" "$(printf '%s\n' 'contents: read' 'packages: write')" \
+    "$(block_in '^    permissions:' <<<"$c" | sed 's/^ *//')" &&
+    { [ -n "$env_line" ] || miss "the login step: expected an env variable set from \${{ secrets.GITHUB_TOKEN }}, in: $steps"; } &&
+    { [ -n "$login" ] || miss "the login step: expected podman login to ghcr.io with github.actor, in: $steps"; } &&
+    then_has "the login step" "\"\$$env_line\" | podman login" "$login" &&
+    { [ -n "$image_at" ] && [ "$login_at" -lt "$image_at" ] ||
+      miss "the steps: expected the login before the id: image step; got lines [$login_at] [$image_at]"; } &&
+    then_has "the id: image step" 'scripts/dev-image.sh ensure' "$image_step" &&
+    then_has "the id: image step's write" 'image=' "$(grep -F '$GITHUB_OUTPUT' <<<"$image_step")" &&
+    then_is "the image output" 'image: ${{ steps.image.outputs.image }}' \
+      "$(block_in '^    outputs:' <<<"$c" | sed 's/^ *//' | grep -F 'image:')" &&
+    pass
+}
+
+test_each_set_job_runs_in_the_dev_image() {
+  name="each set job runs in the dev image that changes resolved, pulling it with the run's token"
+  given_workflow checks.yml || return 1
+  local j c container
+  for j in server ui shell notes; do
+    c=$(job "$j")
+    [ -n "$c" ] || { miss "the job $j: expected it in $wf"; return 1; }
+    container=$(block_in '^    container:' <<<"$c" | sed 's/^      //')
+    then_is "the $j job's permissions" "$(printf '%s\n' 'contents: read' 'packages: read')" \
+      "$(block_in '^    permissions:' <<<"$c" | sed 's/^ *//')" || return 1
+    then_is "the $j job's container image" 'image: ${{ needs.changes.outputs.image }}' \
+      "$(grep -E '^image:' <<<"$container")" || return 1
+    then_is "the $j job's container credentials" \
+      "$(printf '%s\n' 'username: ${{ github.actor }}' 'password: ${{ secrets.GITHUB_TOKEN }}')" \
+      "$(block_in '^credentials:' <<<"$container" | sed 's/^  //')" || return 1
+  done
+  pass
+}
+
+test_no_job_sets_up_a_toolchain() {
+  name="no line of the checks workflow names actions/setup-node"
+  given_workflow checks.yml || return 1
+  then_is "the lines naming actions/setup-node" "" "$(wf_lines | grep -E 'actions/setup-node')" && pass
+}
+
+test_each_set_job_prints_its_image() {
+  name="each set job's first step prints the dev image it runs on"
+  given_workflow checks.yml || return 1
+  local j first
+  for j in server ui shell notes; do
+    first=$(job "$j" | block_in '^    steps:' | first_item)
+    [ -n "$first" ] || { miss "the job $j: expected a first step, got nothing"; return 1; }
+    then_has "the first step of $j" 'echo "dev image: ${{ needs.changes.outputs.image }}"' "$first" || return 1
+  done
+  pass
+}
+
+test_the_aggregate_still_holds() {
+  name="checks still waits on changes and the four sets, always, and fails when changes did not succeed"
+  given_workflow checks.yml || return 1
+  c=$(job checks)
+  [ -n "$c" ] || { miss "the job checks: expected it in $wf"; return 1; }
+  then_is "the aggregate's needs" "needs: [changes, server, ui, shell, notes]" \
+    "$(grep -E '^    needs:' <<<"$c" | sed 's/^ *//')" &&
+    then_is "the aggregate's if" "if: always()" "$(grep -E '^    if:' <<<"$c" | sed 's/^ *//')" &&
+    then_has "the aggregate's run" '[ "$CHANGES" = success ] || exit 1' "$(block_in '^    steps:' <<<"$c")" &&
+    pass
 }
 
 # Each case in its own subshell, so its exports and its folder stay its own.
