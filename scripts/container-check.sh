@@ -235,6 +235,24 @@ clean() {
   done < <(podman volume ls --format '{{.Name}}' | grep "^que-deployment-node-modules-$OWN_HASH-" || true)
 }
 
+# The container the maker made for the deployment, shared by the tests that need one and leave it as a
+# maker run finds it, so the run makes it a few times, not once per test. It is made again only when the
+# shared one is gone (a test ran `just down`), and a stopped one is started by the maker with no install.
+# $tmp/shared holds its id. Each test still runs `just check-deployment`, so each still holds that it passes.
+given_shared_deployment_container() {
+  local id out
+  id=$(cid)
+  if [ -z "$id" ] || [ ! -e "$tmp/shared" ] || [ "$(cat "$tmp/shared")" != "$id" ]; then
+    clean
+    make_deployment || return 1
+  fi
+  out=$(just check-deployment "$dep" 2>&1) || {
+    fail "just check-deployment passes on the deployment: $out"
+    return 1
+  }
+  cid >"$tmp/shared"
+}
+
 # --- assertions ---
 
 fail() {
@@ -339,18 +357,15 @@ test_check_remakes_when_the_deployment_is_new_and_binds_it_with_its_volume() {
   assert_eq "$expected" "$(volume_destinations "$id")" "the container mounts the file's four volumes and the deployment's" || return 1
   assert_eq "$(deployment_volume_name)" "$(volume_at "$id" "$dep/node_modules")" \
     "the deployment's volume keeps the source name seam 3 gives" || return 1
+  cid >"$tmp/shared"
 }
 
 # Given a container the maker made for a deployment, when the call VS Code makes runs for the same folder,
 # then the two paths keep one container: the bare up returns the id just's recipes reach, and one exists.
 test_one_container_for_vscode_and_just() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id vscode
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id=$(cid_full)
   [ -n "$id" ] || {
     fail "the maker left no container for the folder"
@@ -372,12 +387,8 @@ test_one_container_for_vscode_and_just() {
 # `_container`, and needs a serving que, so it is not driven here.
 test_just_finds_the_container_by_the_labels_the_cli_sets() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id found
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id=$(cid_full)
   [ -n "$id" ] || {
     fail "the maker left no container for the folder"
@@ -414,12 +425,8 @@ test_just_finds_the_container_by_the_labels_the_cli_sets() {
 # stop` stops it at once, where a container whose first process is `sleep` would wait out the timeout.
 test_init_is_on_and_stop_is_immediate() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id started elapsed
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id=$(cid)
   assert_made_by_the_cli "$id" || return 1
   assert_eq true "$(field "$id" '{{.HostConfig.Init}}')" "the container has --init" || return 1
@@ -441,12 +448,8 @@ test_init_is_on_and_stop_is_immediate() {
 # file, as seam 3's rule says.
 test_down_removes_the_container_and_the_four_file_volumes_but_not_the_deployments() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id name dep_vol own=()
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id=$(cid)
   [ -n "$id" ] || {
     fail "the maker left no container for the folder"
@@ -752,12 +755,8 @@ test_the_file_is_the_only_source_of_the_containers_settings() {
 # holds.
 test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id1 id2 dep_vol before after
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id1=$(cid)
   [ -n "$id1" ] || {
     fail "the maker left no container for the folder"
@@ -791,18 +790,15 @@ test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume() {
   assert_made_by_the_cli "$id2" || return 1
   assert_eq "$dep_vol" "$(volume_at "$id2" "$dep/node_modules")" \
     "the deployment's volume is the one from before" || return 1
+  cid >"$tmp/shared"
 }
 
 # Given a deployment with a lockfile, when the maker runs, then the deployment's install runs from its
 # lockfile, does not run again while the lockfile is the same, and runs again when the lockfile changes.
 test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id=$(cid)
   assert_made_by_the_cli "$id" || return 1
   if ! podman exec -u node "$id" test -f "$dep/node_modules/.package-lock.json"; then
@@ -832,12 +828,8 @@ test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes() 
 # still in its volumes.
 test_just_stop_and_a_start_reinstall_nothing() {
   cd "$root" || return 1
-  clean
-  make_deployment || return 1
   local out code id again
-  out=$(just check-deployment "$dep" 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check-deployment passes on the deployment: $out" || return 1
+  given_shared_deployment_container || return 1
   id=$(cid)
   assert_made_by_the_cli "$id" || return 1
   podman exec -u node "$id" touch "$root/server/node_modules/.no-install-probe" || return 1
@@ -883,9 +875,10 @@ test_just_start_with_no_container_says_to_run_up_and_makes_none() {
   assert_eq "" "$(cid)" "just start makes no container" || return 1
 }
 
-# Given que's own code, when `just check` runs with one set and with all, then the check passes in the
-# container the file makes, and the second run uses the same container rather than making another.
-test_the_check_passes_in_the_container_one_set_and_all() {
+# Given que's own code and no container, when `just check shell` runs, then the check runs in the container
+# the file makes, and passes. The full check is not run here: the pre-push hook runs it on every push, in
+# this same container (.githooks/pre-push), so it is held there.
+test_the_check_runs_in_the_container_the_file_makes() {
   cd "$root" || return 1
   clean
   local out code id
@@ -896,11 +889,7 @@ test_the_check_passes_in_the_container_one_set_and_all() {
   assert_contains "$out" "check passed" "just check shell reaches the end of the check" || return 1
   id=$(cid)
   assert_made_by_the_cli "$id" || return 1
-  out=$(just check 2>&1)
-  code=$?
-  assert_eq 0 "$code" "just check passes: $out" || return 1
-  assert_contains "$out" "check passed" "just check reaches the end of the check" || return 1
-  assert_eq "$id" "$(cid)" "the check runs in the one container the file makes" || return 1
+  assert_eq 1 "$(count)" "the check leaves one container for the folder" || return 1
 }
 
 # --- the dev image (.devcontainer/Containerfile) ---
@@ -1033,11 +1022,17 @@ test_a_fresh_container_is_up_from_the_dev_image_within_the_bound() {
 
 TESTS=(
   test_a_fresh_container_has_the_files_cap_and_mounts
+  # The deployment's container: made by the remake test, then shared in this order. Those that stop or
+  # remove it come after those that only read it.
   test_check_remakes_when_the_deployment_is_new_and_binds_it_with_its_volume
   test_one_container_for_vscode_and_just
-  test_just_finds_the_container_by_the_labels_the_cli_sets
+  test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes
   test_init_is_on_and_stop_is_immediate
+  test_just_stop_and_a_start_reinstall_nothing
+  test_just_finds_the_container_by_the_labels_the_cli_sets
+  test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume
   test_down_removes_the_container_and_the_four_file_volumes_but_not_the_deployments
+  # Each of these makes its own container: the create itself, or a changed file, is what it tests.
   test_the_maker_exits_nonzero_on_a_failed_install_and_leaves_nothing
   test_a_create_the_bound_cuts_is_made_again_and_leaves_a_working_container
   test_a_create_the_bound_cuts_during_its_install_is_not_made_again
@@ -1045,11 +1040,8 @@ TESTS=(
   test_ctrl_c_on_a_terminal_stops_the_create_and_leaves_nothing
   test_a_create_on_a_cold_journal_answers
   test_the_file_is_the_only_source_of_the_containers_settings
-  test_a_worktree_moves_over_by_down_and_up_keeping_the_deployments_volume
-  test_the_deployments_install_runs_from_its_lockfile_and_again_when_it_changes
-  test_just_stop_and_a_start_reinstall_nothing
   test_just_start_with_no_container_says_to_run_up_and_makes_none
-  test_the_check_passes_in_the_container_one_set_and_all
+  test_the_check_runs_in_the_container_the_file_makes
   test_the_dev_image_passes_its_smoke
   test_the_smoke_fails_an_image_with_no_cache
   test_the_dev_image_has_its_paths_and_runs_as_root
