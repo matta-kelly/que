@@ -63,6 +63,7 @@ Two apps in one repo. Each has its own `package.json`, lockfile, lint and format
 - `scripts/smoke-image.sh`: the smoke check of the runtime image, a step of each `ship` run before any push: `que-server` needs `QUE_DEPLOYMENT`, `que-ui` answers `/`, `/data` is node's, and the image holds no `.git`. The git step runs as root, so a `.git` behind a folder an ordinary process cannot enter is still found. `scripts/smoke-image.test.sh` sits beside it, and holds the git step to that case, with no image
 - `scripts/dev-image.sh`: que's dev image in ghcr: `hash` of its inputs (`.devcontainer/` and both lockfiles), `ref`, the image a commit runs on, and `ensure`, which builds, smokes and pushes it only when ghcr lacks that hash, `promote`, which points `:main` at it (main only), and `local`, which puts it on this machine: its copy, a pull, or a build. `scripts/dev-image.test.sh` sits beside it, and holds all five with stand-in `skopeo` and `podman`
 - `scripts/dev-image-smoke.sh`: the smoke check of the dev image, before any push: both apps install from its cache with no network, Chromium is in `PLAYWRIGHT_BROWSERS_PATH`, and it holds no checkout file
+- `.github/workflows/dev-image.yml`: the dev image: built, smoked and pushed on main when an input changes, and `:main` pointed at it
 - `basis.config.ts`: the config of the lint of que's notes, from the repo's root (see [Notes](#notes))
 
 ### Notes
