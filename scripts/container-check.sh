@@ -278,17 +278,17 @@ assert_made_by_the_cli() {
 
 # --- the behaviors ---
 
-# Given a checkout with no container, when `just check` runs with no deployment, then the container it
-# makes is the file's: the CLI's image, the file's CPU cap and shares, the host network, the repo bound
+# Given a checkout with no container, when the maker (scripts/container.sh, which `just check` and `just up`
+# call) runs with no deployment, then the container it makes is the file's: the CLI's image, the file's CPU cap and shares, the host network, the repo bound
 # at its host path, and the four volumes under the names the file gives this checkout.
-test_a_fresh_container_from_just_check_has_the_files_cap_and_mounts() {
+test_a_fresh_container_has_the_files_cap_and_mounts() {
   cd "$root" || return 1
   clean
   local out code id binds expected mounts expected_names names
-  out=$(just check 2>&1)
+  out=$("$root/scripts/container.sh" 2>&1)
   code=$?
-  assert_eq 0 "$code" "just check passes: $out" || return 1
-  assert_eq 1 "$(count)" "just check leaves one container for the folder" || return 1
+  assert_eq 0 "$code" "the maker makes the container: $out" || return 1
+  assert_eq 1 "$(count)" "the maker leaves one container for the folder" || return 1
   id=$(cid)
   assert_eq "$CAP" "$(field "$id" '{{.HostConfig.NanoCpus}}')" "the container has the file's CPU cap" || return 1
   assert_eq "$SHARES" "$(field "$id" '{{.HostConfig.CpuShares}}')" "the container has the file's CPU shares" || return 1
@@ -313,9 +313,9 @@ test_check_remakes_when_the_deployment_is_new_and_binds_it_with_its_volume() {
   clean
   make_deployment || return 1
   local out code id binds first expected
-  out=$(just check 2>&1)
+  out=$("$root/scripts/container.sh" 2>&1)
   code=$?
-  assert_eq 0 "$code" "just check passes: $out" || return 1
+  assert_eq 0 "$code" "the maker makes the container with no deployment: $out" || return 1
   first=$(cid)
   out=$(just check-deployment "$dep" 2>&1)
   code=$?
@@ -968,7 +968,7 @@ test_the_dev_container_finds_chromium_under_its_cache_volume() {
 # --- the runner ---
 
 TESTS=(
-  test_a_fresh_container_from_just_check_has_the_files_cap_and_mounts
+  test_a_fresh_container_has_the_files_cap_and_mounts
   test_check_remakes_when_the_deployment_is_new_and_binds_it_with_its_volume
   test_one_container_for_vscode_and_just
   test_just_finds_the_container_by_the_labels_the_cli_sets
@@ -1010,9 +1010,11 @@ for name in "${selected[@]}"; do
     exit 2
   fi
   echo "== $name"
+  start=$SECONDS
   if (cd "$root" && "$name"); then
-    echo "   ok"
+    echo "   ok ($((SECONDS - start)) s)"
   else
+    echo "   failed ($((SECONDS - start)) s)"
     failed+=("$name")
   fi
 done
