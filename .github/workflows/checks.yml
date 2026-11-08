@@ -18,6 +18,8 @@ concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# Each set job runs in a job container, as root, which reads every file and owns none of the checkout: each
+# runs check.sh as the image's node, as in the dev container, over a checkout node owns.
 jobs:
   # Which sets the change needs. The script decides, as it does on a machine.
   changes:
@@ -82,7 +84,7 @@ jobs:
             scripts
             server
             templates
-      - run: scripts/check.sh server
+      - run: chown -R node:node "$GITHUB_WORKSPACE" && runuser -u node -- env HOME=/home/node scripts/check.sh server
 
   ui:
     needs: [changes]
@@ -105,7 +107,7 @@ jobs:
           sparse-checkout: |
             scripts
             ui
-      - run: scripts/check.sh ui
+      - run: chown -R node:node "$GITHUB_WORKSPACE" && runuser -u node -- env HOME=/home/node scripts/check.sh ui
 
   shell:
     needs: [changes]
@@ -130,7 +132,7 @@ jobs:
             scripts
             server/scripts
             .github
-      - run: scripts/check.sh shell
+      - run: chown -R node:node "$GITHUB_WORKSPACE" && runuser -u node -- env HOME=/home/node scripts/check.sh shell
 
   notes:
     needs: [changes]
@@ -149,7 +151,7 @@ jobs:
       - run: 'echo "dev image: ${{ needs.changes.outputs.image }}"'
       # The whole repo: the notes are everywhere in it, and the lint reads them from its root.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - run: scripts/check.sh notes
+      - run: chown -R node:node "$GITHUB_WORKSPACE" && runuser -u node -- env HOME=/home/node scripts/check.sh notes
 
   # The one result of a run. It always starts, so it is never left pending:
   # a set's job that the change did not need is skipped, and a skipped job passes here.
