@@ -530,6 +530,21 @@ test_the_timeouts_fit_the_work() {
   pass
 }
 
+# A job container runs as root: root reads every file, so a test that a file it may not open gives a problem
+# cannot fail as it should, and git refuses a checkout root does not own. Each set runs as the image's node,
+# as in the dev container, over a checkout node owns.
+test_each_set_runs_as_node_over_a_checkout_node_owns() {
+  name="each set job hands the checkout to node and runs check.sh as node, with node's home"
+  given_workflow checks.yml || return 1
+  local j steps
+  for j in server ui shell notes; do
+    steps=$(job "$j" | block_in '^    steps:' || true)
+    then_has "the $j job's check step" "run: chown -R node:node \"\$GITHUB_WORKSPACE\" && runuser -u node -- env HOME=/home/node scripts/check.sh $j" "$steps" || return 1
+    then_lacks "the $j job's steps" "run: scripts/check.sh" "$steps" || return 1
+  done
+  pass
+}
+
 test_no_job_sets_up_a_toolchain() {
   name="no line of the checks workflow names actions/setup-node"
   given_workflow checks.yml || return 1
