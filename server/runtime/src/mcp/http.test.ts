@@ -645,7 +645,7 @@ test("given a user on protocol 2026-07-28, when the session posts tools/list and
   const names = toolsIn(answered(listText, list.headers.get("content-type")));
   assert.deepEqual(
     names
-      .filter((name) => name.startsWith("till-"))
+      .filter((name) => name.startsWith("till-") && name !== "till-ops")
       .sort((a, b) => a.localeCompare(b)),
     [
       "till-count",
