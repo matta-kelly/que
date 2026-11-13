@@ -7,20 +7,11 @@ import { folderWith, url } from "../../tests/roots.ts";
 import { deploymentGraph } from "./root.ts";
 import { harness } from "./schema.ts";
 
-// A deployment, landl, with one agent, loop and model, and its plugin notes under plugins/, each file by its path from
+// A deployment, landl, with its plugin notes under plugins/, each file by its path from
 // the deployment's folder. Its code imports the packages as que's own copies, by URL, as code outside que does.
 const deployment: Record<string, string> = {
   "index.ts": `import { defineDeployment } from ${url.harness};
-export default defineDeployment({ name: "landl", type: "deployment", description: "The landl deployment.", plugins: ["notes"], agents: ["chat"], loops: ["long-chat"], models: ["small"] });
-`,
-  "agents/chat.ts": `import { defineAgent } from ${url.harness};
-export default defineAgent({ name: "chat", type: "agent", description: "The agent a chat gets.", plugins: ["notes"], model: "small", loop: "long-chat" });
-`,
-  "loops/long-chat.ts": `import { defineLoop } from ${url.harness};
-export default defineLoop({ name: "long-chat", type: "loop", description: "A loop for long chats." });
-`,
-  "models/small.ts": `import { defineModel } from ${url.harness};
-export default defineModel({ name: "small", type: "model", description: "A small model.", id: "fireworks:accounts/fireworks/models/glm-5p3-flash", maxTokens: 1000 });
+export default defineDeployment({ name: "landl", type: "deployment", description: "The landl deployment.", plugins: ["notes"] });
 `,
   "plugins/notes/package.json": '{ "name": "notes", "type": "module" }\n',
   "plugins/notes/io.github.matta-kelly.que/index.ts": `import { definePlugin } from ${url.plugin};
@@ -71,8 +62,8 @@ test("a deployment in a vault, with a typed note of the vault beside it, lints g
     const { root, problems, graph } = await deploymentGraph(dir);
     assert.equal(root, dir);
     assert.deepEqual(problems, []);
-    assert.deepEqual(graph.get("landl", harness.types.deployment)?.agents, [
-      "chat",
+    assert.deepEqual(graph.get("landl", harness.types.deployment)?.plugins, [
+      "notes",
     ]);
   } finally {
     await remove();
@@ -84,7 +75,7 @@ test("a deployment's own root reads a note of one of its nodes, as another piece
     under(".", {
       "basis.config.ts": ownRoot,
       "README.md": "# landl\n\nHow to start it.\n",
-      "chat.md": "---\ntype: agent\n---\nWhy a chat gets this agent.\n",
+      "landl.md": "---\ntype: deployment\n---\nWho uses this deployment.\n",
     }),
   );
   try {
@@ -92,8 +83,8 @@ test("a deployment's own root reads a note of one of its nodes, as another piece
     const { problems, graph } = await deploymentGraph(folder);
     assert.deepEqual(problems, []);
     assert.equal(
-      graph.get("chat", harness.types.agent)?.description,
-      "The agent a chat gets.",
+      graph.get("landl", harness.types.deployment)?.description,
+      "The landl deployment.",
     );
   } finally {
     await remove();
@@ -137,9 +128,9 @@ test("each problem of the deployment's root is at its file's full path", async (
   const { folder, remove } = await folderWith(
     under(".", {
       "basis.config.ts": ownRoot,
-      "agents/chat.ts": deployment["agents/chat.ts"].replace(
-        '"small"',
-        '"big"',
+      "index.ts": deployment["index.ts"].replace(
+        '["notes"]',
+        '["notes", "odoo"]',
       ),
     }),
   );
@@ -147,8 +138,8 @@ test("each problem of the deployment's root is at its file's full path", async (
     await install(folder);
     const { problems } = await deploymentGraph(folder);
     assert.deepEqual(
-      problems.map((p) => [p.path, p.rule, p.field]),
-      [[join(folder, "agents/chat.ts"), "basis/link", "/model"]],
+      problems.map((p) => [p.path, p.rule ?? "fatal"]),
+      [[join(folder, "index.ts"), "fatal"]],
     );
   } finally {
     await remove();

@@ -23,7 +23,7 @@ given_image() {
   root=$T/image
   engine=$T/podman
   export SMOKE_IMAGE_ROOT=$root
-  mkdir -p "$root/app" "$root/data" "$root/root" || return 1
+  mkdir -p "$root/app" "$root/root" || return 1
   # The image's /root is 0700 and root's: a process in the image cannot search it.
   : >"$root/root/.root-only" || return 1
   # root: the .git sits in a folder only root can enter, so a process that is not root cannot

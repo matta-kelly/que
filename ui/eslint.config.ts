@@ -11,7 +11,7 @@ const fromServerWhy =
 const frameworks =
   /^(?:langchain|deepagents|@langfuse\/langchain|@assistant-ui\/react-langgraph)(?:\/|$)|^@langchain\//;
 const frameworksWhy =
-  "que runs on pi, and the UI talks to it over AG-UI: nothing imports LangChain, LangGraph, deepagents or their adapters.";
+  "que runs on pi: nothing imports LangChain, LangGraph, deepagents or their adapters.";
 
 /** The `import()` and type `import()` of each path a pattern forbids. Each entry that sets no-restricted-syntax spreads them, as ESLint keeps only its last options. */
 const dynamicImports = [
@@ -70,23 +70,13 @@ export default defineConfig([
       "no-restricted-syntax": ["error", ...dynamicImports],
     },
   },
-  // Vendored from assistant-ui: memoizes by reading a ref during render, on purpose.
-  {
-    files: ["components/assistant-ui/elements/markdown-text.tsx"],
-    rules: { "react-hooks/refs": "off" },
-  },
   // What a feature needs is in one folder: its logic and its tests are beside
   // the component that uses them, so one listing shows all of a feature. So no
   // new file in `lib/`, and no `utils/` folder. What is left in `lib/` is shared
-  // by many features, and `components/assistant-ui/utils/` is the library's own.
+  // by many features.
   {
     files: ["lib/**", "**/utils/**"],
-    ignores: [
-      "lib/que-api.ts",
-      "lib/fonts.ts",
-      "lib/utils.ts",
-      "components/assistant-ui/utils/**",
-    ],
+    ignores: ["lib/que-api.ts", "lib/fonts.ts", "lib/utils.ts"],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -95,30 +85,6 @@ export default defineConfig([
           selector: "Program",
           message:
             "No new file in lib/ or utils/. Put it in the folder of the feature that uses it, beside its component.",
-        },
-      ],
-    },
-  },
-  // `components/assistant-ui/` holds the library's files only. que's own chat code goes in `components/chat/`.
-  {
-    files: ["components/assistant-ui/elements/**"],
-    ignores: [
-      "components/assistant-ui/elements/thread.aui.tsx",
-      "components/assistant-ui/elements/thread-list.aui.tsx",
-      "components/assistant-ui/elements/markdown-text.tsx",
-      "components/assistant-ui/elements/follow-up-suggestions.aui.tsx",
-      "components/assistant-ui/elements/tooltip-icon-button.tsx",
-      "components/assistant-ui/elements/surfaces.tsx",
-      "components/assistant-ui/elements/thinking-indicator.tsx",
-    ],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        ...dynamicImports,
-        {
-          selector: "Program",
-          message:
-            "components/assistant-ui/ holds the library's files only. que's own code goes in components/chat/.",
         },
       ],
     },

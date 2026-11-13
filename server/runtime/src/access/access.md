@@ -1,17 +1,16 @@
 ---
 type: component
-description: "Access, the harness step that decides what one user can reach: the user's granted domains and the connectors they reach whose login resolves, narrowed to the plugins the run's agent names, with one connection per plugin and rep, opened when first used. Also the users store and the user's own instructions. Read before changing who gets which plugin, how credentials and connections are kept, or where a user's instructions come from. The code is in this folder."
+description: "Access, the server step that decides what one user can reach: the user's granted domains and the connectors they reach whose login resolves, with one connection per plugin and rep, opened when first used. Also the users store. Read before changing who gets which plugin, or how credentials and connections are kept. The code is in this folder."
 status: running
 ---
 Access decides what one user can reach. It works per plugin: a user gets a whole plugin, or none of it.
 - [[#Catalog]] the plugins one user can use
 - [[#Credentials and connections]] the one place credentials are handled
-- [[#Narrow]] the plugins one chat gets
 - [[#Users]] the users store
-- [[#Instructions]] the user's own instructions for a chat
 
-- [[que]]: the harness, whose second step this is. Mount comes before it, assemble after
+- [[que]]: the server, whose second step this is. Mount comes before it, the door and MCP after
 - [[plugin-contract]]: the contract it reads (`credential`, `connect`, `whoami`)
+- [[agent-governance]]: the read/propose/update split and an owner for each action. Not built
 
 ---
 ## Catalog
@@ -40,35 +39,16 @@ Access decides what one user can reach. It works per plugin: a user gets a whole
 		- on no login at all, and domains reach the connector and, when the op has one, give its role: `you have no <connector> login[ for <role>]: ask an admin for a domain that reaches it: <domains>`, the domains that reach it, and give the role when the op has one
 		- on no login for the op's role, and no domain gives that role: `you have no <connector> login for <role>: no domain gives that role: ask an admin for a domain that gives it`
 	- a domain op gets no connection: each connector op it calls asks for its own, on the login of the connector's op
+- not built: each op is read, propose or update, and has an owner, and each call is checked against that split for the user
 - a credential is saved only once it matches the connector's schema, and `connect` succeeds with it when the connector has `connect`
 - the list of saved credentials (the Connections page) holds every saved one, also one that no longer matches the schema, which the catalog leaves out
 - one connection per plugin and rep, opened when it is first used: by an operation, or by `whoami` in the catalog
 	- a changed or re-entered credential opens a new connection, and the old one is dropped
 	- a failed login is tried again on the next call
 
-## Narrow
-
-`narrow.ts`
-
-- the run's agent config names its plugins, and the catalog keeps only those
-- it can only take plugins out, so a plugin the user cannot reach stays out
-
 ## Users
 
 `users.ts`
 
-- one users store for the harness: the server's sign-in (`run/signed-in.ts`), the API and a run use it
-- it binds the instructions file the deployment names, and a user's instructions, from [[#Instructions]]
-
-## Instructions
-
-`instructions.ts`
-
-- the user's own instructions for a chat come from one of two places
-	- the file a deployment names in `DEV_USER_INSTRUCTIONS`. A relative path is taken from the deployment's folder
-		- read whole when each run starts, so an edit is in the next run
-		- a file that cannot be read is an error that names it, and que stops at startup
-	- with no file named, the text saved on the user's account
-		- at most 16,000 characters. Blank text is saved as none
-		- a change to it is refused (409) while a file is named
-- an agent takes them when its config says so, and never when the text is blank
+- one users store for the server: the sign-in (`run/signed-in.ts`), the settings API and MCP use it
+- a user is made on first sign-in, and the first user is an admin

@@ -5,7 +5,4 @@ export default defineDeployment({
   type: "deployment",
   description: "The uses-unresolved deployment of a fixture.",
   plugins: ["source", "stray"],
-  agents: ["bare"],
-  loops: ["long-chat"],
-  models: ["small"],
 });

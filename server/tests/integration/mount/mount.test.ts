@@ -2,7 +2,7 @@
  * Mount, against real folders: the deployments and plugins in fixtures/. Each deployment is a root of its own, made
  * from the fixtures (deploymentRoot): its plugins are installed by name, as links in its node_modules, and each is read,
  * and named, at its real folder under its plugins/. No network: mounting reads definitions and skills and opens no
- * connection, and each model's facts are its file's, or the installed model catalog's.
+ * connection.
  */
 
 import { after, test } from "node:test";
@@ -16,9 +16,9 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { factsOf } from "@mku1tra/que-harness";
 import { checkedCard, readPlugin } from "@mku1tra/que-plugin";
 import { mountDeployment } from "../../../runtime/src/mount/deployment.js";
 import {
@@ -52,8 +52,7 @@ export default {
 /**
  * A deployment in a repo of a deployment and its plugins, as landl is: the repo is the root, and gives the deployment's
  * sources; each plugin of `plugins` is copied under the repo's plugins/ and linked into the repo's node_modules, and
- * the deployment, in a folder under the repo, names `names`, with the agent, loop and model of the deployment two, and
- * `files` over them. Gives the deployment's folder.
+ * the deployment, in a folder under the repo, names `names`, with `files` beside it. Gives the deployment's folder.
  */
 const deploymentWith = (
   names: string[],
@@ -62,10 +61,7 @@ const deploymentWith = (
 ) => {
   const repo = mkdtempSync(join(work, "repo-"));
   const dir = join(repo, "deployment");
-  for (const folder of ["agents", "loops", "models"])
-    cpSync(join(deployment("two"), folder), join(dir, folder), {
-      recursive: true,
-    });
+  mkdirSync(dir);
   mkdirSync(join(repo, "node_modules"));
   for (const [name, from] of Object.entries(plugins)) {
     cpSync(from, join(repo, "plugins", name), { recursive: true });
@@ -98,9 +94,6 @@ export default defineDeployment({
   type: "deployment",
   description: "A deployment in a repo.",
   plugins: ${JSON.stringify(names)},
-  agents: ["bare"],
-  loops: ["long-chat"],
-  models: ["small"],
 });
 `,
   );
@@ -108,6 +101,13 @@ export default defineDeployment({
     writeFileSync(join(dir, path), text);
   return dir;
 };
+
+// The definition of a deployment named `name` that names no plugin.
+const bare = (
+  name: string,
+) => `import { defineDeployment } from "@mku1tra/que-harness";
+export default defineDeployment({ name: "${name}", type: "deployment", description: "A deployment with no plugin." });
+`;
 
 // A plugin whose package.json names the @mku1tra/que-plugin it works with, as a peer, or another package.
 const needing = (range: string, peer = "@mku1tra/que-plugin") => {
@@ -184,15 +184,35 @@ test("stops, naming the plugin and the deployment's index.ts, when a plugin it n
   });
 });
 
-test("a mounted plugin has its skills", async () => {
+test("a mounted plugin has its skills, each as MCP serves it: its SKILL.md's URI, frontmatter as written, digest and size", async () => {
   const mounted = await mount("two");
+  const file = readFileSync(
+    join(fixtures, "plugins/alpha/skills/alpha-greet/SKILL.md"),
+  );
+  const uri = "skill://alpha/alpha-greet/SKILL.md";
   assert.deepEqual(mounted[1].skills, [
     {
       name: "alpha-greet",
-      type: "skill",
       title: "Greet",
       description: "How to greet a customer.",
-      body: "Say hello.",
+      uri,
+      entry: {
+        uri,
+        frontmatter: {
+          name: "alpha-greet",
+          description: "How to greet a customer.",
+          metadata: { title: "Greet" },
+        },
+        resources: [
+          {
+            uri,
+            digest: `sha256:${createHash("sha256").update(file).digest("hex")}`,
+            size: file.byteLength,
+          },
+        ],
+      },
+      text: file.toString("utf8"),
+      size: file.byteLength,
     },
   ]);
 });
@@ -322,327 +342,19 @@ test("mounts a plugin whatever its folder's plugin.json holds, as no card is rea
   assert.deepEqual(names([await mountPlugin(dir)]), ["gamma"]);
 });
 
-test("stops, naming the case and its capability, when a plugin's case names a capability no plugin has", async () => {
-  await assert.rejects(
-    mount("bad-cases"),
-    /^Error: mount: deployment .*bad-cases breaks the harness schema:\n- .*bad-cases\/io\.github\.matta-kelly\.que\/cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)$/,
-  );
-});
-
-test("stops, naming the file, when an agent breaks the contract, with the contract's own error", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("agent-bad")),
-    /agents\/modelless\.ts: The agent cannot be read: agent modelless is invalid:/,
-  );
-});
-
-test("stops, naming the name, when two agents have one name", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("agents-one-name")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(
-        error.message,
-        /agents\/chat-again\.ts: The name chat is also the name of .*agents\/chat\.ts\. \(basis\/unique-name\)/,
-      );
-      return true;
-    },
-  );
-});
-
-test("stops, naming the agent and the plugin, when an agent names a plugin the deployment does not mount", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("agent-names-unmounted")),
-    (error: Error) => {
-      assert.match(
-        error.message,
-        /agents\/wants-delta\.ts: \/plugins: names the plugin delta, which the deployment does not mount \(basis\/link\)/,
-      );
-      return true;
-    },
-  );
-});
-
-test("stops, naming the agent and the loop, when an agent names a loop the deployment does not give", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("agent-loop-unlisted")),
-    (error: Error) => {
-      assert.match(
-        error.message,
-        /agents\/looped\.ts: \/loop: names the loop long-chat, which no file in the deployment's loops\/ gives \(basis\/link\)/,
-      );
-      return true;
-    },
-  );
-});
-
-test("stops, naming the model and both agents and saying what to do (one agent on a model of another id, or loops that summarize alike), when two agents on one model have loops that summarize differently: pi sets compaction per model", async () => {
-  for (const [name, other] of [
-    ["model-loops-differ", "auditor"],
-    ["model-loops-off", "archivist"],
-  ])
-    await assert.rejects(mountDeployment(deployment(name)), (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /\bsmall\b/);
-      assert.match(error.message, /\bteller\b/);
-      assert.match(error.message, new RegExp(`\\b${other}\\b`));
-      // What to do: one agent on a model of another id, or loops that summarize alike.
-      assert.match(error.message, /another id/);
-      assert.match(error.message, /summarize alike/);
-      return true;
-    });
-});
-
-test("stops, naming the shared id, when two model entries of one id are each the model of an agent whose loop summarizes differently: pi keys compaction by the id, not by the entry's name", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("model-ids-shared")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /fireworks:small-model/);
-      assert.match(error.message, /\bteller\b/);
-      assert.match(error.message, /\bauditor\b/);
-      assert.match(error.message, /another id/);
-      assert.match(error.message, /summarize alike/);
-      return true;
-    },
-  );
-});
-
-test("stops, naming the id and both windows, when two model entries of one id that the model catalog does not know give it different windows: pi would get two compactions for one id", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("model-ids-windows")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /fireworks:small-model/);
-      assert.match(error.message, /64[,_]?000/);
-      assert.match(error.message, /32[,_]?000/);
-      return true;
-    },
-  );
-});
-
-test("mounts two agents on one model when they share its loop, or have loops that summarize alike, and on two model entries of one id with one window", async () => {
-  for (const [name, agents] of [
-    ["agents-two", ["chat", "lean"]],
-    ["model-loops-alike", ["teller", "keeper"]],
-    ["model-ids-alike", ["teller", "auditor"]],
-  ] as const) {
-    const mounted = await mountDeployment(deployment(name));
-    assert.deepEqual(
-      mounted.agents.map((agent) => agent.name),
-      agents,
-    );
-  }
-});
-
-const glm = "fireworks:accounts/fireworks/models/glm-5p3-flash";
-
-test("a model the model catalog has no entry for mounts with the window and price its file gives, in the order the deployment names them", async () => {
-  const mounted = await mountDeployment(deployment("models-two"));
-  assert.deepEqual(mounted.models, [
-    {
-      name: "big",
-      type: "model",
-      description: "The big model of a fixture.",
-      id: "fireworks:big-model",
-      window: 1_000_000,
-      maxTokens: 100_000,
-      price: { input: 1, output: 2 },
-    },
-    {
-      name: "small",
-      type: "model",
-      description: "The small model of a fixture.",
-      id: "fireworks:small-model",
-      window: 64_000,
-      maxTokens: 8_000,
-      price: { input: 1, output: 2 },
-    },
-  ]);
-  assert.equal(factsOf("fireworks:big-model"), undefined);
-  assert.equal(factsOf("fireworks:small-model"), undefined);
-});
-
-test("stops, naming the file and the field, when a model the model catalog has no entry for gives no window: a run sizes by it", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("models-bare")),
-    /models\/bare\.ts: \/window: Missing: .*\(basis\/fields\)/,
-  );
-});
-
-test("the template deployment mounts as a copy of it is, its model with the model catalog's facts", async () => {
+test("the template deployment mounts as a copy of it is, with no plugin", async () => {
   const dir = join(work, "my-deployment");
   cpSync(join(import.meta.dirname, "../../../../templates/deployment"), dir, {
     recursive: true,
   });
   const mounted = await mountDeployment(dir);
-  assert.deepEqual(
-    mounted.models.map(({ name, id, window, price }) => ({
-      name,
-      id,
-      window,
-      price,
-    })),
-    [
-      {
-        name: "glm-flash",
-        id: glm,
-        window: factsOf(glm)!.window,
-        price: factsOf(glm)!.price,
-      },
-    ],
-  );
-  assert.deepEqual(
-    mounted.agents.map((agent) => agent.name),
-    ["chat"],
-  );
-});
-
-test("stops at startup, naming the deployment, when it names no model", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("models-none")),
-    /deployments\/models-none\/index\.ts: The deployment cannot be read: deployment models-none is invalid:\n- models /,
-  );
-});
-
-test("stops, naming the model and the provider, when a model has a provider que does not have", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("model-provider")),
-    (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      assert.match(error.message, /"elsewhere"/);
-      assert.match(error.message, /"nowhere"/);
-      assert.match(error.message, /Providers: fireworks$/);
-      return true;
-    },
-  );
-});
-
-test("stops, naming the agent and the model, when an agent names a model the deployment does not give", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("agent-model-unlisted")),
-    (error: Error) => {
-      assert.match(
-        error.message,
-        /agents\/lean\.ts: \/model: names the model small, which no file in the deployment's models\/ gives \(basis\/link\)/,
-      );
-      return true;
-    },
-  );
-});
-
-test("stops when MODEL is set, and says a model is a file of its own", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("two"), {
-      MODEL: "fireworks:some-model",
-    }),
-    (error: Error) => {
-      assert.match(error.message, /^mount: MODEL is set/);
-      assert.match(error.message, /models\//);
-      return true;
-    },
-  );
-  await mountDeployment(deployment("two"), {});
-});
-
-test("stops, naming the file, when a loop breaks the contract, with the contract's own error", async () => {
-  await assert.rejects(
-    mountDeployment(deployment("loop-bad")),
-    /loops\/endless\.ts: The loop cannot be read: loop endless is invalid:/,
-  );
-});
-
-test("stops, naming the file, on a model no file gives, one that breaks the contract, or one with the name of another", async () => {
-  const stopsWith = (name: string, ...patterns: RegExp[]) =>
-    assert.rejects(mountDeployment(deployment(name)), (error: Error) => {
-      assert.match(error.message, /^mount:/);
-      for (const pattern of patterns) assert.match(error.message, pattern);
-      return true;
-    });
-  await stopsWith(
-    "model-file-missing",
-    /index\.ts: \/models: names the model nope, which no file in the deployment's models\/ gives \(basis\/link\)/,
-  );
-  await stopsWith(
-    "models-one-name",
-    /The name small is also the name of .*models\/small\.ts\. \(basis\/unique-name\)/,
-  );
-  await stopsWith(
-    "model-bad",
-    /models\/bad-price\.ts: The model cannot be read: model bad-price is invalid:/,
-  );
-});
-
-// A model the deployment names, small, whose file writes `fields` after its name, type and description.
-const smallWriting = (fields: string) =>
-  deploymentWith(["beta"], undefined, {
-    "models/small.ts": `import { defineModel } from "@mku1tra/que-harness";
-export default defineModel({ name: "small", type: "model", description: "A small model.", ${fields} });
-`,
-  });
-
-test("stops, naming the file, the field and the model catalog, when a model the model catalog has gives a window or a price in its file too: each fact has one place", async () => {
-  for (const [field, value] of [
-    ["window", "64_000"],
-    ["price", "{ input: 1, output: 2 }"],
-  ])
-    await assert.rejects(
-      mountDeployment(
-        smallWriting(`id: "${glm}", maxTokens: 8_000, ${field}: ${value}`),
-      ),
-      new RegExp(
-        `models/small\\.ts: /${field}: Also given by .*models/small\\.ts#catalog: .*\\(basis/merge\\)`,
-      ),
-    );
-});
-
-// A note of the model small, in the deployment's models/, beside its file: the note's own fields, and a line of prose.
-const smallNote = (fields: string) =>
-  `---\ntype: model\n${fields}\n---\nThe small model.\n`;
-
-test("stops, naming the note and the model catalog, when a note of a model the model catalog has gives a window", async () => {
-  await assert.rejects(
-    mountDeployment(
-      deploymentWith(["beta"], undefined, {
-        "models/small.ts": `import { defineModel } from "@mku1tra/que-harness";
-export default defineModel({ name: "small", type: "model", description: "A small model.", id: "${glm}", maxTokens: 8_000 });
-`,
-        "models/small.md": smallNote("window: 64000"),
-      }),
-    ),
-    /models\/small\.md: \/window: Also given by .*models\/small\.ts#catalog: .*\(basis\/merge\)/,
-  );
-});
-
-test("a model the model catalog has no entry for takes its window and price from its note", async () => {
-  const mounted = await mountDeployment(
-    deploymentWith(["beta"], undefined, {
-      "models/small.ts": `import { defineModel } from "@mku1tra/que-harness";
-export default defineModel({ name: "small", type: "model", description: "A small model.", id: "fireworks:small-model", maxTokens: 8_000 });
-`,
-      "models/small.md": smallNote(
-        "window: 64000\nprice:\n  input: 1\n  output: 2",
-      ),
-    }),
-  );
-  const small = mounted.models.find((model) => model.name === "small");
-  assert.equal(small?.window, 64_000);
-  assert.deepEqual(small?.price, { input: 1, output: 2 });
-});
-
-test("stops, naming the file, when a model's maxTokens is above the window the model catalog gives", async () => {
-  const window = factsOf(glm)!.window;
-  await assert.rejects(
-    mountDeployment(smallWriting(`id: "${glm}", maxTokens: ${window + 1}`)),
-    new RegExp(
-      `models/small\\.ts: /maxTokens: must not be above its window, got ${window + 1} and ${window} \\(harness/max-tokens-in-window\\)`,
-    ),
-  );
+  assert.equal(mounted.name, "my-deployment");
+  assert.deepEqual(mounted.plugins, []);
 });
 
 test("stops, naming the folder and saying how it gets one, when a deployment is in no root", async () => {
   const dir = mkdtempSync(join(work, "rootless-"));
-  cpSync(join(fixtures, "deployments/models-bare"), dir, { recursive: true });
+  writeFileSync(join(dir, "index.ts"), bare("rootless"));
   await assert.rejects(mountDeployment(dir), (error: Error) => {
     assert.ok(error.message.startsWith(`mount: ${dir} is in no root:`));
     return true;
@@ -690,12 +402,13 @@ export default {
 `,
   );
   writeFileSync(join(repo, "package.json"), '{ "type": "module" }\n');
-  const dir = join(repo, "models-bare");
-  cpSync(join(fixtures, "deployments/models-bare"), dir, { recursive: true });
+  const dir = join(repo, "lonely");
+  mkdirSync(dir);
+  writeFileSync(join(dir, "index.ts"), bare("lonely"));
   await assert.rejects(mountDeployment(dir), (error: Error) => {
     assert.match(
       error.message,
-      /^mount: the root .* gives no deployment models-bare/,
+      /^mount: the root .* gives no deployment lonely/,
     );
     return true;
   });

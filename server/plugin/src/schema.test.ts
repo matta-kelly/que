@@ -27,16 +27,6 @@ const getFabric = {
   run: async () => ({}),
 };
 
-const countDrafted = {
-  name: "count-drafted",
-  type: "case",
-  description: "Counts the drafted fabrics, and gives only the number.",
-  capability: "find-fabric",
-  input: "How many fabrics are still drafted?",
-  start: "The warehouse holds fabrics, some drafted.",
-  good: "The answer is one number.",
-};
-
 const guide = {
   name: "warehouse-fabric-guide",
   type: "skill",
@@ -84,14 +74,6 @@ test("a plugin, op, skill or capability with no title, or a blank one, fails on 
 
 test("an op with no input fails, on its input", () => {
   assert.deepEqual(issueOf("op", without(getFabric, "input"))?.path, ["input"]);
-});
-
-test("a case that names two capabilities fails, on its capability", () => {
-  const issue = issueOf("case", {
-    ...countDrafted,
-    capability: ["find-fabric", "find-company"],
-  });
-  assert.deepEqual(issue?.path, ["capability"]);
 });
 
 test("a node with a field not on its type fails, on that field", () => {
@@ -159,56 +141,22 @@ test("an op declares that it needs a yes, or leaves it out; a value that is no b
     );
 });
 
-test("given an op whose approval is an object with a description, when the plugin schema parses it, then it carries that value; an object with no description, or a decision outside the four, fails on its approval", () => {
-  const when = (input: unknown) => typeof input === "object" && input !== null;
-  const describe = (input: unknown) => `Get ${JSON.stringify(input)}`;
-  const forms = [
-    { description: "Get one fabric by its code." },
-    { description: describe, when },
-    {
-      description: "Get one fabric by its code.",
-      decisions: ["approve", "reject"],
-    },
-  ];
-  for (const approval of forms) {
-    let parsed: { approval?: unknown } | undefined;
-    assert.doesNotThrow(() => {
-      parsed = plugin.parse("op", { ...getFabric, approval }) as {
-        approval?: unknown;
-      };
-    }, JSON.stringify(approval));
-    assert.deepEqual(
-      parsed?.approval,
-      approval,
-      `an op with approval: ${JSON.stringify(approval)} carries it`,
-    );
-  }
-  for (const approval of [{ when }, { decisions: ["approve"] }]) {
-    const issue = issueOf("op", { ...getFabric, approval });
+test("given an op whose approval is an object with a when, when the plugin schema parses it, then it carries that value; an object with no when, or a when that is no function, fails on its approval", () => {
+  const approval = {
+    when: (input: unknown) => typeof input === "object" && input !== null,
+  };
+  const parsed = plugin.parse("op", { ...getFabric, approval }) as {
+    approval?: unknown;
+  };
+  assert.equal(parsed.approval, approval, "an op with { when } carries it");
+  for (const given of [{}, { when: true }, { description: "Get one." }]) {
+    const issue = issueOf("op", { ...getFabric, approval: given });
     assert.equal(
       issue?.path?.[0],
       "approval",
-      `an object with no description fails on approval: ${JSON.stringify(approval)}`,
+      `an object with no when function fails on approval: ${JSON.stringify(given)}`,
     );
-    assert.match(
-      issue?.message ?? "",
-      /description/,
-      "the message says the object form needs a description",
-    );
-  }
-  for (const decisions of [
-    ["approve", "deny"],
-    ["approve", "edit", "reject", "respond", "cancel"],
-  ]) {
-    const issue = issueOf("op", {
-      ...getFabric,
-      approval: { description: "Get one.", decisions },
-    });
-    assert.equal(
-      issue?.path?.[0],
-      "approval",
-      `a decision outside the four fails on approval: ${decisions.join(", ")}`,
-    );
+    assert.match(issue?.message ?? "", /when/, "the message names when");
   }
 });
 

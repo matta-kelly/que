@@ -1,23 +1,18 @@
 ---
 type: service
-description: "que, a harness that knows no role, job or company: everything it can do comes from plugins, and an agent is a config over them. Reference for what que is, what it is made of, the plugin contract, and the work in flight on it; how to run and check it is in the repo's README."
+description: "que, an MCP server that knows no role, job or company: everything it serves comes from plugins, and each user gets the ops and skills their access reaches. Reference for what que is, what it is made of, the plugin contract, and the work in flight on it; how to run and check it is in the repo's README."
 status: planned
 ---
-A harness that knows no role, job or company. Everything it can do comes from plugins.
+An MCP server that knows no role, job or company. Everything it serves comes from plugins.
 - [[#Thesis]] the rule everything below follows, and the whole shape in one picture
-- [[#Parts]] environment and agent, which are defined; harness and backend, which are que; and the deployment they make
+- [[#Parts]] the environment, which is defined; the server and the backend, which are que; and the deployment they make
 - [[#Invariants]] what the harness schema holds true of every graph, that basis leaves to it, each with the rule or construction that holds it. The plugin schema's are in [[plugin-contract#Invariants]]
 
 - built on [[basis]] (`~/lot/daworks/basis`, GitHub matta-kelly/basis): que imports it, and hands it to the folders it mounts and checks
 - [[plugin-contract]]: the plugin contract as built
-- [[que-mcp]]: que's plugin ops as MCP tools, for a harness that is not que
-- [[files]]: attachments: a user attaches a file to a chat, and the agent and its ops can read it
+- [[que-mcp]]: the MCP server: where a client connects, who it is, and the tools and skills it gets
+- [[access]]: who gets what: the catalog of each user, their logins and their grants
 - [[que-pasa]]: que-v2's harness, the redesign: people are given agents built from one workspace, not tools. Being built
-- [[que-ui]]: the chat UI: what it is built on, what it shows, and the outside components that fit. Its Work has the designs in flight on the UI
-- [[evals]]: how an agent is checked: the stores, the movers and the loops. que has two parts of it
-	- the eval runner: `just eval` in a deployment runs each case of its plugins under each of its agent configs, and prints what the agent did. With the Langfuse settings, it keeps each run in Langfuse, as an experiment on a dataset mirrored from the cases
-	- one grader, the judge: with `QUE_JUDGE` set, a model is asked the `good` of each case about its run, and the verdict is printed and kept as a score
-	- tracing: que sends a trace of each run to the deployment's Langfuse
 - first environment: lotusandluna. Its notes are in the company vault `~/cc` (start at `cc.md`). Links do not cross vaults, so they are named here in plain text
 - this folder is que's git repo (GitHub: matta-kelly/que)
 
@@ -38,139 +33,86 @@ A harness that knows no role, job or company. Everything it can do comes from pl
 	- general goal of something that runs locally but cna be persistent  --> can mount files but it also artifact native
 	- evals / UI: impalement some feedback component --> would be nice to tie to traces at some point
 		- [component](https://www.assistant-ui.com/elements/feedback-dialog)
-	- que in the basis lens: que's vocabulary (plugin, op, skill, case, capability, agent, model, loop, deployment) is a subgraph on basis: the plugin schema in `@mku1tra/que-plugin`, and the harness schema in `@mku1tra/que-harness`, and que's code is built from their types. A plugin's things are nodes, read from its code; a note of the same name is another piece of the same node. Each `define*` marks each node it gives as a definition (`markDefinition`), and each schema gives its package's exports, so a lint fails a definition no source reads (`basis/definition-piece`). The runtime runs the code, and the agent navigates the graph
+	- que in the basis lens: que's vocabulary (plugin, op, skill, capability, deployment) is a subgraph on basis: the plugin schema in `@mku1tra/que-plugin`, and the harness schema in `@mku1tra/que-harness`, and que's code is built from their types. A plugin's things are nodes, read from its code; a note of the same name is another piece of the same node. Each `define*` marks each node it gives as a definition (`markDefinition`), and each schema gives its package's exports, so a lint fails a definition no source reads (`basis/definition-piece`). The runtime runs the code
 	- que mounts itself: a que plugin (que's ontology plus skills) and a capability plugin (the rail as skills) make a builder agent that navigates the factory and builds agents in it
 	- Look into mem0 for memeory
-
-
+	- durable harness : the state written before each step, so after a crash a run replays and goes on, and no tool call that is done runs again. Open: what que loses now when its process stops mid-turn. que-pasa's loop does this ([[que-pasa-loop#After a crash]])
 
 ---
 
-
-
 ## Thesis
 
-- The harness knows nothing about a role, a job, or a company
-	- its one job: make the environment legible and navigable (what exists, what it does, how to reach it)
+- The server knows nothing about a role, a job, or a company
+	- its one job: give each user, over MCP, what their access reaches of the environment: its ops as tools, and its skills
 	- everything else is a plugin
-- Two things are defined, and que runs them
-	- environment: a named set of plugins. What can be done
-	- agent: a harness config over part of an environment. Which plugins, and one choice per unit
-		- the user chat is one agent: wide environment, lazy loading
-		- a purpose-built agent is another: three plugins, eager, maybe a workspace
-		- a role or a purpose is in the agent's config. So the harness still knows none
+- One thing is defined, and que serves it
+	- environment: a named set of plugins. What can be done, and how this business does it
 - que is two things
-	- harness: puts an environment and an agent together
-	- backend: what an agent runs on
-- A deployment is one live instance: an environment and its agent config, on que
-- que composes standard agent parts: it defines how they are declared and put together, not the parts
+	- server: mounts an environment, works out each user's catalog, and serves it over MCP
+	- backend: what the server stands on: identity, users, credentials, grants
+- A deployment is one live instance: an environment, on que
+- Any MCP client is a client of que: an AI harness on a laptop, or another runtime. que runs no agent and calls no model
 
 ```
 defined                        que
 -------                        ---
-environment ───────────▶  mount     load and check the plugins
-  plugins
+environment ───────────▶  mount     load and check the plugins,
+  plugins                           and their skills
+  (ops, skills)
                           access    for one user: the plugins they
-                                    can reach
-agent ─────────────────▶  assemble  turn its units into a prompt
-  units                             and a way of loading
-                          run       build pi's agent from those,
-                                    serve the answer
+                                    can reach, and their logins
+                          door      run an op as the user
+                          mcp       serve the user's ops as tools,
+                                    and their plugins' skills
                           ─────────────────────────────────────
-                          backend   identity, credentials, state
+                          backend   identity, users, credentials,
+                                    grants
 ```
 
 ## Parts (packages)
 
-- **Environment**: a named set of plugins, and nothing more. The seam with the harness
+- **Environment**: a named set of plugins, and nothing more. The seam with the server
 	- named in the deployment's definition, as `plugins`: each one the name of its npm package, installed where Node finds an import from the deployment's folder
 	- kept in a folder outside que. que names no environment
 	- what a company knows goes in as a plugin too: a plugin can hold skills only
-	- one promise from the harness: it mounts what is listed, and nothing else
+	- one promise from the server: it mounts what is listed, and nothing else
 	- **Plugin**: one concern, in one folder. The contract as built: [[plugin-contract]]
-		- what every plugin gives the harness, so the harness can do its job without knowing the domain
+		- what every plugin gives the server, so the server can do its job without knowing the domain
 			- identity: name, title, description (what it is, when to use it). **The only required part**
 			- needs: what it requires to load. Unmet → not loaded
-			- text: skills, read on demand
-			- code: ops, which the model calls
+			- text: skills, which a client reads when a task needs one
+			- code: ops, which a client calls as tools
 		- the contract lists what a plugin *can* have, not what it *must* have. A plugin carries only the parts it uses: skills only, ops only, or both
-		- a plugin does not know which agent uses it, or how it is shown
-		- the boundary
-			- op: model → plugin
-			- hook: harness → plugin, on an event. Not built. It is the interception unit, seen from the plugin
-			- extension: plugin → harness. Not a plugin, it is harness code
-			- test: if removing the folder needs a harness change, it was an extension
-- **Agent**: a harness config over part of an environment
-	- written as a file of its own in the deployment's `agents/`, made with `defineAgent`. The deployment's definition names its agents, as `agents`
-		- it holds a `name`, `type`, `description`, `model` and `loop`, which are required, and `plugins`, and `instructions`, `loading` and `userInstructions`, which are optional: left out, que's role text, `on-demand`, and no user instructions
-		- a deployment can name several. A thread picks the one it wants, kept on its record, and a thread that picks none gets the first
-		- a deployment names at least one agent, one model and one loop. que owns no config of its own
-		- a unit goes in the config when it has two variants
-	- a config is made of units, not slots
-		- slot: where a thing lands in a model request (the system prompt, the tools)
-		- unit: one decision that can change while the others stay the same. One unit can write to more than one slot
-		- a unit is written in que's own types, as the plugin contract is
-	- what the agent is
-		- model. A model config is a file in `models/` with a name, the provider's model, and the most tokens of one reply. A deployment names several in `models`
-			- the file holds the choices. What is true of the model, its window and its price, is a fact, and each fact has one place: pi's model catalog (`@earendil-works/pi-ai`, as installed with `@mku1tra/que-harness`) gives it by the model's id, as a source of the deployment's root (`deploymentSources`), for a model it has an entry for; the model's file gives it for one it has not. Both is two pieces of one field, and the lint refuses it (basis/merge)
-			- the window is needed, as a run sizes a loop's shares by it: a model with none from either place fails the lint (basis/fields). The price can be left out: the chat shows no cost for that model
-			- which one a run gets: the one its thread picks, else the one the agent config names
-			- the chat UI has a picker for the agent and one for the model, and keeps the pick with the thread
-		- instructions. From the config, in place of que's role text
-		- the user's own instructions. Text that belongs to the user, and not to the agent: how the agent works with them. A config takes them with `userInstructions`, and one that does not say gets none
-			- they go in the system prompt after the agent's instructions, which stand where the two do not agree
-			- the config does not say where the text is from. The backend does: a file the deployment names, or what the user saved in Settings
-		- capabilities: which plugins. From the config, which lists them (`[]` means none). The config narrows what a user can reach, and never widens it
-		- loading: what the model is shown of the environment, and when. It is how this agent gets the harness's one job done, to make the environment legible
-			- it sets the text that explains the environment, the tools for finding the way around, and which operations go out with each request
-			- two variants, named in `loading`: `on-demand`, where the model opens a plugin, then loads an operation or reads a skill; and `eager`, with every operation in reach from the first message
-		- [[loop-policy|loop policy]]. A loop config is a file in `loops/` with a name and settings. A deployment names several in `loops`, and an agent config names one in `loop`
-			- every agent runs on pi, and each setting that acts changes only its own part of the run
-			- a big tool result goes to a file in the conversation's workspace, and the model reads it back with `read_result`, in windows of bytes
-			- a summary of a long chat replaces the old part of the thread
-			- an agent names its loop. A setting a loop leaves out takes que's value for it
-		- interception: hooks on the loop. Not built
-		- delegation: another agent, called as a tool. Not built
-	- where the agent runs. Each one is a request to the backend
-		- principal: who it acts as. Per user
-		- state. que's thread record, and the pi conversation it is on
-		- workspace. On pi, a folder of the conversation's own, `conversations/<id>` in the deployment's data folder (`QUE_DATA_DIR`), that holds its big tool results. A fork keeps its parent's
-		- trigger and lifetime. A chat
-- **Harness**: the code that puts an environment and an agent together. Part of que, in `@que/runtime`. Four layers, each one a folder in `server/runtime/src/`
-	- boundary: what crosses into and out of the harness
+		- a plugin does not know which client uses it
+- **Server**: the code that serves an environment. Part of que, in `@que/runtime`. Each layer is a folder in `server/runtime/src/`
+	- boundary: what crosses into and out of the server
 		- in
 			- plugins, through the plugin contract (`@mku1tra/que-plugin`)
-			- the deployment's definition and its agent, loop and model configs, written against `@mku1tra/que-harness`
-			- the backend: users, credentials, identity and thread records (`@que/users`, `@que/credentials`, `@que/identity`, `@que/threads`)
-			- models (`@que/chat-model`)
+			- the deployment's definition, written against `@mku1tra/que-harness`
+			- the backend: users, credentials, grants and identity (`@que/users`, `@que/credentials`, `@que/control-plane`, `@que/identity`)
 		- out
-			- the agent's runs, to que's server, on pi
-			- que's API, to the UI
-			- traces, to Langfuse
+			- MCP, to any client: the user's ops as tools, and their plugins' skills ([[que-mcp]])
+			- the settings API, to the UI: the user's account and logins, and an admin's users and grants
 			- a plugin's card (`plugin.json`), at its publish: `card/` writes it from the plugin's nodes, and nothing of que's reads it
 	- composition: what each layer owns, and what it hands to the next
-		- mount (`mount/`): what exists. Reads the deployment, each agent, loop and model config and each plugin it names (`readDeployment`), and lints them as one graph from the deployment's root, the root whose ground holds its folder (`deploymentGraph`): a lint starts only at a root. Stops on any problem: a file that cannot be read, a name that is no node (a plugin an agent names that is not mounted, a loop or a model the deployment does not give), a rule, a model file that writes a window or a price. Hands on: the root's graph's nodes, the mounted plugins and configs
-		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, narrowed to the plugins the run's agent config names. Holds the user's own instructions, and the connection to each service, opened when a tool first uses it. Hands on: the catalog
-		- assemble (`assemble/`): what the agent is shown. The catalog and the agent's units in; the system prompt (`assemble/prompt.ts`) and the way of loading (`assemble/way.ts`: whether an op waits to be loaded, and the text that explains the environment) out. Every op runs through its door (`assemble/door.ts`). Built for one unit, loading: one way on a shared base. Hands on: the prompt and the way
-		- run (`run/`, `runner/pi/`): serving the agent. Builds pi's agent from the prompt, the way and the model (`runner/pi/harness.ts`), with the catalog as a pi extension that gives the tools and runs the loop policy (`runner/pi/extension.ts`), serves the answer, and sends a trace of each run to Langfuse when the deployment's `.env` has the Langfuse settings (each model call and tool call, with the user, the thread, the agent config and the commit of que; with no settings it sends nothing). The only layer that names the engine: pi, through `runner/pi/`
+		- mount (`mount/`): what exists. Reads the deployment and each plugin it names (`readDeployment`), and lints them as one graph from the deployment's root, the root whose ground holds its folder (`deploymentGraph`): a lint starts only at a root. Stops on any problem: a file that cannot be read, a name that is no node, a rule, a skill the MCP skills extension cannot serve. Hands on: the mounted plugins, each with its skills as MCP serves them (`mount/skills.ts`)
+		- access (`access/`, [[access]]): who gets what. For one user, the mounted plugins they can reach, and the connection to each service, opened when an op first uses it. Hands on: the catalog
+		- door (`assemble/door.ts`): every op runs through it, as one user: it parses the input, refuses a call that needs approval, opens the login, and runs the op
+		- mcp (`mcp/`): serving the catalog. One session per request (HTTP) or per process (stdio), with the user's tools and skills ([[que-mcp]])
+		- settings (`run/`): the routes the UI calls: account, connections, users and grants
 	- flow: when each layer runs
 		- que starts: mount, once, the same for every user
-		- each run: access, then assemble, then run. A run reads the user's catalog and their own instructions when it starts, so an edit to either takes effect from the next run
-- **Backend**: what an agent runs on. Part of que. One exists
+		- each MCP session: access, then the tools and skills of that catalog. A grant or a login change takes effect from the next session
+- **Settings UI**: the web app in `ui/`, on the settings API. A user saves their own logins; an admin grants domains and sets roles
+- **Backend**: what the server stands on. Part of que. One exists
 	- what it supplies
-		- identity, users and credentials: on Postgres
-		- state: the thread records and pi's conversations, on Postgres, with each thread's conversation in its row
-		- the trigger: que's server, `POST /threads/:id/runs`
-		- files: a thread's attachments, a row on Postgres and the bytes in the data folder ([[files]])
-		- workspace: a folder of each conversation's own, in the data folder (`QUE_DATA_DIR`)
+		- identity: the Cloudflare Access JWT, or a dev user
+		- users, credentials and grants: on Postgres
 	- its settings, in a `.env`
-		- user: `DEV_USER_EMAIL`, `DEV_USER_NAME`, and `DEV_USER_INSTRUCTIONS`, a file with the user's own instructions. With none named, they are on the user's account
+		- user: `DEV_USER_EMAIL`, `DEV_USER_NAME`, for a deployment with no Access in front
 		- storage: `POSTGRES_PASSWORD`, `DATABASE_URL`, `QUE_CREDENTIALS_KEY`
-		- model: `FIREWORKS_API_KEY`, the key of the one provider que has. A deployment with the chat off needs none
-		- chat: `QUE_CHAT=off` serves the control plane (account, connections, users) and MCP alone. Every thread route answers that chat isn't enabled, and the UI's home says so: users bring their own AI over MCP, and no run spends the deployment's model. Unset, the chat is on
-		- traces: `LANGFUSE_BASE_URL`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`. All three, or none
-- **Deployment**: one live instance: an environment and its agent config, on que's harness and a backend
-	- one folder holds its definition (`index.ts`: the names of its `plugins`, `agents`, `loops` and `models`), a file for each agent, loop and model in `agents/`, `loops/` and `models/`, its plugins installed as npm packages, and its backend settings (`.env`), and starts que with `just start`
+- **Deployment**: one live instance: an environment, on que's server and a backend
+	- one folder holds its definition (`index.ts`: the names of its `plugins`), its plugins installed as npm packages, and its backend settings (`.env`), and starts que with `just start`
 	- the code names it the same way: `defineDeployment`, `QUE_DEPLOYMENT`
 	- how to start, stop and check one is in the README
 
@@ -179,10 +121,8 @@ agent ─────────────────▶  assemble  turn its
 basis leaves two invariants to the schema that states a relation or writes a bridge ([[basis#Validation]]). These are the harness schema's (`@mku1tra/que-harness`). Under each is the rule or the construction that holds it. A gap is a blind spot of the holder above it.
 
 - a relation is stated once: one link, on one node, and its reverse comes from the graph
-	- a deployment names its plugins, agents, loops and models (`plugins`, `agents`, `loops`, `models`), and an agent names its plugins, its model and its loop (`plugins`, `model`, `loop`): none of these names back
-		- construction: the types agent, loop and model have no link to a deployment, and the plugin schema's types have none to a deployment or an agent
+	- a deployment names its plugins (`plugins`), and no plugin names its deployment
+		- construction: the plugin schema's types have no link to a deployment
 		- rule: `basis/fields` fails a field that a type does not have, so a note cannot add one
-	- an agent's plugins, model and loop, and its deployment's lists, are two relations that must agree: each agent a deployment names gets only what the deployment names
-		- rule: `harness/named`
 	- gap: no rule fails a link that states the reverse of a link already there. The types hold this as they are, and review holds a change to them
 - nothing reads what que writes to a bridge's shape: the harness schema writes no bridge. The plugin schema's card is in [[plugin-contract#Invariants]]

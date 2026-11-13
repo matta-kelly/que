@@ -5,7 +5,4 @@ export default defineDeployment({
   type: "deployment",
   description: "The fileless-skill-deployment deployment of a fixture.",
   plugins: ["fileless-skill"],
-  agents: ["bare"],
-  loops: ["long-chat"],
-  models: ["small"],
 });

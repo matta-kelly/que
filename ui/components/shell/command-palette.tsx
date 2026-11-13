@@ -1,27 +1,17 @@
 "use client";
 
-// Command palette: one search over everything: actions, pages, settings
-// (incl. each connector), and chats. Opens on "/" (when not typing in a field)
-// or ⌘K / Ctrl+K.
+// Command palette: one search over everything: actions and settings (each
+// section and each connector). Opens on "/" (when not typing in a field) or
+// ⌘K / Ctrl+K.
 //
-// Scoped search: type a prefix like "chat:" or "report:" (or pick "Search in
-// …") to search one type only; it shows as a pill, and Backspace on an empty
+// Scoped search: type a prefix like "settings:" or "action:" (or pick "Search
+// in …") to search one type only; it shows as a pill, and Backspace on an empty
 // search removes it. Without a scope, everything is searched by name.
 
 import { useEffect, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { useAuiState } from "@assistant-ui/react";
 import { useTheme } from "next-themes";
-import {
-  Cable,
-  MessageSquare,
-  Moon,
-  Search,
-  SquarePen,
-  Sun,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { Cable, Moon, Search, Sun, X, type LucideIcon } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -30,10 +20,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { SECTIONS, useSettings } from "@/components/settings/settings-dialog";
-import { useChatEnabled } from "@/hooks/use-chat-enabled";
-import { useNewChat } from "@/hooks/use-new-chat";
-import { useOpenChat } from "@/hooks/use-open-chat";
+import { SECTIONS, useSettings } from "@/components/settings/settings";
 import { fetcher, QUE_API, type Connection } from "@/lib/que-api";
 
 type Entry = {
@@ -50,9 +37,8 @@ const prefixesOf = (name: string) => {
   return [...new Set([plural, plural.replace(/s$/, "")])];
 };
 
-// Search types, in display order (chats last): actions, settings (its SECTIONS
-// and each connector), chats. `prefixes` are what you can
-// type before ":" to scope to it.
+// Search types, in display order: actions, then settings (its SECTIONS and
+// each connector). `prefixes` are what you can type before ":" to scope to it.
 const SCOPES = [
   { id: "actions", label: "Actions", prefixes: prefixesOf("Actions") },
   {
@@ -63,11 +49,10 @@ const SCOPES = [
       ...SECTIONS.flatMap((s) => prefixesOf(s.name)),
     ],
   },
-  { id: "chats", label: "Chats", prefixes: prefixesOf("Chats") },
 ];
 
-const scopeFromPrefix = (scopes: typeof SCOPES, word: string) =>
-  scopes.find((s) => s.prefixes.includes(word.toLowerCase()));
+const scopeFromPrefix = (word: string) =>
+  SCOPES.find((s) => s.prefixes.includes(word.toLowerCase()));
 
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
@@ -82,8 +67,6 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const threadIds = useAuiState((s) => s.threads.threadIds);
-  const threadItems = useAuiState((s) => s.threads.threadItems);
   const { openSettings } = useSettings();
   const { resolvedTheme, setTheme } = useTheme();
 
@@ -129,14 +112,10 @@ export function CommandPalette() {
     fn();
   };
 
-  // A deployment that serves no chat has no chats to search and no new chat to start.
-  const chat = useChatEnabled() !== false;
-  const scopes = chat ? SCOPES : SCOPES.filter((s) => s.id !== "chats");
-
-  // "chat: foo" → scope Chats, search "foo".
+  // "settings: foo" → scope Settings, search "foo".
   const onSearchChange = (value: string) => {
     const match = !scope && value.match(/^(\w+):\s?(.*)$/);
-    const next = match && scopeFromPrefix(scopes, match[1]);
+    const next = match && scopeFromPrefix(match[1]);
     if (next) {
       setScope(next.id);
       setSearch(match[2]);
@@ -146,25 +125,9 @@ export function CommandPalette() {
   };
 
   const dark = resolvedTheme === "dark";
-  const newChat = useNewChat();
-  const openChat = useOpenChat();
-  const titleOf = new Map(
-    threadItems.map((t) => [t.id, t.title || "New Chat"]),
-  );
 
   const groups: Record<string, Entry[]> = {
     actions: [
-      ...(chat
-        ? [
-            {
-              key: "new",
-              value: "new chat",
-              label: "New chat",
-              icon: SquarePen,
-              run: newChat,
-            },
-          ]
-        : []),
       {
         key: "theme",
         value: "theme dark light mode",
@@ -189,23 +152,16 @@ export function CommandPalette() {
         run: () => openSettings("connections"),
       })),
     ],
-    chats: threadIds.map((id) => ({
-      key: id,
-      value: `chat ${titleOf.get(id)} ${id}`,
-      label: titleOf.get(id) ?? "New Chat",
-      icon: MessageSquare,
-      run: () => openChat(id),
-    })),
   };
-  const shown = scopes.filter((s) => (scope ? s.id === scope : true));
-  const scopeLabel = scopes.find((s) => s.id === scope)?.label;
+  const shown = SCOPES.filter((s) => (scope ? s.id === scope : true));
+  const scopeLabel = SCOPES.find((s) => s.id === scope)?.label;
 
   return (
     <CommandDialog
       open={open}
       onOpenChange={setOpen}
       title="Search"
-      description="Search chats, settings, and actions"
+      description="Search settings and actions"
       className="sm:max-w-3xl"
     >
       <CommandInput
@@ -243,7 +199,7 @@ export function CommandPalette() {
         {/* Typing a type's name suggests scoping to it. */}
         {!scope && search && (
           <CommandGroup heading="Search in">
-            {scopes.map((s) => (
+            {SCOPES.map((s) => (
               <CommandItem
                 key={s.id}
                 value={`search in ${s.label} ${s.prefixes.join(" ")}`}

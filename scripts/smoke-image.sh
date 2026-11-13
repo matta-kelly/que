@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# The smoke check of que's runtime image: the four things only a built image decides.
+# The smoke check of que's runtime image: the three things only a built image decides.
 # It is a step of each ship run, after the build and before any push, and it is the same
 # check on a machine that built the image the same way.
 #
 #   scripts/smoke-image.sh <image>                       every step
-#   scripts/smoke-image.sh <image> server|ui|data|git    one step, while a fix touches one
+#   scripts/smoke-image.sh <image> server|ui|git         one step, while a fix touches one
 #
 # The image is `ghcr.io/matta-kelly/que:<tag>`: a tag's run pushes the tag only after these
 # steps pass. The engine is podman, or docker where a runner has only that
-# (`QUE_SMOKE_ENGINE=docker`). The steps start four containers of this machine and remove
-# them, and the one volume they make.
+# (`QUE_SMOKE_ENGINE=docker`). The steps start three containers of this machine and remove
+# them.
 #
 # What the image owes these steps, since they are the only place it is read:
 #   - the commands `que-server` and `que-ui` on PATH, run as they are, with no npm around them
-#   - the user `node`, and a `/data` folder node can write at, which a new named volume keeps
-#     (the node mounts its data volume there, and QUE_DATA_DIR=/data)
 #   - `que-ui` on port 3000, the port the node reads it on (`http://que-ui:3000`)
 #   - no setting that picks a deployment: `QUE_DEPLOYMENT` arrives at run time from the
 #     container that starts it, and a baked one fails the first step
-#   - QUE_COMMIT arrives at build (`--build-arg`), since the image has no .git to read it from:
-#     the run passes the commit it builds, and `_serve` says the same one
-#   - a shell, and coreutils: the steps read /data and the image's folders from inside it
+#   - QUE_COMMIT arrives at build (`--build-arg`), as the image's revision label, since the image
+#     has no .git to read it from
+#   - a shell, and find: the git step reads the image's folders from inside it
 # No step here holds the image's tags: `latest` is a tag the run does not push.
 set -euo pipefail
 
@@ -29,21 +27,19 @@ image=${1:-}
 only=${2:-all}
 
 usage() {
-    echo "usage: scripts/smoke-image.sh <image> [server|ui|data|git]" >&2
+    echo "usage: scripts/smoke-image.sh <image> [server|ui|git]" >&2
     exit 2
 }
 [ -n "$image" ] || usage
 case "$only" in
-    all | server | ui | data | git) ;;
+    all | server | ui | git) ;;
     *) usage ;;
 esac
 
-volume=
 container=
 
 cleanup() {
     [ -z "$container" ] || "$engine" rm -f "$container" >/dev/null 2>&1 || true
-    [ -z "$volume" ] || "$engine" volume rm -f "$volume" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -57,11 +53,10 @@ require_image() {
 }
 
 # Given no QUE_DEPLOYMENT, when que-server starts, then it exits, and says which setting it needs.
-# The image makes its users store as it loads, before it reads the deployment: access/users.ts calls
-# createUsers() at line 6, and that store throws DATABASE_URL is not set (backend/users/index.ts),
-# while the deployment check is the next line, deploymentFolder(process.env). So the run gets the one
-# setting the load needs to reach that check. The store's pool is made, not dialled, before the missing
-# deployment stops the start.
+# The server makes its users store as it loads (runtime/src/access/users.ts), before it reads the
+# deployment (deploymentFolder in runtime/src/mount/mounted.ts), and that store throws when
+# DATABASE_URL is not set (backend/users/index.ts). So the run gets the one setting the load needs to
+# reach that check. The store's pool is made, not dialled, before the missing deployment stops the start.
 step_server() {
     local out code=0
     out=$(timeout 60 "$engine" run --rm -e DATABASE_URL=postgres://que@127.0.0.1:1/que "$image" que-server 2>&1) || code=$?
@@ -97,33 +92,8 @@ step_ui() {
     return 1
 }
 
-# Given a new named volume at /data, when a process in the image writes a file there, then the
-# process ran as node, and the file on the volume is node's. A /data the image does not hold, or
-# holds as another user's, fails on the second line rather than the first.
-step_data() {
-    local out code=0 owner user
-    volume="que-smoke-data-$$-$RANDOM"
-    "$engine" volume create "$volume" >/dev/null
-    out=$(timeout 60 "$engine" run --rm -v "$volume:/data" "$image" \
-        sh -c 'id -un && printf smoke > /data/smoke && stat -c %U /data/smoke' 2>&1) || code=$?
-    if [ "$code" -ne 0 ]; then
-        echo "a process in the image could not write to a new volume at /data (exit $code): $out" >&2
-        return 1
-    fi
-    user=$(sed -n 1p <<<"$out")
-    owner=$(sed -n 2p <<<"$out")
-    if [ "$user" != node ]; then
-        echo "a process in the image runs as $user, not node" >&2
-        return 1
-    fi
-    if [ "$owner" != node ]; then
-        echo "the file written to the new volume at /data is $owner's, not node's" >&2
-        return 1
-    fi
-}
-
 # Then the image holds no .git. A .git in it ships the repo's history, which the image reads nothing
-# of, and QUE_COMMIT is how it names its commit instead. No path is assumed: find runs as root, so
+# of, and its revision label (QUE_COMMIT) names its commit instead. No path is assumed: find runs as root, so
 # no folder is out of its reach, and a .git only root can read is still found. Only stdout is a
 # path, so a permission error cannot read as a .git, and a find that does not finish still fails it.
 step_git() {
@@ -140,7 +110,7 @@ step_git() {
     fi
 }
 
-for name in server ui data git; do
+for name in server ui git; do
     [ "$only" = all ] || [ "$only" = "$name" ] || continue
     echo "== image: $name"
     if ! require_image || ! "step_$name"; then

@@ -1,5 +1,5 @@
 /**
- * que's MCP server: the same que tools, for a harness that is not que.
+ * que's MCP server: a deployment's ops as tools and its skills, for any harness.
  *
  * On HTTP, who is asking is the request's identity: `signedIn` resolves the row
  * and `createMcpServer(user)` takes it. Without a row, `identify(headers)` is the
@@ -22,12 +22,16 @@ export function sessionHeaders(env = process.env): Headers {
 /**
  * The MCP server. `user` is the users row the session resolved, so whoami answers
  * for that row; a server made without one answers the identity `identify` names.
- * The tools, which need the user's catalog, are registered by `session.ts`, for
- * both mouths.
+ * `instructions` are the server instructions a client gives its model. The tools
+ * and skills, which need the user's catalog, are added by `session.ts`, for both
+ * mouths.
  */
-export function createMcpServer(user?: User): McpServer {
+export function createMcpServer(user?: User, instructions?: string): McpServer {
   const headers = sessionHeaders();
-  const server = new McpServer({ name: "que", version: "0.0.0" });
+  const server = new McpServer(
+    { name: "que", version: "0.0.0" },
+    instructions === undefined ? {} : { instructions },
+  );
 
   server.registerTool(
     "whoami",

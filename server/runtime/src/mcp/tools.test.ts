@@ -1,6 +1,6 @@
 /**
  * The tools a deployment gives: each op of each plugin in the user's catalog,
- * named `<plugin>.<op>`, lowercased. No database: the catalog is made here from
+ * named by the op's own name. No database: the catalog is made here from
  * the definitions a mount would give.
  */
 
@@ -60,7 +60,7 @@ const SOME_LINE =
 const names = (plugins: MountedPlugin[]) =>
   toolsOf(catalog(...plugins)).map((tool) => tool.name);
 
-test("given a catalog whose plugin till holds ops notes and search, when the tools are generated, then their names are till.notes and till.search, each with that op's description and input", () => {
+test("given a catalog whose plugin till holds ops notes and search, when the tools are generated, then their names are notes and search, each with that op's description and input", () => {
   const notesInput = z.object({
     text: z.string().describe("The note's text"),
   });
@@ -72,13 +72,13 @@ test("given a catalog whose plugin till holds ops notes and search, when the too
     { name: "search", description: "Search the notes.", input: searchInput },
   ]);
 
-  assert.deepEqual(names([till]), ["till.notes", "till.search"]);
+  assert.deepEqual(names([till]), ["notes", "search"]);
 
   const tools = toolsOf(catalog(till));
   const notesOp = till.definition.ops.find((op) => op.name === "notes")!;
   const searchOp = till.definition.ops.find((op) => op.name === "search")!;
-  const notes = tools.find((tool) => tool.name === "till.notes")!;
-  const search = tools.find((tool) => tool.name === "till.search")!;
+  const notes = tools.find((tool) => tool.name === "notes")!;
+  const search = tools.find((tool) => tool.name === "search")!;
   assert.equal(notes.description, notesOp.description);
   assert.equal(notes.input, notesOp.input);
   assert.equal(notes.placed.plugin.name, "till");
@@ -102,8 +102,8 @@ test("given a catalog whose plugin holds a flagged op and an unflagged one, when
   ]);
 
   const tools = toolsOf(catalog(till));
-  const voided = tools.find((tool) => tool.name === "till.void")!;
-  const counted = tools.find((tool) => tool.name === "till.count")!;
+  const voided = tools.find((tool) => tool.name === "void")!;
+  const counted = tools.find((tool) => tool.name === "count")!;
 
   assert.equal(
     voided.annotations?.destructiveHint,
@@ -135,7 +135,6 @@ test("given a flagged op whose approval has a when, when the tools are generated
       description: "Notes an item.",
       input: item,
       approval: {
-        description: "Note an item",
         when: (input: unknown) => (input as { item: string }).item !== "free",
       },
     },
@@ -150,25 +149,9 @@ test("given a flagged op whose approval has a when, when the tools are generated
   );
 });
 
-test("given an op named Notes, when the tools are generated, then its tool is till.notes", () => {
-  const till = plugin("till", [
-    {
-      name: "Notes",
-      description: "Write a note.",
-      input: z.object({ text: z.string().describe("The note's text") }),
-    },
-  ]);
-
-  assert.deepEqual(names([till]), ["till.notes"]);
-});
-
-test("given a plugin or op name with a character outside [a-z0-9._-], when the tools are generated, then it throws, naming the plugin and the op", () => {
-  const cases = [
-    { plugin: "till/bad", op: "notes" },
-    { plugin: "till", op: "notes/search" },
-  ];
-  for (const { plugin: name, op } of cases) {
-    const invalidName = plugin(name, [
+test("given an op name with a character outside [a-z0-9._-], uppercase too, when the tools are generated, then it throws, naming the plugin and the op", () => {
+  for (const op of ["notes/search", "Notes"]) {
+    const invalidName = plugin("till", [
       {
         name: op,
         description: "Write a note.",
@@ -177,35 +160,24 @@ test("given a plugin or op name with a character outside [a-z0-9._-], when the t
     ]);
     assert.throws(
       () => toolsOf(catalog(invalidName)),
-      new RegExp(
-        `(?=[\\s\\S]*${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})(?=[\\s\\S]*${op.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-      ),
-      `no throw names both ${name} and ${op}`,
+      (error: Error) =>
+        error.message.includes("till") && error.message.includes(op),
+      `no throw names both till and ${op}`,
     );
   }
 });
 
-test("given plugin Till op notes and plugin till op Notes, when the tools are generated, then it throws, naming both, and no tool is returned", () => {
-  const upperPlugin = plugin("Till", [
-    {
-      name: "notes",
-      description: "Write a note.",
-      input: z.object({ text: z.string().describe("The note's text") }),
-    },
-  ]);
-  const upperOp = plugin("till", [
-    {
-      name: "Notes",
-      description: "Write a note.",
-      input: z.object({ text: z.string().describe("The note's text") }),
-    },
-  ]);
-
+test("given two plugins that each hold an op named notes, when the tools are generated, then it throws, naming the tool and both plugins, and no tool is returned", () => {
+  const op = {
+    name: "notes",
+    description: "Write a note.",
+    input: z.object({ text: z.string().describe("The note's text") }),
+  };
   assert.throws(
-    () => toolsOf(catalog(upperPlugin, upperOp)),
+    () => toolsOf(catalog(plugin("till", [op]), plugin("ledger", [op]))),
     (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      for (const word of ["Till", "till", "notes", "Notes", "till.notes"])
+      for (const word of ["notes", "till", "ledger"])
         assert.ok(
           message.includes(word),
           `the refusal does not name ${word}: ${message}`,
@@ -215,51 +187,19 @@ test("given plugin Till op notes and plugin till op Notes, when the tools are ge
   );
 });
 
-test("given a plugin and an op whose plugin.op is longer than 64 characters, when the tools are generated, then it throws, naming the name and its length", () => {
+test("given an op whose name is longer than 64 characters, when the tools are generated, then it throws, naming the op and its length, and one of 64 is a tool", () => {
   const notesInput = z.object({ text: z.string().describe("The note's text") });
-  // The plugin schema caps an op's name at 64, and the MCP name adds the plugin's to it: 64 is the whole name's limit.
-  const warehouse = "warehouse";
-  const atLimit = plugin(warehouse, [
-    {
-      name: "a".repeat(64 - warehouse.length - 1),
-      description: "Write a note.",
-      input: notesInput,
-    },
+  const atLimit = plugin("till", [
+    { name: "a".repeat(64), description: "Write a note.", input: notesInput },
   ]);
-  const overLimit = plugin(warehouse, [
-    {
-      name: "a".repeat(64 - warehouse.length),
-      description: "Write a note.",
-      input: notesInput,
-    },
+  const long = "a".repeat(65);
+  const overLimit = plugin("till", [
+    { name: long, description: "Write a note.", input: notesInput },
   ]);
-  const long = `${warehouse}.${overLimit.definition.ops[0]!.name}`;
-  assert.equal(
-    long.length,
-    65,
-    `the over-long name is ${long.length} characters`,
-  );
-
-  const tool = names([atLimit])[0]!;
-  assert.equal(
-    tool.length,
-    64,
-    `the tool at the limit is ${tool.length} characters: ${tool}`,
-  );
-
+  assert.deepEqual(names([atLimit]), ["a".repeat(64)]);
   assert.throws(
     () => toolsOf(catalog(overLimit)),
-    (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      assert.ok(
-        message.includes(long),
-        `the refusal does not name ${long}: ${message}`,
-      );
-      assert.ok(
-        message.includes(String(long.length)),
-        `the refusal does not give the name's length ${long.length}: ${message}`,
-      );
-      return true;
-    },
+    (error: Error) =>
+      error.message.includes(long) && error.message.includes("65"),
   );
 });

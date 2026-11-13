@@ -27,7 +27,6 @@ test("piecesOf gives each node as code gives it, and the plugin's skills as its 
       description: "A plugin.",
       ops: [find("odoo")],
     }),
-    cases: [],
     skills: [],
     skillNames: ["odoo-guide"],
     problems: [],
@@ -62,8 +61,6 @@ type Held = {
   /** Its ops, each `<name>-find`, by the role each names, if any. One with no role when none is given. */
   ops?: (string | undefined)[];
   capabilities?: string[];
-  /** Its cases, each about the capability named. */
-  cases?: string[];
 };
 
 const text = (value: unknown) => JSON.stringify(value);
@@ -81,7 +78,6 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     roles,
     ops = [undefined],
     capabilities,
-    cases = [],
   } = held;
   const fields = [
     `name: ${text(name)}`,
@@ -104,25 +100,12 @@ function plugin(name: string, held: Held = {}): Record<string, string> {
     capabilities &&
       `capabilities: ${text(capabilities.map((capability) => ({ name: capability, type: "capability", title: capability, description: "An outcome." })))}`,
   ].filter(Boolean);
-  const imports = `import { definePlugin, defineCases } from ${url.plugin};
+  const imports = `import { definePlugin } from ${url.plugin};
 import * as z from ${url.zod};
 `;
   return {
     [`${name}/package.json`]: `{ "name": ${text(name)}, "type": "module" }\n`,
     [`${name}/io.github.matta-kelly.que/index.ts`]: `${imports}export default definePlugin({ ${fields.join(", ")} });\n`,
-    ...(cases.length && {
-      [`${name}/io.github.matta-kelly.que/cases.ts`]: `${imports}export default defineCases(${text(
-        cases.map((capability) => ({
-          name: `${capability}-asked`,
-          type: "case",
-          description: "A behaviour of its capability.",
-          capability,
-          input: "Do it.",
-          start: "Any.",
-          good: "It is done.",
-        })),
-      )});\n`,
-    }),
     [`${name}/skills/${name}-guide/SKILL.md`]: `---\nname: ${name}-guide\ndescription: How to find.\n${skillUses ? `allowed-tools: ${text(skillUses.join(" "))}\n` : ""}metadata:\n  title: Guide\n---\nFind it.\n`,
   };
 }
@@ -225,32 +208,10 @@ test("a root of plugins finds an op whose role is no node once, by basis/link", 
   ]);
 });
 
-test("a root of plugins takes a plugin whose cases are each about a capability it lists", async () => {
+test("a root of plugins takes a plugin that lists its capabilities", async () => {
   assert.deepEqual(
-    await said(
-      plugin("odoo", {
-        capabilities: ["find-company"],
-        cases: ["find-company"],
-      }),
-    ),
+    await said(plugin("odoo", { capabilities: ["find-company"] })),
     [],
-  );
-});
-
-test("a root of plugins finds a case about another plugin's capability, in one graph", async () => {
-  assert.deepEqual(
-    await said(
-      plugin("warehouse", { capabilities: ["find-fabric"] }),
-      plugin("odoo", { cases: ["find-fabric"] }),
-    ),
-    [
-      [
-        definitionOf("odoo"),
-        "plugin/case-capability",
-        "/cases/0",
-        "find-fabric-asked is about find-fabric, which odoo does not list: a case is about a capability of the plugin that holds it.",
-      ],
-    ],
   );
 });
 

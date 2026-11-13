@@ -1,6 +1,6 @@
 /**
- * A source of pieces for basis's lint: the plugins under a folder, each read from its code (its definition and its
- * cases) and its skills' `SKILL.md` (readPlugin). Each node a plugin holds is one piece here, as code gives it
+ * A source of pieces for basis's lint: the plugins under a folder, each read from its code (its definition) and its
+ * skills' `SKILL.md` (readPlugin). Each node a plugin holds is one piece here, as code gives it
  * (piecesOf); a note of the same name is another piece of the same node, which the lint merges with it. The card is
  * not read: it is written from the code at publish, and nothing reads it back.
  */

@@ -3,9 +3,6 @@ import { defineDeployment } from "@mku1tra/que-harness";
 export default defineDeployment({
   name: "tools",
   type: "deployment",
-  description: "A deployment of a fixture whose agent has a plugin with an op.",
+  description: "A deployment of a fixture with a plugin with an op.",
   plugins: ["till", "till-domain"],
-  agents: ["clerk"],
-  loops: ["long-chat"],
-  models: ["small"],
 });

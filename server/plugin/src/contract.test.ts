@@ -2,13 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as z from "zod";
 import * as zm from "zod/mini";
-import {
-  definePlugin,
-  readDefinition,
-  type Op,
-  type OpFile,
-  type OpFiles,
-} from "./contract.ts";
+import { definePlugin, readDefinition, type Op } from "./contract.ts";
 
 const notes = {
   name: "notes",
@@ -202,35 +196,32 @@ test("readDefinition lists each fault of a value that is not a definition, after
   );
 });
 
-test("definePlugin refuses skills and cases on the plugin: its folder gives them", () => {
+test("definePlugin refuses skills on the plugin: its folder gives them", () => {
   assert.throws(
     () =>
       definePlugin({
         ...notes,
         skills: ["notes-guide"],
-        cases: ["notes-typo"],
       } as never),
     {
       message: [
         "plugin notes is invalid:",
         "- skills are found by folder, in skills/: a plugin's code gives none",
-        "- cases are found in cases.ts: a plugin's code gives none",
       ].join("\n"),
     },
   );
 });
 
-test("readDefinition refuses skills and cases on the plugin node: its folder gives them", () => {
+test("readDefinition refuses skills on the plugin node: its folder gives them", () => {
   const definition = definePlugin(notes);
   assert.deepEqual(
     readDefinition({
       ...definition,
-      plugin: { ...definition.plugin, skills: [], cases: ["notes-typo"] },
+      plugin: { ...definition.plugin, skills: [] },
     }),
     {
       faults: [
         "plugin skills are found by folder, in skills/: a plugin's code gives none",
-        "plugin cases are found in cases.ts: a plugin's code gives none",
       ],
     },
   );
@@ -311,25 +302,12 @@ const word = z.object({ word: z.string().describe("The word to find") });
 
 // A type test: the compiler holds it (tsc, which runs on every test file), and each `@ts-expect-error` is an
 // assertion that the line after it does not compile.
-test("an op's context follows its kind, and every op gets the run's files: a connector op gets { conn, files }, and a domain op gets { ops, files }, as its plugin says", () => {
-  const connector: Same<
-    Context<Op<Conn, typeof word>>,
-    { conn: Conn } & { files: OpFiles }
-  > = true;
+test("an op's context follows its kind: a connector op gets { conn }, and a domain op gets { ops }, as its plugin says", () => {
+  const connector: Same<Context<Op<Conn, typeof word>>, { conn: Conn }> = true;
   const domain: Same<
     Context<Op<unknown, typeof word, "domain">>,
-    { ops: Record<string, (params: unknown) => Promise<unknown>> } & {
-      files: OpFiles;
-    }
+    { ops: Record<string, (params: unknown) => Promise<unknown>> }
   > = true;
-  // A file is what it is and its bytes. get gives both, list the metadata alone, and neither a store path.
-  const gotFile: Same<Awaited<ReturnType<OpFiles["get"]>>, OpFile> = true;
-  const listedFile: Same<
-    Awaited<ReturnType<OpFiles["list"]>>,
-    Omit<OpFile, "bytes">[]
-  > = true;
-  type HasPath = "path" extends keyof OpFile ? true : false;
-  const noPath: Same<HasPath, false> = true;
 
   const find: Op<Conn, typeof word> = {
     ...search,
@@ -393,7 +371,7 @@ test("an op's context follows its kind, and every op gets the run's files: a con
     ],
   });
 
-  assert.equal(connector && domain && gotFile && listedFile && noPath, true);
+  assert.equal(connector && domain, true);
   assert.deepEqual(
     [find, findBy, push, pushBy].map(({ input }) => input),
     [word, word, word, word],

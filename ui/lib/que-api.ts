@@ -1,4 +1,4 @@
-// The que API (users, connections, the deployment), served by the agent server under /api/que:
+// The que API (the signed-in user, users, connections, domains), served by que's server under /api/que:
 // its URLs, response types, and the fetcher every useSWR call uses. The URL is
 // the SWR key, so mutate(QUE_API.me) updates everything showing it.
 
@@ -7,7 +7,6 @@ export const QUE_API = {
   users: "/api/que/users",
   connections: "/api/que/connections",
   domains: "/api/que/domains",
-  deployment: "/api/que/deployment",
   adminUsers: "/api/que/admin/users",
   adminDomains: "/api/que/admin/domains",
 } as const;
@@ -22,13 +21,8 @@ export type User = {
   createdAt: string;
 };
 
-/** The signed-in user, from /api/que/me: their row, and their own instructions. */
-export type Me = User & {
-  /** The text in use, or none. */
-  instructions: string | null;
-  /** `file`: a file of the deployment sets the text, and it cannot be changed here. */
-  instructionsFrom: "file" | "account";
-};
+/** The signed-in user, from /api/que/me: their row. */
+export type Me = User;
 
 /** A user as the admin list gives one: their row, and the domains granted to them. */
 export type AdminUser = User & {
@@ -49,28 +43,6 @@ export type Domain = {
   name: string;
   connectors: string[];
   roles: string[];
-};
-
-/** What a model costs: dollars for one million tokens. With no `cachedInput`, cached tokens are at `input`. */
-export type ModelPrice = {
-  input: number;
-  output: number;
-  cachedInput?: number;
-};
-
-/** What the deployment lists: the agents and models a run can name. */
-export type Deployment = {
-  /** In the order listed. A chat with no pick gets the first. `model` is the one the agent runs on when no model is picked. */
-  agents: { name: string; model: string; summarizeAt?: number }[];
-  /** A model with no price, and any model on an older server, has no `price`: its cost is not shown. */
-  models: {
-    name: string;
-    window: number;
-    maxTokens: number;
-    price?: ModelPrice;
-  }[];
-  /** Whether the deployment serves que's chat. An older server does not say, and its chat is on. */
-  chat?: boolean;
 };
 
 /** GET a URL as JSON; a non-OK response throws, so SWR reports it as an error. */

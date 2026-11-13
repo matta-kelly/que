@@ -1,17 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { rmSync } from "node:fs";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
-import { SpanStatusCode, trace } from "@opentelemetry/api";
-import {
-  InMemorySpanExporter,
-  SimpleSpanProcessor,
-  TracerProvider,
-} from "@opentelemetry/sdk-trace";
 import fc from "fast-check";
 import * as z from "zod";
 import * as zm from "zod/mini";
@@ -24,19 +14,10 @@ import {
 } from "@mku1tra/que-plugin";
 import { controlOn } from "@que/control-plane";
 import { storeOn } from "@que/credentials";
-import { storeOn as fileStoreOn } from "@que/files";
 import { accessOn } from "../access/access.js";
-import { door, Responded, type Call, type PlacedOp } from "./door.js";
+import { door, type PlacedOp } from "./door.js";
 
 process.env.QUE_CREDENTIALS_KEY = randomBytes(32).toString("base64");
-
-// Every span this process makes, kept in memory.
-const spans = new InMemorySpanExporter();
-trace.setGlobalTracerProvider(
-  new TracerProvider({
-    spanProcessors: [new SimpleSpanProcessor({ exporter: spans })],
-  }),
-);
 
 const noSuchOrder = new OpFailed("no such order");
 const closed = new OpFailed("the shop is closed");
@@ -184,7 +165,6 @@ const orders: Card = {
       usesOps: ["shop-get-order"],
       usesSkills: [],
       capabilities: [],
-      cases: [],
     },
   },
 };
@@ -360,10 +340,7 @@ test("given an op and a user, when it is called, then access is asked by the op'
 test("given a user whose role login holds the connector credential and a user with no login, when the op is called, then the first runs on the role's login, and the second fails with an OpFailed that names the plugin", async () => {
   const db = new PGlite();
   const store = storeOn(db);
-  const control = controlOn(db, [
-    cardOf({ definition: shop, cases: [] }),
-    orders,
-  ]);
+  const control = controlOn(db, [cardOf({ definition: shop }), orders]);
   await control.grant("ana", "orders", "admin");
   // Ana's own credential is not the one her role's op runs on.
   await store.set("ana", "shop", { key: "ana-own" });
@@ -377,52 +354,6 @@ test("given a user whose role login holds the connector credential and a user wi
   await assert.rejects(
     () => call(getOrder, { id: 4 }, "bo"),
     (error) => error instanceof OpFailed && /\bshop\b/.test(error.message),
-  );
-});
-
-test("given three calls, when each one ends, then each opened one span, named by its op", async () => {
-  spans.reset();
-
-  await named(getOrder, { id: 4 }, "ana");
-  await named(listOrders, { customer: "Ana" }, "ana");
-  await named(getOrder, { id: -1 }, "ana").catch(() => undefined);
-
-  assert.deepEqual(
-    spans.getFinishedSpans().map((span) => span.name),
-    ["shop-get-order", "shop-list-orders", "shop-get-order"],
-  );
-});
-
-test("given a run that throws, when the call ends, then its span has status ERROR and the exception recorded as an event; a call that succeeds has neither", async () => {
-  spans.reset();
-
-  await named(getOrder, { id: 4 }, "ana");
-  await named(getOrder, { id: -1 }, "ana").catch(() => undefined);
-  await named(getOrder, { id: 0 }, "ana").catch(() => undefined);
-
-  const [answered, failed, broken] = spans.getFinishedSpans();
-  assert.notEqual(answered.status.code, SpanStatusCode.ERROR);
-  assert.deepEqual(
-    answered.events.filter((event) => event.name === "exception"),
-    [],
-  );
-  assert.equal(failed.status.code, SpanStatusCode.ERROR);
-  assert.deepEqual(
-    failed.events.map((event) => [
-      event.name,
-      event.attributes?.["exception.type"],
-      event.attributes?.["exception.message"],
-    ]),
-    [["exception", "OpFailed", "shop: no such order"]],
-  );
-  assert.equal(broken.status.code, SpanStatusCode.ERROR);
-  assert.deepEqual(
-    broken.events.map((event) => [
-      event.name,
-      event.attributes?.["exception.type"],
-      event.attributes?.["exception.message"],
-    ]),
-    [["exception", "Error", "bug"]],
   );
 });
 
@@ -541,23 +472,11 @@ test("given an op whose input is made with zod/mini, when it is called, then a g
   assert.match(extra.message, /\bcolor\b/);
 });
 
-test("given a run that throws no Error, when the op is called, then the throw comes out as it is, and its span has status ERROR and the throw recorded", async () => {
-  spans.reset();
-
+test("given a run that throws no Error, when the op is called, then the throw comes out as it is", async () => {
   const thrown = await named(voidOrder, { id: 4 }, "ana").catch(
     (error: unknown) => error,
   );
-
   assert.equal(thrown, "the till is jammed");
-  const [span] = spans.getFinishedSpans();
-  assert.equal(span.status.code, SpanStatusCode.ERROR);
-  assert.deepEqual(
-    span.events.map((event) => [
-      event.name,
-      event.attributes?.["exception.message"],
-    ]),
-    [["exception", "the till is jammed"]],
-  );
 });
 
 const stock = definePlugin({
@@ -745,250 +664,7 @@ test("given an op whose input has an async refine, when it is called, then a goo
   assert.doesNotMatch(refused.message, /\n/);
 });
 
-/**
- * The files of two threads: a store of the test's own, and the data folder its bytes are under. T has one file, U has
- * two, and V's name is one that climbs: the name is kept, and it names no folder of the store.
- */
-const filesDir = await mkdtemp(join(tmpdir(), "que-op-files-"));
-const fileDb = new PGlite();
-const fileStore = fileStoreOn(fileDb, filesDir);
-process.on("exit", () => rmSync(filesDir, { recursive: true, force: true }));
-
-const csv = (...rows: string[]) =>
-  Buffer.from([["name", "qty"], ...rows].join("\n") + "\n");
-const orderBytes = csv("Ana,3", "Bo,4");
-const order = await fileStore.put("T", {
-  name: "orders.csv",
-  mimeType: "text/csv",
-  bytes: orderBytes,
-});
-const prices = await fileStore.put("U", {
-  name: "prices.csv",
-  mimeType: "text/csv",
-  bytes: csv("Nibs,7"),
-});
-const credits = await fileStore.put("U", {
-  name: "credits.csv",
-  mimeType: "text/csv",
-  bytes: csv("Bo,2"),
-});
-const returns = await fileStore.put("V", {
-  name: "../returns.csv",
-  mimeType: "text/csv",
-  bytes: csv("Ana,1"),
-});
-
-// What an op's context gives, as the test reads it: the thread's files by name, so their order is the test's, and one
-// file by its id.
-const reading = async (
-  ctx: {
-    files: {
-      get(id: string): Promise<unknown>;
-      list(): Promise<{ name: string }[]>;
-    };
-  },
-  id: string,
-) => ({
-  listed: [...(await ctx.files.list())].sort((a, b) =>
-    a.name.localeCompare(b.name),
-  ),
-  got: await ctx.files.get(id),
-});
-
-const vault = definePlugin({
-  name: "vault",
-  type: "plugin",
-  title: "Vault",
-  description: "Reads the run's files.",
-  ops: [
-    {
-      name: "vault-files",
-      type: "op",
-      title: "Read the files",
-      description: "Lists the run's files and reads one by its id.",
-      input: z.object({ file: z.string().describe("A file id") }),
-      run: async (ctx, { file }) => reading(ctx, file),
-    },
-  ],
-});
-
-const claims = definePlugin({
-  name: "claims",
-  type: "plugin",
-  kind: "domain",
-  title: "Claims",
-  description:
-    "A domain that reads the run's files, and one that calls the vault's op.",
-  ops: [
-    {
-      name: "claims-files",
-      type: "op",
-      title: "Read the files",
-      description: "Lists the run's files and reads one by its id.",
-      input: z.object({ file: z.string().describe("A file id") }),
-      run: async (ctx, { file }) => reading(ctx, file),
-    },
-    {
-      name: "claims-forward",
-      type: "op",
-      title: "Forward to the vault",
-      description:
-        "Reads the run's files itself, and through the vault's op it lists.",
-      uses: ["vault-files"],
-      input: z.object({ file: z.string().describe("A file id") }),
-      run: async ({ ops, files }, { file }) => ({
-        own: (await files.list()).map(({ name }) => name).sort(),
-        nested: await ops["vault-files"]({ file }),
-      }),
-    },
-  ],
-});
-
-const vaultFiles: PlacedOp = { plugin: vault.plugin, op: vault.ops[0] };
-const claimsFiles: PlacedOp = { plugin: claims.plugin, op: claims.ops[0] };
-const claimsForward: PlacedOp = { plugin: claims.plugin, op: claims.ops[1] };
-const fileCall = door(
-  async (plugin, role, user) => ({
-    conn: `${plugin.name}:${role ?? "none"}:${user}`,
-    login: role ?? "own",
-  }),
-  [vaultFiles, claimsFiles, claimsForward],
-);
-
-test("given a connector op and a domain op on a thread with a file, when each is called, then its context's files are that thread's: get gives the bytes and what they are, and list gives their metadata", async () => {
-  const scope = { files: fileStore, thread: "T" };
-  const expected = { listed: [order], got: { ...order, bytes: orderBytes } };
-  const answered = (op: PlacedOp) =>
-    fileCall(op, { file: order.id }, "ana", scope).catch(
-      (error: unknown) => error,
-    );
-
-  assert.deepEqual(
-    await answered(vaultFiles),
-    expected,
-    "a connector op's context has the run thread's files",
-  );
-  assert.deepEqual(
-    await answered(claimsFiles),
-    expected,
-    "a domain op's context has the run thread's files",
-  );
-
-  const { got } = (await answered(vaultFiles)) as { got: object };
-  assert.deepEqual(
-    Object.keys(got).sort(),
-    ["bytes", "id", "mimeType", "name", "size"],
-    "a file is its id, name, mime type, size and bytes",
-  );
-  assert.equal(
-    JSON.stringify(got).includes(filesDir),
-    false,
-    "a file names no store path",
-  );
-});
-
-test("given an op on a thread with a file and a file of another thread, when the op asks for that file's id, then the call is an OpFailed that names the file and no store path", async () => {
-  const scope = { files: fileStore, thread: "T" };
-  const refused = (id: string) =>
-    fileCall(vaultFiles, { file: id }, "ana", scope).catch(
-      (error: unknown) => error,
-    );
-
-  const other = await refused(prices.id);
-  assert.ok(
-    other instanceof OpFailed,
-    `expected an OpFailed for U's file, got ${String(other)}`,
-  );
-  assert.ok(
-    other.message.includes(prices.id),
-    `expected the OpFailed to name ${prices.id}, got "${other.message}"`,
-  );
-  assert.equal(
-    other.message.includes(filesDir),
-    false,
-    "the failure names no store path",
-  );
-
-  const climbing = await refused(returns.id);
-  assert.ok(
-    climbing instanceof OpFailed,
-    `expected an OpFailed for V's file, got ${String(climbing)}`,
-  );
-  assert.ok(
-    climbing.message.includes(returns.id),
-    `expected the OpFailed to name ${returns.id}, got "${climbing.message}"`,
-  );
-  assert.equal(
-    climbing.message.includes(filesDir),
-    false,
-    "the failure names no store path",
-  );
-});
-
-test("given a domain op whose op calls a connector op it lists, when the domain op is called on a thread, then the nested call gets the same thread's files", async () => {
-  const answered = (thread: string, file: string) =>
-    fileCall(claimsForward, { file }, "ana", {
-      files: fileStore,
-      thread,
-    }).catch((error: unknown) => error);
-
-  assert.deepEqual(
-    await answered("T", order.id),
-    {
-      own: ["orders.csv"],
-      nested: { listed: [order], got: { ...order, bytes: orderBytes } },
-    },
-    "the nested call reads T's file, the thread of the call that made it",
-  );
-  assert.deepEqual(
-    await answered("U", credits.id),
-    {
-      own: ["credits.csv", "prices.csv"],
-      nested: {
-        listed: [credits, prices],
-        got: { ...credits, bytes: csv("Bo,2") },
-      },
-    },
-    "the nested call reads U's files, not the last call's thread",
-  );
-});
-
-/**
- * The ask this cut adds to the door: one request, one decision. A local shape, so the tests below reach their
- * assertions before the code. The request is the call (its name, parsed args and call id), the description, and the
- * allowed decisions; the decision is approve, reject (with an optional message), edit (with new args), or respond
- * (with a message).
- */
-type ApprovalDecision = "approve" | "edit" | "reject" | "respond";
-type ApprovalRequest = {
-  name: string;
-  args: unknown;
-  callId?: string;
-  description: string;
-  decisions: ApprovalDecision[];
-};
-type Decision =
-  | { type: "approve" }
-  | { type: "reject"; message?: string }
-  | { type: "edit"; args: unknown }
-  | { type: "respond"; message: string };
-type Ask = (request: ApprovalRequest) => Promise<Decision>;
-
-/** The door on an ask: its third argument, once the door takes one. */
-const gated = (
-  connect: Parameters<typeof door>[0],
-  ops: PlacedOp[],
-  ask: Ask,
-): Call =>
-  (
-    door as unknown as (
-      connect: Parameters<typeof door>[0],
-      ops: PlacedOp[],
-      ask: Ask,
-    ) => Call
-  )(connect, ops, ask);
-
-/** An op whose approval is `value`: the object form, cast until the op type holds it. */
+/** An op whose approval is `value`. */
 const approving = (placed: PlacedOp, approval: unknown): PlacedOp =>
   ({ ...placed, op: { ...placed.op, approval } }) as PlacedOp;
 
@@ -1055,367 +731,75 @@ const connecting =
     return { conn: `${plugin.name}:${role ?? "none"}`, login: role ?? "own" };
   };
 
-test("given an op with no flag, when the door calls it, then it runs as before, and the ask is never called", async () => {
-  const asked: ApprovalRequest[] = [];
-  const call = gated(connecting(), [listOrders], async (request) => {
-    asked.push(request);
-    return { type: "approve" };
-  });
+const refusal = (op: string) =>
+  `${op} needs approval, and it cannot be approved over MCP: the call did not run`;
 
-  assert.deepEqual(await call(listOrders, { customer: "Ana" }, "ana"), {
-    customer: "Ana",
-    limit: 10,
-  });
-  assert.deepEqual(asked, [], "an op with no flag never reaches the ask");
-});
-
-test("given a flagged op and an ask, when the door calls it, then the ask gets one request: the op's name, its parsed args with the default in, the call id, the description, and the allowed decisions", async () => {
-  const seen: ApprovalRequest[] = [];
-  const ask = async (request: ApprovalRequest): Promise<Decision> => {
-    seen.push(request);
-    return { type: "approve" };
-  };
-
-  const plain = gated(connecting(), [flagged(listOrders)], ask);
-  await plain(
-    flagged(listOrders),
-    { customer: "Ana" },
-    "ana",
-    undefined,
-    "call-1",
-  );
-
-  const described = { description: "List the orders" };
-  const fixed = gated(connecting(), [approving(listOrders, described)], ask);
-  await fixed(approving(listOrders, described), { customer: "Bo" }, "ana");
-
-  const computedApproval = {
-    description: (input: { customer: string }) =>
-      `List ${input.customer}'s orders`,
-  };
-  const computed = gated(
-    connecting(),
-    [approving(listOrders, computedApproval)],
-    ask,
-  );
-  await computed(
-    approving(listOrders, computedApproval),
-    { customer: "Cy" },
-    "ana",
-  );
-
-  const allowed = {
-    description: "List the orders",
-    decisions: ["approve", "respond"],
-  };
-  const chosen = gated(connecting(), [approving(listOrders, allowed)], ask);
-  await chosen(approving(listOrders, allowed), { customer: "Di" }, "ana");
-
-  assert.deepEqual(seen, [
-    {
-      name: "shop-list-orders",
-      args: { customer: "Ana", limit: 10 },
-      callId: "call-1",
-      description: "List orders: run shop-list-orders with this input?",
-      decisions: ["approve", "edit", "reject"],
-    },
-    {
-      name: "shop-list-orders",
-      args: { customer: "Bo", limit: 10 },
-      description: "List the orders",
-      decisions: ["approve", "edit", "reject"],
-    },
-    {
-      name: "shop-list-orders",
-      args: { customer: "Cy", limit: 10 },
-      description: "List Cy's orders",
-      decisions: ["approve", "edit", "reject"],
-    },
-    {
-      name: "shop-list-orders",
-      args: { customer: "Di", limit: 10 },
-      description: "List the orders",
-      decisions: ["approve", "respond"],
-    },
-  ]);
-});
-
-test("given the ask answers approve, when the door calls the flagged op, then run gets the parsed args and the call answers its result", async () => {
-  const seen: ApprovalRequest[] = [];
-  const call = gated(connecting(), [flagged(commit)], async (request) => {
-    seen.push(request);
-    return { type: "approve" };
-  });
-
-  assert.deepEqual(await call(flagged(commit), { line: "a" }, "ana"), {
+test("given an op with no flag, when the door calls it, then it runs", async () => {
+  ran.length = 0;
+  const call = door(connecting(), [commit]);
+  assert.deepEqual(await call(commit, { line: "a" }, "ana"), {
     line: "a",
     note: "none",
   });
-  assert.deepEqual(
-    await call(flagged(commit), { line: "b", note: "n" }, "ana"),
-    { line: "b", note: "n" },
-  );
-  assert.deepEqual(
-    seen.map((request) => request.name),
-    ["ledger-commit", "ledger-commit"],
-    "the ask is called with one request for each call",
-  );
+  assert.deepEqual(ran, ["ledger-commit"]);
 });
 
-test("given an approval whose when answers false for the args, when the door calls the op, then the ask is not called and the op runs", async () => {
-  ran.length = 0;
-  const approval = {
-    when: (input: { line: string }) => input.line !== "skip",
-    description: "Commit a line",
-  };
-  const asked: ApprovalRequest[] = [];
-  const call = gated(
-    connecting(),
-    [approving(commit, approval)],
-    async (request) => {
-      asked.push(request);
-      return { type: "approve" };
-    },
-  );
-
-  assert.deepEqual(
-    await call(approving(commit, approval), { line: "skip" }, "ana"),
-    { line: "skip", note: "none" },
-  );
-  assert.deepEqual(asked, [], "the ask is not called when when answers false");
-  assert.deepEqual(ran, ["ledger-commit"], "the op runs without an ask");
-
-  // The control: when answers true, the ask is called.
-  await call(approving(commit, approval), { line: "keep" }, "ana");
-  assert.equal(asked.length, 1, "when answers true, the ask is called");
-});
-
-test("given the ask answers reject, when the door calls the flagged op, then neither run nor connect is called, and the caller gets an OpFailed that says the user declined, the call did not run, and the message", async () => {
-  ran.length = 0;
-  const connected: string[] = [];
-  const call = gated(connecting(connected), [flagged(commit)], async () => ({
-    type: "reject",
-    message: "wrong line",
-  }));
-
-  const refused = await call(flagged(commit), { line: "a" }, "ana").catch(
-    (error: unknown) => error,
-  );
-  assert.ok(
-    refused instanceof OpFailed,
-    `the door gave ${String(refused)}, which is no OpFailed`,
-  );
-  assert.match(
-    refused.message,
-    /declined/,
-    "the failure says the user declined",
-  );
-  assert.match(
-    refused.message,
-    /did not run/,
-    "the failure says the call did not run",
-  );
-  assert.match(refused.message, /wrong line/, "the failure holds the message");
-  assert.deepEqual(ran, [], "the op's run is not called");
-  assert.deepEqual(connected, [], "the connector's connect is not called");
-
-  // With no message: the same, without one.
-  const bare = gated(connecting(), [flagged(commit)], async () => ({
-    type: "reject",
-  }));
-  const alsoRefused = await bare(flagged(commit), { line: "a" }, "ana").catch(
-    (error: unknown) => error,
-  );
-  assert.ok(
-    alsoRefused instanceof OpFailed,
-    `the door gave ${String(alsoRefused)}, which is no OpFailed`,
-  );
-  assert.match(alsoRefused.message, /declined/);
-  assert.match(alsoRefused.message, /did not run/);
-});
-
-test("given the ask answers edit with new args, when the door calls the flagged op, then the new args are parsed with the same strict parse and run gets them; given edit args that fail the parse, then run is not called and the caller gets the parse's OpFailed", async () => {
-  ran.length = 0;
-  const edited = gated(connecting(), [flagged(commit)], async () => ({
-    type: "edit",
-    args: { line: "edited" },
-  }));
-  assert.deepEqual(await edited(flagged(commit), { line: "a" }, "ana"), {
-    line: "edited",
-    note: "none",
-  });
-
-  // The same strict parse: a field the input does not name is refused. The run that the successful edit just made is
-  // cleared, so this checks the failing parse alone.
-  ran.length = 0;
-  const extra = gated(connecting(), [flagged(commit)], async () => ({
-    type: "edit",
-    args: { line: "a", color: "red" },
-  }));
-  const refused = await extra(flagged(commit), { line: "a" }, "ana").catch(
-    (error: unknown) => error,
-  );
-  assert.ok(
-    refused instanceof OpFailed,
-    `the door gave ${String(refused)}, which is no OpFailed`,
-  );
-  assert.match(refused.message, /\bcolor\b/);
-  assert.deepEqual(ran, [], "run is not called when the edit fails the parse");
-
-  const wrong = gated(connecting(), [flagged(commit)], async () => ({
-    type: "edit",
-    args: { line: 7 },
-  }));
-  const alsoRefused = await wrong(flagged(commit), { line: "a" }, "ana").catch(
-    (error: unknown) => error,
-  );
-  assert.ok(
-    alsoRefused instanceof OpFailed,
-    `the door gave ${String(alsoRefused)}, which is no OpFailed`,
-  );
-  assert.match(alsoRefused.message, /\bline\b/);
-});
-
-test("given the ask answers respond with a message, when the door calls an op that allows respond, then run and connect are not called, and the call answers a Responded whose message is that message", async () => {
-  ran.length = 0;
-  const connected: string[] = [];
-  // respond is honored only when the op lists it; the default decisions are approve, edit and reject.
-  const allowsRespond = {
-    description: "Commit a line",
-    decisions: ["approve", "edit", "reject", "respond"],
-  };
-  const call = gated(
-    connecting(connected),
-    [approving(commit, allowsRespond)],
-    async () => ({
-      type: "respond",
-      message: "Nothing was committed.",
-    }),
-  );
-
-  const answer = await call(
-    approving(commit, allowsRespond),
-    { line: "a" },
-    "ana",
-  );
-  assert.ok(
-    answer instanceof Responded,
-    `the door gave ${String(answer)}, which is no Responded`,
-  );
-  assert.equal(
-    (answer as Responded).message,
-    "Nothing was committed.",
-    "the Responded holds the message",
-  );
-  assert.deepEqual(ran, [], "the op's run is not called");
-  assert.deepEqual(connected, [], "the connector's connect is not called");
-});
-
-test("given an op with no explicit decisions, when the ask answers respond, then it is a reject that says respond is not allowed for this op", async () => {
-  ran.length = 0;
-  const call = gated(connecting(), [flagged(commit)], async () => ({
-    type: "respond",
-    message: "hi",
-  }));
-
-  const refused = await call(flagged(commit), { line: "a" }, "ana").catch(
-    (error: unknown) => error,
-  );
-  assert.ok(
-    refused instanceof OpFailed,
-    `the door gave ${String(refused)}, which is no OpFailed`,
-  );
-  assert.match(refused.message, /respond/, "the failure names the decision");
-  assert.match(
-    refused.message,
-    /not allowed/,
-    "the failure says the decision is not allowed",
-  );
-  assert.deepEqual(ran, [], "the op's run is not called");
-});
-
-test("given a decision the op does not allow, when the door calls the flagged op, then it is a reject that says that decision is not allowed for this op", async () => {
-  ran.length = 0;
-  const allowed = {
-    description: "Commit a line",
-    decisions: ["approve", "reject"],
-  };
-  const call = gated(connecting(), [approving(commit, allowed)], async () => ({
-    type: "respond",
-    message: "hi",
-  }));
-
-  const refused = await call(
-    approving(commit, allowed),
-    { line: "a" },
-    "ana",
-  ).catch((error: unknown) => error);
-  assert.ok(
-    refused instanceof OpFailed,
-    `the door gave ${String(refused)}, which is no OpFailed`,
-  );
-  assert.match(refused.message, /respond/, "the failure names the decision");
-  assert.match(
-    refused.message,
-    /not allowed/,
-    "the failure says the decision is not allowed",
-  );
-  assert.deepEqual(ran, [], "the op's run is not called");
-});
-
-test("given a flagged op and no ask, when the door calls it, then run is not called, and the caller gets an OpFailed that says the op needs a yes, this run has no way to ask, and the call did not run", async () => {
-  ran.length = 0;
-  const call = door(connecting(), [flagged(commit)]);
-
-  const refused = await call(flagged(commit), { line: "a" }, "ana").catch(
-    (error: unknown) => error,
-  );
-  assert.ok(
-    refused instanceof OpFailed,
-    `the door gave ${String(refused)}, which is no OpFailed`,
-  );
-  assert.match(
-    refused.message,
-    /needs a yes/,
-    "the failure says it needs a yes",
-  );
-  assert.match(
-    refused.message,
-    /no way to ask/,
-    "the failure says this run has no way to ask",
-  );
-  assert.match(
-    refused.message,
-    /did not run/,
-    "the failure says the call did not run",
-  );
-  assert.deepEqual(ran, [], "the op's run is not called");
-});
-
-test("given a flagged domain op whose listed op is flagged too, when the door calls the domain op, then the ask is called once, for the domain op, and the listed op runs without one", async () => {
+test("given a flagged op, when the door calls it, then neither run nor connect is called, and the caller gets an OpFailed that says it needs approval and cannot be approved over MCP", async () => {
   ran.length = 0;
   const asked: string[] = [];
-  const call = gated(
-    connecting(),
-    [flagged(commit), flagged(auditCommit)],
-    async (request) => {
-      asked.push(request.name);
-      return { type: "approve" };
-    },
+  const call = door(connecting(asked), [flagged(commit)]);
+  await assert.rejects(
+    call(flagged(commit), { line: "a" }, "ana"),
+    (error: Error) =>
+      error instanceof OpFailed && error.message === refusal("ledger-commit"),
   );
+  assert.deepEqual(ran, []);
+  assert.deepEqual(asked, []);
+});
 
-  assert.deepEqual(await call(flagged(auditCommit), { line: "a" }, "ana"), {
+test("given a flagged op whose input breaks the parse, when the door calls it, then the caller gets the parse's OpFailed: the input is parsed first", async () => {
+  const call = door(connecting(), [flagged(commit)]);
+  await assert.rejects(
+    call(flagged(commit), { line: 1 }, "ana"),
+    (error: Error) =>
+      error instanceof OpFailed &&
+      /^invalid ledger-commit input/.test(error.message),
+  );
+});
+
+test("given an approval whose when answers true for some args, when the door calls the op, then those calls are refused and the others run", async () => {
+  ran.length = 0;
+  const some = approving(commit, {
+    when: async ({ line }: { line: string }) => line === "big",
+  });
+  const call = door(connecting(), [some]);
+  assert.deepEqual(await call(some, { line: "small" }, "ana"), {
+    line: "small",
+    note: "none",
+  });
+  await assert.rejects(
+    call(some, { line: "big" }, "ana"),
+    (error: Error) => error.message === refusal("ledger-commit"),
+  );
+  assert.deepEqual(ran, ["ledger-commit"]);
+});
+
+test("given a domain op that lists a flagged op, when the door calls the domain op, then the listed op runs: a call through uses is not gated", async () => {
+  ran.length = 0;
+  const call = door(connecting(), [auditCommit, flagged(commit)]);
+  assert.deepEqual(await call(auditCommit, { line: "a" }, "ana"), {
     line: "a",
     note: "none",
   });
-  assert.deepEqual(
-    asked,
-    ["audit-commit"],
-    "the ask is made once, for the domain op",
+  assert.deepEqual(ran, ["audit-commit", "ledger-commit"]);
+});
+
+test("given a flagged domain op, when the door calls it, then it is refused, and its listed op does not run", async () => {
+  ran.length = 0;
+  const call = door(connecting(), [flagged(auditCommit), commit]);
+  await assert.rejects(
+    call(flagged(auditCommit), { line: "a" }, "ana"),
+    (error: Error) => error.message === refusal("audit-commit"),
   );
-  assert.deepEqual(
-    ran,
-    ["audit-commit", "ledger-commit"],
-    "the listed op runs, and is not asked again",
-  );
+  assert.deepEqual(ran, []);
 });

@@ -8,7 +8,7 @@ import { url } from "../../tests/roots.ts";
 import { plugins } from "./source.ts";
 
 // A plugin's code imports the package and zod as que's own copies, by URL, so it runs as code outside que does.
-const imports = `import { definePlugin, defineCases } from ${JSON.stringify(new URL("./index.ts", import.meta.url).href)};
+const imports = `import { definePlugin } from ${JSON.stringify(new URL("./index.ts", import.meta.url).href)};
 import * as z from ${JSON.stringify(import.meta.resolve("zod"))};
 `;
 
@@ -36,20 +36,6 @@ export default definePlugin({
 });
 `;
 
-const cases = (capability = "find-fabric") => `${imports}
-export default defineCases([
-  {
-    name: "count-drafted",
-    type: "case",
-    description: "Counts the drafted fabrics.",
-    capability: "${capability}",
-    input: "How many fabrics are drafted?",
-    start: "Some fabrics are drafted.",
-    good: "The answer is one number.",
-  },
-]);
-`;
-
 // The config of a vault: its notes, and the plugins under plugins/, whose files are not its notes, as one graph.
 const vaultRoot = `import { defineSchema } from ${url.basis};
 import { plugin, plugins } from ${url.plugin};
@@ -75,7 +61,6 @@ async function vault(files: Record<string, string> = {}) {
     "package.json": '{ "type": "module" }\n',
     "basis.config.ts": vaultRoot,
     "plugins/warehouse/io.github.matta-kelly.que/index.ts": definition(),
-    "plugins/warehouse/io.github.matta-kelly.que/cases.ts": cases(),
     "plugins/warehouse/skills/warehouse-fabric-guide/SKILL.md":
       "---\nname: warehouse-fabric-guide\ndescription: How to read a fabric.\nmetadata:\n  title: Fabric guide\n---\nRead it.\n",
     ...files,
@@ -122,7 +107,6 @@ test("gives each node a plugin's code and skills give, by its real name, as code
           "find-fabric",
           "capability",
         ],
-        [`${at}/cases.ts#count-drafted`, "count-drafted", "case"],
       ],
     );
     const op = pieces.find((p) => p.name === "warehouse-get-fabric")?.fields;
@@ -174,18 +158,6 @@ test("gives a note that copies a fact of the code a problem on both, naming the 
         ["find-fabric.md", "basis/merge", "/title"],
         [`${at}/index.ts#capabilities/find-fabric`, "basis/merge", "/title"],
       ],
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test("gives a case that names a capability no plugin has a problem at its case", async () => {
-  const root = await vault({ [`${at}/cases.ts`]: cases("find-lace") });
-  try {
-    assert.deepEqual(
-      (await lintOf(root)).map((p) => [p.path, p.rule, p.field]),
-      [[`${at}/cases.ts#count-drafted`, "basis/link", "/capability"]],
     );
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -262,12 +234,11 @@ const exportsOf = (from: Record<string, string>) =>
     .map(([name, path]) => `export { default as ${name} } from "./${path}";\n`)
     .join("");
 
-test("a package that exports its plugins' definitions and cases lints clean: the source gives a piece of each", async () => {
+test("a package that exports its plugins' definitions lints clean: the source gives a piece of each", async () => {
   const root = await vault({
     "basis.config.ts": packageRoot,
     "exports.ts": exportsOf({
       warehouse: `${at}/index.ts`,
-      warehouseCases: `${at}/cases.ts`,
     }),
   });
   try {

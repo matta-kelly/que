@@ -9,16 +9,6 @@ import { checkAccessSettings } from "@que/identity";
 // setting stops here, and names it.
 checkAccessSettings();
 
-// A lost storage connection stops this process: its session advisory lock went with the connection, so the next
-// process takes it, and this one must not answer with storage it cannot see. The restart loop starts that one.
-const { onStorageLost } = await import("./runner/pi/harness.js");
-onStorageLost((why, error) => {
-  console.error(
-    `que: lost its storage: ${why}${error ? `: ${error.message}` : ""}. Stopping, so a process that can see it takes the lock`,
-  );
-  process.exit(1);
-});
-
 const { serve } = await import("@hono/node-server");
 const { app } = await import("./serve.js");
 

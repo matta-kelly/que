@@ -57,12 +57,6 @@ export function deploymentRoot(fixtures: string, name: string): string {
   // que's packages and zod, as a deployment that installs them has them.
   symlinkSync(join(server, "node_modules/@mku1tra"), join(modules, "@mku1tra"));
   symlinkSync(join(server, "node_modules/zod"), join(modules, "zod"));
-  // The OpenTelemetry API, as a deployment has it when a plugin of its depends on it: till opens spans of its own.
-  mkdirSync(join(modules, "@opentelemetry"));
-  symlinkSync(
-    join(server, "node_modules/@opentelemetry/api"),
-    join(modules, "@opentelemetry/api"),
-  );
   // Each plugin its index.ts names that the fixtures hold.
   const named = /plugins:\s*\[([^\]]*)\]/.exec(
     readFileSync(join(dir, "index.ts"), "utf8"),

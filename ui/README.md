@@ -1,25 +1,18 @@
 # que UI
 
-Chat UI for the que agent, built on [assistant-ui](https://www.assistant-ui.com/docs).
-Talks to que's server (`server/runtime/`) over AG-UI, through the proxy at
-`app/api/[..._path]`.
+The settings app of que: a Next.js app where a user manages their account and connects their logins, and an admin manages users. que's MCP catalog gives a user the tools of the domains they hold and the connections they made here.
+It talks to que's server (`server/runtime/`) through the proxy at `app/api/[..._path]`.
 
-- `app/`: routes, plus the root layout
-- `components/<feature>/`: a feature, whole: its UI, its logic, its state and its tests, in one folder. So `run-pickers/` has the pickers, the pick and the price
-- `components/` is in groups: `ui/` (shadcn), `assistant-ui/` (the library's files only; a lint rule stops a new one), `chat/` (que's chat features), `runtime/` (connects the chat to the server), `shell/` (the app frame, with `shell/sidebar/`) and `settings/`
+- `app/(app)/page.tsx`: the app's one page, the settings (`components/settings/settings.tsx`)
+  - Home: a search box over a tile per section. The search also finds a connector or a person, and opens its section
+  - Account: the user's name and picture (`PATCH /que/me`). The email comes from the login. A picture is cropped and shrunk in the browser to a 256px WebP
+  - Connections: the user's domains (`GET /que/domains`), and a row for each connector that needs a credential, with its Connect form (`GET`, `PUT`, `DELETE /que/connections/:plugin`). que's server tests a credential before it keeps it
+  - Users: everyone with access (`GET /que/users`). An admin also sees each user's grants and role, and changes them (`/que/admin/*`)
+- `app/(app)/layout.tsx`: the app shell: the sidebar (a button for Home and each section, and the signed-in user, who opens Account), the command palette and the state of the page
+- `components/shell/command-palette.tsx`: one search over actions (the theme) and settings (each section and each connector). `/` or Ctrl/⌘+K opens it. A prefix such as `settings:` searches one type only
+- `app/api/[..._path]/route.ts`: the proxy. It forwards a same-origin request to que's server, with Cloudflare Access's identity token, and gives back the answer
+- `components/` is in groups: `ui/` (shadcn), `shell/` (the app frame, with `shell/sidebar/`) and `settings/`. A feature is in one folder: its UI, its logic and its tests
 - `hooks/`: React hooks that more than one feature uses
-- `lib/`: three things many features share, and no more: the que API's types (`que-api.ts`), the fonts, and shadcn's `cn`. A lint rule stops a new file there
-- `components/runtime/runtime-provider.tsx`: connects the chat to que's server, with assistant-ui's AG-UI runtime (`useAgUiRuntime`) inside its remote thread list (`useRemoteThreadListRuntime`)
-  - a chat is a thread of the signed-in user's on que's server: `POST /threads` makes it when its first message is sent, `GET /threads` lists them (`thread-list-adapter.ts`), and `GET /threads/:id` loads its messages when it is opened, and says whether its run goes. A chat opened while its reply goes is loaded to the user's message, and joins the run (`GET /threads/:id/join`, the history adapter's `resume()`): the reply so far, then the rest live, as one reply. A rename or an archive is `PATCH /threads/:id`, and a delete `DELETE /threads/:id`, on the thread's record
-  - a run is `POST /threads/:id/runs`, with AG-UI's `RunAgentInput`, and its answer streams back as AG-UI events over SSE (`que-client.ts`). A turn is one reply: the runtime joins its model calls and tool calls (`joinStrategy: "concat-content"`), and a chat that is loaded joins them the same way
-  - each message keeps the id que's server gave it. An edit or a refresh sends the messages before it, by those ids, and que's server goes on from there
-  - the user's Stop (the Stop button, or Escape in the composer) is `POST /threads/:id/stop` as well as the end of the stream in the browser, on the composer's `composer.cancel` event: it ends the run on que's server, which keeps the reply as far as it came, and the thread says it was stopped until its next run. A chat that is left while its reply goes is not stopped: its run goes on on que's server, and a reload joins it
-  - `components/chat/message-queue/`: a message sent while a run is going waits above the composer, can be taken back, and is sent when that run ends. It is the library's own queue (`unstable_enableMessageQueue`), kept in the browser: a stop or a closed tab lets the waiting messages go
-  - `components/chat/run-states/`: a `Stopped` mark with `Continue`, above the composer. The mark shows while the thread says it was stopped: the user's Stop sets it when que's server stopped a run, a chat loaded from que's server reads it, and a run that starts clears it
-- `components/chat/toolkit.tsx`: custom UIs for agent tools, keyed by tool name
-- `lib/que-api.ts`: the que API's response types and the fetcher for `useSWR`
-- `components/chat/run-pickers/pick.ts`: the pick of a chat, the agent and the model. The composer has a picker for each, made from what the deployment lists (`/api/que/deployment`)
-  - the pick is kept on the thread's record on que's server: a pick made before the first message is sent with `POST /threads`, which makes the thread, and a pick after it with `PATCH /threads/:id`. A chat read from que's server gives the pickers its pick. A run is sent no pick: que's server runs the record's
-  - each model in the picker has its price beside it, for one million tokens in and out (`price.ts`)
-- a unit test is beside the code it tests (`*.test.ts`), and runs on Vitest, in `just check`
-- `.env.local`: not needed. With none, the UI talks to que's own server on localhost:2024 (`components/runtime/agent-server.ts`). `.env.example` lists the setting that points it elsewhere, `QUE_URL`
+- `lib/`: three things many features share, and no more: the que API's URLs, types and fetcher for `useSWR` (`que-api.ts`), the fonts, and shadcn's `cn`. A lint rule stops a new file there
+- a unit test is beside the code it tests (`*.test.ts`, `*.test.tsx`), and runs on Vitest, in `just check`. The browser tests are in `tests/e2e/`, and run on Playwright against the whole app
+- `.env.local`: not needed. With none, the UI talks to que's own server on localhost:2024 (`app/api/[..._path]/que-server.ts`). `.env.example` lists the setting that points it elsewhere, `QUE_URL`

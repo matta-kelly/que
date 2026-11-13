@@ -37,45 +37,25 @@ const mountError = async (name: string) => {
 };
 
 test("a deployment that mounts passes, and the folder of each plugin it lists is printed", () => {
-  const { status, stdout, stderr } = check("agents-two");
+  const { status, stdout, stderr } = check("two");
   assert.equal(status, 0, stderr);
   assert.deepEqual(stdout.trim().split("\n"), [
-    realpathSync(join(deployment("agents-two"), "plugins", "gamma")),
-    realpathSync(join(deployment("agents-two"), "plugins", "alpha")),
+    realpathSync(join(deployment("two"), "plugins", "gamma")),
+    realpathSync(join(deployment("two"), "plugins", "alpha")),
   ]);
 });
 
-// The typos of matta-kelly/que#102 (a path, a plugin, a loop), a model, and a model with no window, each in a fixture of its own.
+// A typo in what a deployment uses, and a plugin it names that is not installed, each in a fixture of its own.
 for (const [typo, name, says] of [
-  [
-    "an agent no file gives",
-    "agent-file-missing",
-    /\/agents: names the agent nope, which no file in the deployment's agents\/ gives/,
-  ],
-  [
-    "a plugin an agent names that the deployment does not mount",
-    "agent-names-unmounted",
-    /names the plugin delta, which the deployment does not mount/,
-  ],
-  [
-    "a loop an agent names that the deployment does not give",
-    "agent-loop-unlisted",
-    /names the loop long-chat, which no file in the deployment's loops\/ gives/,
-  ],
   [
     "a name a domain uses that the deployment does not give",
     "uses-unresolved",
     /stray\/skills\/stray-guide\/SKILL\.md: \/uses: It points at source-lose, which is not a node\./,
   ],
   [
-    "a model an agent names that the deployment does not give",
-    "agent-model-unlisted",
-    /names the model small, which no file in the deployment's models\/ gives/,
-  ],
-  [
-    "a model the model catalog has no entry for, whose file writes no window",
-    "models-bare",
-    /models\/bare\.ts: \/window: Missing: .*\(basis\/fields\)/,
+    "a plugin that is not installed",
+    "missing",
+    /The plugin nope is not installed/,
   ],
 ] as const) {
   test(`fails with mount's error on ${typo}`, async () => {

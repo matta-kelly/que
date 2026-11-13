@@ -1,5 +1,5 @@
 /**
- * Where a plugin's files are. The one place that says it: mount, the evals and any other reader ask here.
+ * Where a plugin's files are. The one place that says it: mount and any other reader ask here.
  * The standard's files sit at the plugin's root (plugin.json, skills/), and so does npm's package.json; que's
  * own sit in que's namespace folder, as Agent Plugins puts a client's files (§8.2).
  */
@@ -14,8 +14,6 @@ export const pluginFiles = (dir: string) => ({
   que: join(dir, NAMESPACE),
   /** Its definition, as the default export (definePlugin). */
   definition: join(dir, NAMESPACE, "index.ts"),
-  /** Its cases, when it has any. */
-  cases: join(dir, NAMESPACE, "cases.ts"),
   /** Its card, the standard's manifest. */
   card: join(dir, "plugin.json"),
   /** Its npm package, when it is one: its version, and the @mku1tra/que-plugin it works with. */
@@ -40,7 +38,7 @@ export function locatePlugin(dir: string): PluginFiles {
   if (existsSync(files.definition)) return files;
   if (existsSync(oldDefinition(dir)))
     throw new Error(
-      `${dir}: que's files are in ${NAMESPACE}/, not at the plugin's root: move index.ts and que's other files (its ops, client and cases) there. plugin.json, skills/ and package.json stay at the root`,
+      `${dir}: que's files are in ${NAMESPACE}/, not at the plugin's root: move index.ts and que's other files (its ops and client) there. plugin.json, skills/ and package.json stay at the root`,
     );
   throw new Error(`${dir} holds no plugin (no ${NAMESPACE}/index.ts)`);
 }

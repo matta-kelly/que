@@ -1,27 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openApp, openChat, openChats } from "./helpers";
-
-test("sidebar: search turns the chats row into a search field", async ({
-  page,
-}) => {
-  await openApp(page);
-  const search = page.getByRole("searchbox", { name: "Search threads" });
-  await expect(search).toHaveCount(0);
-  await page.getByRole("button", { name: "Search chats" }).click();
-  await expect(search).toBeFocused();
-  await expect(page.getByRole("button", { name: "Toggle chats" })).toHaveCount(
-    0,
-  );
-  await search.fill("zzz-no-such-chat");
-  await expect(
-    page.locator('[data-slot="aui_thread-list-item-title"]'),
-  ).toHaveCount(0);
-  await search.press("Escape");
-  await expect(search).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Toggle chats" }),
-  ).toBeVisible();
-});
+import { openApp } from "./helpers";
 
 test("sidebar: drag the edge to resize, within limits, remembered", async ({
   page,
@@ -56,77 +34,4 @@ test("sidebar: drag the edge to resize, within limits, remembered", async ({
     .poll(async () => Math.round((await sidebar.boundingBox())!.width))
     .toBe(400);
   await page.evaluate(() => localStorage.removeItem("que.sidebarWidth"));
-});
-
-test("sidebar: closing search restores the chats section's collapsed state", async ({
-  page,
-}) => {
-  await openApp(page);
-  const threadList = page.locator('[data-slot="aui_thread-list-items"]');
-  await expect(threadList).toBeHidden();
-
-  await page.getByRole("button", { name: "Search chats" }).click();
-  await expect(threadList).toBeVisible();
-  await page.getByRole("searchbox", { name: "Search threads" }).press("Escape");
-  await expect(threadList).toBeHidden();
-
-  await page.getByRole("button", { name: "Search chats" }).click();
-  await page.getByRole("button", { name: "Close search" }).click();
-  await expect(threadList).toBeHidden();
-});
-
-test("sidebar: chats section starts collapsed and remembers your choice", async ({
-  page,
-}) => {
-  await openApp(page);
-  const threadList = page.locator('[data-slot="aui_thread-list-items"]');
-  await expect(threadList).toBeHidden();
-
-  await openChats(page);
-  await page.reload();
-  await expect(threadList).toBeVisible();
-
-  await page.getByRole("button", { name: "Toggle chats" }).click();
-  await page.reload();
-  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
-  await expect(threadList).toBeHidden();
-});
-
-test("sidebar: Chats, rail icon and brand open a fresh chat", async ({
-  page,
-}) => {
-  const freshChat = async () => {
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator('[data-slot="page-title"]')).toHaveText(
-      "New chat",
-    );
-  };
-  // A chat of this test's own, made and named on que's server with no model call. Each step starts
-  // from it, so a new chat is a change the test can see.
-  const title = `sidebar fresh ${Date.now()}`;
-  const made = await page.request.post("/api/threads");
-  const { id } = (await made.json()) as { id: string };
-  await page.request.patch(`/api/threads/${id}`, { data: { title } });
-  const openSomeChat = () => openChat(page, title);
-
-  try {
-    await openApp(page);
-    await openSomeChat();
-    await page.getByRole("button", { name: "Chats", exact: true }).click();
-    await freshChat();
-
-    await openSomeChat();
-    await page.getByRole("button", { name: /Lotus and Luna/ }).click();
-    await freshChat();
-
-    await openSomeChat();
-    await page
-      .locator('[data-sidebar="footer"]')
-      .getByRole("button", { name: "Toggle Sidebar" })
-      .click();
-    await page.getByRole("button", { name: "Chats", exact: true }).click();
-    await freshChat();
-  } finally {
-    await page.request.delete(`/api/threads/${id}`);
-  }
 });

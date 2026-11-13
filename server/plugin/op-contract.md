@@ -12,7 +12,7 @@ op: a function of a plugin that que gives the model as one tool, and runs for on
 - [[#Input]] what it takes
 - [[#Answer]] what comes back
 - [[#Writes]] what an operation that changes data promises
-- [[#Approval]] whether the door asks for a yes before it runs
+- [[#Approval]] which calls the door refuses because they need approval
 
 - [[plugin-contract]]: the contract an operation is part of
 
@@ -27,7 +27,7 @@ A good op does one job, cannot be called wrong, and says truly what happened.
 	- a field that must never be written is not in its input
 	- a value it can work out, such as the logged-in user or today's date, it sets itself
 - it reads only its input and its connection: nothing from around it
-- an op that changes data says whether it needs a yes from the user: `approval` on its node ([[#Approval]])
+- an op that changes data says whether its calls need approval: `approval` on its node ([[#Approval]])
 - a rule that decides a number or a record lives in one op, and other ops and skills use that op
 - each of its behaviours has a test ([[plugin-contract#Layout]])
 
@@ -42,12 +42,10 @@ The kind of an op is the kind of its plugin. The plugin says its kind (`kind`), 
 
 What `run(ctx, params)` gets as `ctx`.
 
-- connector op: `{ conn, files }`, the connection to its service, logged in for the user, and the run thread's files. Built
-- domain op: `{ ops, files }`, one function for each op it lists, by the op's name, and the run thread's files. Each one runs that op through que, with its connector's login for the calling user. The domain op never sees a login
+- connector op: `{ conn }`, the connection to its service, logged in for the user. Built
+- domain op: `{ ops }`, one function for each op it lists, by the op's name. Each one runs that op through que, with its connector's login for the calling user. The domain op never sees a login
 	- built in the contract: `Op`'s context follows its third argument, its plugin's kind (`Op<Conn, S, "domain">`), and `definePlugin` gives each op it holds the context of its `kind`, a connector when left out. A domain op's run that reads `ctx.conn` does not compile, nor a connector op's that reads `ctx.ops`
-	- built in the runtime: the door gives a domain op `{ ops, files }`, each found among every mounted op, and a connector op `{ conn, files }`
-- files: the run thread's attachments, for both kinds of op. `files.get(id)` gives `{ id, name, mimeType, size, bytes }`, and `files.list()` gives each file's metadata, without its bytes. A plugin gets bytes, never the store's path
-	- the scope is the run's thread: a file id of another thread is an `OpFailed` that names the id and the thread. Built: the door resolves the id through the store's thread, and gives a domain op's listed calls the same scope
+	- built in the runtime: the door gives a domain op `{ ops }`, each found among every mounted op, and a connector op `{ conn }`
 - `params` is the input, parsed with the op's `input`
 
 ## Uses
@@ -101,18 +99,10 @@ The model knows only what the card says, so the card is the whole interface.
 
 ## Approval
 
-- the op declares, the door asks: `approval` on its node. `true` asks with the default text and decisions; an object gives a `description` (a fixed string, or a function of the parsed input), an optional `when` (a function of the parsed input), and the `decisions` it allows (default approve, edit and reject). The object form needs its description
-- the door holds the gate after it parses the input and before it makes the connection or a domain op's listed calls, so the user approves what will run. A `when` that answers false for the parsed input skips the ask and runs the op
-- the ask gets one request: the op's name, its parsed input, the tool call's id, the description, and the allowed decisions. A run with no way to ask refuses the call
-- the four decisions, and what each does
-	- approve: the call runs
-	- reject: the call does not run, and an optional message goes to the model; the door throws an `OpFailed` that says the user declined and the call did not run
-	- edit: the new args are parsed with the same strict parse, and the call runs with them
-	- respond: the call does not run, and the message is the call's result text, as a `Responded` the chat's extension reads. It is never the way to deny an op that changes data
-- a decision the op does not allow is a reject that says so
-- que's web run asks: the stream ends on an AG-UI `tool_call` interrupt on that call, with one branch of its `responseSchema` per decision the op allows; the card shows the op and its input with a control for each decision, and the answer, LangChain's per-call payload, resumes the run, which runs the op or refuses it (`server/runtime/src/run/runs.ts`)
-- que's MCP server refuses: over MCP an op that needs approval is listed, its tool's description says it cannot be approved over MCP (or, for an op whose `when` asks only some calls, that those calls are refused and the others run), and every call that needs approval is refused with that reason. The refusal is an `OpFailed` that names the op, says it needs approval, that it cannot be approved over MCP, and that the call did not run, and names no other place to approve. No client is asked, on either protocol era or either mouth, and an answer or a `requestState` a client brings changes nothing
-- edit and respond are the web run's alone: over MCP an op that needs approval never runs, so an op that needs a new input, or a message as its result, runs from the web UI
+- the op declares, the door refuses: `approval` on its node. `true` says every call needs approval; `{ when }` gives a function of the parsed input that says which calls need it. Left out, or `false`, no call needs it
+- over MCP a call that needs approval is refused: no client is asked, and an answer or a `requestState` a client brings changes nothing
+- the door checks after it parses the input and before it makes the connection or a domain op's listed calls. A `when` that answers false for the parsed input runs the op
+- the refusal is an `OpFailed`: `<op> needs approval, and it cannot be approved over MCP: the call did not run`. It names no other place to approve. The model gets it as the tool result, and the run goes on
+- the tool of an op that needs approval is listed. Its description says it cannot be approved over MCP, or, for an op with a `when`, that the calls that need approval are refused and the others run
 - a flagged op's tool says `annotations.destructiveHint: true`. It is a hint: clients treat annotations as untrusted, so it never replaces the refusal, and the door still refuses the call
-- a refusal is an `OpFailed` that says the call did not run, so the model gets it as the tool result and the run goes on
-- only the call the model makes is asked. A domain op's listed calls run without one
+- only the call the model makes is checked. A domain op's listed calls run without one

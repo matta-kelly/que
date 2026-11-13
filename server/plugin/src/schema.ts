@@ -1,6 +1,5 @@
 /**
- * The plugin schema: what a plugin is made of. A plugin, its ops, roles, skills and capabilities, and the cases that
- * prove a capability. Each type is the contract: a definition in code is parsed with it (contract.ts), its live values
+ * The plugin schema: what a plugin is made of. A plugin, its ops, roles, skills and capabilities. Each type is the contract: a definition in code is parsed with it (contract.ts), its live values
  * (an op's input and run, a plugin's credential, connect and whoami) too, and a note of the same name gives the prose.
  * Each thing has its real name, unique in the whole graph.
  */
@@ -11,7 +10,6 @@ import {
   defineType,
   manyOrNone,
   type Graph,
-  one,
   oneOrNone,
   type Type,
 } from "@mku1tra/basis";
@@ -50,55 +48,23 @@ const credential = z
   .custom<z.ZodObject>()
   .refine(isObject, "must be a zod object");
 
-/** The four answers a flagged op accepts: approve, edit, reject and respond. */
-export const DECISIONS = ["approve", "edit", "reject", "respond"] as const;
-export type ApprovalDecision = (typeof DECISIONS)[number];
-
 /**
- * An op's approval: `true`, or an object with a `description` (a fixed string, or a function of the parsed input),
- * an optional `when` (a function of the parsed input) and an optional list of `decisions`. The object form needs its
- * description; the default decisions are approve, edit and reject.
+ * An op's approval: `true`, or an object with `when`, a function of the parsed input that says which calls need it.
+ * Over MCP, a call that needs approval is refused.
  */
-export type Approval =
-  | boolean
-  | {
-      description: string | ((input: unknown) => string);
-      when?: (input: unknown) => boolean;
-      decisions?: ApprovalDecision[];
-    };
+export type Approval = boolean | { when: (input: unknown) => boolean };
 
-const decision = z.enum(DECISIONS);
-
-// The object form needs a description, its decisions are the four, and when is a function. A boolean passes as it is.
+// The object form gives when, a function. A boolean passes as it is.
 const approval = z.custom<Approval>().superRefine((value, ctx) => {
   if (typeof value === "boolean") return;
-  if (typeof value !== "object" || value === null) {
-    ctx.addIssue({
-      code: "custom",
-      message: "must be true, false, or an object with a description",
-    });
-    return;
-  }
-  const { description, when, decisions } = value as {
-    description?: unknown;
-    when?: unknown;
-    decisions?: unknown;
-  };
-  if (description === undefined)
-    ctx.addIssue({
-      code: "custom",
-      message: "the object form needs a description",
-    });
-  if (when !== undefined && typeof when !== "function")
-    ctx.addIssue({ code: "custom", message: "when must be a function" });
   if (
-    decisions !== undefined &&
-    (!Array.isArray(decisions) ||
-      !decisions.every((one) => decision.safeParse(one).success))
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { when?: unknown }).when !== "function"
   )
     ctx.addIssue({
       code: "custom",
-      message: `decisions must each be one of ${DECISIONS.join(", ")}`,
+      message: "must be true, false, or an object whose when is a function",
     });
 });
 
@@ -111,8 +77,8 @@ const op = defineType({
     // The role whose login it runs with, when its plugin lists roles.
     role: oneOrNone(() => accessRole),
     input,
-    // Whether it needs a yes from the user before it runs, and how it asks. Left out, it carries none, which the
-    // door reads as no.
+    // Whether a call needs approval: always, or when its when says so. Left out, it carries none, which the door reads
+    // as no.
     approval: approval.optional(),
     // What it does: run(ctx, params). A connector op gets its connection in ctx, and a domain op the ops it uses.
     run: fn,
@@ -144,30 +110,14 @@ const skill = defineType({
 const capability = defineType({
   name: "capability",
   description:
-    "An outcome someone wants from a system: the unit of intent, and the unit that is proven. `Capability` in @mku1tra/que-plugin.",
+    "An outcome someone wants from a system: the unit of intent, and the unit of work. `Capability` in @mku1tra/que-plugin.",
   fields: { title: text },
-});
-
-const kase = defineType({
-  name: "case",
-  description:
-    "One behaviour of one capability, which the eval runner runs with the model. `Case` in @mku1tra/que-plugin.",
-  fields: {
-    // The capability it is about.
-    capability: one(() => capability),
-    // What the user says.
-    input: text,
-    // What is true before the run.
-    start: text,
-    // One statement that is true or false after the run.
-    good: text,
-  },
 });
 
 const pluginType = defineType({
   name: "plugin",
   description:
-    "One concern, in one folder: its ops, skills and capabilities, and the cases that prove them. `Plugin` in @mku1tra/que-plugin.",
+    "One concern, in one folder: its ops, skills and capabilities. `Plugin` in @mku1tra/que-plugin.",
   fields: {
     title: text,
     // What it touches: one service (a connector, when left out), or many, through the connectors (a domain).
@@ -188,8 +138,6 @@ const pluginType = defineType({
     // never written, and their skills.
     usesOps: manyOrNone(() => op),
     usesSkills: manyOrNone(() => skill),
-    // The cases in its cases.ts, found by their file, as its skills are by their folders.
-    cases: manyOrNone(() => kase),
   },
 });
 
@@ -394,40 +342,16 @@ const opUses = defineRule({
   },
 });
 
-// A case is about a capability of the plugin whose cases.ts holds it: the evals run it with that plugin. A capability
-// that is no node, basis/link reports, so each fault is said once.
-const caseCapability = defineRule({
-  name: "case-capability",
-  description:
-    "Each case a plugin holds is about a capability the plugin lists.",
-  on: pluginType,
-  check: (node, graph) =>
-    (node.cases ?? []).flatMap((name, i) => {
-      const found = graph.get(name, kase);
-      return found &&
-        !(node.capabilities ?? []).includes(found.capability) &&
-        graph.get(found.capability, capability)
-        ? [
-            {
-              field: `/cases/${i}`,
-              message: `${name} is about ${found.capability}, which ${node.name} does not list: a case is about a capability of the plugin that holds it.`,
-            },
-          ]
-        : [];
-    }),
-});
-
 export const plugin = defineSchema({
   name: "plugin",
   description:
-    "What a que plugin is made of: its ops, skills, capabilities and roles, and the cases of a capability.",
+    "What a que plugin is made of: its ops, skills, capabilities and roles.",
   types: {
     plugin: pluginType,
     op,
     "access-role": accessRole,
     skill,
     capability,
-    case: kase,
   },
   // From the package root, so the path is the same from src/ and from dist/.
   typeNotes: new URL("../types/", import.meta.url),
@@ -443,6 +367,5 @@ export const plugin = defineSchema({
     ownUse,
     connectorUse,
     opUses,
-    caseCapability,
   ],
 });

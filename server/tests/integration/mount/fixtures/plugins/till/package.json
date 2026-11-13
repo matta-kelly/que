@@ -1,7 +1,4 @@
 {
   "name": "till",
-  "type": "module",
-  "dependencies": {
-    "@opentelemetry/api": "^1.9.1"
-  }
+  "type": "module"
 }

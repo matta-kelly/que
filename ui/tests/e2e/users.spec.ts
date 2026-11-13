@@ -2,8 +2,7 @@ import { test, expect } from "@playwright/test";
 import { openApp } from "./helpers";
 
 // The signed-in user (the dev identity) shows at the bottom of the sidebar;
-// clicking it opens Settings; Account is where the name is editable. Settings →
-// Users lists everyone.
+// clicking it opens Account, where the name is editable.
 test("users: sidebar shows me; editing my name updates it", async ({
   page,
 }) => {
@@ -15,18 +14,16 @@ test("users: sidebar shows me; editing my name updates it", async ({
   ).trim();
 
   await navUser.click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Account", exact: true }).click();
-  await expect(dialog.getByRole("heading", { name: "Account" })).toBeVisible();
-  const name = dialog.getByLabel("Name");
+  await expect(page.getByRole("heading", { name: "Account" })).toBeVisible();
+  const name = page.getByLabel("Name");
 
   await name.fill("Renamed Tester");
-  await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog.getByText("Saved")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
   await expect(navUser).toContainText("Renamed Tester");
 
   await name.fill(original);
-  await dialog.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   await expect(navUser).toContainText(original);
 });
 
@@ -40,37 +37,17 @@ test("users: upload and remove a profile picture", async ({ page }) => {
   await openApp(page);
   const navUser = page.locator('[data-slot="nav-user"]');
   await navUser.click();
-  const dialog = page.getByRole("dialog");
-  await dialog.getByRole("button", { name: "Account", exact: true }).click();
-  await dialog
+  await page
     .locator('input[type="file"]')
     .setInputFiles({ name: "me.png", mimeType: "image/png", buffer: png });
-  await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(dialog.getByText("Saved")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved")).toBeVisible();
   await expect(navUser.locator("img")).toHaveAttribute(
     "src",
     /^data:image\/webp/,
   );
 
-  await dialog.getByRole("button", { name: "Remove" }).click();
-  await dialog.getByRole("button", { name: "Save" }).click();
+  await page.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   await expect(navUser.locator("img")).toHaveCount(0);
-});
-
-// Needs a deployment with no DEV_USER_INSTRUCTIONS, so the text can be saved.
-test("users: the list of users carries the instructions of nobody", async ({
-  page,
-}) => {
-  await openApp(page);
-  try {
-    const saved = await page.request.patch("/api/que/me", {
-      data: { instructions: "Only I read this." },
-    });
-    expect(saved.ok()).toBe(true);
-    const list = await page.request.get("/api/que/users");
-    expect(list.ok()).toBe(true);
-    expect(await list.text()).not.toContain("Only I read this.");
-  } finally {
-    await page.request.patch("/api/que/me", { data: { instructions: "" } });
-  }
 });

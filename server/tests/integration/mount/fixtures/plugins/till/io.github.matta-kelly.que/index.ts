@@ -1,9 +1,5 @@
-import { trace } from "@opentelemetry/api";
 import { definePlugin } from "@mku1tra/que-plugin";
 import * as z from "zod";
-
-// The till's own tracer, as a plugin that traces its own work has one.
-const tracer = trace.getTracer("till");
 
 export default definePlugin({
   name: "till",
@@ -27,21 +23,9 @@ export default definePlugin({
       name: "till-tally",
       type: "op",
       title: "Tally",
-      description:
-        "Tallies an item: it looks the item up in a span of the till's own, which names the item.",
+      description: "Tallies an item.",
       input: z.object({ item: z.string().describe("The item's name") }),
-      run: async ({ conn }, { item }) =>
-        tracer.startActiveSpan(
-          "till-lookup",
-          { attributes: { "till.item": item } },
-          async (span) => {
-            try {
-              return { conn, item, tallied: 3 };
-            } finally {
-              span.end();
-            }
-          },
-        ),
+      run: async ({ conn }, { item }) => ({ conn, item, tallied: 3 }),
     },
     {
       name: "till-wait",
@@ -84,9 +68,7 @@ export default definePlugin({
       description:
         "Notes what the user says about an item: a read, so the user may answer in the till's place.",
       approval: {
-        description: "Note: what should the till hold about this item?",
-        decisions: ["approve", "reject", "respond"],
-        // A free item is noted as it is, so the door asks only for the items that are not free.
+        // A free item is noted as it is, so the door refuses only the items that are not free.
         when: (input) => (input as { item: string }).item !== "free",
       },
       input: z.object({ item: z.string().describe("The item's name") }),

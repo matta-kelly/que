@@ -5,7 +5,4 @@ export default defineDeployment({
   type: "deployment",
   description: "The hollow-deployment deployment of a fixture.",
   plugins: ["hollow"],
-  agents: ["bare"],
-  loops: ["long-chat"],
-  models: ["small"],
 });

@@ -42,7 +42,6 @@ const card = (name: string, nodes: Partial<Que> & Pick<Que, "kind">): Card => ({
       usesOps: [],
       usesSkills: [],
       capabilities: [],
-      cases: [],
       ...nodes,
     },
   },

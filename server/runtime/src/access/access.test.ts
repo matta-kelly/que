@@ -63,14 +63,13 @@ const sales = definePlugin({
 
 // The cards the control plane reads: `usesOps` is what readPlugin makes of the sales op's `uses`.
 const cards = [
-  cardOf({ definition: shop, cases: [] }),
-  cardOf({ definition: ledger, cases: [] }),
+  cardOf({ definition: shop }),
+  cardOf({ definition: ledger }),
   cardOf({
     definition: {
       ...sales,
       plugin: { ...sales.plugin, kind: "domain", usesOps: ["shop-open"] },
     },
-    cases: [],
   }),
 ];
 

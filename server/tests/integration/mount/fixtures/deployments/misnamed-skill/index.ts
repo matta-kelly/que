@@ -5,7 +5,4 @@ export default defineDeployment({
   type: "deployment",
   description: "The misnamed-skill-deployment deployment of a fixture.",
   plugins: ["misnamed-skill"],
-  agents: ["bare"],
-  loops: ["long-chat"],
-  models: ["small"],
 });

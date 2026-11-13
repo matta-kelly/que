@@ -1,7 +1,6 @@
 /**
- * A deployment as pieces for basis's lint: its definition, each agent, loop and model as its file gives it, and each
- * node of each plugin it names (piecesOf in @mku1tra/que-plugin), and the facts the model catalog gives of each of its
- * models (catalog.ts). Its root's schema takes them as its sources (deploymentSources), so each lint of the root,
+ * A deployment as pieces for basis's lint: its definition, and each node of each plugin it names (piecesOf in
+ * @mku1tra/que-plugin). Its root's schema takes them as its source (deploymentSources), so each lint of the root,
  * mount's too, reads one graph of the deployment.
  */
 
@@ -9,8 +8,7 @@ import { realpathSync } from "node:fs";
 import { relative, sep } from "node:path";
 import type { Source } from "@mku1tra/basis";
 import { loadedOf, type Loaded } from "@mku1tra/que-plugin";
-import { factsOf } from "./catalog.ts";
-import { readDeployment, type Placed, type ReadDeployment } from "./read.ts";
+import { readDeployment, type ReadDeployment } from "./read.ts";
 
 // A node as the piece it is: its name, and its fields.
 const piece = (
@@ -26,15 +24,8 @@ export function piecesOf(
   read: ReadDeployment,
   from: (path: string) => string = (path) => path,
 ): Loaded {
-  const placed = (list: Placed<{ name: string }>[]) =>
-    list.map(({ file, node }) => piece(from(file), node));
   const out: Loaded = {
-    pieces: [
-      ...(read.deployment ? [piece(from(read.index), read.deployment)] : []),
-      ...placed(read.agents),
-      ...placed(read.loops),
-      ...placed(read.models),
-    ],
+    pieces: read.deployment ? [piece(from(read.index), read.deployment)] : [],
     problems: read.problems.map((p) => ({ ...p, path: from(p.path) })),
     unread: read.unread.map((u) => ({ ...u, path: from(u.path) })),
   };
@@ -86,44 +77,10 @@ function deployment(dir: string, root: string): Source {
 }
 
 /**
- * The facts of each model of the deployment in `dir` that the model catalog has an entry for: a piece of the model's
- * node, at its file's path with `#catalog`, that gives its window and its price, so a problem of one names the
- * catalog. A model the catalog has none for gets no piece: its file, or its note, gives its facts. A file or a note
- * that gives one the catalog gives too is two pieces of one field (basis/merge).
- */
-function catalog(dir: string, root: string): Source {
-  return async function modelCatalog() {
-    const { from } = fromRoot(root);
-    const { models } = await readDeployment(dir);
-    return {
-      pieces: models.flatMap(({ file, node }) => {
-        const facts = factsOf(node.id);
-        return facts
-          ? [
-              {
-                path: `${from(file)}#catalog`,
-                name: node.name,
-                fields: {
-                  type: "model",
-                  window: facts.window,
-                  price: facts.price,
-                },
-              },
-            ]
-          : [];
-      }),
-      problems: [],
-      unread: [],
-    };
-  };
-}
-
-/**
  * The sources of the deployment in `dir`, for its root `root`: what a root's schema gives as its sources so that its
- * lint reads the deployment as one graph. Its code (its definition, its agents, loops and models, and each node of
- * each plugin it names) is one source; the model catalog's facts of its models are another. The one place a source of
- * the deployment is added: a root that takes these takes each.
+ * lint reads the deployment as one graph: its definition, and each node of each plugin it names. The one place a
+ * source of the deployment is added: a root that takes these takes each.
  */
 export function deploymentSources(dir: string, root: string): Source[] {
-  return [deployment(dir, root), catalog(dir, root)];
+  return [deployment(dir, root)];
 }

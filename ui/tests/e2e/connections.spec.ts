@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { openApp } from "./helpers";
+import { openApp, openSection } from "./helpers";
 
 // Needs Odoo connected for the dev user (it checks Odoo shows "Connected").
 
@@ -10,11 +10,7 @@ test("connections: odoo shows connected; bad credential is rejected @live", asyn
   page,
 }) => {
   await openApp(page);
-  await page.locator('[data-slot="nav-user"]').click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Connections", exact: true })
-    .click();
+  await openSection(page, "Connections");
   const odoo = page.getByTestId("connection-odoo");
   await expect(odoo).toContainText("Odoo");
   await expect(odoo).toContainText("Connected");
@@ -30,10 +26,7 @@ test("connections: odoo shows connected; bad credential is rejected @live", asyn
     /unreachable|login failed/i,
   );
   await page.reload();
-  await page.locator('[data-slot="nav-user"]').click();
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Connections", exact: true })
-    .click();
+  await expect(page.locator('[data-slot="nav-user"]')).toBeVisible();
+  await openSection(page, "Connections");
   await expect(page.getByTestId("connection-odoo")).toContainText("Connected");
 });

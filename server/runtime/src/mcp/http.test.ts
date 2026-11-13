@@ -13,7 +13,8 @@
 
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -381,16 +382,16 @@ test("given a user granted the deployment's domain, when the session posts initi
   const names = toolsIn(answered(listText, list.headers.get("content-type")));
   assert.deepEqual(
     names
-      .filter((name) => name.startsWith("till."))
+      .filter((name) => name.startsWith("till-"))
       .sort((a, b) => a.localeCompare(b)),
     [
-      "till.till-count",
-      "till.till-jam",
-      "till.till-note",
-      "till.till-stall",
-      "till.till-tally",
-      "till.till-void",
-      "till.till-wait",
+      "till-count",
+      "till-jam",
+      "till-note",
+      "till-stall",
+      "till-tally",
+      "till-void",
+      "till-wait",
     ],
     `tools/list does not name the deployment's plugin ops: ${names.join(", ")}`,
   );
@@ -398,7 +399,7 @@ test("given a user granted the deployment's domain, when the session posts initi
   const call = await post(
     email,
     rpc(3, "tools/call", {
-      name: "till.till-count",
+      name: "till-count",
       arguments: { item: "apple" },
     }),
   );
@@ -412,7 +413,7 @@ test("given a user granted the deployment's domain, when the session posts initi
   assert.notEqual(
     reply?.result?.isError,
     true,
-    `the call of till.till-count failed: ${callText}`,
+    `the call of till-count failed: ${callText}`,
   );
   assert.deepEqual(
     answerOf(reply),
@@ -496,7 +497,7 @@ test("given the same user, when two separate posts each list the tools, then eac
     answered(secondText, second.headers.get("content-type")),
   );
   assert.ok(
-    firstNames.includes("till.till-count"),
+    firstNames.includes("till-count"),
     `the first tools/list names no till op: ${firstNames.join(", ")}`,
   );
   assert.deepEqual(
@@ -506,7 +507,7 @@ test("given the same user, when two separate posts each list the tools, then eac
   );
 });
 
-test("given a user granted the domain with no till key saved, when a post lists the tools, then it names no till op, and when the key is saved and a second post lists, then it names till.till-count", async () => {
+test("given a user granted the domain with no till key saved, when a post lists the tools, then it names no till op, and when the key is saved and a second post lists, then it names till-count", async () => {
   const email = "cleo.http@example.com";
   await grant(email, "Cleo Http", "till-domain");
 
@@ -522,7 +523,7 @@ test("given a user granted the domain with no till key saved, when a post lists 
     answered(beforeText, before.headers.get("content-type")),
   );
   assert.deepEqual(
-    beforeNames.filter((name) => name.startsWith("till.")),
+    beforeNames.filter((name) => name.startsWith("till-")),
     [],
     `a tools/list with no till key saved names a till op: ${beforeNames.join(", ")}`,
   );
@@ -540,8 +541,8 @@ test("given a user granted the domain with no till key saved, when a post lists 
     answered(afterText, after.headers.get("content-type")),
   );
   assert.ok(
-    afterNames.includes("till.till-count"),
-    `a tools/list after the till key was saved does not name till.till-count: ${afterNames.join(", ")}`,
+    afterNames.includes("till-count"),
+    `a tools/list after the till key was saved does not name till-count: ${afterNames.join(", ")}`,
   );
 });
 
@@ -584,7 +585,7 @@ test("given the Access settings and the team's key set, when a post carries a to
     );
     const names = toolsIn(answered(listText, list.headers.get("content-type")));
     assert.ok(
-      names.includes("till.till-count"),
+      names.includes("till-count"),
       `a tools/list on the token does not name the token user's till op: ${names.join(", ")}`,
     );
 
@@ -643,22 +644,22 @@ test("given a user on protocol 2026-07-28, when the session posts tools/list and
   const names = toolsIn(answered(listText, list.headers.get("content-type")));
   assert.deepEqual(
     names
-      .filter((name) => name.startsWith("till."))
+      .filter((name) => name.startsWith("till-"))
       .sort((a, b) => a.localeCompare(b)),
     [
-      "till.till-count",
-      "till.till-jam",
-      "till.till-note",
-      "till.till-stall",
-      "till.till-tally",
-      "till.till-void",
-      "till.till-wait",
+      "till-count",
+      "till-jam",
+      "till-note",
+      "till-stall",
+      "till-tally",
+      "till-void",
+      "till-wait",
     ],
     `a 2026-07-28 tools/list does not name the deployment's plugin ops: ${names.join(", ")}`,
   );
 
   const call = await modern(email, 2, "tools/call", {
-    name: "till.till-count",
+    name: "till-count",
     arguments: { item: "apple" },
   });
   const callText = await call.text();
@@ -671,7 +672,7 @@ test("given a user on protocol 2026-07-28, when the session posts tools/list and
   assert.notEqual(
     reply?.result?.isError,
     true,
-    `the call of till.till-count failed: ${callText}`,
+    `the call of till-count failed: ${callText}`,
   );
   assert.deepEqual(
     answerOf(reply),
@@ -722,7 +723,7 @@ test("given a 2026-07-28 client that declares form elicitation, when it calls th
     email,
     1,
     "tools/call",
-    { name: "till.till-void", arguments: { item: "apple" } },
+    { name: "till-void", arguments: { item: "apple" } },
     FORM,
   );
   const replyText = await res.text();
@@ -736,7 +737,7 @@ test("given a 2026-07-28 client that declares no elicitation, when it calls till
   await saveKey(email);
 
   const res = await modern(email, 1, "tools/call", {
-    name: "till.till-void",
+    name: "till-void",
     arguments: { item: "apple" },
   });
   const replyText = await res.text();
@@ -759,7 +760,7 @@ test("given a 2025-era client over HTTP, when it calls till-void, then the op do
   const call = await post(
     email,
     rpc(2, "tools/call", {
-      name: "till.till-void",
+      name: "till-void",
       arguments: { item: "apple" },
     }),
   );
@@ -779,7 +780,7 @@ test("given a 2026-07-28 client, when it retries till-void with an accept and a 
     1,
     "tools/call",
     {
-      name: "till.till-void",
+      name: "till-void",
       arguments: { item: "apple" },
       requestState: "a-state-for-the-call",
       inputResponses: { confirm: { action: "accept", content: {} } },
@@ -797,7 +798,7 @@ test("given a 2026-07-28 client, when it retries till-void with an accept and a 
     2,
     "tools/call",
     {
-      name: "till.till-void",
+      name: "till-void",
       arguments: { item: "apple" },
       requestState: "a-state-for-the-call",
     },
@@ -820,7 +821,7 @@ test("given an op whose object approval's when answers false for the args, when 
     email,
     1,
     "tools/call",
-    { name: "till.till-note", arguments: { item: "free" } },
+    { name: "till-note", arguments: { item: "free" } },
     FORM,
   );
   const freeText = await free.text();
@@ -841,7 +842,7 @@ test("given an op whose object approval's when answers false for the args, when 
     email,
     2,
     "tools/call",
-    { name: "till.till-note", arguments: { item: "scarf" } },
+    { name: "till-note", arguments: { item: "scarf" } },
     FORM,
   );
   const notedText = await noted.text();
@@ -867,14 +868,14 @@ test("given a 2026-07-28 client, when it lists the tools, then the flagged till-
   const replyText = await res.text();
   const reply = answered(replyText, res.headers.get("content-type"));
   const voided = reply?.result?.tools?.find(
-    (tool) => tool.name === "till.till-void",
+    (tool) => tool.name === "till-void",
   );
   const counted = reply?.result?.tools?.find(
-    (tool) => tool.name === "till.till-count",
+    (tool) => tool.name === "till-count",
   );
 
-  assert.ok(voided, `tools/list names no till.till-void: ${replyText}`);
-  assert.ok(counted, `tools/list names no till.till-count: ${replyText}`);
+  assert.ok(voided, `tools/list names no till-void: ${replyText}`);
+  assert.ok(counted, `tools/list names no till-count: ${replyText}`);
   assert.equal(
     voided.annotations?.destructiveHint,
     true,
@@ -899,4 +900,140 @@ test("given a 2026-07-28 client, when it lists the tools, then the flagged till-
     "How many of an item the till holds.",
     `the unflagged op's tool description carries more than the op's own text: ${replyText}`,
   );
+});
+
+/** An answer's JSON-RPC message, read loosely: the skills tests read fields Reply does not name. */
+const loose = async (response: Response) =>
+  answered(await response.text(), response.headers.get("content-type")) as
+    | {
+        result?: Record<string, unknown> & {
+          capabilities?: {
+            extensions?: Record<string, unknown>;
+            resources?: unknown;
+          };
+          instructions?: string;
+          skills?: {
+            uri: string;
+            frontmatter: Record<string, unknown>;
+            resources: { uri: string; digest: string; size: number }[];
+          }[];
+          resources?: { uri: string; mimeType?: string }[];
+          contents?: { uri: string; text?: string }[];
+        };
+        error?: { code: number; message: string };
+      }
+    | undefined;
+
+/** The till's skill, as its file is: what MCP serves at its URI. */
+const tillSkill = {
+  uri: "skill://till/till-ops/SKILL.md",
+  file: readFileSync(
+    join(
+      import.meta.dirname,
+      "../../../tests/integration/mount/fixtures/plugins/till/skills/till-ops/SKILL.md",
+    ),
+  ),
+};
+
+test("given a user whose catalog holds the till, when the session initializes, then the server declares the skills extension, and its instructions name the till's skill and its URI", async () => {
+  const email = "sky.http@example.com";
+  await grant(email, "Sky Http", "till-domain");
+  await saveKey(email);
+  const reply = await loose(await post(email, initialize));
+  assert.ok(
+    reply?.result?.capabilities?.extensions?.["io.modelcontextprotocol/skills"],
+    `initialize declares no skills extension: ${JSON.stringify(reply)}`,
+  );
+  assert.ok(reply?.result?.capabilities?.resources, "no resources capability");
+  const instructions = reply?.result?.instructions ?? "";
+  assert.match(
+    instructions,
+    /read its SKILL\.md \(resources\/read on its URI\)/,
+  );
+  assert.ok(
+    instructions.includes(
+      `- till-ops: How to use the till's ops. (${tillSkill.uri})`,
+    ),
+    `the instructions do not list the till's skill: ${instructions}`,
+  );
+});
+
+test("given a user whose catalog holds the till, when the session lists and gets skills, then the till's skill comes back with its frontmatter as written and the digest and size of its file", async () => {
+  const email = "sky.http@example.com";
+  const listed = await loose(await post(email, rpc(2, "skills/list")));
+  const skills = listed?.result?.skills ?? [];
+  const digest = `sha256:${createHash("sha256").update(tillSkill.file).digest("hex")}`;
+  const expected = {
+    uri: tillSkill.uri,
+    frontmatter: {
+      name: "till-ops",
+      description: "How to use the till's ops.",
+      "allowed-tools":
+        "till-count till-tally till-wait till-stall till-void till-note till-jam",
+    },
+    resources: [
+      { uri: tillSkill.uri, digest, size: tillSkill.file.byteLength },
+    ],
+  };
+  assert.deepEqual(
+    skills.map(({ uri, frontmatter, resources }) => ({
+      uri,
+      frontmatter,
+      resources,
+    })),
+    [expected],
+  );
+  const got = await loose(
+    await post(email, rpc(3, "skills/get", { uri: tillSkill.uri })),
+  );
+  const { uri, frontmatter, resources } = (got?.result?.skill ?? {}) as {
+    uri?: string;
+    frontmatter?: unknown;
+    resources?: unknown;
+  };
+  assert.deepEqual({ uri, frontmatter, resources }, expected);
+});
+
+test("given a user whose catalog holds the till, when a client without the extension lists and reads resources, then the till's SKILL.md is listed and reads as its file", async () => {
+  const email = "sky.http@example.com";
+  const listed = await loose(await post(email, rpc(2, "resources/list")));
+  assert.deepEqual(
+    (listed?.result?.resources ?? []).map(({ uri, mimeType }) => [
+      uri,
+      mimeType,
+    ]),
+    [[tillSkill.uri, "text/markdown"]],
+  );
+  const read = await loose(
+    await post(email, rpc(3, "resources/read", { uri: tillSkill.uri })),
+  );
+  assert.equal(
+    read?.result?.contents?.[0]?.text,
+    tillSkill.file.toString("utf8"),
+  );
+});
+
+test("given a 2026-07-28 client whose user's catalog holds the till, when it lists skills with no initialize, then the till's skill comes back", async () => {
+  const listed = await loose(
+    await modern("sky.http@example.com", 1, "skills/list"),
+  );
+  assert.deepEqual(
+    (listed?.result?.skills ?? []).map(({ uri }) => uri),
+    [tillSkill.uri],
+  );
+});
+
+test("given a signed-in user with no grant, when the session initializes and lists skills, then the extension is declared, there are no instructions and no skills, and reading the till's skill is an error", async () => {
+  const email = "nobody.http@example.com";
+  const init = await loose(await post(email, initialize));
+  assert.ok(
+    init?.result?.capabilities?.extensions?.["io.modelcontextprotocol/skills"],
+  );
+  assert.equal(init?.result?.instructions, undefined);
+  const listed = await loose(await post(email, rpc(2, "skills/list")));
+  assert.deepEqual(listed?.result?.skills, []);
+  const read = await loose(
+    await post(email, rpc(3, "resources/read", { uri: tillSkill.uri })),
+  );
+  assert.ok(read?.error, `the read did not fail: ${JSON.stringify(read)}`);
 });

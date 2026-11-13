@@ -61,11 +61,11 @@ const linted = async () => {
 test("the lint fails on an import of LangChain, LangGraph, deepagents, @langfuse/langchain or @assistant-ui/react-langgraph, in every file of the UI", async () => {
   const files = await linted();
   for (const file of [
-    "components/runtime/runtime-provider.tsx",
-    "components/assistant-ui/elements/thread.aui.tsx",
+    "components/settings/settings.tsx",
+    "app/api/[..._path]/route.ts",
     "lib/que-api.ts",
     "app/layout.tsx",
-    "tests/e2e/chat.spec.ts",
+    "tests/e2e/settings.spec.ts",
     "next.config.ts",
   ])
     assert.ok(files.includes(file), `the lint reads ${file}`);
@@ -84,15 +84,3 @@ test("the lint fails on an import of LangChain, LangGraph, deepagents, @langfuse
   }
   assert.deepEqual(passed, {});
 }, 60_000);
-
-test("the lint still lets assistant-ui and AG-UI in", async () => {
-  const text = [
-    `import { useThread } from "@assistant-ui/react";`,
-    `import { useAgUiRuntime } from "@assistant-ui/react-ag-ui";`,
-    `import { HttpAgent } from "@ag-ui/client";`,
-  ].join("\n");
-  assert.deepEqual(
-    [...(await flagged(text, "components/runtime/runtime-provider.tsx"))],
-    [],
-  );
-});

@@ -1,8 +1,8 @@
 /**
  * The MCP tools a deployment gives: one tool per op of each plugin in the
- * user's catalog, named `<plugin>.<op>`. The name is checked when the tool is
- * made, and two ops that come to one name are refused, so nothing shadows
- * another.
+ * user's catalog, named by the op's own name, the name its plugin's skills use.
+ * The name is checked when the tool is made, and two ops with one name are
+ * refused, so nothing shadows another.
  */
 
 import type { Approval, Op } from "@mku1tra/que-plugin";
@@ -29,29 +29,26 @@ const LIMIT = 64;
 const APPROVAL_LINE =
   "Needs approval, and cannot be approved over MCP: do not call it.";
 
-/** The line an op whose approval has a `when` ends with: the door asks only some calls, and refuses those over MCP. */
+/** The line an op whose approval has a `when` ends with: the door refuses only the calls `when` names. */
 const SOME_LINE =
   "Some calls need approval, which cannot be given over MCP: those calls are refused, and the others run.";
 
-/** The line a flagged op's description ends with: one that always asks, or one whose `when` asks only some calls. */
+/** The line a flagged op's description ends with: one whose every call needs approval, or one whose `when` names some calls. */
 function approvalLine(approval: Approval): string {
-  return typeof approval === "object" && approval.when
-    ? SOME_LINE
-    : APPROVAL_LINE;
+  return typeof approval === "object" ? SOME_LINE : APPROVAL_LINE;
 }
 
-/** The tool name an op of a plugin comes to. */
+/** The tool name of an op of a plugin: the op's own name, refused when a harness could not take it as a name. */
 export function toolName(plugin: string, op: string): string {
-  const name = `${plugin}.${op}`.toLowerCase();
-  if (!NAME.test(name))
+  if (!NAME.test(op))
     throw new Error(
-      `mcp: the plugin ${plugin} and its op ${op} come to the tool name ${name}, which has a character outside [a-z0-9._-]`,
+      `mcp: the op ${op} of the plugin ${plugin} has a character outside [a-z0-9._-], so it cannot be a tool name`,
     );
-  if (name.length > LIMIT)
+  if (op.length > LIMIT)
     throw new Error(
-      `mcp: the tool name ${name} is ${name.length} characters: model APIs take at most ${LIMIT}`,
+      `mcp: the op ${op} of the plugin ${plugin} is ${op.length} characters: model APIs take at most ${LIMIT}`,
     );
-  return name;
+  return op;
 }
 
 /** The tools a catalog gives, one for each op of each plugin it holds. */
@@ -65,7 +62,7 @@ export function toolsOf(catalog: Catalog): McpTool[] {
       const other = named.get(name);
       if (other)
         throw new Error(
-          `mcp: two ops come to the tool ${name}: ${other.plugin.name}.${other.op.name} and ${placed.plugin.name}.${placed.op.name}`,
+          `mcp: two ops have the tool name ${name}: one in the plugin ${other.plugin.name} and one in the plugin ${placed.plugin.name}`,
         );
       named.set(name, placed);
       tools.push({

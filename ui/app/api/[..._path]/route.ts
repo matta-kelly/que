@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { agentServer } from "@/components/runtime/agent-server";
+import { queServer } from "./que-server";
 
 const ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 
@@ -30,7 +30,7 @@ async function handleRequest(req: NextRequest, method: string) {
   if (!isAllowedRequestContext(req)) return crossOriginResponse();
 
   try {
-    const apiUrl = agentServer(process.env.QUE_URL);
+    const apiUrl = queServer(process.env.QUE_URL);
 
     const path = req.nextUrl.pathname.replace(/^\/?api\//, "");
     const searchParams = new URLSearchParams(req.nextUrl.search);
@@ -47,10 +47,6 @@ async function handleRequest(req: NextRequest, method: string) {
     const contentType = req.headers.get("content-type");
     if (contentType) headers.set("content-type", contentType);
 
-    // A stream that was cut is asked for again from the last event the browser got.
-    const lastEventId = req.headers.get("last-event-id");
-    if (lastEventId) headers.set("last-event-id", lastEventId);
-
     // Who's asking is decided by que's server. Pass along Cloudflare Access's
     // signed identity token: que verifies it and takes the email from it.
     const accessToken = req.headers.get("cf-access-jwt-assertion");
@@ -64,8 +60,7 @@ async function handleRequest(req: NextRequest, method: string) {
     };
 
     if (["POST", "PUT", "PATCH"].includes(method)) {
-      // The bytes as they came: a multipart body's boundary and file bytes are
-      // not text, and turning them into text corrupts both.
+      // The bytes as they came: the proxy reads no body, and changes none.
       options.body = await req.arrayBuffer();
     }
 

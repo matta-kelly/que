@@ -10,8 +10,8 @@ import type * as z from "zod";
 import { faults, refuse } from "./check.ts";
 import { plugin as schema } from "./schema.ts";
 
-// An op's approval and its allowed decisions, as the plugin schema defines them.
-export type { Approval, ApprovalDecision } from "./schema.ts";
+// An op's approval, as the plugin schema defines it.
+export type { Approval } from "./schema.ts";
 
 const types = schema.types;
 
@@ -28,30 +28,13 @@ export class OpFailed extends Error {
 /** A plugin's kind, as the plugin type says it: a connector, or a domain. */
 type PluginKind = NonNullable<NodeOf<"plugin">["kind"]>;
 
-/** One file an op reads: its id, name, mime type, size and bytes. A plugin gets bytes, never the store's path. */
-export type OpFile = {
-  id: string;
-  name: string;
-  mimeType: string;
-  size: number;
-  bytes: Uint8Array;
-};
-
-/** The run's thread's files, as an op's context gets them: read by the thread's own ids, never by a path. */
-export type OpFiles = {
-  /** The file `id` of the run's thread; an id of another thread is an OpFailed that names it. */
-  get(id: string): Promise<OpFile>;
-  /** The run's thread's files, by their metadata. */
-  list(): Promise<Omit<OpFile, "bytes">[]>;
-};
-
 /**
  * What an op's run gets, by its plugin's kind: a connector op gets its connection, and a domain op the ops it uses,
- * each by its name. Every op gets the run's thread's files.
+ * each by its name.
  */
-type Context<Conn, K extends PluginKind> = (K extends "domain"
+type Context<Conn, K extends PluginKind> = K extends "domain"
   ? { ops: Record<string, (params: unknown) => Promise<unknown>> }
-  : { conn: Conn }) & { files: OpFiles };
+  : { conn: Conn };
 
 /**
  * One operation a plugin exposes: an op node. Its name is its tool's name. `run` gets its context, by the kind of its
@@ -66,7 +49,7 @@ export type Op<
   run(ctx: Context<Conn, K>, params: z.infer<S>): Promise<unknown>;
 };
 
-/** One outcome a plugin gives: a capability node. Its cases name it. */
+/** One outcome a plugin gives: a capability node. */
 export type Capability = NodeOf<"capability">;
 
 /**
@@ -141,8 +124,7 @@ function heldIn(list: unknown, field: Held, type: Kind) {
   };
 }
 
-// The lists of a plugin that its code does not give: its skills, by their folders, and its cases, by its cases.ts; and
-// its usesOps, made from its ops' and skills' uses when it is read (readPlugin). A list given in code would be dropped
+// The lists of a plugin that its code does not give: its skills, by their folders; and its usesOps, made from its ops' and skills' uses when it is read (readPlugin). A list given in code would be dropped
 // for the one made, so it is a fault.
 const notInCode = (plugin: unknown): string[] =>
   typeof plugin === "object" && plugin !== null
@@ -151,9 +133,6 @@ const notInCode = (plugin: unknown): string[] =>
           ? [
               "skills are found by folder, in skills/: a plugin's code gives none",
             ]
-          : []),
-        ...("cases" in plugin
-          ? ["cases are found in cases.ts: a plugin's code gives none"]
           : []),
         ...("usesOps" in plugin
           ? [
@@ -174,10 +153,7 @@ export function definePlugin<
   Conn,
   K extends PluginKind = "connector",
 >(
-  definition: Omit<
-    Plugin<S, Conn>,
-    Held | "skills" | "cases" | "usesOps" | "kind"
-  > & {
+  definition: Omit<Plugin<S, Conn>, Held | "skills" | "usesOps" | "kind"> & {
     kind?: K;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ops?: Op<Conn, any, K>[];

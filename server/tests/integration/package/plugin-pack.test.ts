@@ -122,7 +122,6 @@ console.log(JSON.stringify({
   for (const name of [
     "definePlugin",
     "OpFailed",
-    "defineCases",
     "readPlugin",
     "plugin",
     "plugins",

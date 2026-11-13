@@ -8,8 +8,6 @@
     "../harness/types/**/*.ts",
     "../que-notes/*.ts",
     "../backend/**/*.ts",
-    "../chat-model/**/*.ts",
-    "../evals/**/*.ts",
     "../tests/**/*.ts"
   ],
   "exclude": ["node_modules"]

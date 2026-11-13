@@ -28,7 +28,7 @@ jobs:
       IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      # The commit goes in at build: the image has no .git, and a run's trace names its commit.
+      # The commit goes in at build, as the image's revision label: the image has no .git.
       - name: Build
         run: podman build --build-arg QUE_COMMIT="${{ github.sha }}" --tag "$IMAGE" .
       - name: Smoke

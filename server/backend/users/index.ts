@@ -1,7 +1,7 @@
 /**
  * Users: one row per person, created automatically the first time their
  * identity shows up (just-in-time provisioning). Everything per-user
- * (credentials, chats) is keyed by `User.id`. The first user is an admin.
+ * (credentials, grants) is keyed by `User.id`. The first user is an admin.
  */
 
 import pg from "pg";
@@ -22,17 +22,11 @@ export type Users = {
   list(): Promise<User[]>;
   /** Set the user's role to admin or member. */
   setRole(id: string, role: User["role"]): Promise<User | undefined>;
-  /** `instructions`: text to save, `null` to remove it. Left out, it stays as it is. */
+  /** `avatarUrl`: a picture to save, `null` to remove it. Left out, a field stays as it is. */
   update(
     id: string,
-    changes: {
-      name?: string;
-      avatarUrl?: string | null;
-      instructions?: string | null;
-    },
+    changes: { name?: string; avatarUrl?: string | null },
   ): Promise<User | undefined>;
-  /** The user's own instructions. Not part of `User`, so no list of users carries them. */
-  instructionsOf(id: string): Promise<string | null>;
 };
 
 type Row = {
@@ -42,7 +36,6 @@ type Row = {
   avatar_url: string | null;
   role: User["role"];
   created_at: Date;
-  instructions: string | null;
 };
 const toUser = (r: Row): User => ({
   id: r.id,
@@ -61,9 +54,8 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
   pool.on("error", (error) =>
     console.error("que: an idle Postgres connection was lost:", error.message),
   );
-  const ready = pool
-    .query(
-      `
+  const ready = pool.query(
+    `
     CREATE TABLE IF NOT EXISTS users (
       id         uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
       email      text        NOT NULL UNIQUE,
@@ -72,13 +64,7 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
       role       text        NOT NULL DEFAULT 'member',
       created_at timestamptz NOT NULL DEFAULT now()
     )`,
-    )
-    // A table made before the column was.
-    .then(() =>
-      pool.query(
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS instructions text",
-      ),
-    );
+  );
 
   return {
     async ensure({ email, name }) {
@@ -115,32 +101,21 @@ export function createUsers(databaseUrl = process.env.DATABASE_URL): Users {
       );
       return rows[0] && toUser(rows[0]);
     },
-    async update(id, { name, avatarUrl, instructions }) {
+    async update(id, { name, avatarUrl }) {
       await ready;
       const { rows } = await pool.query<Row>(
         `UPDATE users SET
-           name         = COALESCE($2, name),
-           avatar_url   = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END,
-           instructions = CASE WHEN $5::boolean THEN $6 ELSE instructions END
+           name       = COALESCE($2, name),
+           avatar_url = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END
          WHERE id = $1 RETURNING *`,
         [
           id,
           name?.trim() || null,
           avatarUrl !== undefined,
           avatarUrl?.trim() || null,
-          instructions !== undefined,
-          instructions ?? null,
         ],
       );
       return rows[0] && toUser(rows[0]);
-    },
-    async instructionsOf(id) {
-      await ready;
-      const { rows } = await pool.query<Pick<Row, "instructions">>(
-        "SELECT instructions FROM users WHERE id = $1",
-        [id],
-      );
-      return rows[0]?.instructions ?? null;
     },
   };
 }

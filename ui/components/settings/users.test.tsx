@@ -108,8 +108,7 @@ afterEach(() => {
 
 test("given an admin, when the Users screen loads, then each user's row lists every domain with a toggle that is on for the domains the user holds, and names the roles and connectors the domain gives", async () => {
   const fetch = stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
     [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
@@ -233,8 +232,7 @@ test("given an admin, when the /que/me read fails, then the screen shows its err
 test("given an admin, when the /que/admin/domains read fails, then the screen shows its error line in place of the rows", async () => {
   // The users read has answered; the domains read, which decides what every toggle names, has not.
   const answered = {
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
   };
@@ -287,8 +285,7 @@ test("given an admin, when they turn a domain on, then the screen sends PUT /que
     [BOB.id]: [],
   };
   const fetch = stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers(grants)),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -372,8 +369,7 @@ test("given an admin, when they set a member to admin, then the screen sends PAT
     { ...BOB, role: roles[BOB.id], grants: [] },
   ];
   const fetch = stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(userRows()),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -425,8 +421,6 @@ test("given an admin, when they set a member to admin, then the screen sends PAT
       json({
         ...BOB,
         role: "admin",
-        instructions: null,
-        instructionsFrom: "account",
       }),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(userRows()),
@@ -450,8 +444,7 @@ test("given an admin, when they set a member to admin, then the screen sends PAT
 
 test("given an admin sets themselves to member, then the server's 409 shows on the row, and the role stays", async () => {
   stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -485,8 +478,7 @@ test("given an admin sets themselves to member, then the server's 409 shows on t
 test("given the server refuses a change (400, 404), then the row shows its error and the toggle goes back", async () => {
   const grants: Record<string, string[]> = { [ADA.id]: [], [BOB.id]: [] };
   stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers(grants)),
     [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
@@ -542,8 +534,7 @@ test("given the server refuses a change (400, 404), then the row shows its error
 test("given an admin, when a write is refused with a body that is not JSON, then the row shows the generic error", async () => {
   // A grant answered 500 text/plain: the parse has no reason to show, so the row shows the generic one.
   stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({ [ADA.id]: ["sales"] })),
     [`GET ${ADMIN_DOMAINS}`]: () => json(DOMAINS),
@@ -579,8 +570,7 @@ test("given an admin, when a write is refused with a body that is not JSON, then
 
   // A role change answered 502 text/html: another write, another body the parse cannot read.
   stub({
-    [`GET ${ME}`]: () =>
-      json({ ...ADA, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(ADA),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
     [`GET ${ADMIN_USERS}`]: () => json(adminUsers({})),
     [`GET ${ADMIN_DOMAINS}`]: () => json([DOMAINS[0]]),
@@ -613,8 +603,7 @@ test("given an admin, when a write is refused with a body that is not JSON, then
 
 test("given a member, when the Users screen loads, then it makes no /que/admin call and shows the list as now, with no toggle", async () => {
   const fetch = stub({
-    [`GET ${ME}`]: () =>
-      json({ ...BOB, instructions: null, instructionsFrom: "account" }),
+    [`GET ${ME}`]: () => json(BOB),
     [`GET ${USERS}`]: () => json([ADA, BOB]),
   });
 

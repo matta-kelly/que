@@ -1,4 +1,3 @@
-import { withAui } from "@assistant-ui/next";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -6,4 +5,4 @@ const nextConfig: NextConfig = {
   devIndicators: { position: "bottom-right" },
 };
 
-export default withAui(nextConfig);
+export default nextConfig;

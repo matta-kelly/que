@@ -91,8 +91,8 @@ const pim = definePlugin({
 
 // The cards the control plane reads: `usesOps` is what readPlugin makes of the domain op's `uses`.
 const cards = [
-  cardOf({ definition: warehouse, cases: [] }),
-  cardOf({ definition: odoo, cases: [] }),
+  cardOf({ definition: warehouse }),
+  cardOf({ definition: odoo }),
   cardOf({
     definition: {
       ...pim,
@@ -102,7 +102,6 @@ const cards = [
         usesOps: ["warehouse-get", "odoo-find"],
       },
     },
-    cases: [],
   }),
 ];
 

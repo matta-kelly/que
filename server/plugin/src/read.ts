@@ -1,13 +1,11 @@
 /**
- * Read a plugin from its folder: where its files are (layout.ts), its definition and its cases, each parsed by its
- * define* call when its module is imported, and its skills. Mount, the evals, the card's writer and the source read a
- * plugin this way. What cannot be read is a problem, said at its file, and the rest is still read.
+ * Read a plugin from its folder: where its files are (layout.ts), its definition, parsed by definePlugin when its
+ * module is imported, and its skills. Mount, the card's writer and the source read a plugin this way. What cannot be read is a problem, said at its file, and the rest is still read.
  */
 
-import { existsSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import { readCases, type Case } from "./case.ts";
 import { readDefinition, type Definition } from "./contract.ts";
 import {
   locatePlugin,
@@ -27,7 +25,6 @@ export type ReadPlugin = {
   files: PluginFiles;
   /** Its definition, when its module gives one. */
   definition?: Definition;
-  cases: Case[];
   skills: Skill[];
   /** Its skills' names: each folder under skills/, read or not, as Agent Plugins finds them. */
   skillNames: string[];
@@ -41,7 +38,7 @@ const reason = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * The plugin in `dir`: its definition, its cases and its skills, each read as far as it can be. A folder with no
+ * The plugin in `dir`: its definition and its skills, each read as far as it can be. A folder with no
  * definition is a problem at the folder, and nothing more is read.
  */
 export async function readPlugin(dir: string): Promise<ReadPlugin> {
@@ -49,7 +46,6 @@ export async function readPlugin(dir: string): Promise<ReadPlugin> {
   const read: ReadPlugin = {
     dir,
     files,
-    cases: [],
     skills: [],
     skillNames: skillFolders(dir),
     problems: [],
@@ -78,19 +74,6 @@ export async function readPlugin(dir: string): Promise<ReadPlugin> {
       `The definition cannot be read: ${reason(error)}`,
     );
   }
-
-  if (existsSync(files.cases))
-    try {
-      const given = readCases(await defaultOf(files.cases));
-      if (given.faults.length)
-        unreadable(
-          files.cases,
-          `The cases cannot be read: their default export is not a plugin's cases:\n- ${given.faults.join("\n- ")}`,
-        );
-      else read.cases = given.cases;
-    } catch (error) {
-      unreadable(files.cases, `The cases cannot be read: ${reason(error)}`);
-    }
 
   // que is stricter than the standard, which skips a folder with no SKILL.md: such a folder is a skill whose file is
   // missing or misnamed.

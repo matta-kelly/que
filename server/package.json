@@ -6,9 +6,7 @@
     "plugin",
     "harness",
     "backend/*",
-    "chat-model",
     "runtime",
-    "evals",
     "que-notes"
   ],
   "scripts": {

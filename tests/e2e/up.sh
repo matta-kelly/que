@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Checks what `just up` starts: que's server on port 2024 and the UI on port
-# 3000, and no LangGraph server; that a second `just up` starts no second
+# Checks what `just up` starts: que's server on port 2024, with its MCP mouth,
+# and the settings UI on port 3000; that a second `just up` starts no second
 # server; and that `just stop` then `just start` brings the same container back
-# serving. Run on the host, with the deployment given. It leaves que up, so
-# tests/e2e/trace.sh and the browser tests can run after it.
+# serving. Run on the host, with the deployment given. Its .env sets
+# DEV_USER_EMAIL, so the MCP request has a user. It leaves que up, so the
+# browser tests can run after it.
 #
 #   tests/e2e/up.sh <deployment folder>
 set -euo pipefail
@@ -22,29 +23,23 @@ first=$(up) || stop "just up failed: $first"
 c=$(cd "$root" && just _container)
 [ -n "$c" ] || stop "just up left no dev container"
 
-# No LangGraph server runs in que's container.
-if podman exec "$c" pgrep -f langgraphjs >/dev/null 2>&1; then
-  bad "a langgraphjs process runs: $(podman exec "$c" pgrep -af langgraphjs | head -1)"
-else
-  ok "no langgraphjs process runs"
-fi
-
-# Port 2024 is que's server: POST /threads makes a thread of the signed-in
-# user's, with 201 and its id (LangGraph answers 200, with a thread_id).
+# Port 2024 is que's server: POST /mcp answers an initialize as the MCP server "que".
 body=$(mktemp)
 trap 'rm -f "$body"' EXIT
-made=$(curl -sS --max-time 10 -o "$body" -w '%{http_code}' -X POST localhost:2024/threads || true)
-id=$(jq -r '.id // empty' "$body" 2>/dev/null || true)
-if [ "$made" = 201 ] && [ -n "$id" ]; then
-  ok "port 2024 is que's server: POST /threads made thread $id"
+init='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"up.sh","version":"0"}}}'
+code=$(curl -sS --max-time 10 -o "$body" -w '%{http_code}' -X POST localhost:2024/mcp \
+  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d "$init" || true)
+name=$(jq -r '.result.serverInfo.name // empty' "$body" 2>/dev/null || true)
+if [ "$code" = 200 ] && [ "$name" = que ]; then
+  ok "port 2024 is que's server: POST /mcp answered initialize as que"
 else
-  bad "port 2024 is not que's server: POST /threads gave $made $(head -c 200 "$body")"
+  bad "port 2024 is not que's MCP server: POST /mcp gave $code $(head -c 200 "$body")"
 fi
 
 if curl -sS -o /dev/null --max-time 30 localhost:3000; then
-  ok "the UI answers on port 3000"
+  ok "the settings UI answers on port 3000"
 else
-  bad "the UI does not answer on port 3000"
+  bad "the settings UI does not answer on port 3000"
 fi
 
 # A second `just up` finds que's server running, says so, and starts no second one.

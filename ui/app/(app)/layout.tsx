@@ -1,7 +1,7 @@
 "use client";
 
-// The app shell shared by every page: sidebar, settings, command palette.
-// Pages (the chat, …) render in the main area with their own PageHeader.
+// The app shell: the sidebar, the settings' state and the command palette.
+// The page renders in the main area with its own PageHeader.
 
 import { useSyncExternalStore } from "react";
 import { AppSidebar } from "@/components/shell/sidebar/app-sidebar";
@@ -16,7 +16,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { SettingsProvider } from "@/components/settings/settings-dialog";
+import { SettingsProvider } from "@/components/settings/settings";
 import { CommandPalette } from "@/components/shell/command-palette";
 
 // The sidebar collapses to an icon rail with its toggle inside, so it's always
@@ -50,8 +50,8 @@ function savedSidebarWidth(): React.CSSProperties | undefined {
 const noSubscribe = () => () => {};
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  // Threads load in the browser only; rendering on the server first produces
-  // a hydration mismatch in the thread list, so render after mount.
+  // The sidebar's width comes from the browser's storage, which the server
+  // does not have. So render after mount, and the server and browser agree.
   const mounted = useSyncExternalStore(
     noSubscribe,
     () => true,

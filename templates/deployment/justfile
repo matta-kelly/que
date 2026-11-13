@@ -16,7 +16,7 @@ stop:
 down:
     just --justfile {{que}}/justfile down
 
-# follow the logs of the agent server and the UI
+# follow the logs of que's server and the settings UI
 logs:
     just --justfile {{que}}/justfile logs
 
@@ -30,10 +30,3 @@ card plugin:
     set -euo pipefail
     dir=$(cd "{{invocation_directory()}}" && cd "{{plugin}}" && pwd)
     just --justfile "{{que}}/justfile" card "$dir"
-
-# run the cases of this deployment's packages against que, under each of its agent configs, and print what the agent did.
-# que has to be up: just start. `--agent <name>`, one or more times, runs only those configs.
-# The runs act on the real services: a case that changes data changes real data.
-# With the Langfuse settings in .env, the runs are also sent to Langfuse. With none, they are only printed.
-eval *args:
-    just --justfile {{que}}/justfile eval {{here}} {{args}}

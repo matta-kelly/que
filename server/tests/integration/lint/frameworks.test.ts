@@ -60,19 +60,16 @@ const linted = async () => {
 
 test("the lint fails on an import of LangChain, LangGraph, deepagents or @langfuse/langchain, in every file of the server", async () => {
   const files = await linted();
-  // The files of each config entry: the plugin, the harness, the backend, the model maker, each folder of the runtime,
-  // the eval runner, the tests and their fixtures.
+  // The files of each config entry: the plugin, the harness, the backend, each folder of the runtime, the tests and
+  // their fixtures.
   for (const file of [
     "plugin/src/index.ts",
-    "backend/pi-storage/src/storage.ts",
-    "harness/src/catalog.ts",
-    "chat-model/pi.ts",
-    "runtime/src/mount/models.ts",
+    "backend/users/index.ts",
+    "harness/src/read.ts",
+    "runtime/src/mount/skills.ts",
     "runtime/src/assemble/door.ts",
-    "runtime/src/run/loading.ts",
-    "runtime/src/run/trace.ts",
-    "evals/src/que.ts",
-    "evals/src/judge.ts",
+    "runtime/src/mcp/session.ts",
+    "runtime/src/run/api.ts",
     "tests/integration/mount/mount.test.ts",
   ])
     assert.ok(files.includes(file), `the lint reads ${file}`);

@@ -5,23 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { lintRoot } from "@mku1tra/basis";
 import { folderWith, url, write } from "../../tests/roots.ts";
-import { factsOf } from "./catalog.ts";
-import { harness } from "./schema.ts";
 import { deploymentSources } from "./source.ts";
 
 // Code imports the packages as que's own copies, by URL, so it runs as code outside que does.
 const files = (plugins: string[]): Record<string, string> => ({
   "index.ts": `import { defineDeployment } from ${url.harness};
-export default defineDeployment({ name: "landl", type: "deployment", description: "The landl deployment.", plugins: ${JSON.stringify(plugins)}, agents: ["chat"], loops: ["long-chat"], models: ["small"] });
-`,
-  "agents/chat.ts": `import { defineAgent } from ${url.harness};
-export default defineAgent({ name: "chat", type: "agent", description: "The agent a chat gets.", plugins: ["notes"], model: "small", loop: "long-chat" });
-`,
-  "loops/long-chat.ts": `import { defineLoop } from ${url.harness};
-export default defineLoop({ name: "long-chat", type: "loop", description: "A loop for long chats.", summarize: { at: 0.8 } });
-`,
-  "models/small.ts": `import { defineModel } from ${url.harness};
-export default defineModel({ name: "small", type: "model", description: "A small model.", id: "fireworks:small", window: 64_000, maxTokens: 1000 });
+export default defineDeployment({ name: "landl", type: "deployment", description: "The landl deployment.", plugins: ${JSON.stringify(plugins)} });
 `,
   "node_modules/notes/package.json": '{ "name": "notes", "type": "module" }\n',
   "node_modules/notes/io.github.matta-kelly.que/index.ts": `import { definePlugin } from ${url.plugin};
@@ -74,7 +63,7 @@ const problemsOf = async (root: string) =>
     p.message,
   ]);
 
-test("gives the deployment, each config its folders give and each plugin it names, each at its file", async () => {
+test("gives the deployment and each plugin it names, each at its file", async () => {
   const { folder, remove } = await rootWith();
   try {
     const { pieces, problems } = await given(folder, folder);
@@ -83,9 +72,6 @@ test("gives the deployment, each config its folders give and each plugin it name
       pieces.map((p) => [p.path, p.name, p.fields.type]),
       [
         ["index.ts", "landl", "deployment"],
-        ["agents/chat.ts", "chat", "agent"],
-        ["loops/long-chat.ts", "long-chat", "loop"],
-        ["models/small.ts", "small", "model"],
         [
           "node_modules/notes/io.github.matta-kelly.que/index.ts",
           "notes",
@@ -93,48 +79,6 @@ test("gives the deployment, each config its folders give and each plugin it name
         ],
       ],
     );
-    assert.deepEqual(await problemsOf(folder), []);
-  } finally {
-    await remove();
-  }
-});
-
-test("gives the model catalog's facts of each model it has an entry for, as another piece of its node at its file's #catalog, and none for one it has none for, whose file gives its own", async () => {
-  const glm = "fireworks:accounts/fireworks/models/glm-5p3-flash";
-  const { folder, remove } = await rootWith({
-    "models/small.ts": `import { defineModel } from ${url.harness};
-export default defineModel({ name: "small", type: "model", description: "A small model.", id: "${glm}", maxTokens: 1000 });
-`,
-    "models/beam.ts": `import { defineModel } from ${url.harness};
-export default defineModel({ name: "beam", type: "model", description: "Beam.", id: "beam:Beam-1.0-501B-A23B", window: 1_048_576, maxTokens: 1000 });
-`,
-  });
-  try {
-    const { pieces, problems } = await given(folder, folder);
-    assert.deepEqual(problems, []);
-    assert.deepEqual(
-      pieces.filter(
-        // A piece with no id: the catalog's, not a model file's.
-        (p) => p.fields.type === "model" && p.fields.id === undefined,
-      ),
-      [
-        {
-          path: "models/small.ts#catalog",
-          name: "small",
-          fields: {
-            type: "model",
-            window: factsOf(glm)!.window,
-            price: factsOf(glm)!.price,
-          },
-        },
-      ],
-    );
-    assert.ok(factsOf(glm), "the catalog has no entry");
-    const { graph } = await lintRoot(folder);
-    const node = (name: string) => graph.get(name, harness.types.model);
-    assert.equal(node("small")?.window, factsOf(glm)!.window);
-    assert.equal(node("beam")?.window, 1_048_576);
-    assert.equal(node("beam")?.price, undefined);
     assert.deepEqual(await problemsOf(folder), []);
   } finally {
     await remove();
@@ -239,9 +183,9 @@ test("gives a plugin that is not installed a problem at the definition, and its 
   }
 });
 
-test("gives a config file whose default export is no node of its type a problem of its own, listing each fault", async () => {
+test("gives a definition whose default export is no deployment a problem of its own, listing each fault", async () => {
   const { folder, remove } = await rootWith({
-    "agents/stray.ts": 'export default { name: "stray" };\n',
+    "index.ts": 'export default { name: "stray" };\n',
   });
   try {
     const { problems } = await given(folder, folder);
@@ -249,8 +193,8 @@ test("gives a config file whose default export is no node of its type a problem 
       problems.map((p) => [p.path, p.message]),
       [
         [
-          "agents/stray.ts",
-          'The agent cannot be read: its default export is no node of the type agent:\n- type Invalid input: expected "agent"\n- description Invalid input: expected string, received undefined\n- model Invalid input: expected string, received undefined\n- loop Invalid input: expected string, received undefined',
+          "index.ts",
+          'The deployment cannot be read: its default export is no node of the type deployment:\n- type Invalid input: expected "deployment"\n- description Invalid input: expected string, received undefined',
         ],
       ],
     );
@@ -278,9 +222,6 @@ export default {
 `;
 
 const reexports = `export { default as landl } from "./index.ts";
-export { default as chat } from "./agents/chat.ts";
-export { default as longChat } from "./loops/long-chat.ts";
-export { default as small } from "./models/small.ts";
 export { default as notes } from "./node_modules/notes/io.github.matta-kelly.que/index.ts";
 `;
 
@@ -299,9 +240,9 @@ test("a package that exports its deployment's definitions lints clean: the sourc
 test("a definition a package exports that no source gives fails basis/definition-piece", async () => {
   const { folder, remove } = await rootWith({
     "basis.config.ts": packageRoot,
-    // An agent outside agents/, which the source does not read.
-    "spare/helper.ts": `import { defineAgent } from ${url.harness};
-export default defineAgent({ name: "helper", type: "agent", description: "An agent no source reads.", model: "small", loop: "long-chat" });
+    // A deployment outside index.ts, which the source does not read.
+    "spare/helper.ts": `import { defineDeployment } from ${url.harness};
+export default defineDeployment({ name: "helper", type: "deployment", description: "A deployment no source reads." });
 `,
     "exports.ts": `${reexports}export { default as helper } from "./spare/helper.ts";\n`,
   });
@@ -310,7 +251,7 @@ export default defineAgent({ name: "helper", type: "agent", description: "An age
       [
         ".",
         "basis/definition-piece",
-        "The export helper of landl-package is the definition of the agent helper, and no source gives a piece of it: a source of the package gives a piece of each definition it exports.",
+        "The export helper of landl-package is the definition of the deployment helper, and no source gives a piece of it: a source of the package gives a piece of each definition it exports.",
       ],
     ]);
   } finally {

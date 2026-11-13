@@ -6,24 +6,22 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
+  within,
 } from "@testing-library/react";
 import { SWRConfig } from "swr";
 import HomePage from "@/app/(app)/page";
-import { RuntimeProvider } from "@/components/runtime/runtime-provider";
 import AppLayout from "@/app/(app)/layout";
-import { useRunPicks } from "@/components/chat/run-pickers/pick-store";
 
-// jsdom has no layout: the composer's size observer has nothing to observe.
+// jsdom has no scrolling: the palette scrolls its picked option into view.
+Element.prototype.scrollIntoView ??= function () {};
+
+// jsdom has no layout: cmdk's list observes its size.
 class NoLayout implements ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
 }
 globalThis.ResizeObserver ??= NoLayout;
-
-// jsdom has no scrolling: the palette scrolls its picked option into view.
-Element.prototype.scrollIntoView ??= function () {};
 
 // jsdom has no matchMedia: the sidebar asks it whether the screen is a phone's.
 globalThis.matchMedia ??= ((query: string) => ({
@@ -43,94 +41,106 @@ vi.mock("next/font/google", () => ({
   Source_Code_Pro: () => ({ className: "" }),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push() {} }),
-  usePathname: () => "/",
-}));
+const ADA = {
+  id: "u1",
+  email: "ada@example.com",
+  name: "Ada",
+  avatarUrl: null,
+  role: "member",
+  createdAt: "2026-01-01T00:00:00Z",
+};
 
-/** que's server, as the UI fetches it: the deployment says `chat`, or fails, and every request is recorded. */
-function queServer(chat: boolean | undefined | "fails") {
+/** que's server, as the UI fetches it: the signed-in user, and empty lists. Every request is recorded. */
+function queServer() {
   const urls: string[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       urls.push(url);
-      if (url === "/api/que/deployment" && chat === "fails")
-        return Response.json({ error: "down" }, { status: 500 });
-      if (url === "/api/que/deployment")
-        return Response.json({
-          agents: [{ name: "zoe", model: "big" }],
-          models: [{ name: "big", window: 1000, maxTokens: 100 }],
-          ...(typeof chat === "boolean" ? { chat } : {}),
-        });
-      if (url === "/api/threads") return Response.json([]);
+      if (url === "/api/que/me") return Response.json(ADA);
+      if (
+        ["/api/que/users", "/api/que/connections", "/api/que/domains"].includes(
+          url,
+        )
+      )
+        return Response.json([]);
       return Response.json({ error: `${url} has no stub` }, { status: 404 });
     }),
   );
   return urls;
 }
 
-/** Home in the app's shell (the sidebar, settings and the palette), on a fresh SWR cache. */
+/** Home in the app's shell (the sidebar and the palette), on a fresh SWR cache. */
 function renderHome() {
   render(
     <SWRConfig value={{ provider: () => new Map() }}>
-      <RuntimeProvider>
-        <AppLayout>
-          <HomePage />
-        </AppLayout>
-      </RuntimeProvider>
+      <AppLayout>
+        <HomePage />
+      </AppLayout>
     </SWRConfig>,
   );
 }
 
-/** The palette's options, opened with Ctrl+K. */
-async function paletteOptions() {
-  fireEvent.keyDown(document, { key: "k", ctrlKey: true });
-  await screen.findByPlaceholderText("Search everything…");
-  return screen.getAllByRole("option").map((o) => o.textContent ?? "");
-}
+const pageTitle = () =>
+  document.querySelector('[data-slot="page-title"]')?.textContent;
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  useRunPicks.setState({ deployment: undefined });
 });
 
-test("given a deployment with the chat off, then home says chat isn't enabled, shows no composer and no chats, the brand goes home, and no thread is fetched", async () => {
-  const urls = queServer(false);
+test("home is the settings: a tile per section, and the sidebar lists Home and each section", async () => {
+  const urls = queServer();
   renderHome();
 
-  await screen.findByText("Chat isn't enabled for Lotus and Luna's deployment");
-  assert.equal(screen.queryByRole("textbox", { name: "Message input" }), null);
-  assert.equal(screen.queryAllByText("Chats").length, 0);
-  assert.ok(screen.getByRole("button", { name: "Lotus and Luna: home" }));
-  const options = await paletteOptions();
+  await screen.findByRole("searchbox", { name: "Search settings" });
+  assert.equal(pageTitle(), "Settings");
+  for (const id of ["account", "connections", "users"])
+    assert.ok(screen.getByTestId(`settings-tile-${id}`));
+  for (const name of ["Home", "Account", "Connections", "Users"])
+    assert.ok(screen.getByRole("button", { name }));
+  // The UI asks que's server for settings only.
   assert.ok(
-    !options.some((o) => /new chat/i.test(o)),
-    `the palette offers a new chat: ${options.join(", ")}`,
-  );
-  // The thread list asks the deployment first, and fetches no thread when the chat is off.
-  await waitFor(() => assert.ok(urls.includes("/api/que/deployment")));
-  assert.ok(
-    !urls.some((url) => url.startsWith("/api/threads")),
-    `a thread route was fetched: ${urls.join(", ")}`,
+    urls.every((url) => url.startsWith("/api/que/")),
+    `a route outside /api/que was fetched: ${urls.join(", ")}`,
   );
 });
 
-test("given a deployment that serves the chat, an older one that does not say, or one that fails to load, then home is the chat, with its composer and its chats", async () => {
-  for (const chat of [true, undefined, "fails"] as const) {
-    queServer(chat);
-    renderHome();
-    await screen.findByRole("textbox", { name: "Message input" });
-    assert.ok(screen.getAllByText("Chats").length > 0);
-    assert.ok(screen.getByRole("button", { name: "Lotus and Luna: new chat" }));
-    assert.ok((await paletteOptions()).some((o) => /new chat/i.test(o)));
-    assert.equal(
-      screen.queryByText("Chat isn't enabled for Lotus and Luna's deployment"),
-      null,
-    );
-    cleanup();
-    useRunPicks.setState({ deployment: undefined });
-  }
+test("a sidebar entry, the user at its foot, a tile and the brand each open their section", async () => {
+  queServer();
+  renderHome();
+  await screen.findByRole("searchbox", { name: "Search settings" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Connections" }));
+  assert.equal(pageTitle(), "Connections");
+
+  fireEvent.click(await screen.findByText("ada@example.com"));
+  assert.equal(pageTitle(), "Account");
+  assert.ok(await screen.findByLabelText("Name"));
+  assert.equal(screen.queryByLabelText("Instructions"), null);
+
+  fireEvent.click(screen.getByRole("button", { name: "Lotus and Luna: home" }));
+  assert.equal(pageTitle(), "Settings");
+
+  fireEvent.click(screen.getByTestId("settings-tile-users"));
+  assert.equal(pageTitle(), "Users");
+});
+
+test("the palette offers the sections and the theme, and opens a section", async () => {
+  queServer();
+  renderHome();
+  await screen.findByRole("searchbox", { name: "Search settings" });
+
+  fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+  const palette = await screen.findByRole("dialog");
+  const options = within(palette)
+    .getAllByRole("option")
+    .map((o) => (o.textContent ?? "").trim());
+  for (const name of ["Account", "Connections", "Users"])
+    assert.ok(options.includes(name), `no ${name}: ${options.join(", ")}`);
+  assert.ok(options.some((o) => /theme/.test(o)));
+
+  fireEvent.click(within(palette).getByRole("option", { name: "Users" }));
+  assert.equal(pageTitle(), "Users");
 });

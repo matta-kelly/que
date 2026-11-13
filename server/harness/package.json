@@ -1,7 +1,7 @@
 {
   "name": "@mku1tra/que-harness",
-  "version": "0.4.0",
-  "description": "What runs que's plugins: the harness schema of que's ontology (agent, model, loop and deployment), which imports the plugin schema of @mku1tra/que-plugin, and whose types are the contract of a deployment and its configs; the reader of a deployment, the facts of a model from pi's model catalog, the sources that give its graph to its root's lint, and the schema of a deployment's own root.",
+  "version": "0.5.0",
+  "description": "What runs que's plugins: the harness schema of que's ontology (deployment), which imports the plugin schema of @mku1tra/que-plugin, and whose type is the contract of a deployment; the reader of a deployment, the source that gives its graph to its root's lint, and the schema of a deployment's own root.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -28,12 +28,9 @@
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "prepack": "npm run build && cp ../../LICENSE LICENSE"
   },
-  "dependencies": {
-    "@earendil-works/pi-ai": "1.4.0"
-  },
   "peerDependencies": {
     "@mku1tra/basis": "^0.30.0",
-    "@mku1tra/que-plugin": "^0.9.0",
+    "@mku1tra/que-plugin": "^0.10.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {

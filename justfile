@@ -8,7 +8,7 @@ root := justfile_directory()
 default:
     @just --list
 
-# Start the database, the dev container, que's server and the UI, from one deployment folder.
+# Start the database, the dev container, que's server (MCP and the settings API) and the settings UI, from one deployment folder.
 # Nothing in que picks the deployment: a deployment starts que this way from its own `just start`.
 up deployment:
     #!/usr/bin/env bash
@@ -36,7 +36,7 @@ start deployment:
     podman exec "$c" test -d "$dep" || { echo "The dev container cannot see $dep: run just up {{deployment}}, which makes it again with that folder." >&2; exit 1; }
     just _serve "$dep" "$c"
 
-# Stop everything (the dev container, which stops que's server and the UI, and the database, unless another que runs).
+# Stop everything (the dev container, which stops que's server and the settings UI, and the database, unless another que runs).
 # The container's own volumes go with it: the file names them with ${devcontainerId}, which is readable only
 # while a container exists. A volume the file names for every checkout, and one a deployment adds, stay.
 down:
@@ -70,27 +70,10 @@ stop:
     just _stop-database
     echo "que is stopped"
 
-# Follow que's server and UI logs
+# Follow the logs of que's server and the settings UI
 logs: _require-up
     @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec "$(just _container)" tail -n 50 -f /tmp/server.log /tmp/ui.log
-
-# Run the cases of a deployment's packages against que, under each of its agent configs, and print what the agent did.
-# With the Langfuse settings in the deployment's .env, the runs are also sent to its Langfuse, and a link to each is printed.
-# que has to be up for that deployment. `--agent <name>`, one or more times, runs only those configs.
-eval deployment *args: _require-up
-    #!/usr/bin/env bash
-    set -euo pipefail
-    dep=$(cd "{{invocation_directory()}}" && cd "{{deployment}}" && pwd)
-    cd "{{root}}"
-    c=$(./scripts/container.sh "$dep")
-    # The commit of que, for the name of a run in Langfuse. Code that is not committed does not carry the name of a commit.
-    commit=$(git -C "{{root}}" rev-parse --short HEAD)
-    dirty=$(git -C "{{root}}" status --porcelain --untracked-files=no)
-    if [ -n "$dirty" ]; then commit="$commit-dirty"; fi
-    # The deployment imports @mku1tra/que-harness by name, and has no copy of its own: it is handed que's, as mount hands it.
-    # The runner takes its settings from the deployment's .env, as the server does.
-    podman exec -u node -e "QUE_COMMIT=$commit" -w "{{root}}/server/evals" "$c" npx tsx --env-file="$dep/.env" --import "{{root}}/server/runtime/src/mount/supply.ts" src/cli.ts "$dep" {{args}}
 
 # Mount a deployment with no .env and no network, which lints it from its root, then type check its own code and the packages it lists,
 # and run their tests, with que's supplied packages handed to all of them. A deployment that would not mount stops here, with mount's error.
@@ -118,7 +101,7 @@ check-folder folder:
     just --justfile "{{root}}/justfile" _check-folders "$c" "$dir"
 
 # Mount one plugin on its own, with no network, linted from its root, then type check its code and run its tests, as check-folder does.
-# The folder is a plugin: one that would not mount (its definition, its cases, its skills, its root) stops here, with mount's error.
+# The folder is a plugin: one that would not mount (its definition, its skills, its root) stops here, with mount's error.
 # What a domain uses is checked by the deployment that lists it.
 check-plugin folder:
     #!/usr/bin/env bash
@@ -175,13 +158,12 @@ format:
     podman exec -u node -w "{{root}}/server" "$c" npx prettier --write .
     podman exec -u node -w "{{root}}/ui" "$c" npx prettier --write .
 
-# Run the browser tests that send no message to the model (needs a deployment started)
+# Run the browser tests of the settings UI that need no real service connected (needs a deployment started)
 test: _require-up
     @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep-invert @live
 
-# Run the browser tests marked @live: each sends a message to the real model, or needs a real service connected.
-# Each message is a model call that is paid for, and a trace when the deployment has a Langfuse.
+# Run the browser tests marked @live: each needs a real service connected, and acts on it (needs a deployment started)
 test-live: _require-up
     @# shellcheck disable=SC2312 # A name that is not found is empty, and podman exec stops on it.
     podman exec -u node -w "{{root}}/ui" "$(just _container)" npx playwright test --grep @live
@@ -222,12 +204,9 @@ _serve deployment container:
     if running "src/listen.ts"; then
         echo "que's server is already running. Run 'just stop' first to start it from another deployment."
     else
-        # The commit que runs from, for the trace of a run. Code that is not committed does not carry the name of a commit.
-        commit=$(git -C "{{root}}" rev-parse HEAD 2>/dev/null || true)
-        if [ -n "$commit" ] && ! git -C "{{root}}" diff --quiet HEAD; then commit="$commit-dirty"; fi
         # The server takes its settings from the deployment's .env, and none from que's own folder.
         # npm sets NODE_OPTIONS from its node-options, so the options go there: server/.npmrc's source condition, and dotenv.
-        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "QUE_COMMIT=$commit" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "npm_config_node_options=--conditions=@mku1tra/que-source --require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
+        podman exec -d -u node -e "QUE_DEPLOYMENT=$dep" -e "DOTENV_CONFIG_PATH=$dep/.env" -e "DOTENV_CONFIG_QUIET=true" -e "npm_config_node_options=--conditions=@mku1tra/que-source --require dotenv/config" -w "{{root}}/server" "$c" bash -c 'npm run server > /tmp/server.log 2>&1' >/dev/null
     fi
     running "next dev" || podman exec -d -u node -w "{{root}}/ui" "$c" bash -c 'npm run dev > /tmp/ui.log 2>&1' >/dev/null
     echo "Starting…"
@@ -237,7 +216,7 @@ _serve deployment container:
     done
     curl -sf -m 2 -o /dev/null localhost:2024/ok || { echo "que's server didn't come up. See /tmp/server.log in the dev container"; exit 1; }
     curl -s -m 2 -o /dev/null localhost:3000 || { echo "The UI didn't come up. See the deployment's logs"; exit 1; }
-    echo "que is up at http://localhost:3000"
+    echo "que is up: MCP at http://localhost:2024/mcp, settings at http://localhost:3000"
 
 # The database is every que's: it stops with the last one.
 _stop-database:

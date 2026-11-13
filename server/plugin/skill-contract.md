@@ -11,6 +11,7 @@ skill: an instruction of a plugin, in one `SKILL.md`, that the model reads when 
 
 - [[plugin-contract]]: the contract a skill is part of: its folder, its frontmatter and what it can use
 - [[op-contract]]: what the ops it uses promise
+- [[decision-model]]: skill selection by a decision model that reads the descriptions. Not built
 - the rules here are the Agent Skills specification ([agentskills.io](https://agentskills.io/specification)) and Anthropic's authoring guide ([best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)), with what que adds. The plugin schema holds the frontmatter; review holds the rest
 
 ## Skill or op
@@ -30,13 +31,14 @@ The model chooses a skill from its line in a list, so the description is what ma
 - it says what the skill does and when to use it, with the words a user would say
 - it is in the third person, at most 1024 characters
 - a vague one fails: `Helps with orders` gives the model no reason to read it
+- not built: a decision model that reads the descriptions and gives the skills a task needs, in place of the model's own search. The description is then what the classifier reads, so the same rules hold
 
 ## Body
 
-The model reads it when it runs, with the rest of the chat, so each line must change what the model does.
+The model reads it when it runs, with the rest of the conversation, so each line must change what the model does.
 
 - it holds only what the model does not know: this business's rules, names and order of steps, not what an order is
-- `read_skill` returns the text of `SKILL.md` and no other file, so all it needs is in that one file
+- a client reads a skill's `SKILL.md` over MCP (`resources/read` on its `skill://` URI, or `skills/get` with the MCP skills extension), and no other file of the skill, so all it needs is in that one file
 - under 500 lines, and far less where it can be
 - it says what to do, as steps when the order matters
 - each fine point is one line: when this is true, do that (`when the customer has payment terms, show them and confirm`)
@@ -51,9 +53,7 @@ The model reads it when it runs, with the rest of the chat, so each line must ch
 
 ## Proof
 
-A skill is shown to work by the cases of its capability, as [[plugin-contract]] says.
+A skill is shown to work by use: the runs where a model reads it and does the task.
 
-- each fine point has a case, so a skipped step is a failed case
-- a failed case tightens the line, or moves the rule into an op if it must never fail
-- a change to a skill is judged by a run of its cases, not by reading it
-- each model it runs on gets the run, as `just eval` runs each case under each agent config
+- a skipped step or a wrong answer in use tightens the line, or moves the rule into an op if it must never fail
+- a change to a skill is judged by what the model does with it, not by reading it

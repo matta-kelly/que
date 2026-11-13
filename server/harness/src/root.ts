@@ -2,7 +2,7 @@
  * Where a deployment is linted: a root (basis's lintRoot), the only place a lint starts. A deployment's root is the
  * root whose ground holds its folder (basis's rootOf): its own, when its folder has a basis.config.ts
  * (deploymentSchema), or a root above it whose schema takes its sources (deploymentSources), as a repo of a deployment
- * and its plugins has. Mount and the evals read the graph that root's lint gives (deploymentGraph).
+ * and its plugins has. Mount reads the graph that root's lint gives (deploymentGraph).
  */
 
 import { join } from "node:path";

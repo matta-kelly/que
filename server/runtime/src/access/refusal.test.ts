@@ -182,19 +182,18 @@ const domain = (name: string, usesOps: string[]) => {
       ...held,
       plugin: { ...held.plugin, kind: "domain", usesOps },
     },
-    cases: [],
   });
 };
 
 // Two domains name odoo, one names crm, two name warehouse with a different role each, one names ledger.
 // No domain names erp or hr.
 const cards = [
-  cardOf({ definition: warehouse, cases: [] }),
-  cardOf({ definition: ledger, cases: [] }),
-  cardOf({ definition: odoo, cases: [] }),
-  cardOf({ definition: crm, cases: [] }),
-  cardOf({ definition: erp, cases: [] }),
-  cardOf({ definition: hr, cases: [] }),
+  cardOf({ definition: warehouse }),
+  cardOf({ definition: ledger }),
+  cardOf({ definition: odoo }),
+  cardOf({ definition: crm }),
+  cardOf({ definition: erp }),
+  cardOf({ definition: hr }),
   domain("orders", ["odoo-find"]),
   domain("pim", ["odoo-find"]),
   domain("sales", ["crm-find"]),
@@ -442,8 +441,8 @@ test("given a user whose domains give the connector but no op's role, when the o
   const db = new PGlite();
   const control = controlOn(db, [
     ...cards,
-    cardOf({ definition: depot, cases: [] }),
-    cardOf({ definition: payroll, cases: [] }),
+    cardOf({ definition: depot }),
+    cardOf({ definition: payroll }),
     stores,
   ]);
   const access = accessOn(storeOn(db), control);

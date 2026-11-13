@@ -10,10 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.3",
-    "@assistant-ui/react": "^0.15.32",
-    "@assistant-ui/react-ag-ui": "0.1.1",
-    "@assistant-ui/react-markdown": "^0.14.24",
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "cn": "^0.3.0",
@@ -23,14 +19,9 @@
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "remark-gfm": "^4.0.1",
-    "sonner": "^2.0.8",
-    "swr": "^2.5.1",
-    "tw-shimmer": "^0.4.13",
-    "zustand": "^5.0.15"
+    "swr": "^2.5.1"
   },
   "devDependencies": {
-    "@assistant-ui/next": "^0.0.22",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4.3.3",

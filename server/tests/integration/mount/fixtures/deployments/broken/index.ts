@@ -6,7 +6,4 @@ export default defineDeployment({
   type: "deployment",
   description: "The broken deployment of a fixture.",
   plugins: "alpha",
-  agents: ["bare"],
-  loops: ["long-chat"],
-  models: ["small"],
 } as never);

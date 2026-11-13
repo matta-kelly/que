@@ -1,6 +1,6 @@
 /**
- * The fixture deployments' test domains: one domain for each connector an agent of theirs names (the till, alpha,
- * source and ledger), which names the connector's own skill, whose `allowed-tools` list every op of that connector, so
+ * The fixture deployments' test domains: one domain for each connector they serve (the till, alpha and source), which
+ * names the connector's own skill, whose `allowed-tools` list every op of that connector, so
  * that the deployment's plugins reach the connector through the control plane (K3's `controlOn`).
  *
  * Alpha holds no op: alpha-greet lists none in its `allowed-tools`, and alpha has none, so the skill lists no op. K3
@@ -36,22 +36,18 @@ const domains = [
   { domain: "till-domain", deployment: "tools", connector: "till" },
   { domain: "alpha-domain", deployment: "prompt", connector: "alpha" },
   { domain: "source-domain", deployment: "prompt", connector: "source" },
-  { domain: "ledger-domain", deployment: "summary", connector: "ledger" },
 ] as const;
 
 /** The que extension of a card: its ops, skills and domains. */
 const que = (card: Card) => card.extensions["io.github.matta-kelly.que"];
 
-test("given the five fixture deployments a run test drives, when each is mounted, then its plugins list a domain for each connector its agents name, and no other", async () => {
+test("given the fixture deployments the MCP tests serve, when each is mounted, then its plugins list a domain for each connector it serves, and no other", async () => {
   const expected = [
     { deployment: "tools", domains: ["till-domain"] },
     {
       deployment: "prompt",
       domains: ["alpha-domain", "source-domain", "till-domain"],
     },
-    { deployment: "big-results", domains: ["till-domain"] },
-    { deployment: "picks", domains: ["till-domain"] },
-    { deployment: "summary", domains: ["ledger-domain"] },
   ];
   for (const { deployment, domains } of expected) {
     const { cards } = await mounted(deployment);

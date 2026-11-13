@@ -35,7 +35,6 @@ const good = cardOf({
     title: "Notes",
     description: "How the team writes.",
   }),
-  cases: [],
 });
 
 test("writeCard writes plugin.json from the plugin's nodes, with the version its package.json gives", async () => {

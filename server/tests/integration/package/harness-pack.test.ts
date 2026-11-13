@@ -134,12 +134,10 @@ console.log(JSON.stringify({ exports: Object.keys(m), url: import.meta.resolve("
   );
   for (const name of [
     "defineDeployment",
-    "defineAgent",
     "readDeployment",
     "deploymentSchema",
     "deploymentSources",
     "deploymentGraph",
-    "factsOf",
     "harness",
   ])
     assert.ok(loaded.exports.includes(name), `no export ${name}`);
@@ -168,16 +166,7 @@ export default {
 export default definePlugin({ name: "notes", type: "plugin", title: "Notes", description: "How the team writes things down." });
 `,
     "deployment/index.ts": `import { defineDeployment } from "@mku1tra/que-harness";
-export default defineDeployment({ name: "outside", type: "deployment", description: "A deployment.", plugins: ["notes"], agents: ["chat"], loops: ["long-chat"], models: ["small"] });
-`,
-    "deployment/agents/chat.ts": `import { defineAgent } from "@mku1tra/que-harness";
-export default defineAgent({ name: "chat", type: "agent", description: "The agent a chat gets.", plugins: ${JSON.stringify(plugins)}, model: "small", loop: "long-chat" });
-`,
-    "deployment/loops/long-chat.ts": `import { defineLoop } from "@mku1tra/que-harness";
-export default defineLoop({ name: "long-chat", type: "loop", description: "A loop." });
-`,
-    "deployment/models/small.ts": `import { defineModel } from "@mku1tra/que-harness";
-export default defineModel({ name: "small", type: "model", description: "A model.", id: "fireworks:small", window: 64_000, maxTokens: 1000 });
+export default defineDeployment({ name: "outside", type: "deployment", description: "A deployment.", plugins: ${JSON.stringify(plugins)} });
 `,
   };
   for (const [path, text] of Object.entries(files)) {
@@ -208,6 +197,6 @@ test("basis prints a problem of a deployment at its file, and ends with a fault"
   assert.equal(status, 1);
   assert.match(
     stdout + stderr,
-    /deployment\/agents\/chat\.ts.*\/plugins.*names the plugin delta, which the deployment does not mount \(basis\/link\)/,
+    /deployment\/index\.ts.*The plugin delta is not installed/,
   );
 });

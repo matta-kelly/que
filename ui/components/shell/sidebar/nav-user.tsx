@@ -1,10 +1,10 @@
 "use client";
 
 // The signed-in user at the bottom of the sidebar (avatar, name, email).
-// Clicking opens Settings (on Home). Collapsed rail: just the avatar.
+// Clicking opens Account. Collapsed rail: just the avatar.
 
 import { SidebarMenuButton } from "@/components/ui/sidebar";
-import { useSettings } from "@/components/settings/settings-dialog";
+import { useSettings } from "@/components/settings/settings";
 import { UserAvatar, useMe } from "@/components/shell/user";
 
 export function NavUser() {
@@ -16,7 +16,7 @@ export function NavUser() {
     <SidebarMenuButton
       size="lg"
       tooltip={me.name}
-      onClick={() => openSettings()}
+      onClick={() => openSettings("account")}
       data-slot="nav-user"
     >
       <UserAvatar user={me} />

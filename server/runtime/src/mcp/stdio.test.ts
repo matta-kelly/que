@@ -382,7 +382,7 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
       for (const code of codes)
         calls.push(
           await client.callTool({
-            name: "source.source-find",
+            name: "source-find",
             arguments: { code },
           }),
         );
@@ -390,10 +390,10 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
     },
   );
 
-  const find = value.tools.find((tool) => tool.name === "source.source-find");
+  const find = value.tools.find((tool) => tool.name === "source-find");
   assert.ok(
     find,
-    `source.source-find is not listed: ${value.tools.map((tool) => tool.name).join(", ")}`,
+    `source-find is not listed: ${value.tools.map((tool) => tool.name).join(", ")}`,
   );
   assert.equal(
     find.description,
@@ -401,7 +401,7 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
     "the tool does not carry its op's description",
   );
   assert.equal(
-    value.tools.some((tool) => tool.name.startsWith("till.")),
+    value.tools.some((tool) => tool.name.startsWith("till-")),
     false,
     `a plugin the user cannot reach is listed: ${value.tools.map((tool) => tool.name).join(", ")}`,
   );
@@ -426,7 +426,7 @@ test("given the fixture deployment and a user granted its domain, when an MCP cl
     assert.notEqual(
       call.isError,
       true,
-      `source.source-find with { code: ${JSON.stringify(code)} } failed: ${text(call)}`,
+      `source-find with { code: ${JSON.stringify(code)} } failed: ${text(call)}`,
     );
     const content = call.content as { type: string; text: string }[];
     assert.equal(
@@ -451,7 +451,7 @@ test("given a 2025-era client over stdio that declares form elicitation, when it
   const { value, asks } = await withElicitingServer(
     { ...que(), DEV_USER_EMAIL: email },
     (client) =>
-      client.callTool({ name: "till.till-void", arguments: { item: "apple" } }),
+      client.callTool({ name: "till-void", arguments: { item: "apple" } }),
   );
 
   assert.deepEqual(
@@ -470,7 +470,7 @@ test("given a 2025-era client over stdio that declares no elicitation, when it c
   const { value } = await withServer(
     { ...que(), DEV_USER_EMAIL: email },
     (client) =>
-      client.callTool({ name: "till.till-void", arguments: { item: "apple" } }),
+      client.callTool({ name: "till-void", arguments: { item: "apple" } }),
   );
 
   refused(value);
@@ -487,7 +487,7 @@ test("given a session with no QUE_CREDENTIALS_KEY, when an MCP client lists the 
       listed: await tried(() => client.listTools()),
       called: await tried(() =>
         client.callTool({
-          name: "source.source-find",
+          name: "source-find",
           arguments: { code: "A-1" },
         }),
       ),
@@ -499,8 +499,8 @@ test("given a session with no QUE_CREDENTIALS_KEY, when an MCP client lists the 
     "a session with no QUE_CREDENTIALS_KEY did not list its tools",
   );
   assert.ok(
-    listed.tools.some((tool) => tool.name === "source.source-find"),
-    `the list does not name source.source-find: ${listed.tools.map((tool) => tool.name).join(", ")}`,
+    listed.tools.some((tool) => tool.name === "source-find"),
+    `the list does not name source-find: ${listed.tools.map((tool) => tool.name).join(", ")}`,
   );
   const called = answered(
     value.called,
@@ -525,12 +525,12 @@ test("given a deployment folder, when one session starts, then the deployment's 
   try {
     const before = await listedTools(email, folder);
     assert.equal(
-      before.some((tool) => tool.name === "source.source-find"),
+      before.some((tool) => tool.name === "source-find"),
       true,
       `the first session does not list the source op: ${before.map((tool) => tool.name).join(", ")}`,
     );
     assert.equal(
-      before.some((tool) => tool.name === "source.source-list"),
+      before.some((tool) => tool.name === "source-list"),
       false,
       `the first session lists an op the deployment does not hold yet: ${before.map((tool) => tool.name).join(", ")}`,
     );
@@ -539,12 +539,12 @@ test("given a deployment folder, when one session starts, then the deployment's 
 
     const after = await listedTools(email, folder);
     assert.equal(
-      after.some((tool) => tool.name === "source.source-list"),
+      after.some((tool) => tool.name === "source-list"),
       true,
       `the second session does not list the changed deployment's op: ${after.map((tool) => tool.name).join(", ")}`,
     );
     assert.equal(
-      after.some((tool) => tool.name === "source.source-find"),
+      after.some((tool) => tool.name === "source-find"),
       true,
       `the second session lost an op the deployment still holds: ${after.map((tool) => tool.name).join(", ")}`,
     );

@@ -1,9 +1,9 @@
 /**
  * A plugin's card: its `plugin.json`, the manifest of Agent Plugins 1.0. A bridge: que writes it from the plugin's
  * nodes when the plugin is published, so a harness that runs no code can read the plugin. It is never committed, and
- * que reads it back only in memory, by the control plane: mount, the evals and the lint read the plugin's code. The
+ * que reads it back only in memory, by the control plane: mount and the lint read the plugin's code. The
  * standard's fields describe the plugin to every harness; que's part, under its namespace in `extensions`, is the
- * plugin's nodes in the plugin schema (plugin, op, access-role, capability, case), by their names and fields, each live
+ * plugin's nodes in the plugin schema (plugin, op, access-role, capability), by their names and fields, each live
  * value written as data: a zod schema as JSON Schema, and a function left out. A connector's skills are in it, each by
  * name with the ops it uses; a domain's are not, as a skill's folder is the standard's.
  *
@@ -16,13 +16,7 @@ import { join } from "node:path";
 // ajv 8, for JSON Schema 2020-12.
 import { Ajv2020 } from "ajv/dist/2020.js";
 import * as z from "zod";
-import type { Case } from "./case.ts";
-import type {
-  AccessRole,
-  ApprovalDecision,
-  Capability,
-  Definition,
-} from "./contract.ts";
+import type { AccessRole, Capability, Definition } from "./contract.ts";
 import { pluginFiles } from "./layout.ts";
 import type { Skill } from "./skill.ts";
 import { NAMESPACE } from "./names.ts";
@@ -32,7 +26,7 @@ export const CARD_SCHEMA =
   "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json";
 
 /** The version of que's part of a card. It changes when that part's shape does. */
-export const CARD_FORMAT = 8;
+export const CARD_FORMAT = 9;
 
 /** A node as a card holds it: its fields, with no type. */
 type Written<N> = Omit<N, "type">;
@@ -56,12 +50,8 @@ export type Card = {
         role?: string;
         /** The ops it uses, when it lists any: a domain op's, each a connector's op. */
         uses?: string[];
-        /** Whether it needs a yes from the user before it runs. Left out when it carries none. */
+        /** Whether a call of it can need approval: its when is code, and is not on the card. Left out when it carries none. */
         approval?: boolean;
-        /** The decisions this op allows, when it declares them: the door defaults to approve, edit and reject. */
-        decisions?: ApprovalDecision[];
-        /** The ask's text, when the op gives a fixed one: a computed description is code, and is not on the card. */
-        approvalDescription?: string;
         input: Schema;
       }[];
       /** A connector's skills, each by its name with the ops it uses: a domain's are not on its card. */
@@ -70,7 +60,6 @@ export type Card = {
       usesOps: string[];
       usesSkills: string[];
       capabilities: Written<Capability>[];
-      cases: Written<Case>[];
     };
   };
 };
@@ -188,13 +177,9 @@ const written = <N extends { type: string }>({ type, ...fields }: N) => {
   return fields;
 };
 
-/** The card of a plugin, from its nodes and its cases, and, when its package.json gives one, its version. */
+/** The card of a plugin, from its nodes and its skills, and, when its package.json gives one, its version. */
 export function cardOf(
-  {
-    definition,
-    cases,
-    skills,
-  }: { definition: Definition; cases: Case[]; skills?: Skill[] },
+  { definition, skills }: { definition: Definition; skills?: Skill[] },
   version?: string,
 ): Card {
   const { plugin } = definition;
@@ -226,17 +211,7 @@ export function cardOf(
           ...(op.uses === undefined ? {} : { uses: op.uses }),
           ...(op.approval === undefined
             ? {}
-            : typeof op.approval === "boolean"
-              ? { approval: op.approval }
-              : {
-                  approval: true,
-                  ...(op.approval.decisions === undefined
-                    ? {}
-                    : { decisions: op.approval.decisions }),
-                  ...(typeof op.approval.description === "string"
-                    ? { approvalDescription: op.approval.description }
-                    : {}),
-                }),
+            : { approval: op.approval !== false }),
           input: schemaJson(op.input, `op ${op.name}'s input`),
         })),
         skills:
@@ -250,7 +225,6 @@ export function cardOf(
         usesOps: plugin.usesOps ?? [],
         usesSkills: plugin.usesSkills ?? [],
         capabilities: definition.capabilities.map(written),
-        cases: cases.map(written),
       },
     },
   };
@@ -290,10 +264,10 @@ function versionIn(dir: string): string | undefined {
     .version;
 }
 
-/** The card of the plugin in `dir`, from its nodes and its cases, checked against the standard. */
+/** The card of the plugin in `dir`, from its nodes and its skills, checked against the standard. */
 export function checkedCard(
   dir: string,
-  made: { definition: Definition; cases: Case[]; skills: Skill[] },
+  made: { definition: Definition; skills: Skill[] },
 ): Card {
   const card = cardOf(made, versionIn(dir));
   validateCard(card, `the card of ${made.definition.plugin.name}`);

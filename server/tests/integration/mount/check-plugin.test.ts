@@ -73,15 +73,6 @@ test("a plugin whose skill breaks the contract fails", () => {
   );
 });
 
-test("a plugin whose case names a capability the plugin does not hold fails", () => {
-  const { status, stderr } = check(plugin("bad-cases"));
-  assert.equal(status, 1);
-  assert.match(
-    stderr,
-    /cases\.ts#refund-asked: \/capability: It points at refund, which is not a node\. \(basis\/link\)/,
-  );
-});
-
 test("a plugin in no root fails, naming its folder and saying how it gets one", () => {
   const dir = join(work, "rootless");
   cpSync(plugin("source"), dir, { recursive: true });
