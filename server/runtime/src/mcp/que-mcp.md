@@ -7,7 +7,7 @@ que's MCP server: the one way out of que. A client gets the ops and skills of th
 - [[#Mouths]] where a client connects
 - [[#Identity]] who the caller is
 - [[#Tools]] the ops the caller can run
-- [[#Skills]] how the caller's business does a task with those tools
+- [[#Skills]] how the caller's business does a task with those tools, the first thing a client meets
 
 - [[que]]: the server whose deployment it serves
 - [[access]]: the catalog its tools and skills come from
@@ -34,7 +34,7 @@ que's MCP server: the one way out of que. A client gets the ops and skills of th
 
 ## Tools
 
-- one tool per op of each plugin in the user's catalog, and `whoami`
+- `whoami`, one tool per skill ([[#Skills]]), then one tool per op of each plugin in the user's catalog
 	- each call runs through the door as that user
 - name: the op's own name, the name its plugin's skills use. In `[a-z0-9._-]`, at most 64 characters. A name outside that, or two ops with one name, are refused when the tools are made (`tools.ts`)
 - the tools are made when a session starts, so a deployment, grant or login change shows from the next request (HTTP) or the next process (stdio)
@@ -44,13 +44,17 @@ que's MCP server: the one way out of que. A client gets the ops and skills of th
 
 ## Skills
 
-- the skills of each plugin in the user's catalog, each one `SKILL.md`, as the MCP skills extension (SEP-2640, `io.modelcontextprotocol/skills`) serves it
-	- made once at mount (`mount/skills.ts`): its frontmatter as written, and the sha256 digest and size of the file. A skill the extension cannot serve stops the mount
-	- URI: `skill://<plugin>/<skill>/SKILL.md`
-	- served through the SDK's `SkillsExtension`, on a source of the session's own skills (`skills.ts`): `skills/list`, `skills/get`, and `resources/read` of the URI
-- a client without the extension gets them as standard MCP
-	- the server instructions name each skill with its description and URI, and say to read it before a task it covers
-	- `resources/list` gives each `SKILL.md`, and `resources/read` gives its text
-- every session declares the extension, also one with no skills, so each caller sees one shape
+- the skills of each plugin in the user's catalog, each one `SKILL.md`, served on every channel a client may read, so every client meets them before the ops
+	- a tool per skill: the one channel every client gives its model (`session.ts`, `skills.ts`)
+		- name: the skill's own name. A skill with the name of an op is refused when the tools are made
+		- description: the skill's description, then the line that it is the playbook for that task, to call before the task
+		- a call gives the `SKILL.md` text. The tool carries `readOnlyHint`
+		- listed before the ops
+	- the server instructions: this server is the business's playbooks and the ops they use, call the skill that covers a task before the task, then one line per skill with its description
+	- the MCP skills extension (SEP-2640, `io.modelcontextprotocol/skills`), through the SDK's `SkillsExtension` on a source of the session's own skills (`skills.ts`): `skills/list`, `skills/get`, and `resources/read` of the URI
+		- URI: `skill://<plugin>/<skill>/SKILL.md`
+		- every session declares the extension, also one with no skills, so each caller sees one shape
+	- resources: `resources/list` gives each `SKILL.md`, and `resources/read` gives its text
+- each skill is made once at mount (`mount/skills.ts`): its frontmatter as written, and the sha256 digest and size of the file. A skill the extension cannot serve stops the mount
 - stateless HTTP sends no `list_changed`: a change shows from the next request
 - a skill's `allowed-tools` names the ops it uses. A client may ignore it: the catalog decides what the user can run, and a skill only guides

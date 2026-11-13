@@ -23,6 +23,7 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { type CryptoKey, exportJWK, generateKeyPair, SignJWT } from "jose";
 import { deploymentRoot } from "../../../tests/deployment-root.js";
 import { grant } from "../../../tests/integration/grants.js";
+import { SKILL_LINE } from "./skills.js";
 
 const db = await PGlite.create();
 const database = new PGLiteSocketServer({ db, port: 0, maxConnections: 50 });
@@ -382,7 +383,7 @@ test("given a user granted the deployment's domain, when the session posts initi
   const names = toolsIn(answered(listText, list.headers.get("content-type")));
   assert.deepEqual(
     names
-      .filter((name) => name.startsWith("till-"))
+      .filter((name) => name.startsWith("till-") && name !== "till-ops")
       .sort((a, b) => a.localeCompare(b)),
     [
       "till-count",
@@ -935,7 +936,7 @@ const tillSkill = {
   ),
 };
 
-test("given a user whose catalog holds the till, when the session initializes, then the server declares the skills extension, and its instructions name the till's skill and its URI", async () => {
+test("given a user whose catalog holds the till, when the session initializes, then the server declares the skills extension, and its instructions say to call a skill first and name the till's skill", async () => {
   const email = "sky.http@example.com";
   await grant(email, "Sky Http", "till-domain");
   await saveKey(email);
@@ -948,14 +949,39 @@ test("given a user whose catalog holds the till, when the session initializes, t
   const instructions = reply?.result?.instructions ?? "";
   assert.match(
     instructions,
-    /read its SKILL\.md \(resources\/read on its URI\)/,
+    /Before any task, call the skill tool that covers it/,
   );
   assert.ok(
-    instructions.includes(
-      `- till-ops: How to use the till's ops. (${tillSkill.uri})`,
-    ),
+    instructions.includes("- till-ops: How to use the till's ops."),
     `the instructions do not list the till's skill: ${instructions}`,
   );
+});
+
+test("given a user whose catalog holds the till, when the session lists tools and calls the skill's tool, then the skill comes before the ops and the call gives its SKILL.md", async () => {
+  const email = "sky.http@example.com";
+  const listed = await loose(await post(email, rpc(2, "tools/list")));
+  const tools = (listed?.result?.tools ?? []) as {
+    name: string;
+    description?: string;
+    annotations?: { readOnlyHint?: boolean };
+  }[];
+  const names = tools.map(({ name }) => name);
+  assert.ok(
+    names.indexOf("till-ops") > 0 &&
+      names.indexOf("till-ops") < names.indexOf("till-count"),
+    `the skill is not listed before the ops: ${names.join(", ")}`,
+  );
+  const skill = tools.find(({ name }) => name === "till-ops");
+  assert.equal(skill?.description?.split("\n").at(-1), SKILL_LINE);
+  assert.equal(skill?.annotations?.readOnlyHint, true);
+  const called = await loose(
+    await post(
+      email,
+      rpc(3, "tools/call", { name: "till-ops", arguments: {} }),
+    ),
+  );
+  const content = called?.result?.content as { text?: string }[] | undefined;
+  assert.equal(content?.[0]?.text, tillSkill.file.toString("utf8"));
 });
 
 test("given a user whose catalog holds the till, when the session lists and gets skills, then the till's skill comes back with its frontmatter as written and the digest and size of its file", async () => {
