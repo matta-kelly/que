@@ -951,6 +951,10 @@ test("given a user whose catalog holds the till, when the session initializes, t
     instructions,
     /Before any task, call the skill tool that covers it/,
   );
+  assert.match(
+    instructions,
+    /Numbers come from the ops: never add up rows yourself/,
+  );
   assert.ok(
     instructions.includes("- till-ops: How to use the till's ops."),
     `the instructions do not list the till's skill: ${instructions}`,

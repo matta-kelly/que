@@ -50,7 +50,7 @@ que's MCP server: the one way out of que. A client gets the ops and skills of th
 		- description: the skill's description, then the line that it is the playbook for that task, to call before the task
 		- a call gives the `SKILL.md` text. The tool carries `readOnlyHint`
 		- listed before the ops
-	- the server instructions: this server is the business's playbooks and the ops they use, call the skill that covers a task before the task, then one line per skill with its description
+	- the server instructions: this server is the business's playbooks and the ops they use, call the skill that covers a task before the task, numbers come from the ops and never from rows the client adds up, then one line per skill with its description
 	- the MCP skills extension (SEP-2640, `io.modelcontextprotocol/skills`), through the SDK's `SkillsExtension` on a source of the session's own skills (`skills.ts`): `skills/list`, `skills/get`, and `resources/read` of the URI
 		- URI: `skill://<plugin>/<skill>/SKILL.md`
 		- every session declares the extension, also one with no skills, so each caller sees one shape

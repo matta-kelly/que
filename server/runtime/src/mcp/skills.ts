@@ -53,6 +53,7 @@ export function skillsLine(served: ServedSkill[]): string | undefined {
   return [
     "This server is this business's playbooks (skills) and the ops they use.",
     "Before any task, call the skill tool that covers it, and do what it says. Use the ops as the skill directs.",
+    "Numbers come from the ops: never add up rows yourself. When an op gives a total, use it.",
     "The skills:",
     ...served.map((skill) => `- ${skill.name}: ${skill.description}`),
   ].join("\n");
